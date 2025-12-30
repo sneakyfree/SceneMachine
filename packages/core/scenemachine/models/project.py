@@ -12,6 +12,7 @@ from .base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from .character import Character
+    from .export_history import ExportHistory
     from .scene import Scene
     from .screenplay import Screenplay
     from .share import ProjectShare
@@ -95,6 +96,12 @@ class Project(Base, UUIDMixin, TimestampMixin):
         "ProjectShare",
         back_populates="project",
         cascade="all, delete-orphan",
+    )
+    export_history: Mapped[List["ExportHistory"]] = relationship(
+        "ExportHistory",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        order_by="desc(ExportHistory.created_at)",
     )
 
     @property

@@ -6,6 +6,12 @@ This module exports all database models and their associated enums.
 from scenemachine.models.asset import Asset, AssetStatus, AssetType
 from scenemachine.models.base import Base, TimestampMixin, UUIDMixin
 from scenemachine.models.character import Character, CharacterGender, CharacterLockState
+from scenemachine.models.export_history import (
+    ExportHistory,
+    ExportFormat,
+    ExportQuality,
+    ExportStatus,
+)
 from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus
 from scenemachine.models.project import Project, ProjectState
 from scenemachine.models.scene import Scene, SceneState, SceneType, TimeOfDay
@@ -47,6 +53,11 @@ __all__ = [
     "GenerationJob",
     "JobStatus",
     "JobProvider",
+    # ExportHistory
+    "ExportHistory",
+    "ExportFormat",
+    "ExportQuality",
+    "ExportStatus",
     # Settings
     "UserSettings",
     "LLMProvider",

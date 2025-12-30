@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.config import get_settings
+from scenemachine.utils.ffmpeg import get_ffmpeg, FFmpegNotFoundError
 from scenemachine.models import Character, Project, Scene, Shot
 from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus
 from scenemachine.models.project import ProjectState
@@ -640,26 +641,18 @@ class ReplicateProvider(GenerationProvider):
             return None
 
         try:
-            # Use ffmpeg to extract frame at 1 second
-            cmd = [
-                "ffmpeg",
-                "-y",  # Overwrite
-                "-i", str(video_path),
-                "-ss", "00:00:01",  # Seek to 1 second
-                "-vframes", "1",  # Extract 1 frame
-                "-q:v", "2",  # Quality
-                str(thumbnail_path),
-            ]
-
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
+            ffmpeg = get_ffmpeg()
+            await ffmpeg.extract_frame(
+                video_path=video_path,
+                output_path=thumbnail_path,
+                timestamp=1.0,  # 1 second into video
+                quality=2,  # High quality
             )
-            await process.wait()
 
             if thumbnail_path.exists():
                 return str(thumbnail_path)
+        except FFmpegNotFoundError:
+            logger.warning("FFmpeg not found, skipping thumbnail generation")
         except Exception as e:
             logger.warning(f"Thumbnail generation failed: {e}")
 
@@ -1128,25 +1121,18 @@ class FalProvider(GenerationProvider):
             return None
 
         try:
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-i", str(video_path),
-                "-ss", "00:00:01",
-                "-vframes", "1",
-                "-q:v", "2",
-                str(thumbnail_path),
-            ]
-
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
+            ffmpeg = get_ffmpeg()
+            await ffmpeg.extract_frame(
+                video_path=video_path,
+                output_path=thumbnail_path,
+                timestamp=1.0,  # 1 second into video
+                quality=2,  # High quality
             )
-            await process.wait()
 
             if thumbnail_path.exists():
                 return str(thumbnail_path)
+        except FFmpegNotFoundError:
+            logger.warning("FFmpeg not found, skipping thumbnail generation")
         except Exception as e:
             logger.warning(f"Thumbnail generation failed: {e}")
 

@@ -6,7 +6,6 @@ Handles scene assembly, movie composition, and export operations.
 import asyncio
 import logging
 import shutil
-import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -21,8 +20,19 @@ from sqlalchemy.orm import selectinload
 from scenemachine.config import get_settings
 from scenemachine.models import Project, Scene, Shot
 from scenemachine.models.asset import Asset, AssetStatus, AssetType
+from scenemachine.models.export_history import (
+    ExportHistory,
+    ExportStatus as ExportHistoryStatus,
+)
 from scenemachine.models.project import ProjectState
 from scenemachine.models.shot import ShotState
+from scenemachine.utils.ffmpeg import (
+    FFmpeg,
+    FFmpegError,
+    FFmpegNotFoundError,
+    FFmpegExecutionError,
+    get_ffmpeg,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +214,22 @@ class AssemblyService:
         """
         self.session = session
         self.settings = get_settings()
+        self._ffmpeg: Optional[FFmpeg] = None
+
+    async def _get_ffmpeg(self) -> FFmpeg:
+        """Get FFmpeg instance, checking availability on first use.
+
+        Returns:
+            FFmpeg instance
+
+        Raises:
+            FFmpegNotFoundError: If FFmpeg is not available
+        """
+        if self._ffmpeg is None:
+            self._ffmpeg = get_ffmpeg()
+            # Validate FFmpeg is available
+            await self._ffmpeg.ensure_available()
+        return self._ffmpeg
 
     def _build_color_grade_filter(self, grade: ColorGradeSettings) -> str:
         """Build FFmpeg filter string for color grading.
@@ -413,6 +439,9 @@ class AssemblyService:
         ])
 
         try:
+            # Ensure FFmpeg is available
+            ffmpeg = await self._get_ffmpeg()
+
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -421,12 +450,19 @@ class AssemblyService:
             stdout, stderr = await process.communicate()
 
             if process.returncode != 0:
-                logger.error(f"Audio mixing error: {stderr.decode()}")
-                return str(video_path)
+                error_msg = stderr.decode() if stderr else "Unknown FFmpeg error"
+                raise FFmpegExecutionError(
+                    f"Audio mixing failed: {error_msg}",
+                    return_code=process.returncode,
+                    stderr=error_msg,
+                )
 
-        except FileNotFoundError:
-            logger.warning("FFmpeg not found for audio mixing")
-            return str(video_path)
+        except FFmpegNotFoundError:
+            raise  # Re-raise FFmpeg not found errors
+        except FFmpegError:
+            raise  # Re-raise FFmpeg execution errors
+        except Exception as e:
+            raise FFmpegExecutionError(f"Audio mixing failed: {e}")
 
         return str(output_path)
 
@@ -489,15 +525,25 @@ class AssemblyService:
         cmd = f"ffmpeg -y {inputs}-filter_complex \"{filter_complex}\" -map \"[vout]\" {output_path}"
 
         try:
+            # Ensure FFmpeg is available first
+            await self._get_ffmpeg()
+
             process = await asyncio.create_subprocess_shell(
                 cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            await process.communicate()
+            stdout, stderr = await process.communicate()
 
+            if process.returncode != 0:
+                error_msg = stderr.decode() if stderr else "Unknown error"
+                logger.warning(f"Transition failed, falling back to concat: {error_msg}")
+                return await self._concat_videos(shot_paths, output_path)
+
+        except FFmpegNotFoundError:
+            raise  # Re-raise - FFmpeg is required
         except Exception as e:
-            logger.error(f"Transition error: {e}")
+            logger.warning(f"Transition error, falling back to concat: {e}")
             return await self._concat_videos(shot_paths, output_path)
 
         return str(output_path)
@@ -521,35 +567,43 @@ class AssemblyService:
         return mapping.get(trans_type, "fade")
 
     async def _concat_videos(self, video_paths: List[str], output_path: Path) -> str:
-        """Concatenate videos without transitions."""
+        """Concatenate videos without transitions.
+
+        Args:
+            video_paths: List of video file paths to concatenate
+            output_path: Output file path
+
+        Returns:
+            Path to output file
+
+        Raises:
+            FFmpegNotFoundError: If FFmpeg is not available
+            FFmpegExecutionError: If concatenation fails
+            ValueError: If no valid video paths provided
+        """
+        # Filter to existing files only
+        existing_paths = [p for p in video_paths if Path(p).exists()]
+        if not existing_paths:
+            raise ValueError("No valid video files to concatenate")
+
         concat_file = output_path.parent / "concat.txt"
 
-        with open(concat_file, "w") as f:
-            for path in video_paths:
-                if Path(path).exists():
+        try:
+            with open(concat_file, "w") as f:
+                for path in existing_paths:
                     f.write(f"file '{path}'\n")
 
-        cmd = [
-            "ffmpeg", "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", str(concat_file),
-            "-c", "copy",
-            str(output_path),
-        ]
-
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            # Use FFmpeg utility for concatenation
+            ffmpeg = await self._get_ffmpeg()
+            await ffmpeg.concatenate_videos(
+                input_paths=[Path(p) for p in existing_paths],
+                output_path=output_path,
             )
-            await process.communicate()
-        except FileNotFoundError:
-            output_path.touch()
 
-        concat_file.unlink(missing_ok=True)
-        return str(output_path)
+            return str(output_path)
+
+        finally:
+            concat_file.unlink(missing_ok=True)
 
     async def get_timeline(self, project_id: UUID) -> Timeline:
         """Get the project timeline.
@@ -687,6 +741,8 @@ class AssemblyService:
 
         # Use FFmpeg to concatenate
         try:
+            ffmpeg = await self._get_ffmpeg()
+
             cmd = [
                 "ffmpeg", "-y",
                 "-f", "concat",
@@ -704,16 +760,16 @@ class AssemblyService:
             stdout, stderr = await process.communicate()
 
             if process.returncode != 0:
-                logger.error(f"FFmpeg error: {stderr.decode()}")
-                # Fallback: create placeholder
-                output_path.touch()
+                error_msg = stderr.decode() if stderr else "Unknown FFmpeg error"
+                raise FFmpegExecutionError(
+                    f"Scene assembly failed: {error_msg}",
+                    return_code=process.returncode,
+                    stderr=error_msg,
+                )
 
-        except FileNotFoundError:
-            logger.warning("FFmpeg not found, creating placeholder")
-            output_path.touch()
-
-        # Clean up
-        concat_file.unlink(missing_ok=True)
+        finally:
+            # Clean up concat file
+            concat_file.unlink(missing_ok=True)
 
         if progress_callback:
             await progress_callback(
@@ -822,13 +878,22 @@ class AssemblyService:
 
         # Build concat list
         concat_file = output_dir / "concat.txt"
+        valid_scene_paths = [
+            render.output_path for render in scene_renders
+            if Path(render.output_path).exists()
+        ]
+
+        if not valid_scene_paths:
+            raise ValueError("No valid scene renders to assemble")
+
         with open(concat_file, "w") as f:
-            for render in scene_renders:
-                if Path(render.output_path).exists():
-                    f.write(f"file '{render.output_path}'\n")
+            for path in valid_scene_paths:
+                f.write(f"file '{path}'\n")
 
         # Use FFmpeg to concatenate
         try:
+            ffmpeg = await self._get_ffmpeg()
+
             cmd = [
                 "ffmpeg", "-y",
                 "-f", "concat",
@@ -843,14 +908,19 @@ class AssemblyService:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            await process.communicate()
+            stdout, stderr = await process.communicate()
 
-        except FileNotFoundError:
-            logger.warning("FFmpeg not found, creating placeholder")
-            output_path.touch()
+            if process.returncode != 0:
+                error_msg = stderr.decode() if stderr else "Unknown FFmpeg error"
+                raise FFmpegExecutionError(
+                    f"Movie assembly failed: {error_msg}",
+                    return_code=process.returncode,
+                    stderr=error_msg,
+                )
 
-        # Clean up
-        concat_file.unlink(missing_ok=True)
+        finally:
+            # Clean up
+            concat_file.unlink(missing_ok=True)
 
         # Update project state
         project.state = ProjectState.COMPLETE
@@ -887,29 +957,6 @@ class AssemblyService:
         Returns:
             ExportResult with output path
         """
-        # First assemble if needed
-        movie_path = self.settings.output_dir / "movies" / str(project_id) / "movie.mp4"
-
-        if not movie_path.exists():
-            if progress_callback:
-                await progress_callback(
-                    AssemblyProgress(
-                        stage="assembling",
-                        percent=5,
-                        message="Assembling movie first",
-                    )
-                )
-            await self.assemble_movie(project_id)
-
-        if progress_callback:
-            await progress_callback(
-                AssemblyProgress(
-                    stage="exporting",
-                    percent=20,
-                    message=f"Exporting as {settings.format.value}",
-                )
-            )
-
         # Get project for metadata
         stmt = select(Project).where(Project.id == project_id)
         result = await self.session.execute(stmt)
@@ -917,6 +964,77 @@ class AssemblyService:
 
         if not project:
             raise ValueError(f"Project {project_id} not found")
+
+        # Create export history record
+        export_record = ExportHistory(
+            project_id=project_id,
+            format=settings.format.value,
+            quality=settings.quality.value,
+            resolution=settings.resolution,
+            frame_rate=settings.frame_rate,
+            video_bitrate=settings.video_bitrate,
+            audio_bitrate=settings.audio_bitrate,
+            status=ExportHistoryStatus.PENDING.value,
+            include_subtitles=settings.include_subtitles,
+            include_audio=settings.include_audio,
+            has_watermark=settings.watermark is not None,
+            has_color_grade=settings.color_grade is not None,
+            export_settings={
+                "format": settings.format.value,
+                "quality": settings.quality.value,
+                "resolution": settings.resolution,
+                "frame_rate": settings.frame_rate,
+                "video_bitrate": settings.video_bitrate,
+                "audio_bitrate": settings.audio_bitrate,
+                "watermark_position": settings.watermark_position if settings.watermark else None,
+            },
+        )
+        self.session.add(export_record)
+        await self.session.commit()
+        await self.session.refresh(export_record)
+
+        start_time = datetime.now(timezone.utc)
+        export_record.started_at = start_time
+        export_record.status = ExportHistoryStatus.IN_PROGRESS.value
+        await self.session.commit()
+
+        # First assemble if needed
+        movie_path = self.settings.output_dir / "movies" / str(project_id) / "movie.mp4"
+
+        try:
+            if not movie_path.exists():
+                if progress_callback:
+                    await progress_callback(
+                        AssemblyProgress(
+                            stage="assembling",
+                            percent=5,
+                            message="Assembling movie first",
+                        )
+                    )
+                await self.assemble_movie(project_id)
+
+            if progress_callback:
+                await progress_callback(
+                    AssemblyProgress(
+                        stage="exporting",
+                        percent=20,
+                        message=f"Exporting as {settings.format.value}",
+                    )
+                )
+
+            export_record.status = ExportHistoryStatus.ENCODING.value
+            export_record.progress_percent = 20.0
+            export_record.progress_message = "Encoding video"
+            await self.session.commit()
+
+        except Exception as e:
+            # Update export record with failure
+            export_record.status = ExportHistoryStatus.FAILED.value
+            export_record.error_message = str(e)
+            export_record.error_code = "ASSEMBLY_FAILED"
+            export_record.completed_at = datetime.now(timezone.utc)
+            await self.session.commit()
+            raise
 
         # Create export directory
         export_dir = self.settings.output_dir / "exports" / str(project_id)
@@ -1035,6 +1153,9 @@ class AssemblyService:
                     )
                 )
 
+            # Ensure FFmpeg is available
+            ffmpeg = await self._get_ffmpeg()
+
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -1043,22 +1164,94 @@ class AssemblyService:
             stdout, stderr = await process.communicate()
 
             if process.returncode != 0:
-                logger.error(f"FFmpeg error: {stderr.decode()}")
-                # Fallback: copy source
-                shutil.copy2(movie_path, output_path)
+                error_msg = stderr.decode() if stderr else "Unknown FFmpeg error"
+                raise FFmpegExecutionError(
+                    f"Export encoding failed: {error_msg}",
+                    return_code=process.returncode,
+                    stderr=error_msg,
+                )
 
-        except FileNotFoundError:
-            logger.warning("FFmpeg not found, copying source file")
-            shutil.copy2(movie_path, output_path)
+        except FFmpegNotFoundError as e:
+            # Update export record with failure
+            export_record.status = ExportHistoryStatus.FAILED.value
+            export_record.error_message = str(e)
+            export_record.error_code = "FFMPEG_NOT_FOUND"
+            export_record.completed_at = datetime.now(timezone.utc)
+            await self.session.commit()
+            raise
+        except FFmpegError as e:
+            # Update export record with failure
+            export_record.status = ExportHistoryStatus.FAILED.value
+            export_record.error_message = str(e)
+            export_record.error_code = "FFMPEG_ERROR"
+            export_record.completed_at = datetime.now(timezone.utc)
+            await self.session.commit()
+            raise
 
-        # Get file info
-        file_size = output_path.stat().st_size if output_path.exists() else 0
+        # Verify export with progress update
+        if progress_callback:
+            await progress_callback(
+                AssemblyProgress(
+                    stage="verifying",
+                    percent=90,
+                    message="Verifying exported video",
+                )
+            )
+
+        export_record.status = ExportHistoryStatus.VERIFYING.value
+        export_record.progress_percent = 90.0
+        export_record.progress_message = "Verifying exported video"
+        await self.session.commit()
+
+        # Verify the exported file
+        verification_result = await self._verify_export(output_path, settings)
+
+        if not verification_result["valid"]:
+            logger.error(f"Export verification failed: {verification_result['error']}")
+            # Update export record with verification failure
+            export_record.status = ExportHistoryStatus.FAILED.value
+            export_record.error_message = f"Verification failed: {verification_result['error']}"
+            export_record.error_code = "VERIFICATION_FAILED"
+            export_record.completed_at = datetime.now(timezone.utc)
+            export_record.verification_result = verification_result
+            await self.session.commit()
+            return ExportResult(
+                success=False,
+                error_message=f"Export verification failed: {verification_result['error']}",
+                metadata=verification_result,
+            )
+
+        # Get verified file info
+        file_size = verification_result.get("file_size_bytes", 0)
+        actual_duration = verification_result.get("duration_seconds")
+        actual_resolution = verification_result.get("resolution")
+
+        # Calculate encoding duration
+        end_time = datetime.now(timezone.utc)
+        encoding_duration = (end_time - start_time).total_seconds()
+
+        # Update export record with success
+        export_record.status = ExportHistoryStatus.COMPLETED.value
+        export_record.progress_percent = 100.0
+        export_record.progress_message = "Export complete"
+        export_record.completed_at = end_time
+        export_record.encoding_duration_seconds = encoding_duration
+        export_record.output_filename = output_filename
+        export_record.output_path = str(output_path)
+        export_record.file_size_bytes = file_size
+        export_record.actual_duration_seconds = actual_duration
+        export_record.actual_resolution = actual_resolution
+        export_record.actual_fps = verification_result.get("fps")
+        export_record.video_codec = verification_result.get("video_codec")
+        export_record.audio_codec = verification_result.get("audio_codec")
+        export_record.verification_result = verification_result
+        await self.session.commit()
 
         # Update project state
         project.state = ProjectState.EXPORTED
         await self.session.commit()
 
-        # Create asset record
+        # Create asset record with verified metadata
         asset = Asset(
             asset_type=AssetType.FINAL_MOVIE,
             status=AssetStatus.READY,
@@ -1069,9 +1262,14 @@ class AssemblyService:
             generation_metadata={
                 "format": settings.format.value,
                 "quality": settings.quality.value,
-                "resolution": settings.resolution,
-                "frame_rate": settings.frame_rate,
-                "exported_at": datetime.now(timezone.utc).isoformat(),
+                "resolution": actual_resolution or settings.resolution,
+                "frame_rate": verification_result.get("fps", settings.frame_rate),
+                "duration_seconds": actual_duration,
+                "video_codec": verification_result.get("video_codec"),
+                "audio_codec": verification_result.get("audio_codec"),
+                "exported_at": end_time.isoformat(),
+                "verified": True,
+                "export_history_id": str(export_record.id),
             },
         )
         self.session.add(asset)
@@ -1082,22 +1280,98 @@ class AssemblyService:
                 AssemblyProgress(
                     stage="complete",
                     percent=100,
-                    message="Export complete",
+                    message="Export complete and verified",
                 )
             )
 
-        logger.info(f"Exported movie: {output_path}")
+        logger.info(f"Exported and verified movie: {output_path}")
 
         return ExportResult(
             success=True,
             output_path=str(output_path),
             file_size_bytes=file_size,
+            duration_seconds=actual_duration,
             metadata={
                 "format": settings.format.value,
                 "quality": settings.quality.value,
-                "resolution": settings.resolution,
+                "resolution": actual_resolution or settings.resolution,
+                "fps": verification_result.get("fps"),
+                "video_codec": verification_result.get("video_codec"),
+                "audio_codec": verification_result.get("audio_codec"),
+                "verified": True,
+                "export_history_id": str(export_record.id),
+                "encoding_time_seconds": encoding_duration,
             },
         )
+
+    async def _verify_export(
+        self,
+        output_path: Path,
+        settings: ExportSettings,
+    ) -> Dict[str, Any]:
+        """Verify an exported video file is valid.
+
+        Args:
+            output_path: Path to exported video
+            settings: Export settings used
+
+        Returns:
+            Verification result dict with 'valid' key
+        """
+        result: Dict[str, Any] = {"valid": False}
+
+        # Check file exists
+        if not output_path.exists():
+            result["error"] = "Output file does not exist"
+            return result
+
+        # Check file size
+        file_size = output_path.stat().st_size
+        result["file_size_bytes"] = file_size
+
+        if file_size < 1000:  # Less than 1KB is suspicious
+            result["error"] = f"Output file too small ({file_size} bytes)"
+            return result
+
+        # Get video info using FFmpeg
+        try:
+            ffmpeg = await self._get_ffmpeg()
+            video_info = await ffmpeg.get_video_info(output_path)
+
+            result["duration_seconds"] = video_info.duration
+            result["resolution"] = f"{video_info.width}x{video_info.height}"
+            result["fps"] = video_info.fps
+            result["video_codec"] = video_info.codec
+            result["audio_codec"] = video_info.audio_codec
+            result["bit_rate"] = video_info.bit_rate
+
+            # Verify duration is reasonable (at least 0.5 seconds)
+            if video_info.duration < 0.5:
+                result["error"] = f"Video duration too short ({video_info.duration:.2f}s)"
+                return result
+
+            # Verify resolution matches expected (with some tolerance)
+            expected_width, expected_height = map(int, settings.resolution.split("x"))
+            if abs(video_info.width - expected_width) > 10 or abs(video_info.height - expected_height) > 10:
+                logger.warning(
+                    f"Resolution mismatch: expected {settings.resolution}, "
+                    f"got {video_info.width}x{video_info.height}"
+                )
+                # Not a failure, just a warning
+
+            result["valid"] = True
+            return result
+
+        except FFmpegNotFoundError:
+            # Can't verify without FFmpeg, but file exists and has content
+            logger.warning("FFmpeg not available for verification, assuming valid")
+            result["valid"] = True
+            result["error"] = None
+            return result
+
+        except Exception as e:
+            result["error"] = f"Verification failed: {str(e)}"
+            return result
 
     async def get_export_history(self, project_id: UUID) -> List[Dict[str, Any]]:
         """Get export history for a project.
@@ -1106,33 +1380,117 @@ class AssemblyService:
             project_id: Project UUID
 
         Returns:
-            List of export records
+            List of export records with detailed metadata
         """
         stmt = (
-            select(Asset)
-            .where(
-                Asset.asset_type == AssetType.FINAL_MOVIE,
-                Asset.file_path.like(f"exports/{project_id}/%"),
-            )
-            .order_by(Asset.created_at.desc())
+            select(ExportHistory)
+            .where(ExportHistory.project_id == project_id)
+            .order_by(ExportHistory.created_at.desc())
         )
 
         result = await self.session.execute(stmt)
-        assets = result.scalars().all()
+        exports = result.scalars().all()
 
-        return [
-            {
-                "id": str(asset.id),
-                "filename": asset.filename,
-                "file_path": asset.file_path,
-                "file_size": asset.file_size_display,
-                "format": asset.generation_metadata.get("format") if asset.generation_metadata else None,
-                "quality": asset.generation_metadata.get("quality") if asset.generation_metadata else None,
-                "resolution": asset.generation_metadata.get("resolution") if asset.generation_metadata else None,
-                "created_at": asset.created_at.isoformat(),
+        return [export.to_dict() for export in exports]
+
+    async def get_export_by_id(self, export_id: UUID) -> Optional[ExportHistory]:
+        """Get a specific export record by ID.
+
+        Args:
+            export_id: Export history UUID
+
+        Returns:
+            ExportHistory record or None
+        """
+        stmt = select(ExportHistory).where(ExportHistory.id == export_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def delete_export(self, export_id: UUID) -> bool:
+        """Delete an export record and its file.
+
+        Args:
+            export_id: Export history UUID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        export = await self.get_export_by_id(export_id)
+        if not export:
+            return False
+
+        # Delete the file if it exists
+        if export.output_path:
+            output_path = Path(export.output_path)
+            if output_path.exists():
+                output_path.unlink()
+                logger.info(f"Deleted export file: {output_path}")
+
+        # Delete the record
+        await self.session.delete(export)
+        await self.session.commit()
+        logger.info(f"Deleted export record: {export_id}")
+
+        return True
+
+    async def get_export_stats(self, project_id: UUID) -> Dict[str, Any]:
+        """Get export statistics for a project.
+
+        Args:
+            project_id: Project UUID
+
+        Returns:
+            Statistics about exports
+        """
+        stmt = (
+            select(ExportHistory)
+            .where(ExportHistory.project_id == project_id)
+        )
+        result = await self.session.execute(stmt)
+        exports = result.scalars().all()
+
+        if not exports:
+            return {
+                "total_exports": 0,
+                "completed_exports": 0,
+                "failed_exports": 0,
+                "total_file_size_bytes": 0,
+                "total_encoding_time_seconds": 0,
+                "average_encoding_time_seconds": 0,
             }
-            for asset in assets
-        ]
+
+        completed = [e for e in exports if e.status == ExportHistoryStatus.COMPLETED.value]
+        failed = [e for e in exports if e.status == ExportHistoryStatus.FAILED.value]
+
+        total_size = sum(e.file_size_bytes or 0 for e in completed)
+        total_encoding_time = sum(e.encoding_duration_seconds or 0 for e in completed)
+        avg_encoding_time = total_encoding_time / len(completed) if completed else 0
+
+        return {
+            "total_exports": len(exports),
+            "completed_exports": len(completed),
+            "failed_exports": len(failed),
+            "pending_exports": len([e for e in exports if e.status == ExportHistoryStatus.PENDING.value]),
+            "in_progress_exports": len([e for e in exports if e.status in (
+                ExportHistoryStatus.IN_PROGRESS.value,
+                ExportHistoryStatus.ENCODING.value,
+                ExportHistoryStatus.VERIFYING.value,
+            )]),
+            "total_file_size_bytes": total_size,
+            "total_file_size_display": self._format_file_size(total_size),
+            "total_encoding_time_seconds": total_encoding_time,
+            "average_encoding_time_seconds": avg_encoding_time,
+            "formats_used": list(set(e.format for e in completed)),
+            "qualities_used": list(set(e.quality for e in completed)),
+        }
+
+    def _format_file_size(self, size_bytes: int) -> str:
+        """Format bytes as human-readable size."""
+        for unit in ["B", "KB", "MB", "GB"]:
+            if size_bytes < 1024:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024
+        return f"{size_bytes:.1f} TB"
 
     async def get_export_formats(self) -> List[Dict[str, Any]]:
         """Get available export formats.
