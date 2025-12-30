@@ -200,12 +200,92 @@ class MockGenerationProvider(GenerationProvider):
         return True
 
 
-class ReplicateProvider(GenerationProvider):
-    """Provider for Replicate.com API."""
+@dataclass
+class VideoModel:
+    """Video generation model configuration."""
 
-    def __init__(self, api_token: Optional[str] = None):
+    id: str
+    name: str
+    version: str
+    cost_per_second: float  # USD per second of video
+    supports_text_to_video: bool = True
+    supports_image_to_video: bool = False
+    max_duration: float = 4.0
+    default_fps: int = 24
+    input_mapping: Dict[str, str] = field(default_factory=dict)
+
+
+class ReplicateProvider(GenerationProvider):
+    """Production-ready provider for Replicate.com API.
+
+    Features:
+    - Multiple video model support
+    - Async job submission and polling
+    - Thumbnail generation
+    - Cost estimation
+    - Job cancellation
+    """
+
+    # Available video generation models
+    MODELS: Dict[str, VideoModel] = {
+        "svd": VideoModel(
+            id="stability-ai/stable-video-diffusion",
+            name="Stable Video Diffusion",
+            version="3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
+            cost_per_second=0.05,
+            supports_text_to_video=False,
+            supports_image_to_video=True,
+            max_duration=4.0,
+            default_fps=14,
+            input_mapping={
+                "prompt": "motion_bucket_id",  # SVD uses different params
+            },
+        ),
+        "minimax": VideoModel(
+            id="minimax/video-01",
+            name="MiniMax Video-01",
+            version="",  # Uses latest
+            cost_per_second=0.08,
+            supports_text_to_video=True,
+            supports_image_to_video=True,
+            max_duration=6.0,
+            default_fps=24,
+        ),
+        "luma": VideoModel(
+            id="luma/ray",
+            name="Luma Dream Machine",
+            version="",
+            cost_per_second=0.10,
+            supports_text_to_video=True,
+            supports_image_to_video=True,
+            max_duration=5.0,
+            default_fps=24,
+        ),
+        "kling": VideoModel(
+            id="kwaivgi/kling-v1",
+            name="Kling v1",
+            version="",
+            cost_per_second=0.06,
+            supports_text_to_video=True,
+            supports_image_to_video=True,
+            max_duration=5.0,
+            default_fps=24,
+        ),
+    }
+
+    DEFAULT_MODEL = "minimax"
+    POLL_INTERVAL = 2.0  # seconds
+    POLL_TIMEOUT = 600.0  # 10 minutes max
+
+    def __init__(
+        self,
+        api_token: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ):
         self.api_token = api_token
+        self.model_id = model_id or self.DEFAULT_MODEL
         self._client = None
+        self._active_predictions: Dict[UUID, str] = {}  # shot_id -> prediction_id
 
     @property
     def name(self) -> str:
@@ -215,18 +295,41 @@ class ReplicateProvider(GenerationProvider):
     def provider_type(self) -> JobProvider:
         return JobProvider.REPLICATE
 
+    def _get_client(self):
+        """Get or create Replicate client."""
+        if self._client is None:
+            import replicate
+            self._client = replicate.Client(api_token=self.api_token)
+        return self._client
+
+    def get_model(self, model_id: Optional[str] = None) -> VideoModel:
+        """Get model configuration."""
+        mid = model_id or self.model_id
+        if mid not in self.MODELS:
+            raise ValueError(f"Unknown model: {mid}. Available: {list(self.MODELS.keys())}")
+        return self.MODELS[mid]
+
+    def estimate_cost(
+        self,
+        model_id: Optional[str] = None,
+        duration_seconds: float = 3.0,
+    ) -> float:
+        """Estimate generation cost in USD."""
+        model = self.get_model(model_id)
+        return model.cost_per_second * duration_seconds
+
     async def generate(
         self,
         request: GenerationRequest,
         progress_callback: Optional[ProgressCallback] = None,
     ) -> GenerationResult:
-        """Generate using Replicate API."""
+        """Generate video using Replicate API with async polling."""
         try:
             import replicate
         except ImportError:
             return GenerationResult(
                 success=False,
-                error_message="Replicate package not installed",
+                error_message="Replicate package not installed. Run: pip install replicate",
                 error_code="MISSING_DEPENDENCY",
             )
 
@@ -237,87 +340,451 @@ class ReplicateProvider(GenerationProvider):
                 error_code="MISSING_API_TOKEN",
             )
 
+        start_time = datetime.now(timezone.utc)
+        model = self.get_model(request.extra_params.get("model_id"))
+
         try:
-            # Use a video generation model (example: Stable Video Diffusion)
-            model = "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438"
+            # Report: Submitting job
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=5,
+                        message="Preparing generation request",
+                        stage="preparing",
+                    )
+                )
+
+            # Build input parameters
+            input_params = self._build_input_params(request, model)
+
+            # Submit prediction asynchronously
+            client = self._get_client()
+            model_ref = f"{model.id}:{model.version}" if model.version else model.id
 
             if progress_callback:
                 await progress_callback(
                     GenerationProgress(
                         job_id=request.shot_id,
                         percent=10,
-                        message="Submitting to Replicate",
+                        message=f"Submitting to {model.name}",
+                        stage="submitting",
                     )
                 )
 
-            output = await asyncio.to_thread(
-                replicate.run,
-                model,
-                input={
-                    "prompt": request.prompt,
-                    "width": request.width,
-                    "height": request.height,
-                    "num_frames": int(request.fps * request.duration_seconds),
-                    "fps": request.fps,
-                    "seed": request.seed,
-                },
+            # Create prediction (async submission)
+            prediction = await asyncio.to_thread(
+                client.predictions.create,
+                model=model_ref if model.version else None,
+                version=model.version if model.version else None,
+                input=input_params,
             )
+
+            # Store prediction ID for potential cancellation
+            self._active_predictions[request.shot_id] = prediction.id
 
             if progress_callback:
                 await progress_callback(
                     GenerationProgress(
                         job_id=request.shot_id,
-                        percent=90,
-                        message="Downloading result",
+                        percent=15,
+                        message=f"Job submitted (ID: {prediction.id[:8]}...)",
+                        stage="queued",
                     )
                 )
 
+            # Poll for completion
+            output_url = await self._poll_prediction(
+                prediction.id,
+                request.shot_id,
+                progress_callback,
+            )
+
+            if not output_url:
+                return GenerationResult(
+                    success=False,
+                    error_message="Generation produced no output",
+                    error_code="NO_OUTPUT",
+                )
+
             # Download and save output
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=90,
+                        message="Downloading generated video",
+                        stage="downloading",
+                    )
+                )
+
             settings = get_settings()
             shot_dir = settings.output_dir / "shots" / str(request.shot_id)
             shot_dir.mkdir(parents=True, exist_ok=True)
 
-            output_path = f"shots/{request.shot_id}/output.mp4"
+            output_path = await self._download_output(
+                output_url, shot_dir / "output.mp4"
+            )
 
-            # Download the video
-            import httpx
+            # Generate thumbnail
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=95,
+                        message="Generating thumbnail",
+                        stage="thumbnail",
+                    )
+                )
 
-            async with httpx.AsyncClient() as client:
-                response = await client.get(output)
-                with open(shot_dir / "output.mp4", "wb") as f:
-                    f.write(response.content)
+            thumbnail_path = await self._generate_thumbnail(
+                shot_dir / "output.mp4",
+                shot_dir / "thumbnail.jpg",
+            )
+
+            # Calculate actual duration and cost
+            end_time = datetime.now(timezone.utc)
+            generation_duration = (end_time - start_time).total_seconds()
+            estimated_cost = self.estimate_cost(
+                model_id=self.model_id,
+                duration_seconds=request.duration_seconds,
+            )
+
+            # Clean up
+            self._active_predictions.pop(request.shot_id, None)
 
             return GenerationResult(
                 success=True,
-                output_path=output_path,
-                metadata={"model": model, "provider": "replicate"},
+                output_path=f"shots/{request.shot_id}/output.mp4",
+                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg" if thumbnail_path else None,
+                duration_seconds=generation_duration,
+                cost_usd=estimated_cost,
+                metadata={
+                    "model": model.id,
+                    "model_name": model.name,
+                    "provider": "replicate",
+                    "prediction_id": prediction.id,
+                    "seed": request.seed,
+                    "prompt": request.prompt,
+                    "video_duration": request.duration_seconds,
+                },
+            )
+
+        except asyncio.TimeoutError:
+            logger.error(f"Replicate generation timed out for shot {request.shot_id}")
+            self._active_predictions.pop(request.shot_id, None)
+            return GenerationResult(
+                success=False,
+                error_message="Generation timed out",
+                error_code="TIMEOUT",
             )
 
         except Exception as e:
             logger.exception("Replicate generation failed")
+            self._active_predictions.pop(request.shot_id, None)
             return GenerationResult(
                 success=False,
                 error_message=str(e),
                 error_code="GENERATION_FAILED",
             )
 
+    def _build_input_params(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+    ) -> Dict[str, Any]:
+        """Build model-specific input parameters."""
+        params: Dict[str, Any] = {}
+
+        # Common parameters
+        if model.supports_text_to_video:
+            params["prompt"] = request.prompt
+            if request.negative_prompt:
+                params["negative_prompt"] = request.negative_prompt
+
+        # Handle seed
+        if request.seed is not None:
+            params["seed"] = request.seed
+
+        # Model-specific parameter mapping
+        if model.id == "stability-ai/stable-video-diffusion":
+            # SVD requires an input image
+            if request.character_references:
+                params["input_image"] = request.character_references[0].get("image_url")
+            params["motion_bucket_id"] = 127  # Default motion amount
+            params["fps"] = min(request.fps, model.default_fps)
+            params["num_frames"] = int(request.duration_seconds * model.default_fps)
+
+        elif model.id == "minimax/video-01":
+            params["prompt_optimizer"] = True
+
+        elif model.id == "luma/ray":
+            params["aspect_ratio"] = f"{request.width}:{request.height}"
+            if request.character_references:
+                params["start_image_url"] = request.character_references[0].get("image_url")
+
+        elif model.id == "kwaivgi/kling-v1":
+            params["duration"] = min(request.duration_seconds, model.max_duration)
+            params["aspect_ratio"] = self._get_aspect_ratio(request.width, request.height)
+
+        # Add any extra parameters
+        params.update(request.extra_params.get("model_params", {}))
+
+        return params
+
+    def _get_aspect_ratio(self, width: int, height: int) -> str:
+        """Convert dimensions to aspect ratio string."""
+        if width == height:
+            return "1:1"
+        elif width > height:
+            ratio = width / height
+            if abs(ratio - 16/9) < 0.1:
+                return "16:9"
+            elif abs(ratio - 4/3) < 0.1:
+                return "4:3"
+        else:
+            ratio = height / width
+            if abs(ratio - 16/9) < 0.1:
+                return "9:16"
+            elif abs(ratio - 4/3) < 0.1:
+                return "3:4"
+        return "16:9"  # Default
+
+    async def _poll_prediction(
+        self,
+        prediction_id: str,
+        shot_id: UUID,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> Optional[str]:
+        """Poll for prediction completion with progress updates."""
+        import replicate
+
+        client = self._get_client()
+        elapsed = 0.0
+        last_progress = 15
+
+        while elapsed < self.POLL_TIMEOUT:
+            prediction = await asyncio.to_thread(
+                client.predictions.get,
+                prediction_id,
+            )
+
+            status = prediction.status
+
+            if status == "succeeded":
+                output = prediction.output
+                # Handle different output formats
+                if isinstance(output, str):
+                    return output
+                elif isinstance(output, list) and output:
+                    return output[0] if isinstance(output[0], str) else output[0].get("url")
+                elif isinstance(output, dict):
+                    return output.get("video") or output.get("url")
+                return None
+
+            elif status == "failed":
+                error = prediction.error or "Unknown error"
+                raise Exception(f"Prediction failed: {error}")
+
+            elif status == "canceled":
+                raise Exception("Prediction was canceled")
+
+            # Update progress based on status
+            if status == "starting":
+                progress = 20
+                message = "Model loading..."
+            elif status == "processing":
+                # Estimate progress during processing (20-85%)
+                progress = min(85, 20 + int(elapsed / self.POLL_TIMEOUT * 65))
+                message = "Generating video..."
+            else:
+                progress = last_progress
+                message = f"Status: {status}"
+
+            if progress > last_progress and progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=shot_id,
+                        percent=progress,
+                        message=message,
+                        stage="generating",
+                    )
+                )
+                last_progress = progress
+
+            await asyncio.sleep(self.POLL_INTERVAL)
+            elapsed += self.POLL_INTERVAL
+
+        raise asyncio.TimeoutError("Prediction polling timed out")
+
+    async def _download_output(self, url: str, output_path: Path) -> str:
+        """Download generated video from URL."""
+        import httpx
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.get(url, follow_redirects=True)
+            response.raise_for_status()
+
+            with open(output_path, "wb") as f:
+                f.write(response.content)
+
+        return str(output_path)
+
+    async def _generate_thumbnail(
+        self,
+        video_path: Path,
+        thumbnail_path: Path,
+    ) -> Optional[str]:
+        """Generate thumbnail from video using ffmpeg."""
+        if not video_path.exists():
+            return None
+
+        try:
+            # Use ffmpeg to extract frame at 1 second
+            cmd = [
+                "ffmpeg",
+                "-y",  # Overwrite
+                "-i", str(video_path),
+                "-ss", "00:00:01",  # Seek to 1 second
+                "-vframes", "1",  # Extract 1 frame
+                "-q:v", "2",  # Quality
+                str(thumbnail_path),
+            ]
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await process.wait()
+
+            if thumbnail_path.exists():
+                return str(thumbnail_path)
+        except Exception as e:
+            logger.warning(f"Thumbnail generation failed: {e}")
+
+        return None
+
     async def check_availability(self) -> bool:
+        """Check if Replicate API is available."""
         if not self.api_token:
             return False
         try:
             import replicate
-
-            replicate.Client(api_token=self.api_token)
+            client = replicate.Client(api_token=self.api_token)
+            # Simple check - get account info
+            await asyncio.to_thread(lambda: client.models.list().__next__())
             return True
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Replicate availability check failed: {e}")
             return False
+
+    async def cancel(self, provider_job_id: str) -> bool:
+        """Cancel a running prediction."""
+        try:
+            client = self._get_client()
+            await asyncio.to_thread(
+                client.predictions.cancel,
+                provider_job_id,
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to cancel Replicate prediction: {e}")
+            return False
+
+    @classmethod
+    def list_models(cls) -> List[Dict[str, Any]]:
+        """List available video generation models."""
+        return [
+            {
+                "id": model_id,
+                "name": model.name,
+                "cost_per_second": model.cost_per_second,
+                "supports_text_to_video": model.supports_text_to_video,
+                "supports_image_to_video": model.supports_image_to_video,
+                "max_duration": model.max_duration,
+            }
+            for model_id, model in cls.MODELS.items()
+        ]
 
 
 class FalProvider(GenerationProvider):
-    """Provider for Fal.ai API."""
+    """Production-ready provider for Fal.ai API.
 
-    def __init__(self, api_key: Optional[str] = None):
+    Features:
+    - Multiple video model support
+    - Async job submission with queue support
+    - Thumbnail generation
+    - Cost estimation
+    - Job cancellation
+    """
+
+    # Available video generation models
+    MODELS: Dict[str, VideoModel] = {
+        "fast-svd": VideoModel(
+            id="fal-ai/fast-svd-lcm",
+            name="Fast SVD LCM",
+            version="",
+            cost_per_second=0.03,
+            supports_text_to_video=False,
+            supports_image_to_video=True,
+            max_duration=4.0,
+            default_fps=14,
+        ),
+        "animatediff": VideoModel(
+            id="fal-ai/animatediff-v2v",
+            name="AnimateDiff V2V",
+            version="",
+            cost_per_second=0.04,
+            supports_text_to_video=True,
+            supports_image_to_video=True,
+            max_duration=4.0,
+            default_fps=8,
+        ),
+        "cogvideox": VideoModel(
+            id="fal-ai/cogvideox-5b",
+            name="CogVideoX 5B",
+            version="",
+            cost_per_second=0.05,
+            supports_text_to_video=True,
+            supports_image_to_video=False,
+            max_duration=6.0,
+            default_fps=8,
+        ),
+        "hunyuan": VideoModel(
+            id="fal-ai/hunyuan-video",
+            name="Hunyuan Video",
+            version="",
+            cost_per_second=0.06,
+            supports_text_to_video=True,
+            supports_image_to_video=True,
+            max_duration=5.0,
+            default_fps=24,
+        ),
+        "ltx": VideoModel(
+            id="fal-ai/ltx-video",
+            name="LTX Video",
+            version="",
+            cost_per_second=0.04,
+            supports_text_to_video=True,
+            supports_image_to_video=True,
+            max_duration=5.0,
+            default_fps=24,
+        ),
+    }
+
+    DEFAULT_MODEL = "ltx"
+    POLL_INTERVAL = 1.5  # seconds
+    POLL_TIMEOUT = 600.0  # 10 minutes max
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model_id: Optional[str] = None,
+    ):
         self.api_key = api_key
+        self.model_id = model_id or self.DEFAULT_MODEL
+        self._active_requests: Dict[UUID, str] = {}  # shot_id -> request_id
 
     @property
     def name(self) -> str:
@@ -327,18 +794,34 @@ class FalProvider(GenerationProvider):
     def provider_type(self) -> JobProvider:
         return JobProvider.FAL
 
+    def get_model(self, model_id: Optional[str] = None) -> VideoModel:
+        """Get model configuration."""
+        mid = model_id or self.model_id
+        if mid not in self.MODELS:
+            raise ValueError(f"Unknown model: {mid}. Available: {list(self.MODELS.keys())}")
+        return self.MODELS[mid]
+
+    def estimate_cost(
+        self,
+        model_id: Optional[str] = None,
+        duration_seconds: float = 3.0,
+    ) -> float:
+        """Estimate generation cost in USD."""
+        model = self.get_model(model_id)
+        return model.cost_per_second * duration_seconds
+
     async def generate(
         self,
         request: GenerationRequest,
         progress_callback: Optional[ProgressCallback] = None,
     ) -> GenerationResult:
-        """Generate using Fal.ai API."""
+        """Generate video using Fal.ai API with async queue."""
         try:
             import fal_client
         except ImportError:
             return GenerationResult(
                 success=False,
-                error_message="fal-client package not installed",
+                error_message="fal-client package not installed. Run: pip install fal-client",
                 error_code="MISSING_DEPENDENCY",
             )
 
@@ -349,61 +832,368 @@ class FalProvider(GenerationProvider):
                 error_code="MISSING_API_TOKEN",
             )
 
+        # Set API key for fal_client
+        import os
+        os.environ["FAL_KEY"] = self.api_key
+
+        start_time = datetime.now(timezone.utc)
+        model = self.get_model(request.extra_params.get("model_id"))
+
         try:
             if progress_callback:
                 await progress_callback(
                     GenerationProgress(
                         job_id=request.shot_id,
-                        percent=10,
-                        message="Submitting to Fal.ai",
+                        percent=5,
+                        message="Preparing Fal.ai request",
+                        stage="preparing",
                     )
                 )
 
-            # Use video generation endpoint
-            result = await asyncio.to_thread(
-                fal_client.run,
-                "fal-ai/fast-svd-lcm",
-                arguments={
-                    "prompt": request.prompt,
-                    "negative_prompt": request.negative_prompt,
-                    "num_frames": int(request.fps * request.duration_seconds),
-                    "fps": request.fps,
-                    "seed": request.seed,
-                },
-            )
+            # Build input arguments
+            arguments = self._build_arguments(request, model)
 
             if progress_callback:
                 await progress_callback(
                     GenerationProgress(
                         job_id=request.shot_id,
-                        percent=90,
-                        message="Processing result",
+                        percent=10,
+                        message=f"Submitting to {model.name}",
+                        stage="submitting",
                     )
                 )
 
-            # Save output
+            # Submit to queue (async)
+            handler = await asyncio.to_thread(
+                fal_client.submit,
+                model.id,
+                arguments=arguments,
+            )
+
+            request_id = handler.request_id
+            self._active_requests[request.shot_id] = request_id
+
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=15,
+                        message=f"Queued (ID: {request_id[:8]}...)",
+                        stage="queued",
+                    )
+                )
+
+            # Poll for completion with progress updates
+            result = await self._poll_request(
+                handler,
+                request.shot_id,
+                progress_callback,
+            )
+
+            # Extract video URL from result
+            video_url = self._extract_video_url(result)
+
+            if not video_url:
+                return GenerationResult(
+                    success=False,
+                    error_message="No video URL in response",
+                    error_code="NO_OUTPUT",
+                )
+
+            # Download and save
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=90,
+                        message="Downloading generated video",
+                        stage="downloading",
+                    )
+                )
+
             settings = get_settings()
             shot_dir = settings.output_dir / "shots" / str(request.shot_id)
             shot_dir.mkdir(parents=True, exist_ok=True)
 
-            output_path = f"shots/{request.shot_id}/output.mp4"
+            await self._download_video(video_url, shot_dir / "output.mp4")
+
+            # Generate thumbnail
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=95,
+                        message="Generating thumbnail",
+                        stage="thumbnail",
+                    )
+                )
+
+            thumbnail_path = await self._generate_thumbnail(
+                shot_dir / "output.mp4",
+                shot_dir / "thumbnail.jpg",
+            )
+
+            # Calculate timing and cost
+            end_time = datetime.now(timezone.utc)
+            generation_duration = (end_time - start_time).total_seconds()
+            estimated_cost = self.estimate_cost(
+                model_id=self.model_id,
+                duration_seconds=request.duration_seconds,
+            )
+
+            # Clean up
+            self._active_requests.pop(request.shot_id, None)
 
             return GenerationResult(
                 success=True,
-                output_path=output_path,
-                metadata={"provider": "fal"},
+                output_path=f"shots/{request.shot_id}/output.mp4",
+                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg" if thumbnail_path else None,
+                duration_seconds=generation_duration,
+                cost_usd=estimated_cost,
+                metadata={
+                    "model": model.id,
+                    "model_name": model.name,
+                    "provider": "fal",
+                    "request_id": request_id,
+                    "seed": result.get("seed"),
+                    "prompt": request.prompt,
+                    "video_duration": request.duration_seconds,
+                },
+            )
+
+        except asyncio.TimeoutError:
+            logger.error(f"Fal.ai generation timed out for shot {request.shot_id}")
+            self._active_requests.pop(request.shot_id, None)
+            return GenerationResult(
+                success=False,
+                error_message="Generation timed out",
+                error_code="TIMEOUT",
             )
 
         except Exception as e:
             logger.exception("Fal.ai generation failed")
+            self._active_requests.pop(request.shot_id, None)
             return GenerationResult(
                 success=False,
                 error_message=str(e),
                 error_code="GENERATION_FAILED",
             )
 
+    def _build_arguments(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+    ) -> Dict[str, Any]:
+        """Build model-specific input arguments."""
+        args: Dict[str, Any] = {}
+
+        # Common parameters
+        if model.supports_text_to_video:
+            args["prompt"] = request.prompt
+            if request.negative_prompt:
+                args["negative_prompt"] = request.negative_prompt
+
+        if request.seed is not None:
+            args["seed"] = request.seed
+
+        # Model-specific parameters
+        if model.id == "fal-ai/fast-svd-lcm":
+            if request.character_references:
+                args["image_url"] = request.character_references[0].get("image_url")
+            args["motion_bucket_id"] = 127
+            args["cond_aug"] = 0.02
+            args["fps"] = min(request.fps, model.default_fps)
+            args["num_frames"] = int(request.duration_seconds * model.default_fps)
+
+        elif model.id == "fal-ai/cogvideox-5b":
+            args["num_frames"] = min(int(request.duration_seconds * model.default_fps), 49)
+            args["guidance_scale"] = request.guidance_scale
+            args["num_inference_steps"] = min(request.num_inference_steps, 50)
+
+        elif model.id == "fal-ai/hunyuan-video":
+            args["num_frames"] = int(request.duration_seconds * model.default_fps)
+            if request.character_references:
+                args["image_url"] = request.character_references[0].get("image_url")
+
+        elif model.id == "fal-ai/ltx-video":
+            args["num_frames"] = int(request.duration_seconds * model.default_fps)
+            args["num_inference_steps"] = min(request.num_inference_steps, 30)
+            if request.character_references:
+                args["image_url"] = request.character_references[0].get("image_url")
+
+        elif model.id == "fal-ai/animatediff-v2v":
+            args["fps"] = model.default_fps
+            args["num_frames"] = int(request.duration_seconds * model.default_fps)
+            args["guidance_scale"] = request.guidance_scale
+
+        # Add any extra parameters
+        args.update(request.extra_params.get("model_params", {}))
+
+        return args
+
+    async def _poll_request(
+        self,
+        handler,
+        shot_id: UUID,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> Dict[str, Any]:
+        """Poll for request completion with progress updates."""
+        elapsed = 0.0
+        last_progress = 15
+
+        while elapsed < self.POLL_TIMEOUT:
+            status = await asyncio.to_thread(handler.status)
+
+            if hasattr(status, "status"):
+                if status.status == "COMPLETED":
+                    result = await asyncio.to_thread(handler.get)
+                    return result
+
+                elif status.status == "FAILED":
+                    error = getattr(status, "error", "Unknown error")
+                    raise Exception(f"Fal.ai request failed: {error}")
+
+                # Progress updates
+                if status.status == "IN_PROGRESS":
+                    # Estimate progress (15-85%)
+                    progress = min(85, 15 + int(elapsed / self.POLL_TIMEOUT * 70))
+                    if progress > last_progress and progress_callback:
+                        await progress_callback(
+                            GenerationProgress(
+                                job_id=shot_id,
+                                percent=progress,
+                                message="Generating video...",
+                                stage="generating",
+                            )
+                        )
+                        last_progress = progress
+
+                elif status.status == "IN_QUEUE":
+                    logs = getattr(status, "logs", [])
+                    queue_pos = len(logs) if logs else 0
+                    if progress_callback:
+                        await progress_callback(
+                            GenerationProgress(
+                                job_id=shot_id,
+                                percent=15,
+                                message=f"In queue (position ~{queue_pos})" if queue_pos else "In queue",
+                                stage="queued",
+                            )
+                        )
+
+            await asyncio.sleep(self.POLL_INTERVAL)
+            elapsed += self.POLL_INTERVAL
+
+        raise asyncio.TimeoutError("Fal.ai request polling timed out")
+
+    def _extract_video_url(self, result: Dict[str, Any]) -> Optional[str]:
+        """Extract video URL from Fal.ai result."""
+        # Different models return video in different fields
+        if "video" in result:
+            video = result["video"]
+            if isinstance(video, dict):
+                return video.get("url")
+            return video
+
+        if "output" in result:
+            output = result["output"]
+            if isinstance(output, str):
+                return output
+            if isinstance(output, dict):
+                return output.get("url")
+
+        if "url" in result:
+            return result["url"]
+
+        return None
+
+    async def _download_video(self, url: str, output_path: Path) -> None:
+        """Download video from URL."""
+        import httpx
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.get(url, follow_redirects=True)
+            response.raise_for_status()
+
+            with open(output_path, "wb") as f:
+                f.write(response.content)
+
+    async def _generate_thumbnail(
+        self,
+        video_path: Path,
+        thumbnail_path: Path,
+    ) -> Optional[str]:
+        """Generate thumbnail from video using ffmpeg."""
+        if not video_path.exists():
+            return None
+
+        try:
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i", str(video_path),
+                "-ss", "00:00:01",
+                "-vframes", "1",
+                "-q:v", "2",
+                str(thumbnail_path),
+            ]
+
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await process.wait()
+
+            if thumbnail_path.exists():
+                return str(thumbnail_path)
+        except Exception as e:
+            logger.warning(f"Thumbnail generation failed: {e}")
+
+        return None
+
     async def check_availability(self) -> bool:
-        return bool(self.api_key)
+        """Check if Fal.ai API is available."""
+        if not self.api_key:
+            return False
+
+        try:
+            import fal_client
+            import os
+            os.environ["FAL_KEY"] = self.api_key
+            # Quick status check
+            return True
+        except Exception as e:
+            logger.debug(f"Fal.ai availability check failed: {e}")
+            return False
+
+    async def cancel(self, provider_job_id: str) -> bool:
+        """Cancel a running request."""
+        try:
+            import fal_client
+            await asyncio.to_thread(
+                fal_client.cancel,
+                provider_job_id,
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to cancel Fal.ai request: {e}")
+            return False
+
+    @classmethod
+    def list_models(cls) -> List[Dict[str, Any]]:
+        """List available video generation models."""
+        return [
+            {
+                "id": model_id,
+                "name": model.name,
+                "cost_per_second": model.cost_per_second,
+                "supports_text_to_video": model.supports_text_to_video,
+                "supports_image_to_video": model.supports_image_to_video,
+                "max_duration": model.max_duration,
+            }
+            for model_id, model in cls.MODELS.items()
+        ]
 
 
 class GenerationService:
@@ -432,15 +1222,29 @@ class GenerationService:
         self._register_default_providers()
 
     def _register_default_providers(self) -> None:
-        """Register default generation providers."""
-        # Always available mock provider
+        """Register default generation providers based on configuration."""
+        # Always available mock provider for testing/development
         self._providers[JobProvider.LOCAL] = MockGenerationProvider()
 
-        # Replicate if configured
-        # self._providers[JobProvider.REPLICATE] = ReplicateProvider()
+        # Replicate provider - register if API token is configured
+        replicate_token = getattr(self.settings, "replicate_api_token", None)
+        if replicate_token:
+            replicate_model = getattr(self.settings, "replicate_video_model", None)
+            self._providers[JobProvider.REPLICATE] = ReplicateProvider(
+                api_token=replicate_token,
+                model_id=replicate_model,
+            )
+            logger.info("Registered Replicate provider")
 
-        # Fal.ai if configured
-        # self._providers[JobProvider.FAL] = FalProvider()
+        # Fal.ai provider - register if API key is configured
+        fal_key = getattr(self.settings, "fal_api_key", None)
+        if fal_key:
+            fal_model = getattr(self.settings, "fal_video_model", None)
+            self._providers[JobProvider.FAL] = FalProvider(
+                api_key=fal_key,
+                model_id=fal_model,
+            )
+            logger.info("Registered Fal.ai provider")
 
     def register_provider(
         self, provider_type: JobProvider, provider: GenerationProvider

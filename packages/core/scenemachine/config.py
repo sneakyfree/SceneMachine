@@ -60,6 +60,18 @@ class Settings(BaseSettings):
     max_concurrent_generations: int = 2
     generation_timeout_seconds: int = 600
 
+    # Replicate.com API (video generation)
+    replicate_api_token: Optional[str] = None
+    replicate_video_model: Optional[str] = None  # e.g., "minimax", "luma", "kling"
+
+    # Fal.ai API (video generation)
+    fal_api_key: Optional[str] = None
+    fal_video_model: Optional[str] = None  # e.g., "ltx", "cogvideox", "hunyuan"
+
+    # ElevenLabs API (text-to-speech)
+    elevenlabs_api_key: Optional[str] = None
+    elevenlabs_voice_id: Optional[str] = None
+
     # IPC Configuration
     ipc_socket_path: str = "/tmp/scenemachine.sock"
 
