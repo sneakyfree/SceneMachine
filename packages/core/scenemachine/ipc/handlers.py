@@ -1682,6 +1682,184 @@ def register_handlers(server: IPCServer) -> None:
                 for job in jobs
             ]
 
+    @server.handler("generation.getProvidersHealth")
+    async def handle_get_providers_health() -> List[Dict[str, Any]]:
+        """Get detailed health status for all providers."""
+        from scenemachine.config import get_settings
+        from scenemachine.services.generation import (
+            ReplicateProvider,
+            FalProvider,
+        )
+
+        settings = get_settings()
+        providers = []
+
+        # Replicate
+        replicate_configured = bool(settings.replicate_api_token)
+        replicate_available = False
+        replicate_error = None
+
+        if replicate_configured:
+            try:
+                provider = ReplicateProvider(
+                    api_token=settings.replicate_api_token,
+                    model_id=settings.replicate_video_model,
+                )
+                replicate_available = await provider.check_availability()
+            except Exception as e:
+                replicate_error = str(e)
+
+        providers.append({
+            "provider": "replicate",
+            "name": "Replicate",
+            "available": replicate_available,
+            "configured": replicate_configured,
+            "models": ReplicateProvider.list_models(),
+            "defaultModel": settings.replicate_video_model or "minimax",
+            "error": replicate_error,
+        })
+
+        # Fal.ai
+        fal_configured = bool(settings.fal_api_key)
+        fal_available = False
+        fal_error = None
+
+        if fal_configured:
+            try:
+                provider = FalProvider(
+                    api_key=settings.fal_api_key,
+                    model_id=settings.fal_video_model,
+                )
+                fal_available = await provider.check_availability()
+            except Exception as e:
+                fal_error = str(e)
+
+        providers.append({
+            "provider": "fal",
+            "name": "Fal.ai",
+            "available": fal_available,
+            "configured": fal_configured,
+            "models": FalProvider.list_models(),
+            "defaultModel": settings.fal_video_model or "ltx",
+            "error": fal_error,
+        })
+
+        # Local
+        providers.append({
+            "provider": "local",
+            "name": "Local (Development)",
+            "available": True,
+            "configured": True,
+            "models": [{
+                "id": "mock",
+                "name": "Mock Generator",
+                "cost_per_second": 0.0,
+                "supports_text_to_video": True,
+                "supports_image_to_video": True,
+                "max_duration": 10.0,
+            }],
+            "defaultModel": "mock",
+            "error": None,
+        })
+
+        return providers
+
+    @server.handler("generation.getProviderModels")
+    async def handle_get_provider_models(provider_id: str) -> List[Dict[str, Any]]:
+        """Get available models for a specific provider."""
+        from scenemachine.services.generation import (
+            ReplicateProvider,
+            FalProvider,
+        )
+
+        if provider_id == "replicate":
+            return ReplicateProvider.list_models()
+        elif provider_id == "fal":
+            return FalProvider.list_models()
+        elif provider_id == "local":
+            return [{
+                "id": "mock",
+                "name": "Mock Generator",
+                "cost_per_second": 0.0,
+                "supports_text_to_video": True,
+                "supports_image_to_video": True,
+                "max_duration": 10.0,
+            }]
+        else:
+            raise ValueError(f"Unknown provider: {provider_id}")
+
+    @server.handler("generation.estimateCost")
+    async def handle_estimate_cost(
+        provider: str,
+        model_id: Optional[str] = None,
+        duration_seconds: float = 3.0,
+        shot_count: int = 1,
+    ) -> Dict[str, Any]:
+        """Estimate generation cost."""
+        from scenemachine.services.generation import (
+            ReplicateProvider,
+            FalProvider,
+        )
+
+        if provider == "replicate":
+            p = ReplicateProvider()
+            model = p.get_model(model_id)
+            cost_per_shot = p.estimate_cost(model_id, duration_seconds)
+        elif provider == "fal":
+            p = FalProvider()
+            model = p.get_model(model_id)
+            cost_per_shot = p.estimate_cost(model_id, duration_seconds)
+        elif provider == "local":
+            return {
+                "provider": "local",
+                "modelId": "mock",
+                "modelName": "Mock Generator",
+                "durationSeconds": duration_seconds,
+                "shotCount": shot_count,
+                "costPerShot": 0.0,
+                "totalCost": 0.0,
+                "currency": "USD",
+            }
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+
+        return {
+            "provider": provider,
+            "modelId": model_id or p.model_id,
+            "modelName": model.name,
+            "durationSeconds": duration_seconds,
+            "shotCount": shot_count,
+            "costPerShot": cost_per_shot,
+            "totalCost": cost_per_shot * shot_count,
+            "currency": "USD",
+        }
+
+    @server.handler("generation.getWorkerStatus")
+    async def handle_get_worker_status() -> Dict[str, Any]:
+        """Get queue worker status."""
+        from scenemachine.services.queue_worker import get_queue_worker
+
+        worker = get_queue_worker()
+        return worker.stats.to_dict()
+
+    @server.handler("generation.pauseWorker")
+    async def handle_pause_worker() -> Dict[str, bool]:
+        """Pause the queue worker."""
+        from scenemachine.services.queue_worker import get_queue_worker
+
+        worker = get_queue_worker()
+        worker.pause()
+        return {"success": True, "paused": True}
+
+    @server.handler("generation.resumeWorker")
+    async def handle_resume_worker() -> Dict[str, bool]:
+        """Resume the queue worker."""
+        from scenemachine.services.queue_worker import get_queue_worker
+
+        worker = get_queue_worker()
+        worker.resume()
+        return {"success": True, "paused": False}
+
     # Assembly/Export handlers
     @server.handler("assembly.getStatus")
     async def handle_get_assembly_status(project_id: str) -> Dict[str, Any]:

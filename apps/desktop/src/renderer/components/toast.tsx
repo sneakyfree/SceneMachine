@@ -13,6 +13,17 @@ import {
 import { cn } from '../lib/utils';
 import { Toast as ToastType, useToastStore } from '../stores/toast-store';
 
+export function useToast() {
+  const store = useToastStore();
+
+  return {
+    toast: store.addToast,
+    dismiss: store.removeToast,
+    clear: store.clearToasts,
+    toasts: store.toasts,
+  };
+}
+
 // Individual toast item
 function ToastItem({ toast, onDismiss }: { toast: ToastType; onDismiss: () => void }) {
   const [isExiting, setIsExiting] = useState(false);

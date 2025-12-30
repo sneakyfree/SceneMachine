@@ -78,6 +78,66 @@ class ProviderResponse(BaseModel):
     available: bool
 
 
+class ProviderModelResponse(BaseModel):
+    """Provider model information."""
+
+    id: str
+    name: str
+    cost_per_second: float
+    supports_text_to_video: bool
+    supports_image_to_video: bool
+    max_duration: float
+
+
+class ProviderHealthResponse(BaseModel):
+    """Detailed provider health response."""
+
+    provider: str
+    name: str
+    available: bool
+    configured: bool
+    models: List[ProviderModelResponse]
+    default_model: Optional[str] = None
+    error: Optional[str] = None
+
+
+class CostEstimateRequest(BaseModel):
+    """Request for cost estimation."""
+
+    provider: str = "replicate"
+    model_id: Optional[str] = None
+    duration_seconds: float = 3.0
+    shot_count: int = 1
+
+
+class CostEstimateResponse(BaseModel):
+    """Cost estimation response."""
+
+    provider: str
+    model_id: str
+    model_name: str
+    duration_seconds: float
+    shot_count: int
+    cost_per_shot: float
+    total_cost: float
+    currency: str = "USD"
+
+
+class WorkerStatusResponse(BaseModel):
+    """Queue worker status response."""
+
+    started_at: str
+    uptime_seconds: float
+    jobs_processed: int
+    jobs_succeeded: int
+    jobs_failed: int
+    success_rate: float
+    current_job_id: Optional[str] = None
+    last_job_completed_at: Optional[str] = None
+    is_running: bool
+    is_paused: bool
+
+
 class ApproveRejectRequest(BaseModel):
     """Request to approve or reject a shot."""
 
@@ -559,3 +619,253 @@ async def get_shot_jobs(
     jobs = result.scalars().all()
 
     return [job_to_response(job) for job in jobs]
+
+
+@router.get("/providers/health")
+async def get_providers_health(
+    session: AsyncSession = Depends(get_session),
+) -> List[ProviderHealthResponse]:
+    """Get detailed health status for all providers.
+
+    Returns detailed information including available models,
+    configuration status, and any errors.
+
+    Returns:
+        List of provider health information
+    """
+    from scenemachine.services.generation import (
+        ReplicateProvider,
+        FalProvider,
+        MockGenerationProvider,
+    )
+    from scenemachine.config import get_settings
+
+    settings = get_settings()
+    providers_health = []
+
+    # Check Replicate provider
+    replicate_configured = bool(settings.replicate_api_token)
+    replicate_available = False
+    replicate_error = None
+
+    if replicate_configured:
+        try:
+            provider = ReplicateProvider(
+                api_token=settings.replicate_api_token,
+                model_id=settings.replicate_video_model,
+            )
+            replicate_available = await provider.check_availability()
+        except Exception as e:
+            replicate_error = str(e)
+
+    providers_health.append(
+        ProviderHealthResponse(
+            provider="replicate",
+            name="Replicate",
+            available=replicate_available,
+            configured=replicate_configured,
+            models=[
+                ProviderModelResponse(**model)
+                for model in ReplicateProvider.list_models()
+            ],
+            default_model=settings.replicate_video_model or "minimax",
+            error=replicate_error,
+        )
+    )
+
+    # Check Fal.ai provider
+    fal_configured = bool(settings.fal_api_key)
+    fal_available = False
+    fal_error = None
+
+    if fal_configured:
+        try:
+            provider = FalProvider(
+                api_key=settings.fal_api_key,
+                model_id=settings.fal_video_model,
+            )
+            fal_available = await provider.check_availability()
+        except Exception as e:
+            fal_error = str(e)
+
+    providers_health.append(
+        ProviderHealthResponse(
+            provider="fal",
+            name="Fal.ai",
+            available=fal_available,
+            configured=fal_configured,
+            models=[
+                ProviderModelResponse(**model)
+                for model in FalProvider.list_models()
+            ],
+            default_model=settings.fal_video_model or "ltx",
+            error=fal_error,
+        )
+    )
+
+    # Local/Mock provider (always available)
+    providers_health.append(
+        ProviderHealthResponse(
+            provider="local",
+            name="Local (Development)",
+            available=True,
+            configured=True,
+            models=[
+                ProviderModelResponse(
+                    id="mock",
+                    name="Mock Generator",
+                    cost_per_second=0.0,
+                    supports_text_to_video=True,
+                    supports_image_to_video=True,
+                    max_duration=10.0,
+                )
+            ],
+            default_model="mock",
+        )
+    )
+
+    return providers_health
+
+
+@router.get("/providers/{provider_id}/models")
+async def get_provider_models(
+    provider_id: str,
+) -> List[ProviderModelResponse]:
+    """Get available models for a specific provider.
+
+    Args:
+        provider_id: Provider identifier (replicate, fal, local)
+
+    Returns:
+        List of available models
+    """
+    from scenemachine.services.generation import ReplicateProvider, FalProvider
+
+    if provider_id == "replicate":
+        return [
+            ProviderModelResponse(**model)
+            for model in ReplicateProvider.list_models()
+        ]
+    elif provider_id == "fal":
+        return [
+            ProviderModelResponse(**model)
+            for model in FalProvider.list_models()
+        ]
+    elif provider_id == "local":
+        return [
+            ProviderModelResponse(
+                id="mock",
+                name="Mock Generator",
+                cost_per_second=0.0,
+                supports_text_to_video=True,
+                supports_image_to_video=True,
+                max_duration=10.0,
+            )
+        ]
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown provider: {provider_id}",
+        )
+
+
+@router.post("/estimate-cost")
+async def estimate_cost(
+    request: CostEstimateRequest,
+) -> CostEstimateResponse:
+    """Estimate generation cost for a given configuration.
+
+    Args:
+        request: Cost estimation parameters
+
+    Returns:
+        Estimated costs
+    """
+    from scenemachine.services.generation import ReplicateProvider, FalProvider
+
+    if request.provider == "replicate":
+        provider = ReplicateProvider()
+        model = provider.get_model(request.model_id)
+        cost_per_shot = provider.estimate_cost(
+            model_id=request.model_id,
+            duration_seconds=request.duration_seconds,
+        )
+    elif request.provider == "fal":
+        provider = FalProvider()
+        model = provider.get_model(request.model_id)
+        cost_per_shot = provider.estimate_cost(
+            model_id=request.model_id,
+            duration_seconds=request.duration_seconds,
+        )
+    elif request.provider == "local":
+        return CostEstimateResponse(
+            provider="local",
+            model_id="mock",
+            model_name="Mock Generator",
+            duration_seconds=request.duration_seconds,
+            shot_count=request.shot_count,
+            cost_per_shot=0.0,
+            total_cost=0.0,
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown provider: {request.provider}",
+        )
+
+    return CostEstimateResponse(
+        provider=request.provider,
+        model_id=request.model_id or provider.model_id,
+        model_name=model.name,
+        duration_seconds=request.duration_seconds,
+        shot_count=request.shot_count,
+        cost_per_shot=cost_per_shot,
+        total_cost=cost_per_shot * request.shot_count,
+    )
+
+
+@router.get("/worker/status")
+async def get_worker_status() -> WorkerStatusResponse:
+    """Get queue worker status.
+
+    Returns:
+        Worker status and statistics
+    """
+    from scenemachine.services.queue_worker import get_queue_worker
+
+    worker = get_queue_worker()
+    stats = worker.stats.to_dict()
+
+    return WorkerStatusResponse(**stats)
+
+
+@router.post("/worker/pause")
+async def pause_worker() -> Dict[str, bool]:
+    """Pause the queue worker.
+
+    Active jobs will continue, but no new jobs will be started.
+
+    Returns:
+        Success status
+    """
+    from scenemachine.services.queue_worker import get_queue_worker
+
+    worker = get_queue_worker()
+    worker.pause()
+
+    return {"success": True, "paused": True}
+
+
+@router.post("/worker/resume")
+async def resume_worker() -> Dict[str, bool]:
+    """Resume the queue worker.
+
+    Returns:
+        Success status
+    """
+    from scenemachine.services.queue_worker import get_queue_worker
+
+    worker = get_queue_worker()
+    worker.resume()
+
+    return {"success": True, "paused": False}
