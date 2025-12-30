@@ -3597,4 +3597,403 @@ def register_handlers(server: IPCServer) -> None:
             logger.warning(f"Failed to get system health: {e}")
             return {"status": "unknown", "error": str(e)}
 
+    # Analytics handlers
+    @server.handler("analytics.getDashboard")
+    async def handle_analytics_dashboard(
+        time_range: str = "7d",
+    ) -> Dict[str, Any]:
+        """Get analytics dashboard data."""
+        from scenemachine.services.analytics import AnalyticsService
+        from scenemachine.services.cost_tracking import CostTrackingService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = AnalyticsService(session)
+            cost_service = CostTrackingService(session)
+
+            generation_stats = await service.get_generation_stats(time_range)
+            cost_stats = await service.get_cost_stats(time_range)
+            project_stats = await service.get_project_stats()
+            performance_stats = await service.get_performance_stats()
+            provider_usage = await service.get_provider_usage(time_range)
+            daily_stats = await service.get_daily_stats(7)
+            budget_alert = await cost_service.check_budget_alert()
+
+            return {
+                "generation": {
+                    "totalJobs": generation_stats.total_jobs,
+                    "completedJobs": generation_stats.completed_jobs,
+                    "failedJobs": generation_stats.failed_jobs,
+                    "pendingJobs": generation_stats.pending_jobs,
+                    "successRate": round(generation_stats.success_rate, 2),
+                    "avgGenerationTimeSeconds": round(generation_stats.avg_generation_time_seconds, 2),
+                },
+                "costs": {
+                    "totalCostUsd": round(cost_stats.total_cost_usd, 4),
+                    "costByProvider": {k: round(v, 4) for k, v in cost_stats.cost_by_provider.items()},
+                    "avgCostPerShot": round(cost_stats.avg_cost_per_shot, 4),
+                },
+                "projects": {
+                    "totalProjects": project_stats.total_projects,
+                    "activeProjects": project_stats.active_projects,
+                    "totalScenes": project_stats.total_scenes,
+                    "totalShots": project_stats.total_shots,
+                    "totalCharacters": project_stats.total_characters,
+                },
+                "performance": {
+                    "avgWaitTimeSeconds": round(performance_stats.avg_wait_time_seconds, 2),
+                    "avgProcessingTimeSeconds": round(performance_stats.avg_processing_time_seconds, 2),
+                    "peakConcurrentJobs": performance_stats.peak_concurrent_jobs,
+                    "currentQueueSize": performance_stats.current_queue_size,
+                },
+                "providerUsage": [
+                    {
+                        "provider": item["provider"],
+                        "totalJobs": item["total_jobs"],
+                        "successRate": round(item["success_rate"], 2),
+                        "totalCostUsd": round(item["total_cost_usd"], 4),
+                    }
+                    for item in provider_usage
+                ],
+                "dailyStats": [
+                    {
+                        "date": item["date"],
+                        "totalJobs": item["total_jobs"],
+                        "successRate": round(item["success_rate"], 2),
+                        "totalCostUsd": round(item["total_cost_usd"], 4),
+                    }
+                    for item in daily_stats
+                ],
+                "budgetAlert": budget_alert,
+                "timeRange": time_range,
+            }
+
+    @server.handler("analytics.getGenerationStats")
+    async def handle_generation_stats(
+        time_range: str = "7d",
+        project_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get generation statistics."""
+        from scenemachine.services.analytics import AnalyticsService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = AnalyticsService(session)
+            pid = UUID(project_id) if project_id else None
+            stats = await service.get_generation_stats(time_range, pid)
+
+            return {
+                "totalJobs": stats.total_jobs,
+                "completedJobs": stats.completed_jobs,
+                "failedJobs": stats.failed_jobs,
+                "pendingJobs": stats.pending_jobs,
+                "successRate": round(stats.success_rate, 2),
+                "avgGenerationTimeSeconds": round(stats.avg_generation_time_seconds, 2),
+            }
+
+    @server.handler("analytics.getCostStats")
+    async def handle_cost_stats(
+        time_range: str = "7d",
+        project_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get cost statistics."""
+        from scenemachine.services.analytics import AnalyticsService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = AnalyticsService(session)
+            pid = UUID(project_id) if project_id else None
+            stats = await service.get_cost_stats(time_range, pid)
+
+            return {
+                "totalCostUsd": round(stats.total_cost_usd, 4),
+                "costByProvider": {k: round(v, 4) for k, v in stats.cost_by_provider.items()},
+                "avgCostPerShot": round(stats.avg_cost_per_shot, 4),
+            }
+
+    @server.handler("analytics.getDailyStats")
+    async def handle_daily_stats(
+        days: int = 7,
+        project_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get daily generation statistics."""
+        from scenemachine.services.analytics import AnalyticsService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = AnalyticsService(session)
+            pid = UUID(project_id) if project_id else None
+            stats = await service.get_daily_stats(days, pid)
+
+            return [
+                {
+                    "date": item["date"],
+                    "totalJobs": item["total_jobs"],
+                    "completedJobs": item["completed_jobs"],
+                    "failedJobs": item["failed_jobs"],
+                    "successRate": round(item["success_rate"], 2),
+                    "totalCostUsd": round(item["total_cost_usd"], 4),
+                }
+                for item in stats
+            ]
+
+    # Sharing handlers
+    @server.handler("sharing.create")
+    async def handle_create_share(
+        project_id: str,
+        permission: str = "view",
+        recipient_email: Optional[str] = None,
+        recipient_name: Optional[str] = None,
+        message: Optional[str] = None,
+        expires_in_days: Optional[int] = None,
+        is_public: bool = False,
+    ) -> Dict[str, Any]:
+        """Create a project share."""
+        from scenemachine.models.share import SharePermission
+        from scenemachine.services.sharing import SharingService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = SharingService(session)
+            result = await service.create_share(
+                project_id=UUID(project_id),
+                permission=SharePermission(permission),
+                recipient_email=recipient_email,
+                recipient_name=recipient_name,
+                message=message,
+                expires_in_days=expires_in_days,
+                is_public=is_public,
+            )
+
+            if not result.success:
+                raise ValueError(result.error)
+
+            return {
+                "success": True,
+                "shareId": result.share_id,
+                "shareCode": result.share_code,
+                "shareUrl": result.share_url,
+            }
+
+    @server.handler("sharing.getProjectShares")
+    async def handle_get_project_shares(
+        project_id: str,
+    ) -> List[Dict[str, Any]]:
+        """Get all shares for a project."""
+        from scenemachine.services.sharing import SharingService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = SharingService(session)
+            shares = await service.get_project_shares(UUID(project_id))
+
+            return [
+                {
+                    "id": share.id,
+                    "projectId": share.project_id,
+                    "shareCode": share.share_code,
+                    "permission": share.permission,
+                    "status": share.status,
+                    "recipientEmail": share.recipient_email,
+                    "isPublic": share.is_public,
+                    "expiresAt": share.expires_at,
+                    "createdAt": share.created_at,
+                    "accessCount": share.access_count,
+                }
+                for share in shares
+            ]
+
+    @server.handler("sharing.accept")
+    async def handle_accept_share(
+        share_code: str,
+    ) -> Dict[str, Any]:
+        """Accept a share invitation."""
+        from scenemachine.services.sharing import SharingService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = SharingService(session)
+            result = await service.accept_share(share_code)
+
+            if not result.get("success"):
+                raise ValueError(result.get("error", "Failed to accept share"))
+
+            return result
+
+    @server.handler("sharing.revoke")
+    async def handle_revoke_share(
+        share_id: str,
+    ) -> Dict[str, Any]:
+        """Revoke a share."""
+        from scenemachine.services.sharing import SharingService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = SharingService(session)
+            success = await service.revoke_share(UUID(share_id))
+
+            if not success:
+                raise ValueError("Share not found")
+
+            return {"success": True}
+
+    @server.handler("sharing.getComments")
+    async def handle_get_comments(
+        project_id: str,
+        shot_id: Optional[str] = None,
+        include_resolved: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Get comments for a project."""
+        from scenemachine.services.sharing import SharingService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = SharingService(session)
+            comments = await service.get_project_comments(
+                project_id=UUID(project_id),
+                shot_id=UUID(shot_id) if shot_id else None,
+                include_resolved=include_resolved,
+            )
+            return comments
+
+    @server.handler("sharing.addComment")
+    async def handle_add_comment(
+        project_id: str,
+        author_name: str,
+        content: str,
+        shot_id: Optional[str] = None,
+        author_email: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        timecode_seconds: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Add a comment."""
+        from scenemachine.services.sharing import SharingService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = SharingService(session)
+            comment = await service.add_comment(
+                project_id=UUID(project_id),
+                author_name=author_name,
+                content=content,
+                shot_id=UUID(shot_id) if shot_id else None,
+                author_email=author_email,
+                parent_id=UUID(parent_id) if parent_id else None,
+                timecode_seconds=timecode_seconds,
+            )
+
+            if not comment:
+                raise ValueError("Failed to add comment")
+
+            return {
+                "id": str(comment.id),
+                "projectId": str(comment.project_id),
+                "authorName": comment.author_name,
+                "content": comment.content,
+                "createdAt": comment.created_at.isoformat(),
+            }
+
+    # Archive handlers
+    @server.handler("archive.export")
+    async def handle_export_project(
+        project_id: str,
+        include_assets: bool = True,
+        include_outputs: bool = True,
+        include_generated_videos: bool = False,
+    ) -> Dict[str, Any]:
+        """Export a project to archive."""
+        from scenemachine.services.project_archive import ProjectArchiveService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = ProjectArchiveService(session)
+            result = await service.export_project(
+                project_id=UUID(project_id),
+                include_assets=include_assets,
+                include_outputs=include_outputs,
+                include_generated_videos=include_generated_videos,
+            )
+
+            if not result.success:
+                raise ValueError(result.error)
+
+            return {
+                "success": True,
+                "archivePath": result.archive_path,
+                "fileSizeBytes": result.file_size_bytes,
+                "manifest": result.manifest.__dict__ if result.manifest else None,
+            }
+
+    @server.handler("archive.import")
+    async def handle_import_project(
+        archive_path: str,
+        new_name: Optional[str] = None,
+        import_assets: bool = True,
+    ) -> Dict[str, Any]:
+        """Import a project from archive."""
+        from pathlib import Path
+        from scenemachine.services.project_archive import ProjectArchiveService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = ProjectArchiveService(session)
+            result = await service.import_project(
+                archive_path=Path(archive_path),
+                new_name=new_name,
+                import_assets=import_assets,
+            )
+
+            if not result.success:
+                raise ValueError(result.error)
+
+            return {
+                "success": True,
+                "projectId": result.project_id,
+                "projectName": result.project_name,
+                "scenesImported": result.scenes_imported,
+                "shotsImported": result.shots_imported,
+                "charactersImported": result.characters_imported,
+                "assetsImported": result.assets_imported,
+                "warnings": result.warnings,
+            }
+
+    @server.handler("archive.list")
+    async def handle_list_archives() -> List[Dict[str, Any]]:
+        """List all exported archives."""
+        from scenemachine.services.project_archive import ProjectArchiveService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = ProjectArchiveService(session)
+            archives = await service.list_exports()
+
+            return [
+                {
+                    "path": archive["path"],
+                    "filename": archive["filename"],
+                    "sizeBytes": archive["size_bytes"],
+                    "createdAt": archive["created_at"],
+                    "manifest": archive["manifest"],
+                }
+                for archive in archives
+            ]
+
+    @server.handler("archive.getInfo")
+    async def handle_get_archive_info(
+        archive_path: str,
+    ) -> Dict[str, Any]:
+        """Get archive information."""
+        from pathlib import Path
+        from scenemachine.services.project_archive import ProjectArchiveService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = ProjectArchiveService(session)
+            manifest = await service.get_archive_info(Path(archive_path))
+
+            if not manifest:
+                raise ValueError("Invalid archive")
+
+            return manifest.__dict__
+
     logger.info(f"Registered {len(server.handlers)} IPC handlers")

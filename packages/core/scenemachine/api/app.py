@@ -10,7 +10,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from scenemachine.api.routes import assembly, characters, generation, health, movie_plan, projects, scenes, screenplay, ws
+from scenemachine.api.routes import (
+    analytics,
+    archive,
+    assembly,
+    characters,
+    generation,
+    health,
+    movie_plan,
+    projects,
+    scenes,
+    screenplay,
+    settings,
+    sharing,
+    ws,
+)
 from scenemachine.config import Settings, get_settings
 from scenemachine.database import get_db_manager
 
@@ -144,6 +158,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(
         ws.router,
         tags=["WebSocket"],
+    )
+    app.include_router(
+        analytics.router,
+        prefix="/api/v1/analytics",
+        tags=["Analytics"],
+    )
+    app.include_router(
+        sharing.router,
+        prefix="/api/v1/sharing",
+        tags=["Sharing"],
+    )
+    app.include_router(
+        archive.router,
+        prefix="/api/v1/archive",
+        tags=["Archive"],
+    )
+    app.include_router(
+        settings.router,
+        prefix="/api/v1/settings",
+        tags=["Settings"],
     )
 
     return app
