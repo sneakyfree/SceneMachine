@@ -1,0 +1,246 @@
+"""Project API endpoints."""
+
+from typing import List
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from scenemachine.api.dependencies import get_db
+from scenemachine.models import Project
+from scenemachine.schemas import (
+    ProjectCreate,
+    ProjectDetail,
+    ProjectSummary,
+    ProjectUpdate,
+    SuccessResponse,
+)
+
+router = APIRouter()
+
+
+@router.get("", response_model=List[ProjectSummary])
+async def list_projects(
+    db: AsyncSession = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+) -> List[ProjectSummary]:
+    """List all projects.
+
+    Returns a paginated list of projects with summary information.
+    """
+    stmt = (
+        select(Project)
+        .options(selectinload(Project.screenplay))
+        .offset(skip)
+        .limit(limit)
+        .order_by(Project.updated_at.desc())
+    )
+    result = await db.execute(stmt)
+    projects = result.scalars().all()
+
+    return [
+        ProjectSummary(
+            id=p.id,
+            name=p.name,
+            description=p.description,
+            state=p.state,
+            screenplay_title=p.screenplay.title if p.screenplay else None,
+            character_count=p.character_count,
+            scene_count=p.scene_count,
+            locked_character_count=p.locked_character_count,
+            approved_scene_count=p.approved_scene_count,
+            created_at=p.created_at,
+            updated_at=p.updated_at,
+        )
+        for p in projects
+    ]
+
+
+@router.post("", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)
+async def create_project(
+    project_in: ProjectCreate,
+    db: AsyncSession = Depends(get_db),
+) -> ProjectDetail:
+    """Create a new project.
+
+    Creates a new project in the EMPTY state, ready for screenplay upload.
+    """
+    project = Project(
+        name=project_in.name,
+        description=project_in.description,
+        settings=project_in.settings or {},
+    )
+
+    db.add(project)
+    await db.commit()
+    await db.refresh(project)
+
+    return ProjectDetail(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        state=project.state,
+        settings=project.settings,
+        can_advance=project.can_advance,
+        screenplay=None,
+        characters=[],
+        scenes=[],
+        character_count=0,
+        scene_count=0,
+        locked_character_count=0,
+        approved_scene_count=0,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
+
+
+@router.get("/{project_id}", response_model=ProjectDetail)
+async def get_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> ProjectDetail:
+    """Get project details.
+
+    Returns full project information including relationships.
+    """
+    stmt = (
+        select(Project)
+        .options(
+            selectinload(Project.screenplay),
+            selectinload(Project.characters),
+            selectinload(Project.scenes),
+        )
+        .where(Project.id == project_id)
+    )
+    result = await db.execute(stmt)
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    # Build response with nested data
+    from scenemachine.schemas import (
+        CharacterSummaryBrief,
+        SceneSummaryBrief,
+        ScreenplaySummary,
+    )
+
+    screenplay_summary = None
+    if project.screenplay:
+        screenplay_summary = ScreenplaySummary(
+            id=project.screenplay.id,
+            title=project.screenplay.title,
+            original_filename=project.screenplay.original_filename,
+            is_parsed=project.screenplay.is_parsed,
+            movie_plan_approved=project.screenplay.movie_plan_approved,
+            page_count=project.screenplay.page_count,
+        )
+
+    character_summaries = [
+        CharacterSummaryBrief(
+            id=c.id,
+            name=c.name,
+            screenplay_name=c.screenplay_name,
+            is_locked=c.is_locked,
+            is_protagonist=c.is_protagonist,
+        )
+        for c in project.characters
+    ]
+
+    scene_summaries = [
+        SceneSummaryBrief(
+            id=s.id,
+            scene_number=s.scene_number,
+            heading=s.heading,
+            shot_breakdown_approved=s.shot_breakdown_approved,
+        )
+        for s in project.scenes
+    ]
+
+    return ProjectDetail(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        state=project.state,
+        settings=project.settings,
+        can_advance=project.can_advance,
+        screenplay=screenplay_summary,
+        characters=character_summaries,
+        scenes=scene_summaries,
+        character_count=project.character_count,
+        scene_count=project.scene_count,
+        locked_character_count=project.locked_character_count,
+        approved_scene_count=project.approved_scene_count,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
+
+
+@router.patch("/{project_id}", response_model=ProjectDetail)
+async def update_project(
+    project_id: UUID,
+    project_in: ProjectUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> ProjectDetail:
+    """Update project details.
+
+    Updates project name, description, or settings.
+    """
+    stmt = select(Project).where(Project.id == project_id)
+    result = await db.execute(stmt)
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    # Update fields if provided
+    if project_in.name is not None:
+        project.name = project_in.name
+    if project_in.description is not None:
+        project.description = project_in.description
+    if project_in.settings is not None:
+        project.settings = {**project.settings, **project_in.settings}
+
+    await db.commit()
+    await db.refresh(project)
+
+    # Return updated project (simplified - would need full load for complete detail)
+    return await get_project(project_id, db)
+
+
+@router.delete("/{project_id}", response_model=SuccessResponse)
+async def delete_project(
+    project_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> SuccessResponse:
+    """Delete a project.
+
+    Permanently deletes the project and all associated data.
+    This action cannot be undone.
+    """
+    stmt = select(Project).where(Project.id == project_id)
+    result = await db.execute(stmt)
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    await db.delete(project)
+    await db.commit()
+
+    return SuccessResponse(
+        success=True,
+        message=f"Project {project_id} deleted successfully",
+    )

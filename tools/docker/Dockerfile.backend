@@ -1,0 +1,69 @@
+# SceneMachine Backend Dockerfile
+# Multi-stage build for optimized image size
+
+# Build stage
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy and install dependencies
+COPY packages/core/pyproject.toml packages/core/README.md ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir .
+
+# Production stage
+FROM python:3.11-slim as production
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy application code
+COPY packages/core/scenemachine ./scenemachine
+COPY packages/core/alembic ./alembic
+COPY packages/core/alembic.ini ./
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+# Create directories for data
+RUN mkdir -p /app/data /app/cache /app/uploads /app/outputs
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SCENEMACHINE_DATA_DIR=/app/data \
+    SCENEMACHINE_CACHE_DIR=/app/cache \
+    SCENEMACHINE_UPLOAD_DIR=/app/uploads \
+    SCENEMACHINE_OUTPUT_DIR=/app/outputs
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+# Run the application
+CMD ["python", "-m", "scenemachine.main", "--host", "0.0.0.0", "--port", "8000"]

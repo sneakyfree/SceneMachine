@@ -1,0 +1,105 @@
+# SceneMachine Docker Compose Configuration
+# For development and local deployment
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: scenemachine-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-scenemachine}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scenemachine}
+      POSTGRES_DB: ${POSTGRES_DB:-scenemachine}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scenemachine}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis (for caching and job queues)
+  redis:
+    image: redis:7-alpine
+    container_name: scenemachine-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend API Server
+  backend:
+    build:
+      context: .
+      dockerfile: tools/docker/Dockerfile.backend
+    container_name: scenemachine-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scenemachine}:${POSTGRES_PASSWORD:-scenemachine}@db:5432/${POSTGRES_DB:-scenemachine}
+      REDIS_URL: redis://redis:6379/0
+      SCENEMACHINE_ENV: ${SCENEMACHINE_ENV:-development}
+      SCENEMACHINE_SECRET_KEY: ${SCENEMACHINE_SECRET_KEY:-change-me-in-production}
+      # API Keys (set via environment)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      REPLICATE_API_KEY: ${REPLICATE_API_KEY:-}
+    volumes:
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+      - cache:/app/cache
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Database migrations (run once)
+  migrations:
+    build:
+      context: .
+      dockerfile: tools/docker/Dockerfile.backend
+    container_name: scenemachine-migrations
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scenemachine}:${POSTGRES_PASSWORD:-scenemachine}@db:5432/${POSTGRES_DB:-scenemachine}
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres_data:
+    name: scenemachine_postgres_data
+  redis_data:
+    name: scenemachine_redis_data
+  uploads:
+    name: scenemachine_uploads
+  outputs:
+    name: scenemachine_outputs
+  cache:
+    name: scenemachine_cache
+
+networks:
+  default:
+    name: scenemachine_network
