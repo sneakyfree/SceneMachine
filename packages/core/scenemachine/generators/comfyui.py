@@ -1,0 +1,826 @@
+"""ComfyUI local provider for video generation.
+
+Connects to a local ComfyUI instance for video generation using
+various video models like AnimateDiff, SVD, and Wan2.
+"""
+
+import asyncio
+import json
+import logging
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from urllib.parse import urljoin
+
+from scenemachine.config import get_settings
+from scenemachine.models.generation_job import JobProvider
+
+from .base import (
+    GenerationProgress,
+    GenerationProvider,
+    GenerationRequest,
+    GenerationResult,
+    ProgressCallback,
+    ProviderCapabilities,
+    ProviderFeature,
+    ProviderHealth,
+    VideoModel,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class ComfyUIProvider(GenerationProvider):
+    """Local ComfyUI provider for video generation.
+
+    Connects to a running ComfyUI instance via its REST API.
+    Supports AnimateDiff, Stable Video Diffusion, and other
+    video generation workflows.
+
+    Requirements:
+        - ComfyUI running locally (default: http://127.0.0.1:8188)
+        - Video generation nodes installed (AnimateDiff, SVD, etc.)
+
+    Example:
+        provider = ComfyUIProvider(comfyui_url="http://127.0.0.1:8188")
+        result = await provider.generate(request)
+    """
+
+    # Video workflow templates
+    WORKFLOWS = {
+        "animatediff": "animatediff_v3",
+        "svd": "stable_video_diffusion",
+        "wan2": "wan2_1_t2v",
+        "hunyuan": "hunyuan_video",
+    }
+
+    MODELS: Dict[str, VideoModel] = {
+        "animatediff-v3": VideoModel(
+            id="animatediff-v3",
+            name="AnimateDiff v3",
+            version="3.0",
+            cost_per_second=0.0,  # Local = free
+            supports_text_to_video=True,
+            supports_image_to_video=True,
+            max_duration=4.0,
+            default_fps=8,
+            default_steps=25,
+            default_cfg_scale=7.5,
+            extra_params={"motion_module": "mm_sd_v15_v3"},
+        ),
+        "animatediff-lightning": VideoModel(
+            id="animatediff-lightning",
+            name="AnimateDiff Lightning",
+            version="1.0",
+            cost_per_second=0.0,
+            supports_text_to_video=True,
+            supports_image_to_video=False,
+            max_duration=2.0,
+            default_fps=8,
+            default_steps=4,  # Lightning is fast
+            default_cfg_scale=1.0,
+            extra_params={"motion_module": "animatediff_lightning_4step"},
+        ),
+        "svd-xt": VideoModel(
+            id="svd-xt",
+            name="Stable Video Diffusion XT",
+            version="1.1",
+            cost_per_second=0.0,
+            supports_text_to_video=False,
+            supports_image_to_video=True,
+            max_duration=4.0,
+            default_fps=14,
+            default_steps=25,
+            default_cfg_scale=2.5,
+        ),
+        "wan2-t2v": VideoModel(
+            id="wan2-t2v",
+            name="Wan2.1 Text-to-Video",
+            version="2.1",
+            cost_per_second=0.0,
+            supports_text_to_video=True,
+            supports_image_to_video=False,
+            max_duration=5.0,
+            default_fps=16,
+            default_steps=30,
+            default_cfg_scale=6.0,
+        ),
+        "hunyuan-video": VideoModel(
+            id="hunyuan-video",
+            name="HunyuanVideo",
+            version="1.0",
+            cost_per_second=0.0,
+            supports_text_to_video=True,
+            supports_image_to_video=True,
+            max_duration=5.0,
+            default_fps=24,
+            default_steps=50,
+            default_cfg_scale=6.0,
+        ),
+    }
+
+    DEFAULT_MODEL = "animatediff-v3"
+    POLL_INTERVAL = 1.0  # seconds
+    POLL_TIMEOUT = 600.0  # 10 minutes
+
+    def __init__(
+        self,
+        comfyui_url: str = "http://127.0.0.1:8188",
+        model_id: Optional[str] = None,
+        output_format: str = "mp4",
+    ) -> None:
+        """Initialize ComfyUI provider.
+
+        Args:
+            comfyui_url: URL of the ComfyUI instance
+            model_id: Default model to use
+            output_format: Output video format (mp4, webm, gif)
+        """
+        self.comfyui_url = comfyui_url.rstrip("/")
+        self.model_id = model_id or self.DEFAULT_MODEL
+        self.output_format = output_format
+        self._client_id = str(uuid.uuid4())
+        self._active_prompts: Dict[str, str] = {}  # shot_id -> prompt_id
+
+    @property
+    def name(self) -> str:
+        return "ComfyUI Local"
+
+    @property
+    def provider_type(self) -> JobProvider:
+        return JobProvider.CUSTOM
+
+    @property
+    def capabilities(self) -> ProviderCapabilities:
+        return ProviderCapabilities(
+            features=[
+                ProviderFeature.TEXT_TO_VIDEO,
+                ProviderFeature.IMAGE_TO_VIDEO,
+                ProviderFeature.LORA_SUPPORT,
+                ProviderFeature.CONTROLNET,
+            ],
+            min_width=256,
+            max_width=1920,
+            min_height=256,
+            max_height=1080,
+            min_duration=0.5,
+            max_duration=10.0,
+            supported_fps=[8, 12, 14, 16, 24, 30],
+            max_concurrent_jobs=1,  # Usually limited by VRAM
+            supports_cost_estimation=True,
+        )
+
+    async def generate(
+        self,
+        request: GenerationRequest,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> GenerationResult:
+        """Generate video using ComfyUI."""
+        try:
+            import httpx
+        except ImportError:
+            return GenerationResult(
+                success=False,
+                error_message="httpx package not installed. Run: pip install httpx",
+                error_code="MISSING_DEPENDENCY",
+            )
+
+        model = self.get_model(request.extra_params.get("model_id", self.model_id))
+        if not model:
+            model = self.MODELS[self.DEFAULT_MODEL]
+
+        try:
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=5,
+                        message="Connecting to ComfyUI",
+                        stage="preparing",
+                    )
+                )
+
+            # Check ComfyUI availability
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    resp = await client.get(f"{self.comfyui_url}/system_stats")
+                    if resp.status_code != 200:
+                        return GenerationResult(
+                            success=False,
+                            error_message=f"ComfyUI not responding (status {resp.status_code})",
+                            error_code="COMFYUI_UNAVAILABLE",
+                        )
+                except httpx.ConnectError:
+                    return GenerationResult(
+                        success=False,
+                        error_message=f"Cannot connect to ComfyUI at {self.comfyui_url}",
+                        error_code="CONNECTION_FAILED",
+                    )
+
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=10,
+                        message="Building workflow",
+                        stage="preparing",
+                    )
+                )
+
+            # Build workflow based on model
+            workflow = self._build_workflow(request, model)
+
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=15,
+                        message="Submitting to ComfyUI queue",
+                        stage="submitting",
+                    )
+                )
+
+            # Submit workflow
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{self.comfyui_url}/prompt",
+                    json={
+                        "prompt": workflow,
+                        "client_id": self._client_id,
+                    },
+                )
+
+                if resp.status_code != 200:
+                    return GenerationResult(
+                        success=False,
+                        error_message=f"Failed to submit workflow: {resp.text}",
+                        error_code="SUBMISSION_FAILED",
+                    )
+
+                result = resp.json()
+                prompt_id = result.get("prompt_id")
+
+                if not prompt_id:
+                    return GenerationResult(
+                        success=False,
+                        error_message="No prompt_id returned from ComfyUI",
+                        error_code="NO_PROMPT_ID",
+                    )
+
+            self._active_prompts[str(request.shot_id)] = prompt_id
+
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=20,
+                        message=f"Queued (ID: {prompt_id[:8]}...)",
+                        stage="queued",
+                    )
+                )
+
+            # Poll for completion
+            output_files = await self._poll_completion(
+                prompt_id,
+                request.shot_id,
+                progress_callback,
+            )
+
+            if not output_files:
+                return GenerationResult(
+                    success=False,
+                    error_message="No output files generated",
+                    error_code="NO_OUTPUT",
+                )
+
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=90,
+                        message="Downloading output",
+                        stage="downloading",
+                    )
+                )
+
+            # Download and save output
+            settings = get_settings()
+            shot_dir = settings.output_dir / "shots" / str(request.shot_id)
+            shot_dir.mkdir(parents=True, exist_ok=True)
+
+            output_path = await self._download_output(
+                output_files[0],
+                shot_dir / f"output.{self.output_format}",
+            )
+
+            # Generate thumbnail
+            if progress_callback:
+                await progress_callback(
+                    GenerationProgress(
+                        job_id=request.shot_id,
+                        percent=95,
+                        message="Generating thumbnail",
+                        stage="thumbnail",
+                    )
+                )
+
+            thumbnail_path = await self._generate_thumbnail(
+                Path(output_path),
+                shot_dir / "thumbnail.jpg",
+            )
+
+            # Cleanup
+            self._active_prompts.pop(str(request.shot_id), None)
+
+            return GenerationResult(
+                success=True,
+                output_path=f"shots/{request.shot_id}/output.{self.output_format}",
+                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg"
+                if thumbnail_path
+                else None,
+                duration_seconds=request.duration_seconds,
+                cost_usd=0.0,  # Local = free
+                metadata={
+                    "model": model.id,
+                    "model_name": model.name,
+                    "provider": "comfyui",
+                    "prompt_id": prompt_id,
+                    "seed": request.seed,
+                    "prompt": request.prompt[:200],
+                    "comfyui_url": self.comfyui_url,
+                },
+            )
+
+        except asyncio.TimeoutError:
+            self._active_prompts.pop(str(request.shot_id), None)
+            return GenerationResult(
+                success=False,
+                error_message="Generation timed out",
+                error_code="TIMEOUT",
+            )
+
+        except Exception as e:
+            logger.exception("ComfyUI generation failed")
+            self._active_prompts.pop(str(request.shot_id), None)
+            return GenerationResult(
+                success=False,
+                error_message=str(e),
+                error_code="GENERATION_FAILED",
+            )
+
+    def _build_workflow(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+    ) -> Dict[str, Any]:
+        """Build ComfyUI workflow based on model and request.
+
+        This creates a simplified workflow structure.
+        For production, you'd want to load predefined workflow templates.
+        """
+        # Calculate frame count
+        num_frames = int(request.duration_seconds * request.fps)
+
+        # Base workflow structure (AnimateDiff example)
+        if model.id.startswith("animatediff"):
+            return self._build_animatediff_workflow(request, model, num_frames)
+        elif model.id.startswith("svd"):
+            return self._build_svd_workflow(request, model, num_frames)
+        elif model.id.startswith("wan2"):
+            return self._build_wan2_workflow(request, model, num_frames)
+        else:
+            # Default to AnimateDiff
+            return self._build_animatediff_workflow(request, model, num_frames)
+
+    def _build_animatediff_workflow(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+        num_frames: int,
+    ) -> Dict[str, Any]:
+        """Build AnimateDiff workflow."""
+        seed = request.seed or 42
+
+        return {
+            "1": {
+                "class_type": "CheckpointLoaderSimple",
+                "inputs": {"ckpt_name": "v1-5-pruned-emaonly.safetensors"},
+            },
+            "2": {
+                "class_type": "ADE_LoadAnimateDiffModel",
+                "inputs": {
+                    "model_name": model.extra_params.get(
+                        "motion_module", "mm_sd_v15_v3.safetensors"
+                    ),
+                },
+            },
+            "3": {
+                "class_type": "ADE_ApplyAnimateDiffModel",
+                "inputs": {
+                    "model": ["1", 0],
+                    "motion_model": ["2", 0],
+                },
+            },
+            "4": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "clip": ["1", 1],
+                    "text": request.prompt,
+                },
+            },
+            "5": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "clip": ["1", 1],
+                    "text": request.negative_prompt
+                    or "bad quality, blurry, distorted",
+                },
+            },
+            "6": {
+                "class_type": "EmptyLatentImage",
+                "inputs": {
+                    "width": request.width,
+                    "height": request.height,
+                    "batch_size": num_frames,
+                },
+            },
+            "7": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "model": ["3", 0],
+                    "positive": ["4", 0],
+                    "negative": ["5", 0],
+                    "latent_image": ["6", 0],
+                    "seed": seed,
+                    "steps": request.num_inference_steps or model.default_steps,
+                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                    "sampler_name": "euler_ancestral",
+                    "scheduler": "normal",
+                    "denoise": 1.0,
+                },
+            },
+            "8": {
+                "class_type": "VAEDecode",
+                "inputs": {
+                    "samples": ["7", 0],
+                    "vae": ["1", 2],
+                },
+            },
+            "9": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["8", 0],
+                    "frame_rate": request.fps,
+                    "loop_count": 0,
+                    "filename_prefix": f"shot_{request.shot_id}",
+                    "format": "video/h264-mp4",
+                    "pingpong": False,
+                    "save_output": True,
+                },
+            },
+        }
+
+    def _build_svd_workflow(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+        num_frames: int,
+    ) -> Dict[str, Any]:
+        """Build Stable Video Diffusion workflow."""
+        if not request.input_image_path:
+            raise ValueError("SVD requires an input image")
+
+        seed = request.seed or 42
+
+        return {
+            "1": {
+                "class_type": "ImageOnlyCheckpointLoader",
+                "inputs": {"ckpt_name": "svd_xt_1_1.safetensors"},
+            },
+            "2": {
+                "class_type": "LoadImage",
+                "inputs": {"image": request.input_image_path},
+            },
+            "3": {
+                "class_type": "SVD_img2vid_Conditioning",
+                "inputs": {
+                    "clip_vision": ["1", 1],
+                    "init_image": ["2", 0],
+                    "vae": ["1", 2],
+                    "width": request.width,
+                    "height": request.height,
+                    "video_frames": num_frames,
+                    "motion_bucket_id": 127,
+                    "fps": request.fps,
+                    "augmentation_level": 0.0,
+                },
+            },
+            "4": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "positive": ["3", 0],
+                    "negative": ["3", 1],
+                    "latent_image": ["3", 2],
+                    "seed": seed,
+                    "steps": request.num_inference_steps or model.default_steps,
+                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                    "sampler_name": "euler",
+                    "scheduler": "karras",
+                    "denoise": 1.0,
+                },
+            },
+            "5": {
+                "class_type": "VAEDecode",
+                "inputs": {
+                    "samples": ["4", 0],
+                    "vae": ["1", 2],
+                },
+            },
+            "6": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["5", 0],
+                    "frame_rate": request.fps,
+                    "loop_count": 0,
+                    "filename_prefix": f"shot_{request.shot_id}",
+                    "format": "video/h264-mp4",
+                    "save_output": True,
+                },
+            },
+        }
+
+    def _build_wan2_workflow(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+        num_frames: int,
+    ) -> Dict[str, Any]:
+        """Build Wan2.1 workflow."""
+        seed = request.seed or 42
+
+        return {
+            "1": {
+                "class_type": "WanVideoModelLoader",
+                "inputs": {"model_name": "wan2.1_t2v_1.3b_bf16.safetensors"},
+            },
+            "2": {
+                "class_type": "WanVideoTextEncode",
+                "inputs": {
+                    "text_encoder": ["1", 1],
+                    "prompt": request.prompt,
+                },
+            },
+            "3": {
+                "class_type": "WanVideoTextEncode",
+                "inputs": {
+                    "text_encoder": ["1", 1],
+                    "prompt": request.negative_prompt or "",
+                },
+            },
+            "4": {
+                "class_type": "WanVideoSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "positive": ["2", 0],
+                    "negative": ["3", 0],
+                    "width": request.width,
+                    "height": request.height,
+                    "num_frames": num_frames,
+                    "seed": seed,
+                    "steps": request.num_inference_steps or model.default_steps,
+                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                },
+            },
+            "5": {
+                "class_type": "WanVideoDecode",
+                "inputs": {
+                    "vae": ["1", 2],
+                    "latents": ["4", 0],
+                },
+            },
+            "6": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["5", 0],
+                    "frame_rate": request.fps,
+                    "loop_count": 0,
+                    "filename_prefix": f"shot_{request.shot_id}",
+                    "format": "video/h264-mp4",
+                    "save_output": True,
+                },
+            },
+        }
+
+    async def _poll_completion(
+        self,
+        prompt_id: str,
+        shot_id: Any,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> List[Dict[str, Any]]:
+        """Poll ComfyUI for workflow completion."""
+        import httpx
+
+        elapsed = 0.0
+        last_progress = 20
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            while elapsed < self.POLL_TIMEOUT:
+                # Check history for completion
+                resp = await client.get(f"{self.comfyui_url}/history/{prompt_id}")
+
+                if resp.status_code == 200:
+                    history = resp.json()
+
+                    if prompt_id in history:
+                        prompt_data = history[prompt_id]
+
+                        # Check for errors
+                        if prompt_data.get("status", {}).get("status_str") == "error":
+                            messages = prompt_data.get("status", {}).get("messages", [])
+                            error_msg = "; ".join(str(m) for m in messages)
+                            raise Exception(f"ComfyUI workflow error: {error_msg}")
+
+                        # Check for outputs
+                        outputs = prompt_data.get("outputs", {})
+                        for node_id, node_output in outputs.items():
+                            if "gifs" in node_output:
+                                return node_output["gifs"]
+                            if "videos" in node_output:
+                                return node_output["videos"]
+                            if "images" in node_output:
+                                # Fallback to image sequence
+                                return node_output["images"]
+
+                # Check queue status for progress
+                queue_resp = await client.get(f"{self.comfyui_url}/queue")
+                if queue_resp.status_code == 200:
+                    queue = queue_resp.json()
+                    running = queue.get("queue_running", [])
+
+                    # Find our prompt in running queue
+                    for item in running:
+                        if item[1] == prompt_id:
+                            # Estimate progress based on time
+                            progress = min(85, 20 + int(elapsed / self.POLL_TIMEOUT * 65))
+                            if progress > last_progress and progress_callback:
+                                await progress_callback(
+                                    GenerationProgress(
+                                        job_id=shot_id,
+                                        percent=progress,
+                                        message="Generating video...",
+                                        stage="generating",
+                                    )
+                                )
+                                last_progress = progress
+                            break
+
+                await asyncio.sleep(self.POLL_INTERVAL)
+                elapsed += self.POLL_INTERVAL
+
+        raise asyncio.TimeoutError("ComfyUI workflow polling timed out")
+
+    async def _download_output(
+        self,
+        file_info: Dict[str, Any],
+        output_path: Path,
+    ) -> str:
+        """Download output file from ComfyUI."""
+        import httpx
+
+        filename = file_info.get("filename")
+        subfolder = file_info.get("subfolder", "")
+        file_type = file_info.get("type", "output")
+
+        params = {
+            "filename": filename,
+            "subfolder": subfolder,
+            "type": file_type,
+        }
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.get(f"{self.comfyui_url}/view", params=params)
+            resp.raise_for_status()
+
+            with open(output_path, "wb") as f:
+                f.write(resp.content)
+
+        return str(output_path)
+
+    async def _generate_thumbnail(
+        self,
+        video_path: Path,
+        thumbnail_path: Path,
+    ) -> Optional[str]:
+        """Generate thumbnail from video using ffmpeg."""
+        if not video_path.exists():
+            return None
+
+        try:
+            from scenemachine.utils.ffmpeg import get_ffmpeg, FFmpegNotFoundError
+
+            ffmpeg = get_ffmpeg()
+            await ffmpeg.extract_frame(
+                video_path=video_path,
+                output_path=thumbnail_path,
+                timestamp=1.0,
+                quality=2,
+            )
+
+            if thumbnail_path.exists():
+                return str(thumbnail_path)
+        except Exception as e:
+            logger.warning(f"Thumbnail generation failed: {e}")
+
+        return None
+
+    async def check_availability(self) -> bool:
+        """Check if ComfyUI is available."""
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(f"{self.comfyui_url}/system_stats")
+                return resp.status_code == 200
+        except Exception:
+            return False
+
+    async def check_health(self) -> ProviderHealth:
+        """Detailed health check for ComfyUI."""
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # Get system stats
+                resp = await client.get(f"{self.comfyui_url}/system_stats")
+                if resp.status_code != 200:
+                    return ProviderHealth(
+                        available=False,
+                        message=f"ComfyUI returned status {resp.status_code}",
+                        error_code="BAD_STATUS",
+                    )
+
+                stats = resp.json()
+
+                # Get queue info
+                queue_resp = await client.get(f"{self.comfyui_url}/queue")
+                queue_length = 0
+                if queue_resp.status_code == 200:
+                    queue = queue_resp.json()
+                    queue_length = len(queue.get("queue_pending", []))
+
+                return ProviderHealth(
+                    available=True,
+                    message="ComfyUI is running",
+                    latency_ms=None,  # Would need to measure
+                    models_available=len(self.MODELS),
+                    queue_length=queue_length,
+                )
+
+        except Exception as e:
+            return ProviderHealth(
+                available=False,
+                message=f"Cannot connect to ComfyUI: {e}",
+                error_code="CONNECTION_FAILED",
+            )
+
+    async def cancel(self, provider_job_id: str) -> bool:
+        """Cancel a running workflow."""
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{self.comfyui_url}/interrupt",
+                )
+                return resp.status_code == 200
+        except Exception as e:
+            logger.warning(f"Failed to cancel ComfyUI workflow: {e}")
+            return False
+
+    def estimate_cost(
+        self,
+        duration_seconds: float = 3.0,
+        model_id: Optional[str] = None,
+    ) -> float:
+        """Local generation is free (just electricity)."""
+        return 0.0
+
+    def list_models(self) -> List[Dict[str, Any]]:
+        """List available models."""
+        return [
+            {
+                "id": model_id,
+                "name": model.name,
+                "cost_per_second": model.cost_per_second,
+                "supports_text_to_video": model.supports_text_to_video,
+                "supports_image_to_video": model.supports_image_to_video,
+                "max_duration": model.max_duration,
+                "default_fps": model.default_fps,
+            }
+            for model_id, model in self.MODELS.items()
+        ]
+
+    def get_model(self, model_id: str) -> Optional[VideoModel]:
+        """Get model by ID."""
+        return self.MODELS.get(model_id)
