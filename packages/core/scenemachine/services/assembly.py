@@ -275,15 +275,23 @@ class AssemblyService:
             amount = grade.vignette_amount / 100
             filters.append(f"vignette=PI*{amount:.2f}")
 
-        # LUT application
+        # LUT application with intensity blending
         if grade.lut_path and Path(grade.lut_path).exists():
             intensity = grade.lut_intensity / 100
-            if intensity < 1.0:
-                # Blend LUT with original
-                filters.append(f"lut3d={grade.lut_path}:interp=trilinear")
-                # TODO: Add blend for partial LUT intensity
-            else:
-                filters.append(f"lut3d={grade.lut_path}:interp=trilinear")
+            escaped_lut_path = grade.lut_path.replace(":", "\\:")
+            if intensity < 1.0 and intensity > 0:
+                # Blend LUT with original using split and blend
+                # Split input, apply LUT to one branch, blend with specified intensity
+                blend_expr = f"A*{1-intensity:.3f}+B*{intensity:.3f}"
+                filters.append(
+                    f"split[lut_orig][lut_togr];"
+                    f"[lut_togr]lut3d={escaped_lut_path}:interp=trilinear[lut_graded];"
+                    f"[lut_orig][lut_graded]blend=all_expr='{blend_expr}'"
+                )
+            elif intensity >= 1.0:
+                # Full LUT intensity - apply directly
+                filters.append(f"lut3d={escaped_lut_path}:interp=trilinear")
+            # intensity == 0 means no LUT applied, skip
 
         return ",".join(filters) if filters else ""
 

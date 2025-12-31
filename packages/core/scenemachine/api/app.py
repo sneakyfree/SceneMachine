@@ -10,6 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from scenemachine.api.middleware import (
+    RateLimitConfig,
+    RateLimitMiddleware,
+    SecurityHeadersConfig,
+    SecurityHeadersMiddleware,
+    RequestValidationConfig,
+    RequestValidationMiddleware,
+)
 from scenemachine.api.routes import (
     analytics,
     archive,
@@ -100,6 +108,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Add request ID middleware
     app.add_middleware(RequestIDMiddleware)
+
+    # Add security middleware (order matters - first added is last executed)
+    # Request validation (size limits, blocked agents)
+    app.add_middleware(
+        RequestValidationMiddleware,
+        config=RequestValidationConfig(
+            max_body_size=100 * 1024 * 1024,  # 100MB for video uploads
+        ),
+    )
+
+    # Security headers
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        config=SecurityHeadersConfig(
+            hsts_enabled=not settings.debug,
+        ),
+    )
+
+    # Rate limiting (only in production)
+    if not settings.debug:
+        app.add_middleware(
+            RateLimitMiddleware,
+            config=RateLimitConfig(
+                requests_per_second=20,
+                requests_per_minute=200,
+                requests_per_hour=2000,
+                burst_size=50,
+                custom_limits={
+                    "/api/v1/generation": (30, 60),  # 30 per minute for generation
+                    "/api/v1/projects": (60, 60),  # 60 per minute for projects
+                },
+            ),
+        )
 
     # Global exception handler
     @app.exception_handler(Exception)
