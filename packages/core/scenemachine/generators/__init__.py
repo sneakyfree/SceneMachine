@@ -3,12 +3,22 @@
 This module provides video generation capabilities through multiple providers:
 - ReplicateProvider: Cloud-based generation via Replicate.com
 - FalProvider: Cloud-based generation via Fal.ai
+- ComfyUIProvider: Local generation via ComfyUI
+- RunPodProvider: Serverless GPU generation via RunPod
 - MockGenerationProvider: Local mock for development/testing
 
 Usage:
-    from scenemachine.generators import ReplicateProvider, FalProvider
+    from scenemachine.generators import (
+        get_provider_registry,
+        ReplicateProvider,
+        FalProvider,
+    )
 
-    # Create a provider
+    # Using the registry (recommended)
+    registry = get_provider_registry()
+    provider = registry.get_provider(JobProvider.REPLICATE, api_token="...")
+
+    # Or create directly
     provider = ReplicateProvider(api_token="your-token", model_id="minimax")
 
     # Estimate cost
@@ -18,45 +28,73 @@ Usage:
     result = await provider.generate(request, progress_callback)
 """
 
-from scenemachine.services.generation import (
-    # Base classes
+# Base classes and interfaces
+from .base import (
+    GenerationProgress,
     GenerationProvider,
     GenerationRequest,
     GenerationResult,
-    GenerationProgress,
     ProgressCallback,
+    ProviderCapabilities,
+    ProviderFeature,
+    ProviderHealth,
+    ProviderRegistry,
     VideoModel,
-    # Providers
-    ReplicateProvider,
-    FalProvider,
-    MockGenerationProvider,
-    # Service
+    get_provider_registry,
+)
+
+# Provider implementations
+from .comfyui import ComfyUIProvider
+from .fal import FalProvider
+from .mock import MockGenerationProvider
+from .replicate import ReplicateProvider
+from .runpod import RunPodProvider
+
+# Registry setup
+from .registry import (
+    check_provider_status,
+    register_builtin_providers,
+    setup_providers,
+)
+
+# Import from services for backwards compatibility
+from scenemachine.services.generation import (
     GenerationService,
     get_generation_service,
 )
-
 from scenemachine.services.queue_worker import (
     QueueWorker,
     WorkerStats,
     get_queue_worker,
+    managed_queue_worker,
     start_queue_worker,
     stop_queue_worker,
-    managed_queue_worker,
 )
 
 __all__ = [
-    # Base classes
+    # Base classes and interfaces
     "GenerationProvider",
     "GenerationRequest",
     "GenerationResult",
     "GenerationProgress",
     "ProgressCallback",
+    "ProviderCapabilities",
+    "ProviderFeature",
+    "ProviderHealth",
+    "ProviderRegistry",
     "VideoModel",
-    # Providers
+    "get_provider_registry",
+    # Provider implementations
     "ReplicateProvider",
     "FalProvider",
+    "ComfyUIProvider",
+    "RunPodProvider",
     "MockGenerationProvider",
-    # Service
+    # Registry setup
+    "setup_providers",
+    "register_builtin_providers",
+    "check_provider_status",
+    # Service (backwards compatibility)
     "GenerationService",
     "get_generation_service",
     # Queue worker

@@ -5,7 +5,7 @@ import os
 import platform
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.api.dependencies import get_db
 from scenemachine.config import get_settings
+from scenemachine.models.generation_job import JobProvider
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,114 @@ async def readiness_check(
         ready=all_ok,
         checks=checks,
         timestamp=datetime.utcnow().isoformat(),
+    )
+
+
+class ProviderHealthResponse(BaseModel):
+    """Health status of a single video generation provider."""
+
+    provider: str
+    name: str
+    available: bool
+    message: str
+    latency_ms: Optional[float] = None
+    models_available: int = 0
+    queue_length: Optional[int] = None
+
+
+class ProvidersHealthResponse(BaseModel):
+    """Health status of all video generation providers."""
+
+    providers: List[ProviderHealthResponse]
+    total_registered: int
+    total_available: int
+    timestamp: str
+
+
+@router.get("/health/providers", response_model=ProvidersHealthResponse)
+async def providers_health_check() -> ProvidersHealthResponse:
+    """Check health of all video generation providers.
+
+    Returns the status of each registered provider including
+    availability, latency, and number of available models.
+    """
+    from scenemachine.generators import get_provider_registry, setup_providers
+
+    # Ensure providers are registered
+    registry = get_provider_registry()
+    if not registry.list_providers():
+        setup_providers()
+
+    # Get health status of all providers
+    health = await registry.get_all_health()
+
+    providers = []
+    for provider_type, status in health.items():
+        provider = registry.get_provider(provider_type)
+        providers.append(
+            ProviderHealthResponse(
+                provider=provider_type.value,
+                name=provider.name if provider else "Unknown",
+                available=status.available,
+                message=status.message,
+                latency_ms=status.latency_ms,
+                models_available=status.models_available,
+                queue_length=status.queue_length,
+            )
+        )
+
+    return ProvidersHealthResponse(
+        providers=providers,
+        total_registered=len(registry.list_providers()),
+        total_available=sum(1 for s in health.values() if s.available),
+        timestamp=datetime.utcnow().isoformat(),
+    )
+
+
+@router.get("/health/providers/{provider_type}")
+async def provider_health_check(provider_type: str) -> ProviderHealthResponse:
+    """Check health of a specific video generation provider.
+
+    Args:
+        provider_type: Provider type (e.g., 'replicate', 'fal', 'comfyui')
+    """
+    from scenemachine.generators import get_provider_registry, setup_providers
+
+    # Ensure providers are registered
+    registry = get_provider_registry()
+    if not registry.list_providers():
+        setup_providers()
+
+    # Map string to JobProvider enum
+    try:
+        job_provider = JobProvider(provider_type.lower())
+    except ValueError:
+        return ProviderHealthResponse(
+            provider=provider_type,
+            name="Unknown",
+            available=False,
+            message=f"Unknown provider type: {provider_type}",
+        )
+
+    provider = registry.get_provider(job_provider)
+    if not provider:
+        return ProviderHealthResponse(
+            provider=provider_type,
+            name="Unknown",
+            available=False,
+            message=f"Provider {provider_type} not registered",
+        )
+
+    status = await provider.check_health()
+
+    return ProviderHealthResponse(
+        provider=provider_type,
+        name=provider.name,
+        available=status.available,
+        message=status.message,
+        latency_ms=status.latency_ms,
+        models_available=status.models_available,
+        queue_length=status.queue_length,
     )
 
 

@@ -68,6 +68,14 @@ class Settings(BaseSettings):
     fal_api_key: Optional[str] = None
     fal_video_model: Optional[str] = None  # e.g., "ltx", "cogvideox", "hunyuan"
 
+    # RunPod API (serverless GPU)
+    runpod_api_key: Optional[str] = None
+    runpod_endpoint_id: Optional[str] = None
+
+    # ComfyUI (local generation)
+    comfyui_url: str = "http://127.0.0.1:8188"
+    comfyui_default_model: Optional[str] = None  # e.g., "animatediff-v3"
+
     # ElevenLabs API (text-to-speech)
     elevenlabs_api_key: Optional[str] = None
     elevenlabs_voice_id: Optional[str] = None
