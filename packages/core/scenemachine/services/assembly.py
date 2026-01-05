@@ -26,6 +26,7 @@ from scenemachine.models.export_history import (
 )
 from scenemachine.models.project import ProjectState
 from scenemachine.models.shot import ShotState
+from scenemachine.models.text_overlay import TextOverlay
 from scenemachine.utils.ffmpeg import (
     FFmpeg,
     FFmpegError,
@@ -82,6 +83,7 @@ class ExportSettings:
     audio_bitrate: str = "192k"
     include_audio: bool = True
     include_subtitles: bool = False
+    include_text_overlays: bool = True
     watermark: Optional[str] = None
     watermark_position: str = "bottom_right"
     watermark_opacity: float = 0.5
@@ -331,6 +333,208 @@ class AssemblyService:
             return f"subtitles={escaped_path}:force_style='{style}'"
         return f"subtitles={escaped_path}"
 
+    def _build_text_overlay_filter(
+        self,
+        overlays: List[Dict],
+        video_width: int = 1920,
+        video_height: int = 1080,
+    ) -> str:
+        """Build FFmpeg filter string for text overlays.
+
+        Uses the drawtext filter to render text on video.
+        Supports timing (enable between), positioning, styling, and fade animations.
+
+        Args:
+            overlays: List of text overlay dictionaries from TextOverlay.to_dict()
+            video_width: Video width in pixels for positioning
+            video_height: Video height in pixels for positioning
+
+        Returns:
+            FFmpeg filter string
+        """
+        if not overlays:
+            return ""
+
+        filters = []
+
+        # Sort by z-index so lower z-index overlays are applied first
+        sorted_overlays = sorted(overlays, key=lambda o: o.get("zIndex", 1))
+
+        for overlay in sorted_overlays:
+            if not overlay.get("isVisible", True):
+                continue
+
+            text = overlay.get("text", "")
+            if not text:
+                continue
+
+            # Escape special characters for FFmpeg drawtext
+            escaped_text = (
+                text.replace("\\", "\\\\")
+                .replace(":", "\\:")
+                .replace("'", "\\'")
+                .replace("%", "\\%")
+                .replace("\n", "\\n")  # Handle newlines
+            )
+
+            style = overlay.get("style", {})
+            position = overlay.get("position", "center")
+            timing = overlay.get("timing", {})
+            animation = overlay.get("animation", {})
+
+            # Calculate position
+            x, y = self._get_text_position(
+                position,
+                overlay.get("customX"),
+                overlay.get("customY"),
+                video_width,
+                video_height,
+                style.get("textAlign", "center"),
+            )
+
+            # Get font settings
+            font_family = style.get("fontFamily", "Arial")
+            font_size = style.get("fontSize", 48)
+            font_color = style.get("color", "#FFFFFF").lstrip("#")
+            font_weight = style.get("fontWeight", "normal")
+
+            # Build drawtext filter
+            parts = [
+                f"drawtext=text='{escaped_text}'",
+                f"fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Fallback font
+                f"fontsize={font_size}",
+                f"fontcolor=0x{font_color}",
+                f"x={x}",
+                f"y={y}",
+            ]
+
+            # Add text shadow if enabled
+            if style.get("textShadow", False):
+                shadow_color = style.get("textShadowColor", "#000000").lstrip("#")
+                shadow_blur = style.get("textShadowBlur", 4)
+                parts.append(f"shadowcolor=0x{shadow_color}")
+                parts.append(f"shadowx=2")
+                parts.append(f"shadowy=2")
+
+            # Add background box if enabled
+            bg_opacity = style.get("backgroundOpacity", 0)
+            if bg_opacity > 0:
+                bg_color = style.get("backgroundColor", "#000000").lstrip("#")
+                parts.append(f"box=1")
+                parts.append(f"boxcolor=0x{bg_color}@{bg_opacity:.2f}")
+                parts.append(f"boxborderw=10")
+
+            # Add timing using enable expression
+            start_time = timing.get("startTime", 0) / 1000.0  # Convert ms to seconds
+            duration = timing.get("duration", 5000) / 1000.0
+            end_time = start_time + duration
+
+            # Get animation settings
+            anim_in = animation.get("in", "none")
+            anim_out = animation.get("out", "none")
+            anim_in_dur = animation.get("inDuration", 500) / 1000.0
+            anim_out_dur = animation.get("outDuration", 500) / 1000.0
+
+            # Build enable and alpha expressions for fade animations
+            if anim_in == "fade_in" and anim_out == "fade_out":
+                # Fade in at start, fade out at end
+                alpha_expr = (
+                    f"if(lt(t\\,{start_time + anim_in_dur})\\,"
+                    f"(t-{start_time})/{anim_in_dur}\\,"
+                    f"if(gt(t\\,{end_time - anim_out_dur})\\,"
+                    f"({end_time}-t)/{anim_out_dur}\\,1))"
+                )
+                parts.append(f"alpha='{alpha_expr}'")
+            elif anim_in == "fade_in":
+                alpha_expr = (
+                    f"if(lt(t\\,{start_time + anim_in_dur})\\,"
+                    f"(t-{start_time})/{anim_in_dur}\\,1)"
+                )
+                parts.append(f"alpha='{alpha_expr}'")
+            elif anim_out == "fade_out":
+                alpha_expr = (
+                    f"if(gt(t\\,{end_time - anim_out_dur})\\,"
+                    f"({end_time}-t)/{anim_out_dur}\\,1)"
+                )
+                parts.append(f"alpha='{alpha_expr}'")
+            elif anim_in == "fade_in_out":
+                # Same fade on both ends
+                fade_dur = max(anim_in_dur, anim_out_dur)
+                alpha_expr = (
+                    f"if(lt(t\\,{start_time + fade_dur})\\,"
+                    f"(t-{start_time})/{fade_dur}\\,"
+                    f"if(gt(t\\,{end_time - fade_dur})\\,"
+                    f"({end_time}-t)/{fade_dur}\\,1))"
+                )
+                parts.append(f"alpha='{alpha_expr}'")
+
+            # Enable expression for timing
+            parts.append(f"enable='between(t,{start_time},{end_time})'")
+
+            filters.append(":".join(parts))
+
+        return ",".join(filters)
+
+    def _get_text_position(
+        self,
+        position: str,
+        custom_x: Optional[float],
+        custom_y: Optional[float],
+        video_width: int,
+        video_height: int,
+        text_align: str = "center",
+    ) -> tuple[str, str]:
+        """Calculate x,y position expressions for FFmpeg drawtext.
+
+        Args:
+            position: Position preset name
+            custom_x: Custom X percentage (0-100) for custom position
+            custom_y: Custom Y percentage (0-100) for custom position
+            video_width: Video width
+            video_height: Video height
+            text_align: Text alignment (left, center, right)
+
+        Returns:
+            Tuple of (x_expr, y_expr) for FFmpeg
+        """
+        # Padding as percentage
+        pad_x = int(video_width * 0.05)
+        pad_y = int(video_height * 0.05)
+
+        # X position based on text align
+        if text_align == "left":
+            x_left = str(pad_x)
+            x_center = "(w-text_w)/2"
+            x_right = f"w-text_w-{pad_x}"
+        elif text_align == "right":
+            x_left = f"text_w+{pad_x}"
+            x_center = "(w-text_w)/2"
+            x_right = f"w-text_w-{pad_x}"
+        else:  # center
+            x_left = "(w-text_w)/2"
+            x_center = "(w-text_w)/2"
+            x_right = "(w-text_w)/2"
+
+        position_map = {
+            "top_left": (x_left, str(pad_y)),
+            "top_center": (x_center, str(pad_y)),
+            "top_right": (x_right, str(pad_y)),
+            "center_left": (str(pad_x), "(h-text_h)/2"),
+            "center": ("(w-text_w)/2", "(h-text_h)/2"),
+            "center_right": (f"w-text_w-{pad_x}", "(h-text_h)/2"),
+            "bottom_left": (str(pad_x), f"h-text_h-{int(video_height * 0.1)}"),
+            "bottom_center": ("(w-text_w)/2", f"h-text_h-{int(video_height * 0.1)}"),
+            "bottom_right": (f"w-text_w-{pad_x}", f"h-text_h-{int(video_height * 0.1)}"),
+        }
+
+        if position == "custom" and custom_x is not None and custom_y is not None:
+            # Convert percentage to expression
+            x_expr = f"{int(custom_x / 100 * video_width)}-text_w/2"
+            y_expr = f"{int(custom_y / 100 * video_height)}-text_h/2"
+            return (x_expr, y_expr)
+
+        return position_map.get(position, ("(w-text_w)/2", "(h-text_h)/2"))
+
     async def generate_subtitles(
         self,
         project_id: UUID,
@@ -494,50 +698,82 @@ class AssemblyService:
             # No transitions needed, use concat
             return await self._concat_videos(shot_paths, output_path)
 
+        # Get FFmpeg utility for probing video info
+        ffmpeg = await self._get_ffmpeg()
+
+        # Get actual durations of each video using ffprobe
+        video_durations: List[float] = []
+        for path in shot_paths:
+            try:
+                info = await ffmpeg.get_video_info(Path(path))
+                video_durations.append(info.duration)
+            except Exception as e:
+                logger.warning(f"Failed to get duration for {path}, using default: {e}")
+                video_durations.append(3.0)  # Default fallback
+
         # Build complex filter for transitions
         filter_parts = []
-        inputs = ""
+        input_args = []
 
-        for i, path in enumerate(shot_paths):
-            inputs += f"-i {path} "
+        for path in shot_paths:
+            input_args.extend(["-i", path])
 
         # Build xfade chain
+        # xfade offset is calculated as: previous accumulated duration - transition duration
         current_output = "[0:v]"
-        offset = 0.0
+        accumulated_duration = video_durations[0] if video_durations else 3.0
 
-        for i, (path, trans) in enumerate(zip(shot_paths[1:], transitions)):
-            trans_type = trans.get("type", "fade")
-            duration = trans.get("duration", 500) / 1000  # ms to seconds
+        for i, trans in enumerate(transitions):
+            if i >= len(shot_paths) - 1:
+                break
 
-            # Get video duration (approximate)
-            # In production, use ffprobe
-            video_duration = 3.0  # Default
+            trans_type = trans.get("type", "fade") if trans else "fade"
+            trans_duration = (trans.get("duration", 500) if trans else 0) / 1000  # ms to seconds
 
-            offset += video_duration - duration
+            # Skip zero-duration transitions
+            if trans_duration <= 0:
+                # Simple concat for this pair, will be handled differently
+                continue
+
+            # Offset is when the transition starts (end of accumulated minus transition duration)
+            offset = accumulated_duration - trans_duration
 
             next_input = f"[{i + 1}:v]"
-            output_label = f"[v{i}]" if i < len(shot_paths) - 2 else "[vout]"
+            output_label = f"[v{i}]" if i < len(transitions) - 1 else "[vout]"
 
             # Map transition types to xfade transitions
             xfade_type = self._map_transition_type(trans_type)
 
             filter_parts.append(
                 f"{current_output}{next_input}xfade=transition={xfade_type}:"
-                f"duration={duration}:offset={offset}{output_label}"
+                f"duration={trans_duration:.3f}:offset={offset:.3f}{output_label}"
             )
 
-            current_output = output_label if i < len(shot_paths) - 2 else ""
+            current_output = output_label
+
+            # Accumulated duration decreases by transition overlap
+            accumulated_duration = offset + video_durations[i + 1] if i + 1 < len(video_durations) else accumulated_duration
+
+        if not filter_parts:
+            # No valid transitions, use simple concat
+            return await self._concat_videos(shot_paths, output_path)
 
         filter_complex = ";".join(filter_parts)
 
-        cmd = f"ffmpeg -y {inputs}-filter_complex \"{filter_complex}\" -map \"[vout]\" {output_path}"
+        # Build command with proper quoting
+        cmd = (
+            ["ffmpeg", "-y"] +
+            input_args +
+            ["-filter_complex", filter_complex, "-map", "[vout]"] +
+            ["-c:v", "libx264", "-preset", "medium", "-crf", "23"] +
+            [str(output_path)]
+        )
 
         try:
-            # Ensure FFmpeg is available first
-            await self._get_ffmpeg()
+            logger.debug(f"Running transition command: {' '.join(cmd)}")
 
-            process = await asyncio.create_subprocess_shell(
-                cmd,
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -730,54 +966,62 @@ class AssemblyService:
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "scene.mp4"
 
-        # Build concat list
-        concat_file = output_dir / "concat.txt"
-        with open(concat_file, "w") as f:
-            for shot in sorted_shots:
-                shot_path = self.settings.output_dir / shot.output_video_path
-                if shot_path.exists():
-                    f.write(f"file '{shot_path.absolute()}'\n")
+        # Collect shot paths and transitions
+        shot_paths: List[str] = []
+        transitions: List[Dict[str, Any]] = []
+
+        for shot in sorted_shots:
+            shot_path = self.settings.output_dir / shot.output_video_path
+            if shot_path.exists():
+                shot_paths.append(str(shot_path.absolute()))
+                # Collect transition info for this shot (transition to next)
+                if shot.transition_type:
+                    transitions.append({
+                        "type": shot.transition_type,
+                        "duration": shot.transition_duration or 500,  # Default 500ms
+                    })
+                else:
+                    transitions.append(None)  # No transition
+
+        # Remove last transition (no next shot to transition to)
+        if transitions:
+            transitions = transitions[:-1]
+
+        # Filter out None transitions for counting
+        has_transitions = any(t is not None for t in transitions)
 
         if progress_callback:
             await progress_callback(
                 AssemblyProgress(
                     stage="encoding",
                     percent=50,
-                    message="Encoding scene video",
+                    message="Encoding scene video" + (" with transitions" if has_transitions else ""),
                 )
             )
 
-        # Use FFmpeg to concatenate
-        try:
-            ffmpeg = await self._get_ffmpeg()
-
-            cmd = [
-                "ffmpeg", "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(concat_file),
-                "-c", "copy",
-                str(output_path),
+        # Use transitions if any shots have them defined
+        if has_transitions and len(shot_paths) >= 2:
+            # Build transitions list, replacing None with default fade
+            transition_configs = [
+                t if t else {"type": "fade", "duration": 0}
+                for t in transitions
             ]
+            # Filter out zero-duration transitions
+            active_transitions = [t for t in transition_configs if t["duration"] > 0]
 
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-
-            if process.returncode != 0:
-                error_msg = stderr.decode() if stderr else "Unknown FFmpeg error"
-                raise FFmpegExecutionError(
-                    f"Scene assembly failed: {error_msg}",
-                    return_code=process.returncode,
-                    stderr=error_msg,
+            if active_transitions:
+                logger.info(f"Assembling scene {scene_id} with {len(active_transitions)} transitions")
+                await self.apply_transitions(
+                    shot_paths,
+                    transition_configs,
+                    output_path,
                 )
-
-        finally:
-            # Clean up concat file
-            concat_file.unlink(missing_ok=True)
+            else:
+                # No active transitions, use simple concat
+                await self._concat_videos(shot_paths, output_path)
+        else:
+            # No transitions, use simple concat
+            await self._concat_videos(shot_paths, output_path)
 
         if progress_callback:
             await progress_callback(
@@ -1079,8 +1323,57 @@ class AssemblyService:
                 )
             subtitle_file = await self.generate_subtitles(project_id, export_dir)
 
+        # Fetch text overlays for the project
+        text_overlays = []
+        if settings.include_text_overlays:
+            if progress_callback:
+                await progress_callback(
+                    AssemblyProgress(
+                        stage="text_overlays",
+                        percent=28,
+                        message="Applying text overlays",
+                    )
+                )
+            # Query text overlays for this project
+            overlay_stmt = select(TextOverlay).where(
+                TextOverlay.project_id == project_id,
+                TextOverlay.is_visible == True,
+            ).order_by(TextOverlay.z_index)
+            overlay_result = await self.session.execute(overlay_stmt)
+            text_overlays = overlay_result.scalars().all()
+            logger.info(f"Found {len(text_overlays)} text overlays for project {project_id}")
+
         # Build video filter chain
         video_filters = [f"scale={width}:{height}"]
+
+        # Add text overlays
+        if text_overlays:
+            overlay_dicts = []
+            for overlay in text_overlays:
+                overlay_dicts.append({
+                    "text": overlay.text,
+                    "position": overlay.position.value if overlay.position else "center",
+                    "customX": overlay.custom_x,
+                    "customY": overlay.custom_y,
+                    "style": overlay.style or {},
+                    "timing": {
+                        "startTime": overlay.start_time_ms,
+                        "duration": overlay.duration_ms,
+                    },
+                    "animation": {
+                        "in": overlay.animation_in.value if overlay.animation_in else "none",
+                        "out": overlay.animation_out.value if overlay.animation_out else "none",
+                        "inDuration": overlay.animation_in_duration_ms,
+                        "outDuration": overlay.animation_out_duration_ms,
+                    },
+                    "zIndex": overlay.z_index,
+                    "isVisible": overlay.is_visible,
+                })
+            text_overlay_filter = self._build_text_overlay_filter(
+                overlay_dicts, int(width), int(height)
+            )
+            if text_overlay_filter:
+                video_filters.append(text_overlay_filter)
 
         # Add color grading
         if settings.color_grade:

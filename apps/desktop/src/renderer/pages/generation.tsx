@@ -24,11 +24,14 @@ import {
   Sparkles,
   CheckCircle,
   XCircle,
+  Settings,
+  ChevronDown,
 } from 'lucide-react';
-import { ShotPreview } from '../components/shot-preview';
+import { ShotPreview, ModelSelector, BatchCostSummary } from '../components';
 import { cn } from '../lib/utils';
 import { useWebSocketEvent, EventType, WebSocketEvent } from '../lib/websocket';
 import { useToast } from '../stores/toast-store';
+import { useGenerationStore } from '../stores/generation-store';
 
 interface Scene {
   id: string;
@@ -82,7 +85,30 @@ export function GenerationPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filter, setFilter] = useState<FilterType>('all');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showModelSettings, setShowModelSettings] = useState(false);
   const toast = useToast();
+
+  // Generation store for provider/model selection
+  const {
+    selectedProvider,
+    selectedModel,
+    setProvider,
+    setModel,
+    fetchProvidersHealth,
+    fetchModelsForProvider,
+  } = useGenerationStore();
+
+  // Fetch provider health on mount
+  useEffect(() => {
+    fetchProvidersHealth();
+  }, [fetchProvidersHealth]);
+
+  // Fetch models when provider changes
+  useEffect(() => {
+    if (selectedProvider) {
+      fetchModelsForProvider(selectedProvider);
+    }
+  }, [selectedProvider, fetchModelsForProvider]);
 
   // Fetch scenes with shots
   const { data: scenes, isLoading: isLoadingScenes, refetch: refetchScenes } = useQuery({
@@ -180,7 +206,8 @@ export function GenerationPage() {
     mutationFn: async () => {
       return window.electronAPI.backendRequest('generation.queueProject', {
         project_id: projectId,
-        provider: 'local',
+        provider: selectedProvider || 'mock',
+        model: selectedModel || undefined,
       });
     },
     onSuccess: () => {
@@ -249,7 +276,8 @@ export function GenerationPage() {
     mutationFn: async (shotId: string) => {
       return window.electronAPI.backendRequest('generation.queueShot', {
         shot_id: shotId,
-        provider: 'local',
+        provider: selectedProvider || 'mock',
+        model: selectedModel || undefined,
       });
     },
     onSuccess: () => {
@@ -448,6 +476,90 @@ export function GenerationPage() {
           <p className="text-xs text-surface-500 mt-2">
             Processing... {queueStatus?.running || 0} job(s) running
           </p>
+        )}
+      </div>
+
+      {/* Model Settings Panel */}
+      <div className="card p-4 mb-6">
+        <button
+          onClick={() => setShowModelSettings(!showModelSettings)}
+          className="flex items-center justify-between w-full"
+        >
+          <div className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-brand-400" />
+            <span className="font-medium">Generation Settings</span>
+            {selectedProvider && (
+              <span className="px-2 py-0.5 bg-surface-700 text-xs rounded">
+                {selectedProvider}
+                {selectedModel && ` / ${selectedModel}`}
+              </span>
+            )}
+          </div>
+          <ChevronDown
+            className={cn(
+              'w-5 h-5 text-surface-400 transition-transform',
+              showModelSettings && 'rotate-180'
+            )}
+          />
+        </button>
+
+        {showModelSettings && (
+          <div className="mt-4 pt-4 border-t border-surface-700 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Provider Selection */}
+              <div>
+                <label className="block text-sm text-surface-400 mb-2">
+                  Video Provider
+                </label>
+                <select
+                  value={selectedProvider || ''}
+                  onChange={(e) => {
+                    setProvider(e.target.value);
+                    setModel(null);
+                  }}
+                  className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+                >
+                  <option value="">Select provider...</option>
+                  <option value="mock">Mock (Testing)</option>
+                  <option value="replicate">Replicate</option>
+                  <option value="fal">Fal.ai</option>
+                  <option value="comfyui">ComfyUI (Local)</option>
+                  <option value="runpod">RunPod</option>
+                </select>
+              </div>
+
+              {/* Model Selection */}
+              {selectedProvider && (
+                <div>
+                  <label className="block text-sm text-surface-400 mb-2">
+                    Model
+                  </label>
+                  <ModelSelector
+                    providerId={selectedProvider}
+                    selectedModel={selectedModel}
+                    onModelSelect={setModel}
+                    showCost
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Cost Estimate for Pending Shots */}
+            {stats.pending > 0 && selectedProvider && (
+              <div className="mt-4 pt-4 border-t border-surface-700">
+                <BatchCostSummary
+                  provider={selectedProvider}
+                  modelId={selectedModel || undefined}
+                  shotCount={stats.pending}
+                  totalDurationSeconds={
+                    allShots
+                      .filter((s) => s.state === 'planned' || s.state === 'queued')
+                      .reduce((sum, s) => sum + (s.durationSeconds || 5), 0)
+                  }
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
 

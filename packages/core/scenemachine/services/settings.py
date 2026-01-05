@@ -96,6 +96,11 @@ class SettingsService:
         max_cache_size_gb: Optional[int] = None,
         default_export_format: Optional[str] = None,
         default_export_quality: Optional[str] = None,
+        # Accessibility settings
+        font_size_scale: Optional[str] = None,
+        high_contrast_enabled: Optional[bool] = None,
+        reduce_motion_enabled: Optional[bool] = None,
+        large_click_targets_enabled: Optional[bool] = None,
         additional_settings: Optional[Dict[str, Any]] = None,
     ) -> UserSettings:
         """Update user settings.
@@ -170,6 +175,22 @@ class SettingsService:
             if default_export_quality not in valid_qualities:
                 raise ValueError(f"Invalid export quality: {default_export_quality}")
             settings.default_export_quality = default_export_quality
+
+        # Accessibility settings
+        if font_size_scale is not None:
+            valid_scales = ["small", "medium", "large", "extra-large"]
+            if font_size_scale not in valid_scales:
+                raise ValueError(f"Invalid font size scale. Must be one of: {valid_scales}")
+            settings.font_size_scale = font_size_scale
+
+        if high_contrast_enabled is not None:
+            settings.high_contrast_enabled = high_contrast_enabled
+
+        if reduce_motion_enabled is not None:
+            settings.reduce_motion_enabled = reduce_motion_enabled
+
+        if large_click_targets_enabled is not None:
+            settings.large_click_targets_enabled = large_click_targets_enabled
 
         if additional_settings is not None:
             settings.additional_settings = {
@@ -733,6 +754,11 @@ class SettingsService:
             "maxCacheSizeGb": "max_cache_size_gb",
             "defaultExportFormat": "default_export_format",
             "defaultExportQuality": "default_export_quality",
+            # Accessibility settings
+            "fontSizeScale": "font_size_scale",
+            "highContrastEnabled": "high_contrast_enabled",
+            "reduceMotionEnabled": "reduce_motion_enabled",
+            "largeClickTargetsEnabled": "large_click_targets_enabled",
             "additionalSettings": "additional_settings",
         }
 

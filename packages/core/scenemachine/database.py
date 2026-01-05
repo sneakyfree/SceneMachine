@@ -135,3 +135,18 @@ def reset_db_manager() -> None:
     """
     global _db_manager
     _db_manager = None
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency injection helper for getting a database session.
+
+    Use with FastAPI Depends() for automatic session management.
+
+    Example:
+        @router.get("/items")
+        async def get_items(session: AsyncSession = Depends(get_session)):
+            ...
+    """
+    db_manager = get_db_manager()
+    async with db_manager.session() as session:
+        yield session

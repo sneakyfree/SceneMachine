@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models.database import get_session
+from scenemachine.database import get_session
 from ...services.assembly import (
     AssemblyService,
     ExportFormat,

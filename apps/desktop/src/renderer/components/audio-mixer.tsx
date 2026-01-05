@@ -111,9 +111,10 @@ function TrackChannel({
         {onRemove && (
           <button
             onClick={onRemove}
-            className="p-1 text-surface-500 hover:text-red-400 transition-colors"
+            className="icon-btn p-2 text-surface-500 hover:text-red-400 transition-colors rounded"
+            aria-label={`Remove ${track.name} track`}
           >
-            <Trash2 className="w-3 h-3" />
+            <Trash2 className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -338,7 +339,10 @@ export function AudioMixer({
           {/* Add track dropdown */}
           {onTrackAdd && (
             <div className="relative group">
-              <button className="p-1.5 bg-surface-800 text-surface-400 hover:text-white rounded transition-colors">
+              <button
+                className="icon-btn p-2 bg-surface-800 text-surface-400 hover:text-white rounded transition-colors"
+                aria-label="Add audio track"
+              >
                 <Plus className="w-4 h-4" />
               </button>
               <div className="absolute right-0 top-full mt-1 bg-surface-800 rounded-lg shadow-lg overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">

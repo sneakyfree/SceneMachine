@@ -298,3 +298,109 @@ async def detailed_health_check(
         system=system_info,
         checks=checks,
     )
+
+
+class CircuitBreakerStatusResponse(BaseModel):
+    """Status of a single circuit breaker."""
+
+    name: str
+    state: str  # 'closed', 'open', 'half_open'
+    total_calls: int
+    successful_calls: int
+    failed_calls: int
+    rejected_calls: int
+    consecutive_failures: int
+    consecutive_successes: int
+    last_failure_time: Optional[float] = None
+    last_success_time: Optional[float] = None
+    failure_threshold: int
+    recovery_timeout: float
+    remaining_timeout: float = 0.0
+    success_rate: float = 0.0
+
+
+class AllCircuitBreakersResponse(BaseModel):
+    """Status of all circuit breakers."""
+
+    circuits: List[CircuitBreakerStatusResponse]
+    total_count: int
+    open_count: int
+    half_open_count: int
+    timestamp: str
+
+
+@router.get("/health/circuits", response_model=AllCircuitBreakersResponse)
+async def get_circuit_breaker_status() -> AllCircuitBreakersResponse:
+    """Get status of all circuit breakers.
+
+    Returns the state and statistics for all registered circuit breakers,
+    useful for monitoring provider health and resilience.
+    """
+    from scenemachine.utils.circuit_breaker import CircuitBreakerRegistry
+
+    registry = CircuitBreakerRegistry.get_instance()
+    all_status = registry.get_all_status()
+
+    circuits = []
+    open_count = 0
+    half_open_count = 0
+
+    for name, status in all_status.items():
+        stats = status.get("stats", {})
+        config = status.get("config", {})
+
+        total = stats.get("total_calls", 0)
+        successful = stats.get("successful_calls", 0)
+        success_rate = (successful / total * 100) if total > 0 else 100.0
+
+        state = status.get("state", "closed")
+        if state == "open":
+            open_count += 1
+        elif state == "half_open":
+            half_open_count += 1
+
+        circuits.append(
+            CircuitBreakerStatusResponse(
+                name=name,
+                state=state,
+                total_calls=stats.get("total_calls", 0),
+                successful_calls=stats.get("successful_calls", 0),
+                failed_calls=stats.get("failed_calls", 0),
+                rejected_calls=stats.get("rejected_calls", 0),
+                consecutive_failures=stats.get("consecutive_failures", 0),
+                consecutive_successes=stats.get("consecutive_successes", 0),
+                last_failure_time=stats.get("last_failure"),
+                last_success_time=stats.get("last_success"),
+                failure_threshold=config.get("failure_threshold", 5),
+                recovery_timeout=config.get("recovery_timeout", 30.0),
+                remaining_timeout=status.get("remaining_timeout", 0.0),
+                success_rate=round(success_rate, 1),
+            )
+        )
+
+    return AllCircuitBreakersResponse(
+        circuits=circuits,
+        total_count=len(circuits),
+        open_count=open_count,
+        half_open_count=half_open_count,
+        timestamp=datetime.utcnow().isoformat(),
+    )
+
+
+@router.post("/health/circuits/{circuit_name}/reset")
+async def reset_circuit_breaker(circuit_name: str) -> dict[str, Any]:
+    """Reset a specific circuit breaker to closed state.
+
+    Args:
+        circuit_name: Name of the circuit breaker to reset
+    """
+    from scenemachine.utils.circuit_breaker import CircuitBreakerRegistry
+
+    registry = CircuitBreakerRegistry.get_instance()
+    cb = registry.get(circuit_name)
+
+    if not cb:
+        return {"success": False, "error": f"Circuit breaker '{circuit_name}' not found"}
+
+    cb.reset()
+    return {"success": True, "message": f"Circuit '{circuit_name}' reset to closed state"}

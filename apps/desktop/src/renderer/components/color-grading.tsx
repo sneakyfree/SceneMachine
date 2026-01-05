@@ -559,19 +559,21 @@ export function ColorGradingPanel({
         <div className="flex items-center gap-2">
           <button
             onClick={resetGrade}
-            className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
+            className="icon-btn p-2 text-surface-400 hover:text-surface-200 transition-colors rounded"
             title="Reset"
+            aria-label="Reset color grading"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={() => onToggleEnabled?.(!isEnabled)}
             className={cn(
-              'p-1.5 rounded transition-colors',
+              'icon-btn p-2 rounded transition-colors',
               isEnabled
                 ? 'text-brand-400'
                 : 'text-surface-500'
             )}
+            aria-label={isEnabled ? 'Disable color grading' : 'Enable color grading'}
             title={isEnabled ? 'Disable' : 'Enable'}
           >
             {isEnabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}

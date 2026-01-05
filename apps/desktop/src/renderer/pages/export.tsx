@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { TimelinePreview } from '../components/timeline-preview';
+import { WatermarkPicker } from '../components/watermark-picker';
+import { api } from '../api/client';
 
 // Export format options
 interface ExportFormat {
@@ -37,6 +39,13 @@ interface QualityPreset {
   bitrate: string;
 }
 
+interface WatermarkSettings {
+  enabled: boolean;
+  path: string | null;
+  position: string;
+  opacity: number;
+}
+
 interface ExportSettings {
   format: string;
   quality: string;
@@ -44,7 +53,8 @@ interface ExportSettings {
   frameRate: number;
   includeAudio: boolean;
   includeSubtitles: boolean;
-  watermark: boolean;
+  includeTextOverlays: boolean;
+  watermark: WatermarkSettings;
   outputFilename: string;
 }
 
@@ -113,7 +123,7 @@ export function ExportPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // State for export settings
+  // State for export settings - initialized with defaults, overridden by user settings
   const [settings, setSettings] = useState<ExportSettings>({
     format: 'mp4_h264',
     quality: 'high',
@@ -121,9 +131,37 @@ export function ExportPage() {
     frameRate: 24,
     includeAudio: true,
     includeSubtitles: false,
-    watermark: false,
+    includeTextOverlays: true,
+    watermark: {
+      enabled: false,
+      path: null,
+      position: 'bottom_right',
+      opacity: 0.7,
+    },
     outputFilename: '',
   });
+  const [settingsInitialized, setSettingsInitialized] = useState(false);
+
+  // Fetch user settings to use as defaults
+  const { data: userSettings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.getSettings(),
+    staleTime: 60000,
+  });
+
+  // Apply user settings as defaults (only once when loaded)
+  useEffect(() => {
+    if (userSettings && !settingsInitialized) {
+      setSettings((prev) => ({
+        ...prev,
+        format: userSettings.defaultExportFormat || prev.format,
+        quality: userSettings.defaultExportQuality || prev.quality,
+        resolution: userSettings.defaultVideoResolution || prev.resolution,
+        frameRate: userSettings.defaultVideoFps || prev.frameRate,
+      }));
+      setSettingsInitialized(true);
+    }
+  }, [userSettings, settingsInitialized]);
 
   // State for export progress
   const [exportProgress, setExportProgress] = useState<{
@@ -228,7 +266,11 @@ export function ExportPage() {
         frame_rate: settings.frameRate,
         include_audio: settings.includeAudio,
         include_subtitles: settings.includeSubtitles,
-        watermark: settings.watermark,
+        include_text_overlays: settings.includeTextOverlays,
+        watermark: settings.watermark.enabled,
+        watermark_path: settings.watermark.enabled ? settings.watermark.path : null,
+        watermark_position: settings.watermark.position,
+        watermark_opacity: settings.watermark.opacity,
         output_filename: settings.outputFilename || undefined,
       }),
     onMutate: () => {
@@ -662,14 +704,48 @@ export function ExportPage() {
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={settings.watermark}
+                  checked={settings.includeTextOverlays}
                   onChange={(e) =>
-                    handleSettingChange('watermark', e.target.checked)
+                    handleSettingChange('includeTextOverlays', e.target.checked)
                   }
                   className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                 />
-                <span className="text-sm">Add Watermark</span>
+                <span className="text-sm">Include Text Overlays</span>
               </label>
+            </div>
+
+            {/* Watermark Settings */}
+            <div className="pt-2 border-t border-surface-700">
+              <WatermarkPicker
+                selectedPath={settings.watermark.path}
+                position={settings.watermark.position}
+                opacity={settings.watermark.opacity}
+                enabled={settings.watermark.enabled}
+                onSelect={(path) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    watermark: { ...prev.watermark, path },
+                  }))
+                }
+                onPositionChange={(position) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    watermark: { ...prev.watermark, position },
+                  }))
+                }
+                onOpacityChange={(opacity) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    watermark: { ...prev.watermark, opacity },
+                  }))
+                }
+                onEnabledChange={(enabled) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    watermark: { ...prev.watermark, enabled },
+                  }))
+                }
+              />
             </div>
 
             {/* Estimated Size */}

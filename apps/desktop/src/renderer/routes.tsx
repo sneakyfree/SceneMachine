@@ -15,6 +15,8 @@ import { AnalyticsPage } from './pages/analytics';
 import { TimelinePage } from './pages/timeline';
 import { HelpPage } from './pages/help';
 import { ArchivePage } from './pages/archive';
+import { AdminPage } from './pages/admin';
+import { ActForgePage } from './pages/actforge';
 
 export const routes: RouteObject[] = [
   {
@@ -64,6 +66,18 @@ export const routes: RouteObject[] = [
       {
         path: 'help',
         element: <HelpPage />,
+      },
+      {
+        path: 'admin',
+        element: <AdminPage />,
+      },
+      {
+        path: 'actforge',
+        element: <ActForgePage />,
+      },
+      {
+        path: 'project/:projectId/actforge',
+        element: <ActForgePage />,
       },
     ],
   },

@@ -22,16 +22,25 @@ from scenemachine.api.routes import (
     analytics,
     archive,
     assembly,
+    audio,
     characters,
+    copilot,
     generation,
     health,
     movie_plan,
     projects,
     scenes,
     screenplay,
-    settings,
+    settings as settings_routes,
     sharing,
+    text_overlays,
+    watermarks,
     ws,
+    # ActForge marketplace
+    performers,
+    bookings,
+    # GPU Exchange
+    gpu_exchange,
 )
 from scenemachine.config import Settings, get_settings
 from scenemachine.database import get_db_manager
@@ -216,9 +225,47 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tags=["Archive"],
     )
     app.include_router(
-        settings.router,
+        settings_routes.router,
         prefix="/api/v1/settings",
         tags=["Settings"],
+    )
+    app.include_router(
+        watermarks.router,
+        prefix="/api/v1",
+        tags=["Watermarks"],
+    )
+    app.include_router(
+        audio.router,
+        prefix="/api/v1/audio",
+        tags=["Audio"],
+    )
+    app.include_router(
+        text_overlays.router,
+        prefix="/api/v1",
+        tags=["Text Overlays"],
+    )
+    # ActForge marketplace routes
+    app.include_router(
+        performers.router,
+        prefix="/api/v1",
+        tags=["ActForge Performers"],
+    )
+    app.include_router(
+        bookings.router,
+        prefix="/api/v1",
+        tags=["ActForge Bookings"],
+    )
+    # AI Co-pilot (Steven)
+    app.include_router(
+        copilot.router,
+        prefix="/api/v1",
+        tags=["AI Co-pilot"],
+    )
+    # GPU Exchange
+    app.include_router(
+        gpu_exchange.router,
+        prefix="/api/v1",
+        tags=["GPU Exchange"],
     )
 
     return app

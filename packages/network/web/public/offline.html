@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6366f1">
+  <title>Offline - SceneMachine Network</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .container {
+      max-width: 400px;
+    }
+
+    .icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      color: #a0aec0;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    button:hover {
+      background: #4f46e5;
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .secondary {
+      background: transparent;
+      border: 1px solid #4a5568;
+    }
+
+    .secondary:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .downloads-hint {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: rgba(99, 102, 241, 0.2);
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    .downloads-hint a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+
+    .network-status {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ef4444;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: white;
+      border-radius: 50%;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>You're Offline</h1>
+    <p>
+      It looks like you've lost your internet connection.
+      Don't worry - you can still watch your downloaded videos!
+    </p>
+
+    <div class="actions">
+      <button onclick="goToDownloads()">
+        View Downloads
+      </button>
+      <button class="secondary" onclick="tryReconnect()">
+        Try Again
+      </button>
+    </div>
+
+    <div class="downloads-hint">
+      💡 Tip: You can download videos for offline viewing from any video page.
+      <a href="/settings">Manage downloads →</a>
+    </div>
+  </div>
+
+  <div class="network-status">
+    <span class="status-dot"></span>
+    No internet connection
+  </div>
+
+  <script>
+    function goToDownloads() {
+      window.location.href = '/downloads';
+    }
+
+    function tryReconnect() {
+      // Try to reload the previous page
+      if (navigator.onLine) {
+        window.location.reload();
+      } else {
+        alert('Still offline. Please check your connection.');
+      }
+    }
+
+    // Listen for online event
+    window.addEventListener('online', () => {
+      // Reload when back online
+      window.location.reload();
+    });
+
+    // Hide status when online
+    if (navigator.onLine) {
+      document.querySelector('.network-status').style.display = 'none';
+    }
+  </script>
+</body>
+</html>

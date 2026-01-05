@@ -130,8 +130,9 @@ function EffectItem({
         </button>
         <button
           onClick={onAdd}
-          className="p-1.5 text-brand-400 hover:text-brand-300 hover:bg-brand-500/20 rounded transition-colors"
+          className="icon-btn p-2 text-brand-400 hover:text-brand-300 hover:bg-brand-500/20 rounded transition-colors"
           title="Add to timeline"
+          aria-label={`Add ${effect.name} to timeline`}
         >
           <Plus className="w-4 h-4" />
         </button>

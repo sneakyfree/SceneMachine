@@ -50,6 +50,28 @@ class EventType(str, Enum):
     SYSTEM_NOTIFICATION = "system.notification"
     PROVIDER_STATUS = "provider.status"
 
+    # Live Studio Mode events
+    STUDIO_USER_JOINED = "studio.user.joined"
+    STUDIO_USER_LEFT = "studio.user.left"
+    STUDIO_CURSOR_MOVE = "studio.cursor.move"
+    STUDIO_SELECTION_CHANGE = "studio.selection.change"
+    STUDIO_EDIT_START = "studio.edit.start"
+    STUDIO_EDIT_END = "studio.edit.end"
+    STUDIO_EDIT_CONFLICT = "studio.edit.conflict"
+    STUDIO_CHAT_MESSAGE = "studio.chat.message"
+    STUDIO_PREVIEW_UPDATE = "studio.preview.update"
+    STUDIO_TIMELINE_SYNC = "studio.timeline.sync"
+
+    # AI Co-pilot events
+    COPILOT_SUGGESTION = "copilot.suggestion"
+    COPILOT_VOICE_COMMAND = "copilot.voice.command"
+    COPILOT_RESPONSE = "copilot.response"
+
+    # ActCore events
+    BOOKING_STATUS_CHANGE = "booking.status.change"
+    PERFORMER_MATCHED = "performer.matched"
+    DELIVERY_RECEIVED = "delivery.received"
+
 
 @dataclass
 class WebSocketEvent:

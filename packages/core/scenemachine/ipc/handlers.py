@@ -234,6 +234,36 @@ def register_handlers(server: IPCServer) -> None:
 
         return {"success": True}
 
+    @server.handler("projects.duplicate")
+    async def handle_duplicate_project(
+        id: str,
+        new_name: Optional[str] = None,
+        include_generated_videos: bool = False,
+    ) -> Dict[str, Any]:
+        """Duplicate a project with all its data."""
+        from scenemachine.services.project_duplicator import duplicate_project
+
+        project_id = UUID(id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            new_project = await duplicate_project(
+                session=session,
+                project_id=project_id,
+                new_name=new_name,
+                include_generated_videos=include_generated_videos,
+            )
+            await session.commit()
+
+            return {
+                "id": str(new_project.id),
+                "name": new_project.name,
+                "description": new_project.description,
+                "state": new_project.state.value,
+                "created_at": new_project.created_at.isoformat(),
+                "updated_at": new_project.updated_at.isoformat(),
+            }
+
     # Screenplay handlers
     @server.handler("screenplays.upload")
     async def handle_upload_screenplay(
@@ -1979,7 +2009,11 @@ def register_handlers(server: IPCServer) -> None:
         frame_rate: int = 24,
         include_audio: bool = True,
         include_subtitles: bool = False,
+        include_text_overlays: bool = True,
         watermark: bool = False,
+        watermark_path: Optional[str] = None,
+        watermark_position: str = "bottom_right",
+        watermark_opacity: float = 0.7,
         output_filename: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Export movie with specified settings."""
@@ -1993,6 +2027,9 @@ def register_handlers(server: IPCServer) -> None:
         pid = UUID(project_id)
         db_manager = get_db_manager()
 
+        # Determine watermark path: use custom path if provided, otherwise None
+        effective_watermark = watermark_path if watermark and watermark_path else None
+
         settings = ExportSettings(
             format=ExportFormat(format),
             quality=ExportQuality(quality),
@@ -2000,7 +2037,10 @@ def register_handlers(server: IPCServer) -> None:
             frame_rate=frame_rate,
             include_audio=include_audio,
             include_subtitles=include_subtitles,
-            watermark=watermark,
+            include_text_overlays=include_text_overlays,
+            watermark=effective_watermark,
+            watermark_position=watermark_position,
+            watermark_opacity=watermark_opacity,
         )
 
         async with db_manager.session() as session:
@@ -3846,75 +3886,6 @@ def register_handlers(server: IPCServer) -> None:
                 "timeRange": time_range,
             }
 
-    @server.handler("analytics.getGenerationStats")
-    async def handle_generation_stats(
-        time_range: str = "7d",
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Get generation statistics."""
-        from scenemachine.services.analytics import AnalyticsService
-
-        db_manager = get_db_manager()
-        async with db_manager.session() as session:
-            service = AnalyticsService(session)
-            pid = UUID(project_id) if project_id else None
-            stats = await service.get_generation_stats(time_range, pid)
-
-            return {
-                "totalJobs": stats.total_jobs,
-                "completedJobs": stats.completed_jobs,
-                "failedJobs": stats.failed_jobs,
-                "pendingJobs": stats.pending_jobs,
-                "successRate": round(stats.success_rate, 2),
-                "avgGenerationTimeSeconds": round(stats.avg_generation_time_seconds, 2),
-            }
-
-    @server.handler("analytics.getCostStats")
-    async def handle_cost_stats(
-        time_range: str = "7d",
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Get cost statistics."""
-        from scenemachine.services.analytics import AnalyticsService
-
-        db_manager = get_db_manager()
-        async with db_manager.session() as session:
-            service = AnalyticsService(session)
-            pid = UUID(project_id) if project_id else None
-            stats = await service.get_cost_stats(time_range, pid)
-
-            return {
-                "totalCostUsd": round(stats.total_cost_usd, 4),
-                "costByProvider": {k: round(v, 4) for k, v in stats.cost_by_provider.items()},
-                "avgCostPerShot": round(stats.avg_cost_per_shot, 4),
-            }
-
-    @server.handler("analytics.getDailyStats")
-    async def handle_daily_stats(
-        days: int = 7,
-        project_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """Get daily generation statistics."""
-        from scenemachine.services.analytics import AnalyticsService
-
-        db_manager = get_db_manager()
-        async with db_manager.session() as session:
-            service = AnalyticsService(session)
-            pid = UUID(project_id) if project_id else None
-            stats = await service.get_daily_stats(days, pid)
-
-            return [
-                {
-                    "date": item["date"],
-                    "totalJobs": item["total_jobs"],
-                    "completedJobs": item["completed_jobs"],
-                    "failedJobs": item["failed_jobs"],
-                    "successRate": round(item["success_rate"], 2),
-                    "totalCostUsd": round(item["total_cost_usd"], 4),
-                }
-                for item in stats
-            ]
-
     # Sharing handlers
     @server.handler("sharing.create")
     async def handle_create_share(
@@ -3953,34 +3924,6 @@ def register_handlers(server: IPCServer) -> None:
                 "shareUrl": result.share_url,
             }
 
-    @server.handler("sharing.getProjectShares")
-    async def handle_get_project_shares(
-        project_id: str,
-    ) -> List[Dict[str, Any]]:
-        """Get all shares for a project."""
-        from scenemachine.services.sharing import SharingService
-
-        db_manager = get_db_manager()
-        async with db_manager.session() as session:
-            service = SharingService(session)
-            shares = await service.get_project_shares(UUID(project_id))
-
-            return [
-                {
-                    "id": share.id,
-                    "projectId": share.project_id,
-                    "shareCode": share.share_code,
-                    "permission": share.permission,
-                    "status": share.status,
-                    "recipientEmail": share.recipient_email,
-                    "isPublic": share.is_public,
-                    "expiresAt": share.expires_at,
-                    "createdAt": share.created_at,
-                    "accessCount": share.access_count,
-                }
-                for share in shares
-            ]
-
     @server.handler("sharing.accept")
     async def handle_accept_share(
         share_code: str,
@@ -4014,62 +3957,6 @@ def register_handlers(server: IPCServer) -> None:
                 raise ValueError("Share not found")
 
             return {"success": True}
-
-    @server.handler("sharing.getComments")
-    async def handle_get_comments(
-        project_id: str,
-        shot_id: Optional[str] = None,
-        include_resolved: bool = False,
-    ) -> List[Dict[str, Any]]:
-        """Get comments for a project."""
-        from scenemachine.services.sharing import SharingService
-
-        db_manager = get_db_manager()
-        async with db_manager.session() as session:
-            service = SharingService(session)
-            comments = await service.get_project_comments(
-                project_id=UUID(project_id),
-                shot_id=UUID(shot_id) if shot_id else None,
-                include_resolved=include_resolved,
-            )
-            return comments
-
-    @server.handler("sharing.addComment")
-    async def handle_add_comment(
-        project_id: str,
-        author_name: str,
-        content: str,
-        shot_id: Optional[str] = None,
-        author_email: Optional[str] = None,
-        parent_id: Optional[str] = None,
-        timecode_seconds: Optional[float] = None,
-    ) -> Dict[str, Any]:
-        """Add a comment."""
-        from scenemachine.services.sharing import SharingService
-
-        db_manager = get_db_manager()
-        async with db_manager.session() as session:
-            service = SharingService(session)
-            comment = await service.add_comment(
-                project_id=UUID(project_id),
-                author_name=author_name,
-                content=content,
-                shot_id=UUID(shot_id) if shot_id else None,
-                author_email=author_email,
-                parent_id=UUID(parent_id) if parent_id else None,
-                timecode_seconds=timecode_seconds,
-            )
-
-            if not comment:
-                raise ValueError("Failed to add comment")
-
-            return {
-                "id": str(comment.id),
-                "projectId": str(comment.project_id),
-                "authorName": comment.author_name,
-                "content": comment.content,
-                "createdAt": comment.created_at.isoformat(),
-            }
 
     # Archive handlers
     @server.handler("archive.export")
@@ -4173,5 +4060,1358 @@ def register_handlers(server: IPCServer) -> None:
                 raise ValueError("Invalid archive")
 
             return manifest.__dict__
+
+    # ================================================================
+    # Health & Circuit Breaker Handlers
+    # ================================================================
+
+    @server.handler("health.getCircuitBreakers")
+    async def handle_get_circuit_breakers() -> Dict[str, Any]:
+        """Get status of all circuit breakers."""
+        from scenemachine.utils.circuit_breaker import CircuitBreakerRegistry
+
+        registry = CircuitBreakerRegistry.get_instance()
+        all_status = registry.get_all_status()
+
+        circuits = []
+        open_count = 0
+        half_open_count = 0
+
+        for name, status in all_status.items():
+            stats = status.get("stats", {})
+            config = status.get("config", {})
+
+            total = stats.get("total_calls", 0)
+            successful = stats.get("successful_calls", 0)
+            success_rate = (successful / total * 100) if total > 0 else 100.0
+
+            state = status.get("state", "closed")
+            if state == "open":
+                open_count += 1
+            elif state == "half_open":
+                half_open_count += 1
+
+            circuits.append({
+                "name": name,
+                "state": state,
+                "totalCalls": stats.get("total_calls", 0),
+                "successfulCalls": stats.get("successful_calls", 0),
+                "failedCalls": stats.get("failed_calls", 0),
+                "rejectedCalls": stats.get("rejected_calls", 0),
+                "consecutiveFailures": stats.get("consecutive_failures", 0),
+                "consecutiveSuccesses": stats.get("consecutive_successes", 0),
+                "lastFailureTime": stats.get("last_failure"),
+                "lastSuccessTime": stats.get("last_success"),
+                "failureThreshold": config.get("failure_threshold", 5),
+                "recoveryTimeout": config.get("recovery_timeout", 30.0),
+                "remainingTimeout": status.get("remaining_timeout", 0.0),
+                "successRate": round(success_rate, 1),
+            })
+
+        return {
+            "circuits": circuits,
+            "totalCount": len(circuits),
+            "openCount": open_count,
+            "halfOpenCount": half_open_count,
+        }
+
+    @server.handler("health.resetCircuitBreaker")
+    async def handle_reset_circuit_breaker(name: str) -> Dict[str, Any]:
+        """Reset a specific circuit breaker to closed state."""
+        from scenemachine.utils.circuit_breaker import CircuitBreakerRegistry
+
+        registry = CircuitBreakerRegistry.get_instance()
+        cb = registry.get(name)
+
+        if not cb:
+            return {"success": False, "error": f"Circuit breaker '{name}' not found"}
+
+        cb.reset()
+        return {"success": True, "message": f"Circuit '{name}' reset to closed state"}
+
+    # ================================================================
+    # Watermark Handlers
+    # ================================================================
+
+    @server.handler("watermarks.list")
+    async def handle_list_watermarks() -> Dict[str, Any]:
+        """List all available watermarks."""
+        from scenemachine.api.routes.watermarks import list_watermarks
+
+        result = await list_watermarks()
+        return {
+            "watermarks": [w.model_dump() for w in result.watermarks],
+            "totalCount": result.total_count,
+        }
+
+    @server.handler("watermarks.upload")
+    async def handle_upload_watermark(
+        filename: str,
+        content_base64: str,
+    ) -> Dict[str, Any]:
+        """Upload a new watermark from base64-encoded content."""
+        import base64
+        from datetime import datetime
+        from pathlib import Path
+        from uuid import uuid4
+
+        from scenemachine.api.routes.watermarks import (
+            ALLOWED_EXTENSIONS,
+            MAX_FILE_SIZE,
+            get_watermarks_dir,
+        )
+
+        # Validate extension
+        ext = Path(filename).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            return {
+                "success": False,
+                "error": f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
+            }
+
+        # Decode content
+        try:
+            content = base64.b64decode(content_base64)
+        except Exception as e:
+            return {"success": False, "error": f"Invalid base64 content: {e}"}
+
+        # Check size
+        if len(content) > MAX_FILE_SIZE:
+            return {
+                "success": False,
+                "error": f"File too large. Maximum: {MAX_FILE_SIZE // (1024*1024)}MB",
+            }
+
+        # Generate unique filename
+        watermark_id = str(uuid4())[:8]
+        safe_name = "".join(c for c in Path(filename).stem if c.isalnum() or c in "-_")[:32]
+        new_filename = f"{safe_name}_{watermark_id}{ext}"
+
+        # Save file
+        watermarks_dir = get_watermarks_dir()
+        file_path = watermarks_dir / new_filename
+
+        try:
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            stat = file_path.stat()
+            return {
+                "success": True,
+                "watermark": {
+                    "id": file_path.stem,
+                    "filename": new_filename,
+                    "path": str(file_path),
+                    "sizeBytes": stat.st_size,
+                    "createdAt": datetime.now().isoformat(),
+                    "isDefault": False,
+                },
+            }
+        except Exception as e:
+            if file_path.exists():
+                file_path.unlink()
+            return {"success": False, "error": f"Failed to save: {e}"}
+
+    @server.handler("watermarks.delete")
+    async def handle_delete_watermark(watermark_id: str) -> Dict[str, Any]:
+        """Delete a user-uploaded watermark."""
+        from scenemachine.api.routes.watermarks import get_watermarks_dir
+
+        if watermark_id.startswith("default_"):
+            return {"success": False, "error": "Cannot delete built-in watermarks"}
+
+        watermarks_dir = get_watermarks_dir()
+
+        # Find matching file
+        for file in watermarks_dir.iterdir():
+            if file.is_file() and file.stem == watermark_id:
+                try:
+                    file.unlink()
+                    return {"success": True}
+                except Exception as e:
+                    return {"success": False, "error": str(e)}
+
+        return {"success": False, "error": f"Watermark '{watermark_id}' not found"}
+
+    # =============== Audio Library Handlers ===============
+
+    @server.handler("sfx.getEffects")
+    async def handle_get_sound_effects(
+        category: Optional[str] = None,
+        subcategory: Optional[str] = None,
+        favorites_only: bool = False,
+        search: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get sound effects with optional filtering."""
+        from scenemachine.services.audio_library import AudioLibraryService
+
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = AudioLibraryService(session)
+            effects = await service.get_sound_effects(
+                category=category,
+                subcategory=subcategory,
+                favorites_only=favorites_only,
+                search=search,
+            )
+
+            return [
+                {
+                    "id": str(e.id),
+                    "name": e.name,
+                    "category": e.category,
+                    "subcategory": e.subcategory,
+                    "duration": e.duration_seconds,
+                    "audioUrl": f"file://{e.file_path}",
+                    "tags": e.tags or [],
+                    "isFavorite": e.is_favorite,
+                    "isCustom": not e.is_system,
+                }
+                for e in effects
+            ]
+
+    @server.handler("sfx.toggleFavorite")
+    async def handle_toggle_sfx_favorite(effect_id: str) -> Dict[str, bool]:
+        """Toggle favorite status for a sound effect."""
+        from scenemachine.services.audio_library import AudioLibraryService
+
+        eid = UUID(effect_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = AudioLibraryService(session)
+            new_status = await service.toggle_favorite(eid)
+            return {"isFavorite": new_status}
+
+    @server.handler("music.getTracks")
+    async def handle_get_music_tracks(
+        genre: Optional[str] = None,
+        mood: Optional[str] = None,
+        favorites_only: bool = False,
+        custom_only: bool = False,
+        search: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get music tracks with optional filtering."""
+        from scenemachine.services.audio_library import AudioLibraryService
+
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = AudioLibraryService(session)
+            tracks = await service.get_music_tracks(
+                genre=genre,
+                mood=mood,
+                favorites_only=favorites_only,
+                custom_only=custom_only,
+                search=search,
+            )
+
+            return [
+                {
+                    "id": str(t.id),
+                    "title": t.name,
+                    "artist": t.artist,
+                    "duration": t.duration_seconds,
+                    "genre": t.genre or "Cinematic",
+                    "mood": t.mood or [],
+                    "bpm": t.bpm,
+                    "audioUrl": f"file://{t.file_path}",
+                    "waveformUrl": f"file://{t.waveform_path}" if t.waveform_path else None,
+                    "isFavorite": t.is_favorite,
+                    "isCustom": not t.is_system,
+                    "tags": t.tags or [],
+                }
+                for t in tracks
+            ]
+
+    @server.handler("music.getTrack")
+    async def handle_get_music_track(track_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific music track."""
+        from scenemachine.services.audio_library import AudioLibraryService
+        from scenemachine.models.audio_asset import AudioAssetType
+
+        tid = UUID(track_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = AudioLibraryService(session)
+            track = await service.get_audio_asset(tid)
+
+            if not track or track.asset_type != AudioAssetType.MUSIC:
+                return None
+
+            return {
+                "id": str(track.id),
+                "title": track.name,
+                "artist": track.artist,
+                "duration": track.duration_seconds,
+                "genre": track.genre or "Cinematic",
+                "mood": track.mood or [],
+                "bpm": track.bpm,
+                "audioUrl": f"file://{track.file_path}",
+                "waveformUrl": f"file://{track.waveform_path}" if track.waveform_path else None,
+                "isFavorite": track.is_favorite,
+                "isCustom": not track.is_system,
+                "tags": track.tags or [],
+            }
+
+    @server.handler("music.toggleFavorite")
+    async def handle_toggle_music_favorite(track_id: str) -> Dict[str, bool]:
+        """Toggle favorite status for a music track."""
+        from scenemachine.services.audio_library import AudioLibraryService
+
+        tid = UUID(track_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = AudioLibraryService(session)
+            new_status = await service.toggle_favorite(tid)
+            return {"isFavorite": new_status}
+
+    @server.handler("music.uploadTrack")
+    async def handle_upload_music_track(
+        file_path: str,
+        genre: str = "Cinematic",
+        mood: Optional[str] = None,
+        artist: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Upload a custom music track."""
+        from scenemachine.services.audio_library import AudioLibraryService
+        from scenemachine.models.audio_asset import AudioAssetType
+
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            try:
+                moods = [mood] if mood else None
+                service = AudioLibraryService(session)
+                asset = await service.upload_audio(
+                    file_path=file_path,
+                    asset_type=AudioAssetType.MUSIC,
+                    genre=genre,
+                    mood=moods,
+                    artist=artist,
+                )
+
+                return {
+                    "success": True,
+                    "id": str(asset.id),
+                    "name": asset.name,
+                }
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+    @server.handler("sfx.uploadEffect")
+    async def handle_upload_sound_effect(
+        file_path: str,
+        category: str = "other",
+        subcategory: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Upload a custom sound effect."""
+        from scenemachine.services.audio_library import AudioLibraryService
+        from scenemachine.models.audio_asset import AudioAssetType
+
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            try:
+                service = AudioLibraryService(session)
+                asset = await service.upload_audio(
+                    file_path=file_path,
+                    asset_type=AudioAssetType.SOUND_EFFECT,
+                    category=category,
+                    subcategory=subcategory,
+                )
+
+                return {
+                    "success": True,
+                    "id": str(asset.id),
+                    "name": asset.name,
+                }
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
+    # =========================================================================
+    # Text Overlay Handlers
+    # =========================================================================
+
+    @server.handler("textOverlays.getPresets")
+    async def handle_get_text_overlay_presets() -> List[Dict[str, Any]]:
+        """Get available text overlay presets."""
+        from scenemachine.models.text_overlay import (
+            TextOverlayType,
+            DEFAULT_STYLES,
+        )
+
+        return [
+            {"type": "title", "label": "Title", "style": DEFAULT_STYLES[TextOverlayType.TITLE]},
+            {"type": "subtitle", "label": "Subtitle", "style": DEFAULT_STYLES[TextOverlayType.SUBTITLE]},
+            {"type": "lower_third", "label": "Lower Third", "style": DEFAULT_STYLES[TextOverlayType.LOWER_THIRD]},
+            {"type": "caption", "label": "Caption", "style": DEFAULT_STYLES[TextOverlayType.CAPTION]},
+            {"type": "custom", "label": "Custom", "style": DEFAULT_STYLES[TextOverlayType.CUSTOM]},
+        ]
+
+    @server.handler("textOverlays.getForShot")
+    async def handle_get_shot_text_overlays(shot_id: str) -> List[Dict[str, Any]]:
+        """Get text overlays for a shot."""
+        from scenemachine.models.text_overlay import TextOverlay
+        from sqlalchemy import select
+
+        sid = UUID(shot_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = (
+                select(TextOverlay)
+                .where(TextOverlay.shot_id == sid)
+                .order_by(TextOverlay.z_index)
+            )
+            result = await session.execute(stmt)
+            overlays = result.scalars().all()
+
+            return [o.to_dict() for o in overlays]
+
+    @server.handler("textOverlays.getForScene")
+    async def handle_get_scene_text_overlays(scene_id: str) -> List[Dict[str, Any]]:
+        """Get text overlays for a scene."""
+        from scenemachine.models.text_overlay import TextOverlay
+        from sqlalchemy import select
+
+        sid = UUID(scene_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = (
+                select(TextOverlay)
+                .where(TextOverlay.scene_id == sid)
+                .order_by(TextOverlay.z_index)
+            )
+            result = await session.execute(stmt)
+            overlays = result.scalars().all()
+
+            return [o.to_dict() for o in overlays]
+
+    @server.handler("textOverlays.getForProject")
+    async def handle_get_project_text_overlays(project_id: str) -> List[Dict[str, Any]]:
+        """Get text overlays for a project."""
+        from scenemachine.models.text_overlay import TextOverlay
+        from sqlalchemy import select
+
+        pid = UUID(project_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = (
+                select(TextOverlay)
+                .where(TextOverlay.project_id == pid)
+                .order_by(TextOverlay.z_index)
+            )
+            result = await session.execute(stmt)
+            overlays = result.scalars().all()
+
+            return [o.to_dict() for o in overlays]
+
+    @server.handler("textOverlays.create")
+    async def handle_create_text_overlay(
+        text: str,
+        shot_id: Optional[str] = None,
+        scene_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        overlay_type: str = "custom",
+        position: str = "center",
+        custom_x: Optional[float] = None,
+        custom_y: Optional[float] = None,
+        style: Optional[Dict[str, Any]] = None,
+        animation_in: str = "fade_in",
+        animation_out: str = "fade_out",
+        animation_in_duration_ms: int = 500,
+        animation_out_duration_ms: int = 500,
+        start_time_ms: int = 0,
+        duration_ms: int = 5000,
+        is_visible: bool = True,
+        z_index: int = 1,
+    ) -> Dict[str, Any]:
+        """Create a new text overlay."""
+        from scenemachine.models.text_overlay import (
+            TextOverlay,
+            TextOverlayType,
+            TextPosition,
+            TextAnimation,
+            DEFAULT_STYLES,
+        )
+
+        db_manager = get_db_manager()
+
+        # Validate parent
+        shot_uuid = UUID(shot_id) if shot_id else None
+        scene_uuid = UUID(scene_id) if scene_id else None
+        project_uuid = UUID(project_id) if project_id else None
+
+        if not any([shot_uuid, scene_uuid, project_uuid]):
+            return {"success": False, "error": "One of shot_id, scene_id, or project_id is required"}
+
+        # Get enums
+        try:
+            otype = TextOverlayType(overlay_type)
+        except ValueError:
+            otype = TextOverlayType.CUSTOM
+
+        try:
+            pos = TextPosition(position)
+        except ValueError:
+            pos = TextPosition.CENTER
+
+        try:
+            anim_in = TextAnimation(animation_in)
+        except ValueError:
+            anim_in = TextAnimation.FADE_IN
+
+        try:
+            anim_out = TextAnimation(animation_out)
+        except ValueError:
+            anim_out = TextAnimation.FADE_OUT
+
+        # Merge style with defaults
+        default_style = DEFAULT_STYLES.get(otype, DEFAULT_STYLES[TextOverlayType.CUSTOM])
+        merged_style = {**default_style}
+        if style:
+            merged_style.update(style)
+
+        async with db_manager.session() as session:
+            overlay = TextOverlay(
+                shot_id=shot_uuid,
+                scene_id=scene_uuid,
+                project_id=project_uuid,
+                overlay_type=otype,
+                text=text,
+                position=pos,
+                custom_x=custom_x,
+                custom_y=custom_y,
+                style=merged_style,
+                animation_in=anim_in,
+                animation_out=anim_out,
+                animation_in_duration_ms=animation_in_duration_ms,
+                animation_out_duration_ms=animation_out_duration_ms,
+                start_time_ms=start_time_ms,
+                duration_ms=duration_ms,
+                is_visible=is_visible,
+                z_index=z_index,
+            )
+
+            session.add(overlay)
+            await session.commit()
+            await session.refresh(overlay)
+
+            return {"success": True, "overlay": overlay.to_dict()}
+
+    @server.handler("textOverlays.update")
+    async def handle_update_text_overlay(
+        overlay_id: str,
+        text: Optional[str] = None,
+        overlay_type: Optional[str] = None,
+        position: Optional[str] = None,
+        custom_x: Optional[float] = None,
+        custom_y: Optional[float] = None,
+        style: Optional[Dict[str, Any]] = None,
+        animation_in: Optional[str] = None,
+        animation_out: Optional[str] = None,
+        animation_in_duration_ms: Optional[int] = None,
+        animation_out_duration_ms: Optional[int] = None,
+        start_time_ms: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+        is_visible: Optional[bool] = None,
+        z_index: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Update a text overlay."""
+        from scenemachine.models.text_overlay import (
+            TextOverlay,
+            TextOverlayType,
+            TextPosition,
+            TextAnimation,
+        )
+        from sqlalchemy import select
+
+        oid = UUID(overlay_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = select(TextOverlay).where(TextOverlay.id == oid)
+            result = await session.execute(stmt)
+            overlay = result.scalar_one_or_none()
+
+            if not overlay:
+                return {"success": False, "error": f"Text overlay {overlay_id} not found"}
+
+            # Update fields
+            if text is not None:
+                overlay.text = text
+
+            if overlay_type is not None:
+                try:
+                    overlay.overlay_type = TextOverlayType(overlay_type)
+                except ValueError:
+                    pass
+
+            if position is not None:
+                try:
+                    overlay.position = TextPosition(position)
+                except ValueError:
+                    pass
+
+            if custom_x is not None:
+                overlay.custom_x = custom_x
+
+            if custom_y is not None:
+                overlay.custom_y = custom_y
+
+            if style is not None:
+                current_style = overlay.style or {}
+                current_style.update(style)
+                overlay.style = current_style
+
+            if animation_in is not None:
+                try:
+                    overlay.animation_in = TextAnimation(animation_in)
+                except ValueError:
+                    pass
+
+            if animation_out is not None:
+                try:
+                    overlay.animation_out = TextAnimation(animation_out)
+                except ValueError:
+                    pass
+
+            if animation_in_duration_ms is not None:
+                overlay.animation_in_duration_ms = animation_in_duration_ms
+
+            if animation_out_duration_ms is not None:
+                overlay.animation_out_duration_ms = animation_out_duration_ms
+
+            if start_time_ms is not None:
+                overlay.start_time_ms = start_time_ms
+
+            if duration_ms is not None:
+                overlay.duration_ms = duration_ms
+
+            if is_visible is not None:
+                overlay.is_visible = is_visible
+
+            if z_index is not None:
+                overlay.z_index = z_index
+
+            await session.commit()
+            await session.refresh(overlay)
+
+            return {"success": True, "overlay": overlay.to_dict()}
+
+    @server.handler("textOverlays.delete")
+    async def handle_delete_text_overlay(overlay_id: str) -> Dict[str, bool]:
+        """Delete a text overlay."""
+        from scenemachine.models.text_overlay import TextOverlay
+        from sqlalchemy import delete
+
+        oid = UUID(overlay_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = delete(TextOverlay).where(TextOverlay.id == oid)
+            result = await session.execute(stmt)
+            await session.commit()
+
+            return {"success": result.rowcount > 0}
+
+    @server.handler("textOverlays.batchUpdateForShot")
+    async def handle_batch_update_shot_overlays(
+        shot_id: str,
+        overlays: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Replace all text overlays for a shot with a new set.
+
+        This is useful for syncing the frontend state with the backend.
+        """
+        from scenemachine.models.text_overlay import (
+            TextOverlay,
+            TextOverlayType,
+            TextPosition,
+            TextAnimation,
+            DEFAULT_STYLES,
+        )
+        from sqlalchemy import delete, select
+
+        sid = UUID(shot_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            # Delete existing overlays
+            await session.execute(
+                delete(TextOverlay).where(TextOverlay.shot_id == sid)
+            )
+
+            # Create new overlays
+            new_overlays = []
+            for data in overlays:
+                # Get overlay type
+                try:
+                    otype = TextOverlayType(data.get("type", "custom"))
+                except ValueError:
+                    otype = TextOverlayType.CUSTOM
+
+                # Get position
+                try:
+                    pos = TextPosition(data.get("position", "center"))
+                except ValueError:
+                    pos = TextPosition.CENTER
+
+                # Get animations
+                try:
+                    anim_in = TextAnimation(data.get("animation", {}).get("in", "fade_in"))
+                except ValueError:
+                    anim_in = TextAnimation.FADE_IN
+
+                try:
+                    anim_out = TextAnimation(data.get("animation", {}).get("out", "fade_out"))
+                except ValueError:
+                    anim_out = TextAnimation.FADE_OUT
+
+                animation = data.get("animation", {})
+                timing = data.get("timing", {})
+
+                # Merge style with defaults
+                default_style = DEFAULT_STYLES.get(otype, DEFAULT_STYLES[TextOverlayType.CUSTOM])
+                merged_style = {**default_style}
+                if data.get("style"):
+                    merged_style.update(data["style"])
+
+                overlay = TextOverlay(
+                    shot_id=sid,
+                    overlay_type=otype,
+                    text=data.get("text", ""),
+                    position=pos,
+                    custom_x=data.get("customX"),
+                    custom_y=data.get("customY"),
+                    style=merged_style,
+                    animation_in=anim_in,
+                    animation_out=anim_out,
+                    animation_in_duration_ms=animation.get("inDuration", 500),
+                    animation_out_duration_ms=animation.get("outDuration", 500),
+                    start_time_ms=timing.get("startTime", 0),
+                    duration_ms=timing.get("duration", 5000),
+                    is_visible=data.get("isVisible", True),
+                    z_index=data.get("zIndex", 1),
+                )
+                session.add(overlay)
+                new_overlays.append(overlay)
+
+            await session.commit()
+
+            # Refresh to get IDs
+            for overlay in new_overlays:
+                await session.refresh(overlay)
+
+            return {
+                "success": True,
+                "overlays": [o.to_dict() for o in new_overlays],
+            }
+
+    # =========================================================================
+    # GPU Exchange Handlers
+    # =========================================================================
+
+    @server.handler("gpuExchange.listProviders")
+    async def handle_list_gpu_providers() -> List[Dict[str, Any]]:
+        """List all GPU providers."""
+        from scenemachine.gpu_exchange.registry import get_provider_registry
+
+        registry = get_provider_registry()
+        providers = []
+
+        for provider_id in registry.list_providers_by_priority():
+            info = registry.get_provider_info(provider_id)
+            if info:
+                providers.append(info)
+
+        return providers
+
+    @server.handler("gpuExchange.getProvider")
+    async def handle_get_gpu_provider(providerId: str) -> Dict[str, Any]:
+        """Get a specific GPU provider."""
+        from scenemachine.gpu_exchange.registry import get_provider_registry
+
+        registry = get_provider_registry()
+        info = registry.get_provider_info(providerId)
+
+        if not info:
+            raise ValueError(f"Provider '{providerId}' not found")
+
+        return info
+
+    @server.handler("gpuExchange.getProviderHealth")
+    async def handle_get_gpu_provider_health(providerId: str) -> Dict[str, Any]:
+        """Get health status of a GPU provider."""
+        from scenemachine.gpu_exchange.registry import get_provider_registry
+
+        registry = get_provider_registry()
+        provider = registry.get_provider(providerId)
+
+        if not provider:
+            raise ValueError(f"Provider '{providerId}' not found")
+
+        health = await provider.check_health()
+
+        return {
+            "provider_id": providerId,
+            "available": health.available,
+            "message": health.message,
+            "latency_ms": health.latency_ms,
+            "instances_available": health.instances_available,
+            "queue_depth": health.queue_depth,
+            "error_code": health.error_code,
+            "last_check": health.last_check.isoformat(),
+        }
+
+    @server.handler("gpuExchange.getAllProvidersHealth")
+    async def handle_get_all_gpu_providers_health() -> Dict[str, Any]:
+        """Get health status of all GPU providers."""
+        from scenemachine.gpu_exchange.registry import get_provider_registry
+
+        registry = get_provider_registry()
+        all_health = await registry.get_all_health()
+
+        providers = {}
+        healthy_count = 0
+
+        for provider_id, health in all_health.items():
+            if health.available:
+                healthy_count += 1
+
+            providers[provider_id] = {
+                "provider_id": provider_id,
+                "available": health.available,
+                "message": health.message,
+                "latency_ms": health.latency_ms,
+                "instances_available": health.instances_available,
+                "queue_depth": health.queue_depth,
+                "error_code": health.error_code,
+                "last_check": health.last_check.isoformat(),
+            }
+
+        return {
+            "providers": providers,
+            "healthy_count": healthy_count,
+            "total_count": len(all_health),
+        }
+
+    @server.handler("gpuExchange.getProvidersForGPU")
+    async def handle_get_providers_for_gpu(gpuType: str) -> List[str]:
+        """Get providers that support a specific GPU type."""
+        from scenemachine.gpu_exchange.base import GPUType
+        from scenemachine.gpu_exchange.registry import get_provider_registry
+
+        try:
+            gpu = GPUType(gpuType)
+        except ValueError:
+            raise ValueError(f"Invalid GPU type: {gpuType}")
+
+        registry = get_provider_registry()
+        return registry.get_providers_for_gpu(gpu)
+
+    @server.handler("gpuExchange.getPricing")
+    async def handle_get_gpu_pricing(
+        providerId: str,
+        gpuType: str,
+        region: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get pricing for a GPU type from a provider."""
+        from scenemachine.gpu_exchange.base import GPUType
+        from scenemachine.gpu_exchange.pricing import get_pricing_service
+
+        try:
+            gpu = GPUType(gpuType)
+        except ValueError:
+            raise ValueError(f"Invalid GPU type: {gpuType}")
+
+        pricing_service = get_pricing_service()
+        pricing = await pricing_service.get_pricing(
+            providerId, gpu, region or "us-east-1"
+        )
+
+        if not pricing:
+            raise ValueError(f"Pricing not available for {providerId}/{gpuType}")
+
+        return {
+            "gpu_type": gpuType,
+            "price_per_hour": pricing.price_per_hour,
+            "price_per_second": pricing.price_per_second,
+            "spot_price_per_hour": pricing.spot_price_per_hour,
+            "reserved_price_per_hour": pricing.reserved_price_per_hour,
+            "currency": pricing.currency,
+            "region": pricing.region,
+            "availability": pricing.availability,
+            "last_updated": pricing.last_updated.isoformat(),
+        }
+
+    @server.handler("gpuExchange.comparePricing")
+    async def handle_compare_gpu_pricing(
+        gpuType: str,
+        region: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Compare pricing across providers for a GPU type."""
+        from scenemachine.gpu_exchange.base import GPUType
+        from scenemachine.gpu_exchange.pricing import get_pricing_service
+
+        try:
+            gpu = GPUType(gpuType)
+        except ValueError:
+            raise ValueError(f"Invalid GPU type: {gpuType}")
+
+        pricing_service = get_pricing_service()
+        comparison = await pricing_service.compare_pricing(gpu, region or "us-east-1")
+
+        return {
+            "gpu_type": gpuType,
+            "region": comparison.region,
+            "cheapest_provider": comparison.cheapest_provider,
+            "cheapest_price": comparison.cheapest_price,
+            "fastest_provider": comparison.fastest_provider,
+            "best_value_provider": comparison.best_value_provider,
+            "all_options": comparison.all_options,
+            "generated_at": comparison.generated_at.isoformat(),
+        }
+
+    @server.handler("gpuExchange.getAllPricing")
+    async def handle_get_all_gpu_pricing(
+        gpuType: str,
+        region: Optional[str] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """Get pricing from all providers for a GPU type."""
+        from scenemachine.gpu_exchange.base import GPUType
+        from scenemachine.gpu_exchange.pricing import get_pricing_service
+
+        try:
+            gpu = GPUType(gpuType)
+        except ValueError:
+            raise ValueError(f"Invalid GPU type: {gpuType}")
+
+        pricing_service = get_pricing_service()
+        all_pricing = await pricing_service.get_all_pricing(gpu, region or "us-east-1")
+
+        result = {}
+        for provider_id, pricing in all_pricing.items():
+            result[provider_id] = {
+                "gpu_type": gpuType,
+                "price_per_hour": pricing.price_per_hour,
+                "price_per_second": pricing.price_per_second,
+                "spot_price_per_hour": pricing.spot_price_per_hour,
+                "reserved_price_per_hour": pricing.reserved_price_per_hour,
+                "currency": pricing.currency,
+                "region": pricing.region,
+                "availability": pricing.availability,
+                "last_updated": pricing.last_updated.isoformat(),
+            }
+
+        return result
+
+    @server.handler("gpuExchange.estimateCost")
+    async def handle_estimate_gpu_cost(
+        gpuType: str,
+        durationSeconds: float,
+        providerId: Optional[str] = None,
+        useSpot: bool = False,
+    ) -> Dict[str, Any]:
+        """Estimate cost for GPU usage."""
+        from scenemachine.gpu_exchange.base import GPUType
+        from scenemachine.gpu_exchange.pricing import get_pricing_service, PricingTier
+
+        try:
+            gpu = GPUType(gpuType)
+        except ValueError:
+            raise ValueError(f"Invalid GPU type: {gpuType}")
+
+        pricing_service = get_pricing_service()
+
+        if providerId:
+            pricing = await pricing_service.get_pricing(providerId, gpu)
+            if not pricing:
+                raise ValueError(f"Pricing not available for {providerId}")
+
+            if useSpot and pricing.spot_price_per_hour:
+                price_per_hour = pricing.spot_price_per_hour
+            else:
+                price_per_hour = pricing.price_per_hour
+
+            estimated_cost = (price_per_hour / 3600) * durationSeconds
+
+            return {
+                "provider_id": providerId,
+                "gpu_type": gpuType,
+                "duration_seconds": durationSeconds,
+                "use_spot": useSpot and pricing.spot_price_per_hour is not None,
+                "estimated_cost_usd": round(estimated_cost, 4),
+                "price_per_hour": price_per_hour,
+                "currency": "USD",
+            }
+        else:
+            tier = PricingTier.BUDGET if useSpot else PricingTier.STANDARD
+            result = await pricing_service.get_optimal_provider(
+                gpu, durationSeconds, tier=tier
+            )
+
+            if not result:
+                raise ValueError(f"No providers available for {gpuType}")
+
+            provider_id, pricing = result
+
+            if useSpot and pricing.spot_price_per_hour:
+                price_per_hour = pricing.spot_price_per_hour
+            else:
+                price_per_hour = pricing.price_per_hour
+
+            estimated_cost = (price_per_hour / 3600) * durationSeconds
+
+            return {
+                "provider_id": provider_id,
+                "gpu_type": gpuType,
+                "duration_seconds": durationSeconds,
+                "use_spot": useSpot and pricing.spot_price_per_hour is not None,
+                "estimated_cost_usd": round(estimated_cost, 4),
+                "price_per_hour": price_per_hour,
+                "currency": "USD",
+            }
+
+    @server.handler("gpuExchange.selectProvider")
+    async def handle_select_gpu_provider(
+        gpuType: str,
+        durationSeconds: float,
+        config: Optional[Dict[str, Any]] = None,
+        requiredCapability: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Select optimal provider for a job."""
+        from scenemachine.gpu_exchange.base import GPUType, ProviderCapability
+        from scenemachine.gpu_exchange.router import (
+            RoutingConfig,
+            RoutingPriority,
+            get_gpu_exchange,
+        )
+
+        try:
+            gpu = GPUType(gpuType)
+        except ValueError:
+            raise ValueError(f"Invalid GPU type: {gpuType}")
+
+        capability = ProviderCapability.VIDEO_GENERATION
+        if requiredCapability:
+            try:
+                capability = ProviderCapability(requiredCapability)
+            except ValueError:
+                raise ValueError(f"Invalid capability: {requiredCapability}")
+
+        # Build routing config
+        routing_config = RoutingConfig()
+        if config:
+            if "priority" in config:
+                try:
+                    routing_config.priority = RoutingPriority(config["priority"])
+                except ValueError:
+                    pass
+
+            if "max_price_usd" in config:
+                routing_config.max_price_usd = config["max_price_usd"]
+            if "preferred_providers" in config:
+                routing_config.preferred_providers = config["preferred_providers"]
+            if "excluded_providers" in config:
+                routing_config.excluded_providers = config["excluded_providers"]
+            if "preferred_regions" in config:
+                routing_config.preferred_regions = config["preferred_regions"]
+            if "allow_spot" in config:
+                routing_config.allow_spot = config["allow_spot"]
+
+        exchange = get_gpu_exchange()
+        selection = await exchange.select_provider(
+            gpu, durationSeconds, routing_config, capability
+        )
+
+        if not selection:
+            raise ValueError("No suitable provider found")
+
+        return {
+            "provider_id": selection.provider_id,
+            "provider_name": selection.provider.name,
+            "price_per_hour": selection.pricing.price_per_hour,
+            "estimated_cost": round(selection.estimated_cost, 4),
+            "use_spot": selection.use_spot,
+            "fallback_providers": selection.fallback_providers,
+            "score_breakdown": {
+                "total": selection.score.total_score,
+                "cost": selection.score.cost_score,
+                "latency": selection.score.latency_score,
+                "reliability": selection.score.reliability_score,
+                "queue": selection.score.queue_score,
+            },
+        }
+
+    @server.handler("gpuExchange.getRoutingStats")
+    async def handle_get_gpu_routing_stats() -> Dict[str, Any]:
+        """Get routing statistics."""
+        from scenemachine.gpu_exchange.router import get_gpu_exchange
+
+        exchange = get_gpu_exchange()
+        stats = exchange.get_routing_stats()
+
+        return stats
+
+    @server.handler("gpuExchange.setBudgetLimit")
+    async def handle_set_gpu_budget_limit(
+        projectId: str,
+        limitUsd: float,
+    ) -> Dict[str, str]:
+        """Set a budget limit for a project."""
+        from scenemachine.gpu_exchange.pricing import get_pricing_service
+
+        pricing_service = get_pricing_service()
+        pricing_service.set_budget_limit(projectId, limitUsd)
+
+        return {"status": "success"}
+
+    @server.handler("gpuExchange.checkBudget")
+    async def handle_check_gpu_budget(
+        projectId: str,
+        estimatedCost: float,
+        currentSpent: float = 0.0,
+    ) -> Dict[str, Any]:
+        """Check if a job would exceed budget."""
+        from scenemachine.gpu_exchange.pricing import get_pricing_service
+
+        pricing_service = get_pricing_service()
+        allowed, warning = pricing_service.check_budget(
+            projectId, estimatedCost, currentSpent
+        )
+
+        return {"allowed": allowed, "warning": warning}
+
+    @server.handler("gpuExchange.listGPUTypes")
+    async def handle_list_gpu_types() -> List[Dict[str, str]]:
+        """List all GPU types."""
+        from scenemachine.gpu_exchange.base import GPUType
+
+        return [
+            {"id": gpu.value, "name": gpu.name.replace("_", " ")}
+            for gpu in GPUType
+        ]
+
+    @server.handler("gpuExchange.listCapabilities")
+    async def handle_list_gpu_capabilities() -> List[Dict[str, str]]:
+        """List all GPU capabilities."""
+        from scenemachine.gpu_exchange.base import ProviderCapability
+
+        return [
+            {"id": cap.value, "name": cap.name.replace("_", " ").title()}
+            for cap in ProviderCapability
+        ]
+
+    @server.handler("gpuExchange.listPricingTiers")
+    async def handle_list_gpu_pricing_tiers() -> List[Dict[str, str]]:
+        """List all pricing tiers."""
+        from scenemachine.gpu_exchange.pricing import PricingTier
+
+        descriptions = {
+            "budget": "Cheapest available, may use spot instances",
+            "standard": "Balanced price and reliability",
+            "premium": "Fastest, most reliable",
+            "reserved": "Reserved capacity discount",
+        }
+
+        return [
+            {
+                "id": tier.value,
+                "name": tier.name.title(),
+                "description": descriptions.get(tier.value, ""),
+            }
+            for tier in PricingTier
+        ]
+
+    # =========================================================================
+    # Co-pilot (Steven) Handlers
+    # =========================================================================
+
+    @server.handler("copilot.chat")
+    async def handle_copilot_chat(
+        projectId: str,
+        message: str,
+        context: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """Send a chat message to the co-pilot."""
+        # TODO: Integrate with actual LLM service
+        # For now, return a simulated response
+
+        import random
+
+        responses = [
+            "I've analyzed your project and have some suggestions for improving the pacing in this scene.",
+            "Based on the screenplay, this shot could benefit from a more dynamic camera movement.",
+            "The dialogue here feels natural, but consider adding a beat before the character's response.",
+            "The visual storytelling in this sequence is strong. The lighting choices support the mood effectively.",
+            "I notice the scene transitions could be smoother. Would you like suggestions for transitions?",
+        ]
+
+        suggestions = []
+        if random.random() > 0.5:
+            suggestions = [
+                {
+                    "id": f"sug_{random.randint(1000, 9999)}",
+                    "type": random.choice(["scene", "shot", "dialogue", "pacing"]),
+                    "title": "Pacing Improvement",
+                    "description": "Consider adding a pause after this line for dramatic effect.",
+                    "confidence": round(random.uniform(0.7, 0.95), 2),
+                }
+            ]
+
+        return {
+            "message": random.choice(responses),
+            "suggestions": suggestions,
+            "relatedScenes": [],
+            "relatedShots": [],
+        }
+
+    @server.handler("copilot.analyze")
+    async def handle_copilot_analyze(projectId: str) -> Dict[str, Any]:
+        """Analyze a project with the co-pilot."""
+        import random
+        from datetime import datetime
+
+        # Simulated analysis (TODO: integrate with LLM)
+        return {
+            "projectId": projectId,
+            "overallScore": round(random.uniform(0.65, 0.92), 2),
+            "pacing": {
+                "score": round(random.uniform(0.6, 0.95), 2),
+                "feedback": "The pacing is generally good with some scenes that could use tightening.",
+                "suggestions": [
+                    "Scene 3 feels slightly slow - consider trimming the exposition",
+                    "The climax sequence has great momentum",
+                ],
+            },
+            "characterDevelopment": {
+                "score": round(random.uniform(0.6, 0.95), 2),
+                "feedback": "Characters are well-defined with clear motivations.",
+                "suggestions": [
+                    "Consider adding more backstory for the antagonist",
+                    "The protagonist's arc is compelling",
+                ],
+            },
+            "visualStorytelling": {
+                "score": round(random.uniform(0.6, 0.95), 2),
+                "feedback": "Strong visual choices that support the narrative.",
+                "suggestions": [
+                    "Use more close-ups in emotional scenes",
+                    "The color palette choices are effective",
+                ],
+            },
+            "dialogue": {
+                "score": round(random.uniform(0.6, 0.95), 2),
+                "feedback": "Dialogue feels natural and serves character development.",
+                "suggestions": [
+                    "Some exposition could be shown rather than told",
+                    "The witty exchanges work well",
+                ],
+            },
+            "suggestions": [
+                {
+                    "id": f"analysis_sug_{i}",
+                    "type": random.choice(["scene", "shot", "character", "dialogue", "pacing", "visual"]),
+                    "title": f"Suggestion {i + 1}",
+                    "description": f"Improvement suggestion based on analysis.",
+                    "confidence": round(random.uniform(0.7, 0.95), 2),
+                }
+                for i in range(random.randint(2, 5))
+            ],
+            "generatedAt": datetime.utcnow().isoformat(),
+        }
+
+    @server.handler("copilot.suggestScene")
+    async def handle_copilot_suggest_scene(
+        projectId: str,
+        sceneId: str,
+    ) -> List[Dict[str, Any]]:
+        """Get suggestions for a scene."""
+        import random
+
+        return [
+            {
+                "id": f"scene_sug_{random.randint(1000, 9999)}",
+                "type": "scene",
+                "title": "Scene Flow",
+                "description": "Consider reordering the beats in this scene for better tension.",
+                "confidence": round(random.uniform(0.7, 0.95), 2),
+            },
+            {
+                "id": f"scene_sug_{random.randint(1000, 9999)}",
+                "type": "visual",
+                "title": "Lighting Suggestion",
+                "description": "This scene would benefit from more contrast in lighting.",
+                "confidence": round(random.uniform(0.7, 0.95), 2),
+            },
+        ]
+
+    @server.handler("copilot.suggestShot")
+    async def handle_copilot_suggest_shot(
+        projectId: str,
+        shotId: str,
+    ) -> List[Dict[str, Any]]:
+        """Get suggestions for a shot."""
+        import random
+
+        return [
+            {
+                "id": f"shot_sug_{random.randint(1000, 9999)}",
+                "type": "shot",
+                "title": "Camera Movement",
+                "description": "A slow push-in could enhance the emotional impact here.",
+                "confidence": round(random.uniform(0.7, 0.95), 2),
+            },
+        ]
+
+    @server.handler("copilot.applySuggestion")
+    async def handle_copilot_apply_suggestion(
+        projectId: str,
+        suggestionId: str,
+    ) -> Dict[str, Any]:
+        """Apply a co-pilot suggestion."""
+        # TODO: Implement actual suggestion application
+        return {"success": True, "changes": {}}
+
+    @server.handler("copilot.dismissSuggestion")
+    async def handle_copilot_dismiss_suggestion(
+        projectId: str,
+        suggestionId: str,
+    ) -> Dict[str, bool]:
+        """Dismiss a co-pilot suggestion."""
+        return {"success": True}
+
+    @server.handler("copilot.getQuickActions")
+    async def handle_copilot_quick_actions(
+        projectId: str,
+        sceneId: Optional[str] = None,
+        shotId: Optional[str] = None,
+    ) -> List[Dict[str, str]]:
+        """Get quick actions for current context."""
+        actions = [
+            {"id": "analyze", "label": "Analyze Project", "action": "analyze_project"},
+            {"id": "improve_pacing", "label": "Improve Pacing", "action": "suggest_pacing"},
+        ]
+
+        if sceneId:
+            actions.extend([
+                {"id": "scene_suggest", "label": "Suggest Improvements", "action": "suggest_scene"},
+                {"id": "scene_visualize", "label": "Visualize Scene", "action": "visualize_scene"},
+            ])
+
+        if shotId:
+            actions.extend([
+                {"id": "shot_suggest", "label": "Suggest Shot Changes", "action": "suggest_shot"},
+                {"id": "shot_regenerate", "label": "Regenerate Prompt", "action": "regenerate_prompt"},
+            ])
+
+        return actions
 
     logger.info(f"Registered {len(server.handlers)} IPC handlers")

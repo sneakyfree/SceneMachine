@@ -21,6 +21,8 @@ export interface ApiKeys {
   elevenlabs: ApiKeyInfo;
 }
 
+export type FontSizeScale = 'small' | 'medium' | 'large' | 'extra-large';
+
 export interface UserSettings {
   id: string;
   llmProvider: string;
@@ -36,6 +38,11 @@ export interface UserSettings {
   maxCacheSizeGb: number;
   defaultExportFormat: string;
   defaultExportQuality: string;
+  // Accessibility settings
+  fontSizeScale: FontSizeScale;
+  highContrastEnabled: boolean;
+  reduceMotionEnabled: boolean;
+  largeClickTargetsEnabled: boolean;
   additionalSettings: Record<string, any>;
   apiKeys?: ApiKeys;
   createdAt: string | null;
@@ -246,6 +253,11 @@ export const useSettingsStore = create<SettingsStoreState>()(
               maxCacheSizeGb: 'max_cache_size_gb',
               defaultExportFormat: 'default_export_format',
               defaultExportQuality: 'default_export_quality',
+              // Accessibility settings
+              fontSizeScale: 'font_size_scale',
+              highContrastEnabled: 'high_contrast_enabled',
+              reduceMotionEnabled: 'reduce_motion_enabled',
+              largeClickTargetsEnabled: 'large_click_targets_enabled',
             };
 
             for (const [camel, snake] of Object.entries(fieldMap)) {
@@ -431,9 +443,15 @@ export const useSettingsStore = create<SettingsStoreState>()(
       {
         name: 'scenemachine-settings-store',
         partialize: (state) => ({
-          // Only persist theme preference locally for quick loading
+          // Persist theme and accessibility preferences locally for quick loading
           settings: state.settings
-            ? { themeMode: state.settings.themeMode }
+            ? {
+                themeMode: state.settings.themeMode,
+                fontSizeScale: state.settings.fontSizeScale,
+                highContrastEnabled: state.settings.highContrastEnabled,
+                reduceMotionEnabled: state.settings.reduceMotionEnabled,
+                largeClickTargetsEnabled: state.settings.largeClickTargetsEnabled,
+              }
             : null,
         }),
       }

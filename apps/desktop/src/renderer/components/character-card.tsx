@@ -21,9 +21,16 @@ import {
   Star,
   Mic,
   Volume2,
+  Edit3,
+  X,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { VoiceSelector } from './voice-selector';
+import {
+  PhysicalDescriptionForm,
+  type PhysicalDescription,
+} from './physical-description-form';
+import { useExperienceStore } from '../stores/experience-store';
 
 interface ReferenceAsset {
   id: string;
@@ -44,6 +51,9 @@ interface Character {
     hair_style?: string;
     eye_color?: string;
     build?: string;
+    height?: string;
+    skin_tone?: string;
+    clothing_style?: string;
     distinguishing_features?: string[];
   };
   personalityTraits?: string[];
@@ -67,6 +77,7 @@ interface CharacterCardProps {
   onUploadReference: (characterId: string) => void;
   onDeleteReference: (characterId: string, assetId: string) => void;
   onGenerateDescription: (characterId: string) => void;
+  onUpdatePhysicalDescription?: (characterId: string, data: PhysicalDescription) => void;
   onVoiceChange?: (characterId: string, voiceId: string, provider: string, voiceName: string) => void;
   isExpanded?: boolean;
   disabled?: boolean;
@@ -80,11 +91,14 @@ export function CharacterCard({
   onUploadReference,
   onDeleteReference,
   onGenerateDescription,
+  onUpdatePhysicalDescription,
   onVoiceChange,
   isExpanded: defaultExpanded = false,
   disabled = false,
 }: CharacterCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isEditingPhysical, setIsEditingPhysical] = useState(false);
+  const { getTerm } = useExperienceStore();
 
   const getLockStateColor = (state: string) => {
     switch (state) {
@@ -106,7 +120,7 @@ export function CharacterCard({
   const getLockStateLabel = (state: string) => {
     switch (state) {
       case 'locked':
-        return 'Locked';
+        return getTerm('locked', 'characters');
       case 'review':
         return 'In Review';
       case 'generating':
@@ -115,8 +129,10 @@ export function CharacterCard({
         return 'Has References';
       case 'draft':
         return 'Draft';
+      case 'unlocked':
+        return getTerm('unlocked', 'characters');
       default:
-        return 'Undefined';
+        return getTerm('unlocked', 'characters');
     }
   };
 
@@ -244,62 +260,138 @@ export function CharacterCard({
       {isExpanded && (
         <div className="mt-4 pt-4 border-t border-surface-800 space-y-4">
           {/* Physical Description */}
-          {character.physicalDescription && (
-            <div>
-              <h4 className="text-sm font-medium text-surface-400 mb-2">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-surface-400">
                 Physical Description
               </h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {character.physicalDescription.hair_color && (
-                  <div>
-                    <span className="text-surface-500">Hair:</span>{' '}
+              {!character.isLocked && !isEditingPhysical && (
+                <button
+                  onClick={() => setIsEditingPhysical(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-surface-400 hover:text-surface-200 hover:bg-surface-800 rounded transition-colors"
+                >
+                  <Edit3 className="w-3 h-3" />
+                  Edit
+                </button>
+              )}
+              {isEditingPhysical && (
+                <button
+                  onClick={() => setIsEditingPhysical(false)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-surface-400 hover:text-surface-200 hover:bg-surface-800 rounded transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                  Close
+                </button>
+              )}
+            </div>
+
+            {isEditingPhysical ? (
+              <PhysicalDescriptionForm
+                initialData={character.physicalDescription as Partial<PhysicalDescription>}
+                onSave={(data) => {
+                  onUpdatePhysicalDescription?.(character.id, data);
+                  setIsEditingPhysical(false);
+                }}
+                onCancel={() => setIsEditingPhysical(false)}
+                isLocked={character.isLocked}
+                isLoading={disabled}
+                compact
+              />
+            ) : character.physicalDescription ? (
+              <>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {character.physicalDescription.hair_color && (
+                    <div>
+                      <span className="text-surface-500">Hair:</span>{' '}
+                      <span className="text-surface-200">
+                        {character.physicalDescription.hair_color}
+                        {character.physicalDescription.hair_style &&
+                          `, ${character.physicalDescription.hair_style}`}
+                      </span>
+                    </div>
+                  )}
+                  {character.physicalDescription.eye_color && (
+                    <div>
+                      <span className="text-surface-500">Eyes:</span>{' '}
+                      <span className="text-surface-200">
+                        {character.physicalDescription.eye_color}
+                      </span>
+                    </div>
+                  )}
+                  {character.physicalDescription.build && (
+                    <div>
+                      <span className="text-surface-500">Build:</span>{' '}
+                      <span className="text-surface-200">
+                        {character.physicalDescription.build}
+                      </span>
+                    </div>
+                  )}
+                  {character.ageRangeDisplay && (
+                    <div>
+                      <span className="text-surface-500">Age:</span>{' '}
+                      <span className="text-surface-200">
+                        {character.ageRangeDisplay}
+                      </span>
+                    </div>
+                  )}
+                  {character.physicalDescription.height && (
+                    <div>
+                      <span className="text-surface-500">Height:</span>{' '}
+                      <span className="text-surface-200">
+                        {character.physicalDescription.height}
+                      </span>
+                    </div>
+                  )}
+                  {character.physicalDescription.skin_tone && (
+                    <div>
+                      <span className="text-surface-500">Skin:</span>{' '}
+                      <span className="text-surface-200">
+                        {character.physicalDescription.skin_tone}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {character.physicalDescription.clothing_style && (
+                  <div className="mt-2 text-sm">
+                    <span className="text-surface-500">Clothing:</span>{' '}
                     <span className="text-surface-200">
-                      {character.physicalDescription.hair_color}
-                      {character.physicalDescription.hair_style &&
-                        `, ${character.physicalDescription.hair_style}`}
+                      {character.physicalDescription.clothing_style}
                     </span>
                   </div>
                 )}
-                {character.physicalDescription.eye_color && (
-                  <div>
-                    <span className="text-surface-500">Eyes:</span>{' '}
-                    <span className="text-surface-200">
-                      {character.physicalDescription.eye_color}
-                    </span>
-                  </div>
-                )}
-                {character.physicalDescription.build && (
-                  <div>
-                    <span className="text-surface-500">Build:</span>{' '}
-                    <span className="text-surface-200">
-                      {character.physicalDescription.build}
-                    </span>
-                  </div>
-                )}
-                {character.ageRangeDisplay && (
-                  <div>
-                    <span className="text-surface-500">Age:</span>{' '}
-                    <span className="text-surface-200">
-                      {character.ageRangeDisplay}
-                    </span>
-                  </div>
+                {character.physicalDescription.distinguishing_features &&
+                  character.physicalDescription.distinguishing_features.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-surface-500 text-sm">Features:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {character.physicalDescription.distinguishing_features.map(
+                          (feature, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 bg-surface-800 rounded text-xs text-surface-300"
+                            >
+                              {feature}
+                            </span>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+              </>
+            ) : (
+              <div className="text-sm text-surface-500 italic">
+                No physical description yet.{' '}
+                {!character.isLocked && (
+                  <button
+                    onClick={() => setIsEditingPhysical(true)}
+                    className="text-brand-400 hover:text-brand-300 underline"
+                  >
+                    Add one
+                  </button>
                 )}
               </div>
-              {character.physicalDescription.distinguishing_features &&
-                character.physicalDescription.distinguishing_features.length > 0 && (
-                  <div className="mt-2">
-                    <span className="text-surface-500 text-sm">Features:</span>
-                    <ul className="list-disc list-inside text-sm text-surface-200 mt-1">
-                      {character.physicalDescription.distinguishing_features.map(
-                        (feature, i) => (
-                          <li key={i}>{feature}</li>
-                        )
-                      )}
-                    </ul>
-                  </div>
-                )}
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Reference Images */}
           {character.referenceAssets && character.referenceAssets.length > 0 && (
@@ -418,9 +510,10 @@ export function CharacterCard({
                   onClick={() => onLock(character.id)}
                   disabled={disabled || !character.physicalDescription}
                   className="btn-primary text-sm ml-auto"
+                  title="Once saved, this character will look the same in every scene"
                 >
                   <Lock className="w-4 h-4 mr-1" />
-                  Lock Character
+                  {getTerm('lock', 'characters')}
                 </button>
               </>
             )}
@@ -432,7 +525,7 @@ export function CharacterCard({
                 className="btn-secondary text-sm"
               >
                 <Unlock className="w-4 h-4 mr-1" />
-                Unlock for Editing
+                {getTerm('unlock', 'characters')}
               </button>
             )}
           </div>

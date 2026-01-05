@@ -9,10 +9,10 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin
+from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType
 
 
 class ExportStatus(str, Enum):
@@ -172,11 +172,11 @@ class ExportHistory(Base, UUIDMixin, TimestampMixin):
 
     # Additional metadata
     export_settings: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSONType,
         nullable=True,
     )
     verification_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSONB,
+        JSONType,
         nullable=True,
     )
 

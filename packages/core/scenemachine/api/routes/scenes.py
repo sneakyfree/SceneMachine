@@ -125,10 +125,14 @@ class ReorderShotsRequest(BaseModel):
 # Helper functions
 def scene_to_response(scene, include_shots: bool = False) -> Dict[str, Any]:
     """Convert scene model to response dict."""
+    # Scene doesn't have screenplay_id directly - it's accessed via project
+    screenplay_id = getattr(scene, 'screenplay_id', None)
+    if screenplay_id is None and hasattr(scene, 'project') and scene.project:
+        screenplay_id = scene.project.screenplay_id if hasattr(scene.project, 'screenplay_id') else None
     data = {
         "id": str(scene.id),
         "project_id": str(scene.project_id),
-        "screenplay_id": str(scene.screenplay_id) if scene.screenplay_id else None,
+        "screenplay_id": str(screenplay_id) if screenplay_id else None,
         "scene_number": scene.scene_number,
         "sequence_number": scene.sequence_number,
         "heading": scene.heading,
@@ -623,14 +627,15 @@ async def list_shot_types() -> List[Dict[str, str]]:
     shot_type_descriptions = {
         ShotType.ESTABLISHING: "Wide shot that establishes location/setting",
         ShotType.WIDE: "Full view of the scene with all characters",
-        ShotType.MEDIUM_WIDE: "Characters visible from knees up",
+        ShotType.FULL: "Full body shot of character",
         ShotType.MEDIUM: "Characters visible from waist up",
         ShotType.MEDIUM_CLOSE_UP: "Characters visible from chest up",
         ShotType.CLOSE_UP: "Face or important detail fills frame",
         ShotType.EXTREME_CLOSE_UP: "Very tight on specific detail",
-        ShotType.TWO_SHOT: "Two characters in frame together",
         ShotType.OVER_THE_SHOULDER: "Shot from behind one character",
         ShotType.POV: "Point of view from character's perspective",
+        ShotType.TWO_SHOT: "Two characters in frame together",
+        ShotType.GROUP: "Multiple characters in frame",
         ShotType.INSERT: "Close shot of specific object or detail",
         ShotType.CUTAWAY: "Shot that cuts away from main action",
     }
@@ -658,10 +663,8 @@ async def list_camera_movements() -> List[Dict[str, str]]:
         CameraMovement.HANDHELD: "Camera held by operator for organic movement",
         CameraMovement.STEADICAM: "Stabilized moving camera for smooth tracking",
         CameraMovement.ZOOM: "Lens zooms in or out (not camera movement)",
+        CameraMovement.RACK_FOCUS: "Focus shifts between subjects at different depths",
         CameraMovement.TRACKING: "Camera follows alongside moving subject",
-        CameraMovement.ARC: "Camera moves in curved path around subject",
-        CameraMovement.PUSH_IN: "Slow dolly toward subject",
-        CameraMovement.PULL_OUT: "Slow dolly away from subject",
     }
 
     return [

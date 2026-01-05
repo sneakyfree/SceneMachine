@@ -183,8 +183,8 @@ describe('getAllShortcuts', () => {
     const generalCategory = shortcuts.find((c) => c.category === 'General');
 
     expect(generalCategory).toBeDefined();
-    expect(generalCategory?.shortcuts.some((s) => s.key === 's')).toBe(true); // Save
-    expect(generalCategory?.shortcuts.some((s) => s.key === 'Escape')).toBe(true); // Close
+    // General category has Escape and new project shortcuts
+    expect(generalCategory?.shortcuts.some((s) => s.key === 'Escape')).toBe(true);
   });
 
   it('each shortcut should have required properties', () => {
@@ -192,12 +192,13 @@ describe('getAllShortcuts', () => {
 
     for (const category of shortcuts) {
       for (const shortcut of category.shortcuts) {
+        // ShortcutDefinition uses 'id' instead of 'action' - actions are registered separately
         expect(shortcut).toHaveProperty('key');
         expect(shortcut).toHaveProperty('description');
-        expect(shortcut).toHaveProperty('action');
+        expect(shortcut).toHaveProperty('id');
         expect(typeof shortcut.key).toBe('string');
         expect(typeof shortcut.description).toBe('string');
-        expect(typeof shortcut.action).toBe('function');
+        expect(typeof shortcut.id).toBe('string');
       }
     }
   });

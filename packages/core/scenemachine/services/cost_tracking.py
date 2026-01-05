@@ -87,10 +87,10 @@ PROVIDER_RATES = {
         "ltx": 0.04,
         "default": 0.05,
     },
-    JobProvider.RUNWAYML: {
+    JobProvider.RUNPOD: {
         "gen-2": 0.12,
         "gen-3": 0.15,
-        "default": 0.12,
+        "default": 0.10,
     },
 }
 

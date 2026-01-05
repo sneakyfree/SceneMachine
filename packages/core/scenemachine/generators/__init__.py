@@ -44,6 +44,7 @@ from .base import (
 )
 
 # Provider implementations
+from .actcore import ActCoreProvider
 from .comfyui import ComfyUIProvider
 from .fal import FalProvider
 from .mock import MockGenerationProvider
@@ -85,6 +86,7 @@ __all__ = [
     "VideoModel",
     "get_provider_registry",
     # Provider implementations
+    "ActCoreProvider",
     "ReplicateProvider",
     "FalProvider",
     "ComfyUIProvider",

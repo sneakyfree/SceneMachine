@@ -28,6 +28,15 @@ import {
   Volume2,
   Play,
   Pause,
+  DollarSign,
+  Sparkles,
+  MessageCircle,
+  User,
+  Accessibility,
+  Type,
+  Contrast,
+  MousePointer,
+  Minimize2,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
@@ -35,8 +44,13 @@ import {
   useSettingsStore,
   ProviderStatus,
   StorageStats,
+  FontSizeScale,
 } from '../stores/settings-store';
+import { useExperienceStore } from '../stores/experience-store';
 import { useAudioStore, TTSProvider, Voice } from '../stores/audio-store';
+import { BudgetSettings } from '../components/budget-settings';
+import { CircuitBreakerPanel } from '../components/circuit-breaker-status';
+import { ExperienceModeSelector } from '../components/experience-mode-selector';
 
 // Format bytes to human readable
 function formatBytes(bytes: number): string {
@@ -487,6 +501,405 @@ function TTSSettingsSection() {
   );
 }
 
+// Accessibility Settings Section
+function AccessibilitySettingsSection() {
+  const { settings, saveSettings, isSaving } = useSettingsStore();
+
+  const [localFontSize, setLocalFontSize] = useState<FontSizeScale>(
+    settings?.fontSizeScale || 'medium'
+  );
+  const [localHighContrast, setLocalHighContrast] = useState(
+    settings?.highContrastEnabled || false
+  );
+  const [localReduceMotion, setLocalReduceMotion] = useState(
+    settings?.reduceMotionEnabled || false
+  );
+  const [localLargeTargets, setLocalLargeTargets] = useState(
+    settings?.largeClickTargetsEnabled || false
+  );
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Sync local state when settings load
+  useEffect(() => {
+    if (settings) {
+      setLocalFontSize(settings.fontSizeScale || 'medium');
+      setLocalHighContrast(settings.highContrastEnabled || false);
+      setLocalReduceMotion(settings.reduceMotionEnabled || false);
+      setLocalLargeTargets(settings.largeClickTargetsEnabled || false);
+      setHasChanges(false);
+    }
+  }, [settings]);
+
+  const handleFontSizeChange = (size: FontSizeScale) => {
+    setLocalFontSize(size);
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      await saveSettings({
+        fontSizeScale: localFontSize,
+        highContrastEnabled: localHighContrast,
+        reduceMotionEnabled: localReduceMotion,
+        largeClickTargetsEnabled: localLargeTargets,
+      });
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to save accessibility settings:', error);
+    }
+  };
+
+  const FONT_SIZE_OPTIONS: { value: FontSizeScale; label: string; preview: string }[] = [
+    { value: 'small', label: 'Small', preview: 'Aa' },
+    { value: 'medium', label: 'Medium', preview: 'Aa' },
+    { value: 'large', label: 'Large', preview: 'Aa' },
+    { value: 'extra-large', label: 'Extra Large', preview: 'Aa' },
+  ];
+
+  const fontSizePreviewClasses: Record<FontSizeScale, string> = {
+    small: 'text-sm',
+    medium: 'text-base',
+    large: 'text-lg',
+    'extra-large': 'text-xl',
+  };
+
+  return (
+    <div className="card mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-medium flex items-center gap-2">
+          <Accessibility className="w-5 h-5 text-brand-400" />
+          Accessibility
+        </h2>
+        {hasChanges && (
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-sm flex items-center gap-2"
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            Save Changes
+          </button>
+        )}
+      </div>
+
+      <p className="text-sm text-surface-400 mb-6">
+        Customize the interface to make it easier to use. These settings help with visibility and navigation.
+      </p>
+
+      {/* Font Size Selection */}
+      <div className="mb-6">
+        <label className="flex items-center gap-2 text-sm text-surface-400 mb-3">
+          <Type className="w-4 h-4" />
+          Text Size
+        </label>
+        <div className="grid grid-cols-4 gap-3">
+          {FONT_SIZE_OPTIONS.map((option) => {
+            const isSelected = localFontSize === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => handleFontSizeChange(option.value)}
+                className={cn(
+                  'p-4 rounded-lg border text-center transition-all',
+                  isSelected
+                    ? 'bg-brand-500/20 border-brand-500/50 text-brand-400'
+                    : 'bg-surface-800/50 border-surface-700 hover:border-surface-600'
+                )}
+              >
+                <div className={cn('font-bold mb-1', fontSizePreviewClasses[option.value])}>
+                  {option.preview}
+                </div>
+                <div className="text-xs text-surface-400">{option.label}</div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Live Preview */}
+        <div className="mt-4 p-4 bg-surface-800/30 rounded-lg border border-surface-700">
+          <div className="text-xs text-surface-500 mb-2">Preview:</div>
+          <p className={cn('text-surface-200', fontSizePreviewClasses[localFontSize])}>
+            This is how text will appear with the selected size. Larger text is easier to read.
+          </p>
+        </div>
+      </div>
+
+      {/* Toggle Options */}
+      <div className="space-y-4">
+        {/* High Contrast */}
+        <div className="flex items-center justify-between p-4 bg-surface-800/50 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-surface-700 rounded-lg flex items-center justify-center">
+              <Contrast className="w-5 h-5 text-surface-300" />
+            </div>
+            <div>
+              <h3 className="font-medium">High Contrast</h3>
+              <p className="text-sm text-surface-400">
+                Increases contrast between elements for better visibility
+              </p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={localHighContrast}
+              onChange={() => {
+                setLocalHighContrast(!localHighContrast);
+                setHasChanges(true);
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
+          </label>
+        </div>
+
+        {/* Reduce Motion */}
+        <div className="flex items-center justify-between p-4 bg-surface-800/50 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-surface-700 rounded-lg flex items-center justify-center">
+              <Minimize2 className="w-5 h-5 text-surface-300" />
+            </div>
+            <div>
+              <h3 className="font-medium">Reduce Motion</h3>
+              <p className="text-sm text-surface-400">
+                Minimizes animations and transitions throughout the app
+              </p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={localReduceMotion}
+              onChange={() => {
+                setLocalReduceMotion(!localReduceMotion);
+                setHasChanges(true);
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
+          </label>
+        </div>
+
+        {/* Large Click Targets */}
+        <div className="flex items-center justify-between p-4 bg-surface-800/50 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-surface-700 rounded-lg flex items-center justify-center">
+              <MousePointer className="w-5 h-5 text-surface-300" />
+            </div>
+            <div>
+              <h3 className="font-medium">Large Click Targets</h3>
+              <p className="text-sm text-surface-400">
+                Makes buttons and interactive elements larger and easier to click
+              </p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={localLargeTargets}
+              onChange={() => {
+                setLocalLargeTargets(!localLargeTargets);
+                setHasChanges(true);
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
+          </label>
+        </div>
+      </div>
+
+      {/* System Preferences Note */}
+      <div className="mt-6 p-3 bg-surface-800/30 rounded-lg border border-surface-700">
+        <p className="text-xs text-surface-400">
+          <Info className="w-3 h-3 inline mr-1" />
+          SceneMachine also respects your system accessibility preferences for reduced motion and high contrast.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Experience Mode Settings Section
+function ExperienceModeSettingsSection() {
+  const {
+    globalMode,
+    featureOverrides,
+    stevenEnabled,
+    setGlobalMode,
+    setStevenEnabled,
+    setFeatureMode,
+    resetFeatureOverrides,
+  } = useExperienceStore();
+
+  const FEATURE_LABELS: Record<string, { label: string; description: string }> = {
+    screenplay: { label: 'Screenplay', description: 'Script upload and parsing' },
+    characters: { label: 'Characters', description: 'Character management' },
+    scenes: { label: 'Scenes', description: 'Scene planning and breakdown' },
+    generation: { label: 'Generation', description: 'Video generation queue' },
+    timeline: { label: 'Timeline', description: 'Timeline editing' },
+    export: { label: 'Export', description: 'Export settings' },
+    settings: { label: 'Settings', description: 'App configuration' },
+  };
+
+  const MODE_INFO = {
+    story: {
+      label: 'Story Mode',
+      icon: '📖',
+      description: 'Simplified interface with friendly language. Perfect for beginners.',
+      color: 'bg-green-500/20 text-green-400 border-green-500/30',
+    },
+    creator: {
+      label: 'Creator Mode',
+      icon: '🎬',
+      description: 'Balanced interface with helpful guidance. Great for most users.',
+      color: 'bg-brand-500/20 text-brand-400 border-brand-500/30',
+    },
+    pro: {
+      label: 'Pro Mode',
+      icon: '🎥',
+      description: 'Full interface with technical details. For experienced filmmakers.',
+      color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    },
+  };
+
+  const hasOverrides = Object.keys(featureOverrides).length > 0;
+
+  return (
+    <div className="card mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-medium flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-brand-400" />
+          Experience Mode
+        </h2>
+        {hasOverrides && (
+          <button
+            onClick={resetFeatureOverrides}
+            className="text-sm text-surface-400 hover:text-surface-300"
+          >
+            Reset to Defaults
+          </button>
+        )}
+      </div>
+
+      <p className="text-sm text-surface-400 mb-6">
+        Choose how much detail you want to see. You can customize each feature individually.
+      </p>
+
+      {/* Global Mode Selection */}
+      <div className="mb-6">
+        <label className="block text-sm text-surface-400 mb-3">Global Experience Level</label>
+        <div className="grid grid-cols-3 gap-3">
+          {(['story', 'creator', 'pro'] as const).map((mode) => {
+            const info = MODE_INFO[mode];
+            const isSelected = globalMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => setGlobalMode(mode)}
+                className={cn(
+                  'p-4 rounded-lg border text-left transition-all',
+                  isSelected
+                    ? info.color
+                    : 'bg-surface-800/50 border-surface-700 hover:border-surface-600'
+                )}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">{info.icon}</span>
+                  <span className="font-medium">{info.label}</span>
+                </div>
+                <p className="text-xs text-surface-400">{info.description}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Steven AI Assistant Toggle */}
+      <div className="mb-6 p-4 bg-surface-800/50 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-brand-500/20 rounded-full flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-brand-400" />
+            </div>
+            <div>
+              <h3 className="font-medium">Steven AI Assistant</h3>
+              <p className="text-sm text-surface-400">
+                Your personal movie-making guide
+              </p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={stevenEnabled}
+              onChange={() => setStevenEnabled(!stevenEnabled)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
+          </label>
+        </div>
+        {stevenEnabled && (
+          <p className="text-xs text-surface-400 mt-3">
+            Steven will appear in the corner to help you through each step. Click on him anytime for tips!
+          </p>
+        )}
+      </div>
+
+      {/* Per-Feature Overrides */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <label className="block text-sm text-surface-400">
+            Per-Feature Customization
+          </label>
+          <span className="text-xs text-surface-500">
+            Override global mode for specific features
+          </span>
+        </div>
+        <div className="space-y-2">
+          {Object.entries(FEATURE_LABELS).map(([feature, info]) => {
+            const override = featureOverrides[feature as keyof typeof featureOverrides];
+            return (
+              <div
+                key={feature}
+                className="flex items-center justify-between p-3 bg-surface-800/30 rounded-lg"
+              >
+                <div>
+                  <span className="font-medium text-sm">{info.label}</span>
+                  <span className="text-xs text-surface-500 ml-2">{info.description}</span>
+                </div>
+                <select
+                  value={override || ''}
+                  onChange={(e) =>
+                    setFeatureMode(
+                      feature as 'screenplay' | 'characters' | 'scenes' | 'generation' | 'timeline' | 'export' | 'settings',
+                      e.target.value ? (e.target.value as 'story' | 'creator' | 'pro') : null
+                    )
+                  }
+                  className={cn(
+                    'bg-surface-800 border rounded px-2 py-1 text-sm',
+                    override
+                      ? 'border-brand-500/50 text-brand-400'
+                      : 'border-surface-700 text-surface-400'
+                  )}
+                >
+                  <option value="">Use Global ({globalMode})</option>
+                  <option value="story">Story Mode</option>
+                  <option value="creator">Creator Mode</option>
+                  <option value="pro">Pro Mode</option>
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const {
@@ -520,6 +933,24 @@ export function SettingsPage() {
     queryKey: ['version'],
     queryFn: () => api.getVersion(),
   });
+
+  // Fetch cost stats for budget display
+  const { data: costStats } = useQuery({
+    queryKey: ['cost-stats'],
+    queryFn: async () => {
+      const periodDays = settings?.budgetPeriodDays || 30;
+      return api.getCostStats({ timeRange: periodDays <= 7 ? '7d' : periodDays <= 30 ? '30d' : 'all' });
+    },
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  // Handle budget save
+  const handleBudgetSave = async (limit: number | null, periodDays: number) => {
+    await saveSettings({
+      budgetLimitUsd: limit,
+      budgetPeriodDays: periodDays,
+    });
+  };
 
   // Initial data fetch
   useEffect(() => {
@@ -741,6 +1172,9 @@ export function SettingsPage() {
           </div>
         </div>
 
+        {/* Accessibility Settings - Placed prominently for elderly users */}
+        <AccessibilitySettingsSection />
+
         {/* Provider Status */}
         {providerStatuses.length > 0 && (
           <div className="card mb-6">
@@ -755,6 +1189,11 @@ export function SettingsPage() {
             </div>
           </div>
         )}
+
+        {/* Circuit Breaker Status */}
+        <div className="card mb-6">
+          <CircuitBreakerPanel />
+        </div>
 
         {/* Generation Settings */}
         <div className="card mb-6">
@@ -864,6 +1303,24 @@ export function SettingsPage() {
           </div>
         </div>
 
+        {/* Budget Settings */}
+        <div className="card mb-6">
+          <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-brand-400" />
+            Budget & Cost Alerts
+          </h2>
+          <p className="text-sm text-surface-400 mb-4">
+            Set a spending limit to receive alerts when approaching or exceeding your budget.
+          </p>
+          <BudgetSettings
+            currentBudgetLimit={settings?.budgetLimitUsd ?? null}
+            currentPeriodDays={settings?.budgetPeriodDays ?? 30}
+            currentSpent={costStats?.totalCostUsd ?? 0}
+            onSave={handleBudgetSave}
+            isSaving={isSaving}
+          />
+        </div>
+
         {/* Voice/TTS Settings */}
         <TTSSettingsSection />
 
@@ -913,6 +1370,9 @@ export function SettingsPage() {
             </label>
           </div>
         </div>
+
+        {/* Experience Mode Settings */}
+        <ExperienceModeSettingsSection />
 
         {/* Storage Settings */}
         <div className="card mb-6">

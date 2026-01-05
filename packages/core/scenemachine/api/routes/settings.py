@@ -29,6 +29,11 @@ class UpdateSettingsRequest(BaseModel):
     max_cache_size_gb: Optional[int] = None
     default_export_format: Optional[str] = None
     default_export_quality: Optional[str] = None
+    # Accessibility settings
+    font_size_scale: Optional[str] = None
+    high_contrast_enabled: Optional[bool] = None
+    reduce_motion_enabled: Optional[bool] = None
+    large_click_targets_enabled: Optional[bool] = None
     additional_settings: Optional[Dict[str, Any]] = None
 
 
@@ -80,6 +85,11 @@ async def update_settings(
             max_cache_size_gb=request.max_cache_size_gb,
             default_export_format=request.default_export_format,
             default_export_quality=request.default_export_quality,
+            # Accessibility settings
+            font_size_scale=request.font_size_scale,
+            high_contrast_enabled=request.high_contrast_enabled,
+            reduce_motion_enabled=request.reduce_motion_enabled,
+            large_click_targets_enabled=request.large_click_targets_enabled,
             additional_settings=request.additional_settings,
         )
 

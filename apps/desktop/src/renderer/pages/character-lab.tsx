@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { CharacterCard } from '../components/character-card';
 import { cn } from '../lib/utils';
+import { useExperienceStore } from '../stores/experience-store';
 
 interface Character {
   id: string;
@@ -48,6 +49,8 @@ export function CharacterLabPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { getTerm, isSimplifiedMode } = useExperienceStore();
+  const isStoryMode = isSimplifiedMode('characters');
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,6 +125,25 @@ export function CharacterLabPage() {
         voice_id: voiceId,
         voice_provider: provider,
         voice_name: voiceName,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['characters', projectId] });
+    },
+  });
+
+  // Update physical description mutation
+  const updatePhysicalDescriptionMutation = useMutation({
+    mutationFn: async ({
+      characterId,
+      physicalDescription,
+    }: {
+      characterId: string;
+      physicalDescription: Record<string, any>;
+    }) => {
+      return window.electronAPI.backendRequest('characters.update', {
+        character_id: characterId,
+        physical_description: physicalDescription,
       });
     },
     onSuccess: () => {
@@ -233,7 +255,9 @@ export function CharacterLabPage() {
               Character Lab
             </h1>
             <p className="text-surface-400 mt-1">
-              Define and lock character appearances for consistent generation
+              {isStoryMode
+                ? 'Define how your characters look so they stay consistent'
+                : 'Define and lock character appearances for consistent generation'}
             </p>
           </div>
         </div>
@@ -241,7 +265,9 @@ export function CharacterLabPage() {
         {/* Progress */}
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <div className="text-sm text-surface-400">Characters Locked</div>
+            <div className="text-sm text-surface-400">
+              {isStoryMode ? 'Characters Saved' : 'Characters Locked'}
+            </div>
             <div className="text-2xl font-bold">
               {lockedCharacters}/{totalCharacters}
             </div>
@@ -249,7 +275,7 @@ export function CharacterLabPage() {
           {allLocked ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-lg">
               <Check className="w-5 h-5" />
-              <span>All Locked</span>
+              <span>{isStoryMode ? 'All Saved' : 'All Locked'}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg">
@@ -265,11 +291,13 @@ export function CharacterLabPage() {
         <div className="flex items-start gap-3">
           <Lock className="w-5 h-5 text-brand-400 mt-0.5" />
           <div>
-            <h3 className="font-medium text-brand-300">Why Lock Characters?</h3>
+            <h3 className="font-medium text-brand-300">
+              {isStoryMode ? 'Why Save Character Looks?' : 'Why Lock Characters?'}
+            </h3>
             <p className="text-sm text-surface-300 mt-1">
-              Locking a character's appearance ensures they look consistent across all
-              generated scenes. Define their physical features, upload reference images,
-              and lock them before proceeding to scene generation.
+              {isStoryMode
+                ? 'Saving a character\'s look ensures they appear the same in every scene of your movie. Describe how they look, add reference photos if you have them, and save their appearance before creating your scenes.'
+                : 'Locking a character\'s appearance ensures they look consistent across all generated scenes. Define their physical features, upload reference images, and lock them before proceeding to scene generation.'}
             </p>
           </div>
         </div>
@@ -293,20 +321,33 @@ export function CharacterLabPage() {
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-surface-500" />
           {(['all', 'locked', 'unlocked', 'protagonist'] as FilterType[]).map(
-            (filterType) => (
-              <button
-                key={filterType}
-                onClick={() => setFilter(filterType)}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg text-sm transition-colors',
-                  filter === filterType
-                    ? 'bg-brand-500/20 text-brand-400'
-                    : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
-                )}
-              >
-                {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
-              </button>
-            )
+            (filterType) => {
+              // Use friendly terms for filter labels
+              const getFilterLabel = (type: FilterType) => {
+                switch (type) {
+                  case 'locked':
+                    return getTerm('locked', 'characters');
+                  case 'unlocked':
+                    return getTerm('unlocked', 'characters');
+                  default:
+                    return type.charAt(0).toUpperCase() + type.slice(1);
+                }
+              };
+              return (
+                <button
+                  key={filterType}
+                  onClick={() => setFilter(filterType)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-sm transition-colors',
+                    filter === filterType
+                      ? 'bg-brand-500/20 text-brand-400'
+                      : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
+                  )}
+                >
+                  {getFilterLabel(filterType)}
+                </button>
+              );
+            }
           )}
         </div>
 
@@ -345,6 +386,9 @@ export function CharacterLabPage() {
               onUploadReference={handleUploadReference}
               onDeleteReference={handleDeleteReference}
               onGenerateDescription={(id) => generateDescriptionMutation.mutate(id)}
+              onUpdatePhysicalDescription={(characterId, physicalDescription) =>
+                updatePhysicalDescriptionMutation.mutate({ characterId, physicalDescription })
+              }
               onVoiceChange={(characterId, voiceId, provider, voiceName) =>
                 updateVoiceMutation.mutate({ characterId, voiceId, provider, voiceName })
               }
@@ -352,7 +396,8 @@ export function CharacterLabPage() {
                 lockMutation.isPending ||
                 unlockMutation.isPending ||
                 generateDescriptionMutation.isPending ||
-                updateVoiceMutation.isPending
+                updateVoiceMutation.isPending ||
+                updatePhysicalDescriptionMutation.isPending
               }
             />
           ))}

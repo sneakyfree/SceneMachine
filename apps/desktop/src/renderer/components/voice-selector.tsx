@@ -76,8 +76,9 @@ function VoicePreview({
       <button
         onClick={handlePreview}
         disabled={isGenerating}
-        className="p-1.5 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded transition-colors disabled:opacity-50"
+        className="icon-btn p-2 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded transition-colors disabled:opacity-50"
         title="Preview voice"
+        aria-label="Preview voice"
       >
         {isGenerating && currentPreviewId === voiceId ? (
           <Loader2 className="w-4 h-4 animate-spin" />

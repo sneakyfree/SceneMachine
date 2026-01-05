@@ -34,6 +34,18 @@ export default {
           950: '#09090b',
         },
       },
+      // Scaled font sizes using CSS variables for accessibility
+      // These reference the CSS variables defined in accessibility.css
+      fontSize: {
+        xs: 'var(--text-xs, 0.75rem)',
+        sm: 'var(--text-sm, 0.875rem)',
+        base: 'var(--text-base, 1rem)',
+        lg: 'var(--text-lg, 1.125rem)',
+        xl: 'var(--text-xl, 1.25rem)',
+        '2xl': 'var(--text-2xl, 1.5rem)',
+        '3xl': 'var(--text-3xl, 1.875rem)',
+        '4xl': 'var(--text-4xl, 2.25rem)',
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],

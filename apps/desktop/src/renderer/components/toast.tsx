@@ -2,7 +2,7 @@
  * Toast notification component.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   CheckCircle,
   XCircle,
@@ -16,11 +16,27 @@ import { Toast as ToastType, useToastStore } from '../stores/toast-store';
 export function useToast() {
   const store = useToastStore();
 
+  // Helper function for showToast(message, type) pattern
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    switch (type) {
+      case 'success':
+        return store.success(message);
+      case 'error':
+        return store.error(message);
+      case 'warning':
+        return store.warning(message);
+      case 'info':
+      default:
+        return store.info(message);
+    }
+  };
+
   return {
     toast: store.addToast,
     dismiss: store.removeToast,
-    clear: store.clearToasts,
+    clear: store.clearAllToasts,
     toasts: store.toasts,
+    showToast,
   };
 }
 
@@ -102,10 +118,10 @@ function ToastItem({ toast, onDismiss }: { toast: ToastType; onDismiss: () => vo
       {toast.dismissible && (
         <button
           onClick={handleDismiss}
-          className="flex-shrink-0 text-surface-400 hover:text-surface-300 transition-colors"
-          aria-label="Dismiss"
+          className="icon-btn flex-shrink-0 p-2 text-surface-400 hover:text-surface-300 transition-colors rounded"
+          aria-label="Dismiss notification"
         >
-          <X className="w-4 h-4" />
+          <X className="w-5 h-5" />
         </button>
       )}
     </div>

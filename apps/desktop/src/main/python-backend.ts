@@ -42,9 +42,11 @@ export class PythonBackend {
   async start(): Promise<void> {
     const pythonPath = this.findPython();
     const scriptPath = this.findBackendScript();
+    const backendDir = this.findBackendDir();
 
     console.log(`Starting Python backend: ${pythonPath} ${scriptPath}`);
     console.log(`Socket path: ${this._socketPath}`);
+    console.log(`Backend dir (PYTHONPATH): ${backendDir}`);
 
     return new Promise((resolve, reject) => {
       this.process = spawn(pythonPath, [scriptPath], {
@@ -53,7 +55,9 @@ export class PythonBackend {
           SCENEMACHINE_SOCKET_PATH: this._socketPath,
           SCENEMACHINE_DEBUG: process.env.NODE_ENV === 'development' ? '1' : '0',
           PYTHONUNBUFFERED: '1',
+          PYTHONPATH: backendDir,
         },
+        cwd: backendDir,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
@@ -140,19 +144,42 @@ export class PythonBackend {
    * Find Python executable.
    */
   private findPython(): string {
-    // In development, use system Python
-    if (process.env.NODE_ENV === 'development') {
-      const customPath = process.env.PYTHON_PATH;
-      if (customPath && fs.existsSync(customPath)) {
-        return customPath;
-      }
+    // Check for custom Python path first
+    const customPath = process.env.PYTHON_PATH;
+    if (customPath && fs.existsSync(customPath)) {
+      return customPath;
+    }
 
-      // Try common Python paths
-      const candidates = ['python3', 'python'];
+    // Determine if running in development mode
+    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+    // In development or when not packaged, use system Python
+    if (isDev) {
+      // Try common Python paths including miniconda/anaconda
+      const homeDir = os.homedir();
+      const candidates = [
+        'python3',
+        'python',
+        path.join(homeDir, 'miniconda3/bin/python3'),
+        path.join(homeDir, 'miniconda3/bin/python'),
+        path.join(homeDir, 'anaconda3/bin/python3'),
+        path.join(homeDir, 'anaconda3/bin/python'),
+        '/usr/bin/python3',
+        '/usr/local/bin/python3',
+      ];
+
       for (const candidate of candidates) {
         try {
-          require('child_process').execSync(`${candidate} --version`, { stdio: 'ignore' });
-          return candidate;
+          if (candidate.startsWith('/') || candidate.includes(homeDir)) {
+            // Absolute path - check if exists
+            if (fs.existsSync(candidate)) {
+              return candidate;
+            }
+          } else {
+            // Command name - try to execute
+            require('child_process').execSync(`${candidate} --version`, { stdio: 'ignore' });
+            return candidate;
+          }
         } catch {
           continue;
         }
@@ -178,31 +205,56 @@ export class PythonBackend {
   }
 
   /**
+   * Find the backend directory (for PYTHONPATH).
+   */
+  private findBackendDir(): string {
+    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+    if (isDev) {
+      const possiblePaths = [
+        path.join(__dirname, '..', '..', '..', '..', 'packages', 'core'),
+        path.resolve(process.cwd(), 'packages/core'),
+        path.resolve(process.cwd(), '../../packages/core'),
+        '/home/user1-gpu/Desktop/SceneMachine/packages/core',
+      ];
+
+      for (const devPath of possiblePaths) {
+        if (fs.existsSync(path.join(devPath, 'scenemachine'))) {
+          return devPath;
+        }
+      }
+    }
+
+    // In production, use bundled backend
+    const resourcesPath = process.resourcesPath || app.getAppPath();
+    return path.join(resourcesPath, 'backend');
+  }
+
+  /**
    * Find the backend script.
    */
   private findBackendScript(): string {
-    // In development, use source directory
-    if (process.env.NODE_ENV === 'development') {
-      const devPath = path.join(
-        __dirname,
-        '..',
-        '..',
-        '..',
-        '..',
-        'packages',
-        'core',
-        'scenemachine',
-        'main.py'
-      );
+    // Determine if running in development mode
+    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
-      if (fs.existsSync(devPath)) {
-        return devPath;
-      }
+    // In development or when not packaged, use source directory
+    if (isDev) {
+      // Try various paths relative to the app location
+      const possiblePaths = [
+        // From dist/main relative to packages
+        path.join(__dirname, '..', '..', '..', '..', 'packages', 'core', 'scenemachine', 'main.py'),
+        // From current working directory
+        path.resolve(process.cwd(), 'packages/core/scenemachine/main.py'),
+        // From apps/desktop relative path
+        path.resolve(process.cwd(), '../../packages/core/scenemachine/main.py'),
+        // Absolute path from monorepo root
+        '/home/user1-gpu/Desktop/SceneMachine/packages/core/scenemachine/main.py',
+      ];
 
-      // Try alternative path
-      const altPath = path.resolve(process.cwd(), 'packages/core/scenemachine/main.py');
-      if (fs.existsSync(altPath)) {
-        return altPath;
+      for (const devPath of possiblePaths) {
+        if (fs.existsSync(devPath)) {
+          return devPath;
+        }
       }
     }
 

@@ -15,12 +15,17 @@ import {
   ChevronRight,
   Upload,
   Loader2,
+  Share2,
+  MessageSquare,
+  Copy,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
 import { ProjectState } from '@shared/types';
-import { ScreenplayUpload, MoviePlanViewer } from '../components';
+import { ScreenplayUpload, MoviePlanViewer, ShareDialog, CommentsPanel } from '../components';
+import { useSharingStore } from '../stores/sharing-store';
+import { useToast } from '../stores/toast-store';
 
 // Workflow steps
 const workflowSteps = [
@@ -85,6 +90,14 @@ export function ProjectPage() {
   const { setCurrentProject } = useProjectStore();
   const queryClient = useQueryClient();
 
+  // Sharing state
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const { isCommentsPanelOpen, setCommentsPanelOpen, shares, fetchShares } = useSharingStore();
+
+  // Duplicate state
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const toast = useToast();
+
   // Fetch project details
   const { data: project, isLoading, error } = useQuery({
     queryKey: ['project', projectId],
@@ -98,6 +111,13 @@ export function ProjectPage() {
       setCurrentProject(project);
     }
   }, [project, setCurrentProject]);
+
+  // Fetch shares when project loads
+  useEffect(() => {
+    if (projectId) {
+      fetchShares(projectId);
+    }
+  }, [projectId, fetchShares]);
 
   // Handle screenplay upload completion
   const handleScreenplayUpload = useCallback(() => {
@@ -171,6 +191,31 @@ export function ProjectPage() {
     generatePlanMutation.mutate(true);
   }, [generatePlanMutation]);
 
+  // Handle project duplication
+  const handleDuplicateProject = useCallback(async () => {
+    if (!projectId || isDuplicating) return;
+
+    setIsDuplicating(true);
+    try {
+      const result = await api.duplicateProject(projectId);
+      toast.success(
+        'Project Duplicated',
+        `Created "${result.name}"`
+      );
+      // Invalidate projects list to show the new project
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      // Navigate to the new project
+      navigate(`/project/${result.id}`);
+    } catch (error) {
+      toast.error(
+        'Duplication Failed',
+        error instanceof Error ? error.message : 'Failed to duplicate project'
+      );
+    } finally {
+      setIsDuplicating(false);
+    }
+  }, [projectId, isDuplicating, toast, queryClient, navigate]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -190,11 +235,52 @@ export function ProjectPage() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">{project.name}</h1>
-        {project.description && (
-          <p className="text-surface-400 mt-1">{project.description}</p>
-        )}
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold">{project.name}</h1>
+          {project.description && (
+            <p className="text-surface-400 mt-1">{project.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDuplicateProject}
+            disabled={isDuplicating}
+            className="flex items-center gap-2 px-3 py-2 bg-surface-800 text-surface-300 hover:bg-surface-700 rounded-lg transition-colors disabled:opacity-50"
+            title="Duplicate Project"
+          >
+            {isDuplicating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+            <span className="text-sm">{isDuplicating ? 'Duplicating...' : 'Duplicate'}</span>
+          </button>
+          <button
+            onClick={() => setCommentsPanelOpen(!isCommentsPanelOpen)}
+            className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg transition-colors',
+              isCommentsPanelOpen
+                ? 'bg-brand-500/20 text-brand-300'
+                : 'bg-surface-800 text-surface-300 hover:bg-surface-700'
+            )}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="text-sm">Comments</span>
+          </button>
+          <button
+            onClick={() => setIsShareDialogOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+            <span className="text-sm">Share</span>
+            {shares.length > 0 && (
+              <span className="px-1.5 py-0.5 bg-white/20 text-xs rounded">
+                {shares.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Workflow Steps */}
@@ -526,6 +612,21 @@ export function ProjectPage() {
           )}
         </div>
       </div>
+
+      {/* Share Dialog */}
+      <ShareDialog
+        projectId={projectId!}
+        projectName={project.name}
+        isOpen={isShareDialogOpen}
+        onClose={() => setIsShareDialogOpen(false)}
+      />
+
+      {/* Comments Panel */}
+      <CommentsPanel
+        projectId={projectId!}
+        isOpen={isCommentsPanelOpen}
+        onClose={() => setCommentsPanelOpen(false)}
+      />
     </div>
   );
 }

@@ -9,14 +9,16 @@ import {
   Clock,
   Edit2,
   Trash2,
-  Check,
-  X,
   ChevronDown,
   ChevronUp,
   GripVertical,
   Users,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useGenerationStore } from '../stores/generation-store';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../api/client';
 
 interface Shot {
   id: string;
@@ -48,6 +50,50 @@ interface ShotCardProps {
   onDelete: (shotId: string) => void;
   disabled?: boolean;
   isDragging?: boolean;
+  showCost?: boolean;
+}
+
+// Inline cost badge component for shots
+function ShotCostBadge({
+  provider,
+  modelId,
+  durationSeconds,
+}: {
+  provider: string;
+  modelId?: string;
+  durationSeconds: number;
+}) {
+  const { data: estimate, isLoading } = useQuery({
+    queryKey: ['shot-cost', provider, modelId, durationSeconds],
+    queryFn: () =>
+      api.estimateCost({
+        provider,
+        model_id: modelId,
+        duration_seconds: durationSeconds,
+      }),
+    enabled: !!provider,
+    staleTime: 60000, // Cache for 1 minute
+  });
+
+  if (isLoading) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-surface-700 text-surface-400">
+        <DollarSign className="w-3 h-3" />
+        ...
+      </span>
+    );
+  }
+
+  if (!estimate) {
+    return null;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-surface-800 text-surface-300">
+      <DollarSign className="w-3 h-3" />
+      ${estimate.total_cost.toFixed(2)}
+    </span>
+  );
 }
 
 export function ShotCard({
@@ -59,10 +105,14 @@ export function ShotCard({
   onDelete,
   disabled = false,
   isDragging = false,
+  showCost = false,
 }: ShotCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Shot>>({});
+
+  // Get provider info for cost estimation
+  const { selectedProvider, selectedModel } = useGenerationStore();
 
   const shotType = shotTypes.find((st) => st.value === shot.shotType);
   const cameraMovement = cameraMovements.find((cm) => cm.value === shot.cameraMovement);
@@ -144,27 +194,39 @@ export function ShotCard({
           </div>
         )}
 
+        {/* Cost Estimate */}
+        {showCost && selectedProvider && shot.state === 'planned' && (
+          <ShotCostBadge
+            provider={selectedProvider}
+            modelId={selectedModel || undefined}
+            durationSeconds={shot.durationSeconds}
+          />
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-1">
           <button
             onClick={handleStartEdit}
             disabled={disabled || isEditing}
-            className="p-1.5 text-surface-400 hover:text-surface-300 hover:bg-surface-700 rounded transition-colors"
+            className="icon-btn p-2 text-surface-400 hover:text-surface-300 hover:bg-surface-700 rounded transition-colors"
             title="Edit shot"
+            aria-label="Edit shot"
           >
             <Edit2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(shot.id)}
             disabled={disabled}
-            className="p-1.5 text-surface-400 hover:text-red-400 hover:bg-surface-700 rounded transition-colors"
+            className="icon-btn p-2 text-surface-400 hover:text-red-400 hover:bg-surface-700 rounded transition-colors"
             title="Delete shot"
+            aria-label="Delete shot"
           >
             <Trash2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1.5 text-surface-400 hover:text-surface-300 hover:bg-surface-700 rounded transition-colors"
+            className="icon-btn p-2 text-surface-400 hover:text-surface-300 hover:bg-surface-700 rounded transition-colors"
+            aria-label={isExpanded ? "Collapse shot details" : "Expand shot details"}
           >
             {isExpanded ? (
               <ChevronUp className="w-4 h-4" />
@@ -238,10 +300,11 @@ export function ShotCard({
 
               {/* Duration */}
               <div>
-                <label className="block text-sm text-surface-400 mb-1">
+                <label htmlFor={`duration-${shot.id}`} className="block text-sm text-surface-400 mb-1">
                   Duration (seconds)
                 </label>
                 <input
+                  id={`duration-${shot.id}`}
                   type="number"
                   value={editData.durationSeconds ?? shot.durationSeconds}
                   onChange={(e) =>

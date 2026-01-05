@@ -10,9 +10,11 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import text
 
 from scenemachine.models.base import Base
 from scenemachine.models import Project, ProjectState
+from tests.sqlite_compat import create_all_tables_sqlite
 
 
 @pytest.fixture(scope="session")
@@ -25,19 +27,25 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def db_engine() -> AsyncGenerator[Any, None]:
-    """Create a test database engine."""
+    """Create a test database engine with SQLite compatibility."""
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         echo=False,
     )
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Use SQLite-compatible table creation to handle ARRAY types
+    await create_all_tables_sqlite(engine, Base)
 
     yield engine
 
+    # Clean up - drop all tables
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        tables = list(Base.metadata.tables.keys())
+        for table_name in reversed(tables):
+            try:
+                await conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+            except Exception:
+                pass
 
     await engine.dispose()
 

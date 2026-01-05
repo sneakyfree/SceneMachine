@@ -1,35 +1,52 @@
-"""Screenplay model - represents uploaded and parsed screenplay documents."""
+"""
+Screenplay Model
+
+A screenplay document associated with a project.
+"""
 
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
 from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin, UUIDMixin
+from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType
 
 if TYPE_CHECKING:
-    from .project import Project
+    from scenemachine.models.project import Project
 
 
 class ScreenplayFormat(str, Enum):
     """Supported screenplay file formats."""
 
-    FOUNTAIN = "fountain"  # .fountain files (primary format)
+    FOUNTAIN = "fountain"  # .fountain files (native support)
     PDF = "pdf"  # PDF screenplays (OCR may be required)
     FDX = "fdx"  # Final Draft XML format
     PLAIN_TEXT = "plain_text"  # Plain text (best effort parsing)
 
 
 class Screenplay(Base, UUIDMixin, TimestampMixin):
-    """A screenplay document associated with a project.
+    """
+    A screenplay document associated with a project.
 
-    Contains both the original file and parsed structured data.
-    The screenplay is the source of truth for the movie's content.
+    Contains both the original file reference and parsed structured data.
+    The screenplay is the foundation from which the Movie Plan, characters,
+    and scenes are derived.
+
+    Attributes:
+        project_id: Foreign key to the parent project
+        original_filename: Name of the uploaded file
+        original_format: Detected file format
+        file_hash: SHA-256 hash for integrity verification
+        original_file_path: Path to stored file (relative to project directory)
+        parsed_content: Structured content after parsing (JSON)
+        movie_plan: AI-generated movie plan (JSON)
+        movie_plan_approved: Whether user has approved the plan
+        is_parsed: Whether parsing is complete
+        parse_errors: Any errors encountered during parsing
     """
 
     __tablename__ = "screenplays"
@@ -39,7 +56,7 @@ class Screenplay(Base, UUIDMixin, TimestampMixin):
         PGUUID(as_uuid=True),
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True,
+        unique=True,  # One screenplay per project
     )
 
     # Original file information
@@ -50,58 +67,116 @@ class Screenplay(Base, UUIDMixin, TimestampMixin):
     )
     file_hash: Mapped[str] = mapped_column(String(64), nullable=False)  # SHA-256
 
-    # Storage path (relative to project directory)
+    # Storage paths (relative to project directory)
     original_file_path: Mapped[str] = mapped_column(String(512), nullable=False)
 
     # Parsed content (stored as JSON for flexibility)
-    parsed_content: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    # Structure:
+    parsed_content: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    # Parsed content structure:
     # {
     #     "title_page": {
-    #         "title": "...",
-    #         "author": "...",
-    #         "contact": "...",
-    #         "draft_date": "..."
+    #         "title": "My Movie",
+    #         "author": "Writer Name",
+    #         "contact": "email@example.com",
+    #         "draft_date": "2024-01-15",
+    #         "copyright": "2024"
     #     },
     #     "elements": [
-    #         {"type": "scene_heading", "text": "INT. OFFICE - DAY", ...},
-    #         {"type": "action", "text": "...", ...},
-    #         {"type": "character", "name": "JOHN", ...},
-    #         {"type": "dialogue", "text": "...", ...},
-    #         ...
+    #         {
+    #             "type": "scene_heading",
+    #             "scene_number": "1",
+    #             "location": "COFFEE SHOP",
+    #             "time_of_day": "DAY",
+    #             "int_ext": "INT",
+    #             "line_number": 10
+    #         },
+    #         {
+    #             "type": "action",
+    #             "text": "SARAH enters the busy coffee shop...",
+    #             "line_number": 12
+    #         },
+    #         {
+    #             "type": "character",
+    #             "name": "SARAH",
+    #             "line_number": 14
+    #         },
+    #         {
+    #             "type": "dialogue",
+    #             "text": "I'll have a latte, please.",
+    #             "line_number": 15
+    #         },
+    #         {
+    #             "type": "parenthetical",
+    #             "text": "(nervously)",
+    #             "line_number": 16
+    #         },
+    #         {
+    #             "type": "transition",
+    #             "text": "CUT TO:",
+    #             "line_number": 20
+    #         }
     #     ],
     #     "metadata": {
     #         "page_count": 120,
     #         "scene_count": 45,
     #         "character_count": 12,
+    #         "word_count": 25000,
     #         "estimated_runtime_minutes": 120
     #     }
     # }
 
     # Movie plan (generated by AI, approved by user)
-    movie_plan: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    # Structure:
-    # {
-    #     "overview": {
-    #         "genre": "thriller",
-    #         "tone": "dark, suspenseful",
-    #         "themes": ["betrayal", "redemption"],
-    #         "visual_style": "neo-noir"
-    #     },
-    #     "characters": [...],
-    #     "acts": [...],
-    #     "key_scenes": [...],
-    #     "visual_motifs": [...],
-    #     "color_palette": {...},
-    #     "pacing_notes": "..."
-    # }
-
+    movie_plan: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     movie_plan_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Movie plan structure:
+    # {
+    #     "title": "My Movie",
+    #     "logline": "A one-sentence summary...",
+    #     "synopsis": "A longer summary...",
+    #     "genre": ["drama", "thriller"],
+    #     "tone": "dark and suspenseful",
+    #     "themes": ["redemption", "family"],
+    #     "visual_style": {
+    #         "cinematography": "naturalistic",
+    #         "color_palette": "muted, desaturated",
+    #         "lighting": "high contrast",
+    #         "era_aesthetic": "contemporary",
+    #         "references": ["No Country for Old Men", "Sicario"]
+    #     },
+    #     "character_summaries": [
+    #         {
+    #             "name": "SARAH",
+    #             "role": "protagonist",
+    #             "description": "A determined journalist...",
+    #             "arc": "From naive idealist to hardened realist"
+    #         }
+    #     ],
+    #     "act_structure": {
+    #         "act_1": {"scenes": ["1", "2", "3"], "summary": "..."},
+    #         "act_2a": {"scenes": ["4", "5", "6"], "summary": "..."},
+    #         "act_2b": {"scenes": ["7", "8", "9"], "summary": "..."},
+    #         "act_3": {"scenes": ["10", "11", "12"], "summary": "..."}
+    #     },
+    #     "estimated_runtime_minutes": 95,
+    #     "generation_metadata": {
+    #         "model": "claude-3-opus",
+    #         "generated_at": "2024-01-15T10:30:00Z",
+    #         "version": 1
+    #     }
+    # }
 
     # Parsing metadata
     is_parsed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    parse_errors: Mapped[Optional[List[str]]] = mapped_column(JSONB, nullable=True)
-    parse_warnings: Mapped[Optional[List[str]]] = mapped_column(JSONB, nullable=True)
+    parse_errors: Mapped[Optional[list]] = mapped_column(JSONType, nullable=True)
+    # Parse errors structure:
+    # [
+    #     {
+    #         "line_number": 45,
+    #         "error_type": "invalid_scene_heading",
+    #         "message": "Could not parse scene heading",
+    #         "severity": "warning"
+    #     }
+    # ]
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="screenplay")
@@ -123,11 +198,11 @@ class Screenplay(Base, UUIDMixin, TimestampMixin):
         return None
 
     @property
-    def character_names(self) -> List[str]:
+    def character_names(self) -> list[str]:
         """Extract unique character names from parsed content."""
         if not self.parsed_content:
             return []
-        characters = set()
+        characters: set[str] = set()
         for element in self.parsed_content.get("elements", []):
             if element.get("type") == "character":
                 name = element.get("name", "").strip().upper()
@@ -136,15 +211,15 @@ class Screenplay(Base, UUIDMixin, TimestampMixin):
         return sorted(characters)
 
     @property
-    def scene_headings(self) -> List[str]:
-        """Extract scene headings from parsed content."""
+    def scene_count(self) -> int:
+        """Count number of scenes in parsed content."""
         if not self.parsed_content:
-            return []
-        headings = []
-        for element in self.parsed_content.get("elements", []):
-            if element.get("type") == "scene_heading":
-                headings.append(element.get("text", ""))
-        return headings
+            return 0
+        return sum(
+            1
+            for element in self.parsed_content.get("elements", [])
+            if element.get("type") == "scene_heading"
+        )
 
     @property
     def page_count(self) -> Optional[int]:
@@ -156,4 +231,8 @@ class Screenplay(Base, UUIDMixin, TimestampMixin):
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"<Screenplay(id={self.id}, title='{self.title}', format={self.original_format.value})>"
+        return (
+            f"<Screenplay(id={self.id}, "
+            f"title='{self.title}', "
+            f"format={self.original_format.value})>"
+        )

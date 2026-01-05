@@ -2,7 +2,7 @@
  * Electron main process entry point.
  */
 
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, OpenDialogOptions, SaveDialogOptions } from 'electron';
 import * as path from 'path';
 import { PythonBackend } from './python-backend';
 import { IPCClient } from './ipc-client';
@@ -120,7 +120,7 @@ class Application {
    */
   private setupIPCHandlers(): void {
     // Backend request handler
-    ipcMain.handle('backend:request', async (_, method: string, params?: unknown) => {
+    ipcMain.handle('backend:request', async (_event, method: string, params?: unknown) => {
       if (!this.ipcClient) {
         throw new Error('Backend not connected');
       }
@@ -128,11 +128,11 @@ class Application {
     });
 
     // File dialog handlers
-    ipcMain.handle('dialog:openFile', async (_, options) => {
+    ipcMain.handle('dialog:openFile', async (_event, options: OpenDialogOptions) => {
       return dialog.showOpenDialog(options);
     });
 
-    ipcMain.handle('dialog:saveFile', async (_, options) => {
+    ipcMain.handle('dialog:saveFile', async (_event, options: SaveDialogOptions) => {
       return dialog.showSaveDialog(options);
     });
 

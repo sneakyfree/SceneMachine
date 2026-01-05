@@ -190,6 +190,28 @@ class UserSettings(Base, UUIDMixin, TimestampMixin):
         nullable=False,
     )
 
+    # Accessibility Settings
+    font_size_scale: Mapped[str] = mapped_column(
+        String(20),
+        default="medium",  # small | medium | large | extra-large
+        nullable=False,
+    )
+    high_contrast_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    reduce_motion_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+    large_click_targets_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
     # Additional settings stored as JSON
     additional_settings: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSON,
@@ -287,6 +309,11 @@ class UserSettings(Base, UUIDMixin, TimestampMixin):
             "maxCacheSizeGb": self.max_cache_size_gb,
             "defaultExportFormat": self.default_export_format,
             "defaultExportQuality": self.default_export_quality,
+            # Accessibility settings
+            "fontSizeScale": self.font_size_scale,
+            "highContrastEnabled": self.high_contrast_enabled,
+            "reduceMotionEnabled": self.reduce_motion_enabled,
+            "largeClickTargetsEnabled": self.large_click_targets_enabled,
             "additionalSettings": self.additional_settings or {},
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,

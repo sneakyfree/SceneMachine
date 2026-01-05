@@ -18,7 +18,6 @@ from scenemachine.services.analytics import (
     CostStats,
     ProjectStats,
     PerformanceStats,
-    DailyStats,
 )
 
 

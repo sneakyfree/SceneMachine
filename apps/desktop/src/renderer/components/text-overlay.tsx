@@ -272,13 +272,15 @@ function TextOverlayEditor({
           </button>
           <button
             onClick={onDuplicate}
-            className="p-1 text-surface-400 hover:text-surface-200 rounded transition-colors"
+            className="icon-btn p-2 text-surface-400 hover:text-surface-200 rounded transition-colors"
+            aria-label="Duplicate overlay"
           >
             <Copy className="w-4 h-4" />
           </button>
           <button
             onClick={onDelete}
-            className="p-1 text-surface-400 hover:text-red-400 rounded transition-colors"
+            className="icon-btn p-2 text-surface-400 hover:text-red-400 rounded transition-colors"
+            aria-label="Delete overlay"
           >
             <Trash2 className="w-4 h-4" />
           </button>

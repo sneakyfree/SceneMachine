@@ -17,6 +17,7 @@ from scenemachine.schemas import (
     ProjectUpdate,
     SuccessResponse,
 )
+from scenemachine.services.project_duplicator import duplicate_project
 
 router = APIRouter()
 
@@ -33,7 +34,11 @@ async def list_projects(
     """
     stmt = (
         select(Project)
-        .options(selectinload(Project.screenplay))
+        .options(
+            selectinload(Project.screenplay),
+            selectinload(Project.characters),
+            selectinload(Project.scenes),
+        )
         .offset(skip)
         .limit(limit)
         .order_by(Project.updated_at.desc())
@@ -78,13 +83,15 @@ async def create_project(
     await db.commit()
     await db.refresh(project)
 
+    # For newly created project, can_advance is False (no screenplay)
+    # Avoid accessing relationships which would trigger lazy loads
     return ProjectDetail(
         id=project.id,
         name=project.name,
         description=project.description,
         state=project.state,
         settings=project.settings,
-        can_advance=project.can_advance,
+        can_advance=False,  # New projects can't advance without screenplay
         screenplay=None,
         characters=[],
         scenes=[],
@@ -244,3 +251,51 @@ async def delete_project(
         success=True,
         message=f"Project {project_id} deleted successfully",
     )
+
+
+from pydantic import BaseModel
+from typing import Optional
+
+
+class ProjectDuplicateRequest(BaseModel):
+    """Request to duplicate a project."""
+
+    new_name: Optional[str] = None
+    include_generated_videos: bool = False
+
+
+@router.post("/{project_id}/duplicate", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)
+async def duplicate_project_endpoint(
+    project_id: UUID,
+    request: ProjectDuplicateRequest,
+    db: AsyncSession = Depends(get_db),
+) -> ProjectDetail:
+    """Duplicate a project.
+
+    Creates a complete copy of the project including all characters,
+    scenes, and shots. Generated videos are not copied by default.
+    """
+    try:
+        new_project = await duplicate_project(
+            session=db,
+            project_id=project_id,
+            new_name=request.new_name,
+            include_generated_videos=request.include_generated_videos,
+        )
+        await db.commit()
+        await db.refresh(new_project)
+
+        # Return the new project details
+        return await get_project(new_project.id, db)
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to duplicate project: {str(e)}",
+        )

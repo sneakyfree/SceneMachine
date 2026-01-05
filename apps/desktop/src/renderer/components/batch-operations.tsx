@@ -264,8 +264,9 @@ export function BatchOperations({
             {/* Clear selection */}
             <button
               onClick={() => onSelectionChange(new Set())}
-              className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
+              className="icon-btn p-2 text-surface-400 hover:text-surface-200 transition-colors rounded"
               title="Clear selection"
+              aria-label="Clear selection"
             >
               <X className="w-4 h-4" />
             </button>

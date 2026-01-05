@@ -1,20 +1,24 @@
-"""Character model - represents characters with likeness definitions."""
+"""
+Character Model
+
+A character in the screenplay with associated likeness definition.
+This is a critical model for the Character Laboratory system.
+"""
 
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin, UUIDMixin
+from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
 
 if TYPE_CHECKING:
-    from .asset import Asset
-    from .project import Project
+    from scenemachine.models.asset import Asset
+    from scenemachine.models.project import Project
 
 
 class CharacterGender(str, Enum):
@@ -27,10 +31,11 @@ class CharacterGender(str, Enum):
 
 
 class CharacterLockState(str, Enum):
-    """Character lock workflow states.
+    """
+    Character lock workflow states.
 
     Characters progress through these states as the user defines
-    and refines their visual appearance.
+    and refines their appearance in the Character Laboratory.
     """
 
     UNDEFINED = "undefined"  # No information provided
@@ -38,17 +43,33 @@ class CharacterLockState(str, Enum):
     REFERENCE_UPLOADED = "reference_uploaded"  # Reference images uploaded
     GENERATING = "generating"  # Generating likeness options
     REVIEW = "review"  # User reviewing generated options
-    LOCKED = "locked"  # Likeness locked and approved
+    LOCKED = "locked"  # Likeness locked, approved for generation
 
 
 class Character(Base, UUIDMixin, TimestampMixin):
-    """A character in the screenplay with associated likeness definition.
+    """
+    A character in the screenplay with associated likeness definition.
 
     Characters progress through a workflow from undefined to locked,
     with the user approving the final likeness before generation begins.
+    This ensures visual consistency across all generated scenes.
 
-    The Character Laboratory is central to ensuring visual consistency
-    across all generated scenes.
+    Attributes:
+        project_id: Foreign key to the parent project
+        name: User-editable display name
+        screenplay_name: Original name as it appears in the screenplay
+        description: User-provided character description
+        age_range_min/max: Approximate age range
+        gender: Character gender
+        physical_description: Structured physical attributes (JSON)
+        personality_traits: List of personality trait keywords
+        voice_description: Description for future TTS integration
+        lock_state: Current state in the lock workflow
+        locked_likeness: Final approved likeness definition (JSON)
+        scene_count: Number of scenes this character appears in
+        dialogue_count: Number of dialogue lines
+        is_protagonist: Whether this is a main character
+        consent_status: Ethics and consent tracking (JSON)
     """
 
     __tablename__ = "characters"
@@ -58,9 +79,10 @@ class Character(Base, UUIDMixin, TimestampMixin):
         PGUUID(as_uuid=True),
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
-    # Character identification (from screenplay)
+    # Character identification
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     screenplay_name: Mapped[str] = mapped_column(String(255), nullable=False)
 
@@ -75,30 +97,34 @@ class Character(Base, UUIDMixin, TimestampMixin):
     )
 
     # Physical description (structured for AI prompting)
-    physical_description: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    physical_description: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "hair_color": "brown",
     #     "hair_style": "short, wavy",
+    #     "hair_length": "short",
     #     "eye_color": "blue",
     #     "skin_tone": "fair",
+    #     "ethnicity": "Caucasian",
     #     "height": "tall",
     #     "build": "athletic",
+    #     "facial_features": {
+    #         "face_shape": "oval",
+    #         "nose": "straight",
+    #         "lips": "full",
+    #         "jawline": "strong"
+    #     },
     #     "distinguishing_features": ["scar on left cheek", "always wears glasses"],
     #     "clothing_style": "business casual",
-    #     "additional_notes": "..."
+    #     "signature_accessories": ["vintage watch", "leather bag"],
+    #     "additional_notes": "Has a warm, approachable demeanor"
     # }
 
     # Personality and voice (for AI understanding)
-    personality_traits: Mapped[Optional[List[str]]] = mapped_column(
-        ARRAY(String), nullable=True
+    personality_traits: Mapped[Optional[list[str]]] = mapped_column(
+        ArrayType(String), nullable=True
     )
     voice_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-    # TTS Voice assignment
-    voice_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    voice_provider: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    voice_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # Lock state
     lock_state: Mapped[CharacterLockState] = mapped_column(
@@ -108,17 +134,35 @@ class Character(Base, UUIDMixin, TimestampMixin):
     )
 
     # Locked likeness definition (set when state becomes LOCKED)
-    locked_likeness: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    locked_likeness: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "primary_reference_asset_id": "uuid",
     #     "secondary_reference_asset_ids": ["uuid", "uuid"],
-    #     "generation_prompt": "A tall man with brown wavy hair...",
+    #     "generation_prompt": "A 35-year-old woman with...",
     #     "negative_prompt": "cartoon, anime, deformed...",
+    #     "face_embedding_path": "path/to/embedding.pt",
     #     "lora_path": "path/to/character_lora.safetensors",
-    #     "embedding_path": "path/to/character_embedding.pt",
+    #     "consistency_settings": {
+    #         "face_strength": 0.8,
+    #         "style_strength": 0.6,
+    #         "pose_flexibility": "medium"
+    #     },
+    #     "approved_variations": [
+    #         {
+    #             "expression": "neutral",
+    #             "angle": "front",
+    #             "asset_id": "uuid"
+    #         },
+    #         {
+    #             "expression": "smiling",
+    #             "angle": "three_quarter",
+    #             "asset_id": "uuid"
+    #         }
+    #     ],
     #     "locked_at": "2024-01-15T10:30:00Z",
-    #     "locked_by_user": true
+    #     "locked_by_user": true,
+    #     "lock_version": 1
     # }
 
     # Importance metrics (for prioritization)
@@ -127,19 +171,22 @@ class Character(Base, UUIDMixin, TimestampMixin):
     is_protagonist: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Ethics and consent
-    consent_status: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    consent_status: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
+    #     "likeness_type": "original",  # "original", "self", "licensed", "public_figure"
     #     "is_real_person": false,
     #     "consent_obtained": null,
     #     "consent_document_path": null,
     #     "likeness_rights_confirmed": false,
-    #     "notes": "Original fictional character"
+    #     "age_verified": true,
+    #     "content_restrictions": [],
+    #     "notes": "Completely original character design"
     # }
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="characters")
-    reference_assets: Mapped[List["Asset"]] = relationship(
+    reference_assets: Mapped[list["Asset"]] = relationship(
         "Asset",
         back_populates="character",
         cascade="all, delete-orphan",
@@ -157,23 +204,84 @@ class Character(Base, UUIDMixin, TimestampMixin):
         return self.name if self.name != self.screenplay_name else self.screenplay_name
 
     @property
-    def age_range_display(self) -> Optional[str]:
-        """Human-readable age range."""
+    def age_display(self) -> Optional[str]:
+        """Format age range for display."""
         if self.age_range_min is not None and self.age_range_max is not None:
             if self.age_range_min == self.age_range_max:
                 return str(self.age_range_min)
             return f"{self.age_range_min}-{self.age_range_max}"
-        if self.age_range_min is not None:
+        elif self.age_range_min is not None:
             return f"{self.age_range_min}+"
-        if self.age_range_max is not None:
-            return f"up to {self.age_range_max}"
+        elif self.age_range_max is not None:
+            return f"Under {self.age_range_max}"
         return None
 
     @property
-    def reference_asset_count(self) -> int:
-        """Number of reference assets uploaded."""
-        return len(self.reference_assets)
+    def importance_score(self) -> float:
+        """
+        Calculate character importance score for prioritization.
+
+        Higher scores indicate more important characters that should
+        be prioritized in the Character Laboratory workflow.
+        """
+        score = 0.0
+
+        # Protagonist bonus
+        if self.is_protagonist:
+            score += 50.0
+
+        # Scene presence
+        score += min(self.scene_count * 2, 30)  # Cap at 30 points
+
+        # Dialogue importance
+        score += min(self.dialogue_count * 0.5, 20)  # Cap at 20 points
+
+        return score
+
+    @property
+    def lock_progress_percentage(self) -> int:
+        """Calculate progress towards being locked."""
+        progress_map: dict[CharacterLockState, int] = {
+            CharacterLockState.UNDEFINED: 0,
+            CharacterLockState.DRAFT: 20,
+            CharacterLockState.REFERENCE_UPLOADED: 40,
+            CharacterLockState.GENERATING: 60,
+            CharacterLockState.REVIEW: 80,
+            CharacterLockState.LOCKED: 100,
+        }
+        return progress_map.get(self.lock_state, 0)
+
+    def can_transition_to(self, new_state: CharacterLockState) -> bool:
+        """Check if transition to new state is valid."""
+        valid_transitions: dict[CharacterLockState, list[CharacterLockState]] = {
+            CharacterLockState.UNDEFINED: [CharacterLockState.DRAFT],
+            CharacterLockState.DRAFT: [
+                CharacterLockState.REFERENCE_UPLOADED,
+                CharacterLockState.GENERATING,
+            ],
+            CharacterLockState.REFERENCE_UPLOADED: [
+                CharacterLockState.GENERATING,
+                CharacterLockState.DRAFT,
+            ],
+            CharacterLockState.GENERATING: [
+                CharacterLockState.REVIEW,
+                CharacterLockState.DRAFT,
+            ],
+            CharacterLockState.REVIEW: [
+                CharacterLockState.LOCKED,
+                CharacterLockState.GENERATING,
+                CharacterLockState.DRAFT,
+            ],
+            CharacterLockState.LOCKED: [
+                CharacterLockState.DRAFT
+            ],  # Can unlock to make changes
+        }
+        return new_state in valid_transitions.get(self.lock_state, [])
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"<Character(id={self.id}, name='{self.name}', state={self.lock_state.value})>"
+        return (
+            f"<Character(id={self.id}, "
+            f"name='{self.name}', "
+            f"lock_state={self.lock_state.value})>"
+        )

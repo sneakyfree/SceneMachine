@@ -32,6 +32,7 @@ def register_builtin_providers(registry: Optional[ProviderRegistry] = None) -> N
     settings = get_settings()
 
     # Import providers here to avoid circular imports
+    from .actcore import ActCoreProvider
     from .mock import MockGenerationProvider
     from .replicate import ReplicateProvider
     from .fal import FalProvider
@@ -85,6 +86,18 @@ def register_builtin_providers(registry: Optional[ProviderRegistry] = None) -> N
         },
     )
     logger.debug("Registered RunPodProvider")
+
+    # Register ActCore provider (performer-driven retargeting)
+    comfyui_url = getattr(settings, "comfyui_url", None)
+    registry.register(
+        JobProvider.ACTCORE,
+        ActCoreProvider,
+        config={
+            "comfyui_url": comfyui_url or "http://127.0.0.1:8188",
+            "local_processing": True,
+        },
+    )
+    logger.debug("Registered ActCoreProvider")
 
     logger.info(f"Registered {len(registry.list_providers())} video generation providers")
 

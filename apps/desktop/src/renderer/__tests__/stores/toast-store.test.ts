@@ -8,8 +8,8 @@ import { useToastStore } from '../../stores/toast-store';
 
 describe('ToastStore', () => {
   beforeEach(() => {
-    // Reset store state before each test
-    useToastStore.setState({ toasts: [] });
+    // Reset store state completely before each test
+    useToastStore.setState({ toasts: [], maxToasts: 5 });
     vi.useFakeTimers();
   });
 

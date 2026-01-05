@@ -339,7 +339,8 @@ export function DialoguePanel({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsMuted(!isMuted)}
-                className="p-1.5 text-surface-400 hover:text-surface-200 transition-colors"
+                className="icon-btn p-2 text-surface-400 hover:text-surface-200 transition-colors rounded"
+                aria-label={isMuted ? 'Unmute dialogue' : 'Mute dialogue'}
               >
                 {isMuted ? (
                   <VolumeX className="w-4 h-4" />

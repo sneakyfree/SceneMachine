@@ -284,7 +284,8 @@ export function AudioWaveform({
           <button
             onClick={togglePlayPause}
             disabled={isLoading}
-            className="p-1.5 text-surface-300 hover:text-white transition-colors disabled:opacity-50"
+            className="icon-btn p-2 text-surface-300 hover:text-white transition-colors disabled:opacity-50 rounded"
+            aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? (
               <Pause className="w-4 h-4" />
@@ -302,7 +303,8 @@ export function AudioWaveform({
           <div className="flex items-center gap-1">
             <button
               onClick={toggleMute}
-              className="p-1 text-surface-400 hover:text-white transition-colors"
+              className="icon-btn p-2 text-surface-400 hover:text-white transition-colors rounded"
+              aria-label={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
             >
               {isMuted || volume === 0 ? (
                 <VolumeX className="w-4 h-4" />

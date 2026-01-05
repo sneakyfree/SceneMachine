@@ -3,7 +3,7 @@
  * Displays generation metrics, costs, and system performance.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
@@ -21,9 +21,15 @@ import {
   RefreshCw,
   Calendar,
   Loader2,
+  AlertTriangle,
+  Settings,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { LineChart, BarChart, DonutChart, ProgressRing, Sparkline } from '../components/charts';
+import { BudgetAlertBanner } from '../components/budget-settings';
+import { useToast } from '../stores/toast-store';
+import { api } from '../api/client';
+import { useNavigate } from 'react-router-dom';
 
 // Analytics data interfaces
 interface GenerationStats {
@@ -230,6 +236,17 @@ function TimeRangeSelector({
 
 export function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState('7d');
+  const [dismissedBudgetAlert, setDismissedBudgetAlert] = useState(false);
+  const toast = useToast();
+  const navigate = useNavigate();
+  const shownAlertRef = useRef<string | null>(null);
+
+  // Fetch user settings for budget info
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.getSettings(),
+    staleTime: 60000,
+  });
 
   // Generate mock historical data based on time range
   const generateHistoricalData = (days: number): HistoricalStats => {
@@ -333,6 +350,50 @@ export function AnalyticsPage() {
     return `${(seconds / 3600).toFixed(1)}h`;
   };
 
+  // Calculate budget status
+  const budgetLimit = (settings as any)?.budgetLimitUsd;
+  const budgetPeriodDays = (settings as any)?.budgetPeriodDays || 30;
+  const currentSpent = analytics?.costs.total_cost_usd || 0;
+  const budgetUsagePercent = budgetLimit ? (currentSpent / budgetLimit) * 100 : 0;
+  const isNearBudget = budgetUsagePercent >= 80 && budgetUsagePercent < 100;
+  const isOverBudget = budgetUsagePercent >= 100;
+
+  // Show toast notification for budget alerts (only once per threshold)
+  useEffect(() => {
+    if (!budgetLimit || !analytics) return;
+
+    const alertKey = isOverBudget ? 'over' : isNearBudget ? 'near' : null;
+    if (!alertKey || shownAlertRef.current === alertKey) return;
+
+    shownAlertRef.current = alertKey;
+
+    if (isOverBudget) {
+      toast.error(
+        'Budget Exceeded',
+        `You've spent $${currentSpent.toFixed(2)} of your $${budgetLimit.toFixed(2)} budget.`,
+        {
+          duration: 10000,
+          action: {
+            label: 'View Settings',
+            onClick: () => navigate('/settings'),
+          },
+        }
+      );
+    } else if (isNearBudget) {
+      toast.warning(
+        'Approaching Budget Limit',
+        `You've used ${budgetUsagePercent.toFixed(0)}% of your $${budgetLimit.toFixed(2)} budget.`,
+        {
+          duration: 8000,
+          action: {
+            label: 'View Settings',
+            onClick: () => navigate('/settings'),
+          },
+        }
+      );
+    }
+  }, [budgetLimit, currentSpent, isNearBudget, isOverBudget, toast, navigate, analytics]);
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-8 max-w-6xl mx-auto">
@@ -360,6 +421,18 @@ export function AnalyticsPage() {
             </button>
           </div>
         </div>
+
+        {/* Budget Alert Banner */}
+        {budgetLimit && (isNearBudget || isOverBudget) && !dismissedBudgetAlert && (
+          <div className="mb-6">
+            <BudgetAlertBanner
+              budgetLimit={budgetLimit}
+              spent={currentSpent}
+              periodDays={budgetPeriodDays}
+              onDismiss={() => setDismissedBudgetAlert(true)}
+            />
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center h-64">

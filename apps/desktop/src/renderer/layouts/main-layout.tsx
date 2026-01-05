@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Film, FolderOpen, Settings, Keyboard, X, HelpCircle, BarChart3, Archive, Search } from 'lucide-react';
+import { Film, FolderOpen, Settings, Keyboard, X, HelpCircle, BarChart3, Archive, Search, Server } from 'lucide-react';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
 import {
@@ -14,6 +14,9 @@ import {
 } from '../hooks/use-keyboard-shortcuts';
 import { CommandPalette, useCommandPalette } from '../components/command-palette';
 import { SkipLink } from '../components/skip-link';
+import { Breadcrumbs } from '../components/breadcrumbs';
+import { StevenAssistant } from '../components/steven-assistant';
+import { useExperienceStore } from '../stores/experience-store';
 
 // Keyboard shortcuts modal
 function ShortcutsModal({ onClose }: { onClose: () => void }) {
@@ -73,6 +76,7 @@ export function MainLayout() {
   const { currentProject, sidebarCollapsed, toggleSidebar } = useProjectStore();
   const [showShortcuts, setShowShortcuts] = useState(false);
   const commandPalette = useCommandPalette();
+  const { stevenEnabled } = useExperienceStore();
 
   // Initialize global keyboard shortcuts
   useGlobalShortcuts();
@@ -161,6 +165,17 @@ export function MainLayout() {
           </Link>
 
           <Link
+            to="/admin"
+            className={cn(
+              'sidebar-item',
+              location.pathname === '/admin' && 'sidebar-item-active'
+            )}
+          >
+            <Server className="w-5 h-5 flex-shrink-0" />
+            {!sidebarCollapsed && <span>System Health</span>}
+          </Link>
+
+          <Link
             to="/help"
             className={cn(
               'sidebar-item',
@@ -237,9 +252,17 @@ export function MainLayout() {
         id="main-content"
         role="main"
         aria-label="Main content"
-        className="flex-1 overflow-auto bg-surface-950"
+        className="flex-1 flex flex-col bg-surface-950"
       >
-        <Outlet />
+        {/* Breadcrumb navigation bar */}
+        <div className="shrink-0 px-6 py-3 border-b border-surface-800 bg-surface-900/50">
+          <Breadcrumbs />
+        </div>
+
+        {/* Page content */}
+        <div className="flex-1 overflow-auto">
+          <Outlet />
+        </div>
       </main>
 
       {/* Keyboard shortcuts modal */}
@@ -247,6 +270,9 @@ export function MainLayout() {
 
       {/* Command palette */}
       <CommandPalette isOpen={commandPalette.isOpen} onClose={commandPalette.close} />
+
+      {/* Steven AI Assistant - inside router context */}
+      {stevenEnabled && <StevenAssistant />}
     </div>
   );
 }

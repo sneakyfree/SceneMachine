@@ -22,9 +22,20 @@ import {
   Trash2,
   RotateCcw,
   MoreVertical,
+  Zap,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useWebSocketEvent, EventType } from '../lib/websocket';
+import { useGenerationStore } from '../stores/generation-store';
+import { useExperienceStore } from '../stores/experience-store';
+import { useSettingsStore } from '../stores/settings-store';
+import {
+  estimateQueueTime,
+  formatTimeEstimate,
+  formatCompletionTime,
+  formatQueuePosition,
+  formatElapsedTime,
+} from '../lib/time-estimates';
 
 // Job interface
 interface QueueJob {
@@ -61,29 +72,32 @@ interface QueueManagerProps {
 
 // Status badge component
 function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { color: string; icon: typeof Clock; label: string }> = {
-    pending: { color: 'bg-yellow-500/20 text-yellow-400', icon: Clock, label: 'Pending' },
-    preparing: { color: 'bg-blue-500/20 text-blue-400', icon: Loader2, label: 'Preparing' },
-    running: { color: 'bg-brand-500/20 text-brand-400', icon: Loader2, label: 'Running' },
-    post_processing: { color: 'bg-purple-500/20 text-purple-400', icon: Loader2, label: 'Processing' },
-    completed: { color: 'bg-green-500/20 text-green-400', icon: CheckCircle, label: 'Completed' },
-    failed: { color: 'bg-red-500/20 text-red-400', icon: XCircle, label: 'Failed' },
-    cancelled: { color: 'bg-surface-500/20 text-surface-400', icon: XCircle, label: 'Cancelled' },
-    timeout: { color: 'bg-orange-500/20 text-orange-400', icon: AlertTriangle, label: 'Timeout' },
+  const { getTerm } = useExperienceStore();
+
+  const config: Record<string, { color: string; icon: typeof Clock }> = {
+    pending: { color: 'bg-yellow-500/20 text-yellow-400', icon: Clock },
+    preparing: { color: 'bg-blue-500/20 text-blue-400', icon: Loader2 },
+    running: { color: 'bg-brand-500/20 text-brand-400', icon: Loader2 },
+    post_processing: { color: 'bg-purple-500/20 text-purple-400', icon: Loader2 },
+    completed: { color: 'bg-green-500/20 text-green-400', icon: CheckCircle },
+    failed: { color: 'bg-red-500/20 text-red-400', icon: XCircle },
+    cancelled: { color: 'bg-surface-500/20 text-surface-400', icon: XCircle },
+    timeout: { color: 'bg-orange-500/20 text-orange-400', icon: AlertTriangle },
   };
 
   const conf = config[status] || config.pending;
   const Icon = conf.icon;
   const isAnimated = ['preparing', 'running', 'post_processing'].includes(status);
+  const label = getTerm(status, 'generation');
 
   return (
     <span
       className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs', conf.color)}
       role="status"
-      aria-label={`Status: ${conf.label}`}
+      aria-label={`Status: ${label}`}
     >
       <Icon className={cn('w-3 h-3', isAnimated && 'animate-spin')} aria-hidden="true" />
-      {conf.label}
+      {label}
     </span>
   );
 }
@@ -110,6 +124,7 @@ function ProgressBar({ percent }: { percent: number }) {
 // Queue job row - memoized for performance in lists
 const QueueJobRow = memo(function QueueJobRow({
   job,
+  position,
   onMoveUp,
   onMoveDown,
   onMoveToTop,
@@ -119,6 +134,7 @@ const QueueJobRow = memo(function QueueJobRow({
   isProcessing,
 }: {
   job: QueueJob;
+  position: number;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onMoveToTop: () => void;
@@ -128,11 +144,20 @@ const QueueJobRow = memo(function QueueJobRow({
   isProcessing: boolean;
 }) {
   const [showActions, setShowActions] = useState(false);
+  const { getMode } = useExperienceStore();
+  const mode = getMode('generation');
+
   const isPending = job.status === 'pending';
   const isRunning = ['preparing', 'running', 'post_processing'].includes(job.status);
   const isFailed = ['failed', 'timeout'].includes(job.status);
 
   const shotLabel = `Shot ${job.shotNumber || job.shotId.slice(0, 8)}`;
+
+  // Get position string for pending jobs
+  const positionString = isPending ? formatQueuePosition(position, mode) : null;
+
+  // Get elapsed time for running jobs
+  const elapsedString = isRunning && job.startedAt ? formatElapsedTime(job.startedAt, mode) : null;
 
   return (
     <article
@@ -155,6 +180,18 @@ const QueueJobRow = memo(function QueueJobRow({
               {shotLabel}
             </span>
             <StatusBadge status={job.status} />
+            {/* Queue position for pending jobs */}
+            {positionString && (
+              <span className="text-xs text-surface-500 bg-surface-700/50 px-2 py-0.5 rounded">
+                {positionString}
+              </span>
+            )}
+            {/* Elapsed time for running jobs */}
+            {elapsedString && (
+              <span className="text-xs text-brand-400">
+                {elapsedString}
+              </span>
+            )}
           </div>
           {job.progressMessage && isRunning && (
             <p className="text-xs text-surface-400 mt-1" aria-live="polite">{job.progressMessage}</p>
@@ -183,7 +220,7 @@ const QueueJobRow = memo(function QueueJobRow({
                 onMoveToTop();
               }}
               disabled={isProcessing}
-              className="p-1 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
+              className="icon-btn p-2 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
               title="Move to top"
               aria-label="Move job to top of queue"
             >
@@ -195,7 +232,7 @@ const QueueJobRow = memo(function QueueJobRow({
                 onMoveUp();
               }}
               disabled={isProcessing}
-              className="p-1 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
+              className="icon-btn p-2 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
               title="Move up"
               aria-label="Move job up in queue"
             >
@@ -207,7 +244,7 @@ const QueueJobRow = memo(function QueueJobRow({
                 onMoveDown();
               }}
               disabled={isProcessing}
-              className="p-1 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
+              className="icon-btn p-2 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
               title="Move down"
               aria-label="Move job down in queue"
             >
@@ -223,7 +260,8 @@ const QueueJobRow = memo(function QueueJobRow({
               e.stopPropagation();
               setShowActions(!showActions);
             }}
-            className="p-1.5 hover:bg-surface-700 rounded"
+            className="icon-btn p-2 hover:bg-surface-700 rounded"
+            aria-label="More actions"
           >
             <MoreVertical className="w-4 h-4 text-surface-400" />
           </button>
@@ -280,39 +318,132 @@ const QueueJobRow = memo(function QueueJobRow({
   );
 });
 
-// Stats summary
+// Stats summary with time estimates
 function QueueStatsSummary({ stats }: { stats: QueueStats }) {
+  const { getMode } = useExperienceStore();
+  const settings = useSettingsStore((s) => s.settings);
+  const mode = getMode('generation');
+
+  // Calculate time estimate
+  const provider = settings?.videoProvider || 'local';
+  const concurrency = settings?.maxConcurrentGenerations || 1;
+  const estimate = estimateQueueTime(stats.pending, stats.running, provider, concurrency);
+  const timeString = formatTimeEstimate(estimate, mode);
+  const completionString = formatCompletionTime(estimate, mode);
+
   return (
-    <div className="flex items-center gap-4 text-sm">
-      <div className="flex items-center gap-1.5">
-        <div className="w-2 h-2 rounded-full bg-yellow-400" />
-        <span className="text-surface-400">Pending:</span>
-        <span className="font-medium">{stats.pending}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="w-2 h-2 rounded-full bg-brand-400 animate-pulse" />
-        <span className="text-surface-400">Running:</span>
-        <span className="font-medium">{stats.running}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="w-2 h-2 rounded-full bg-green-400" />
-        <span className="text-surface-400">Completed:</span>
-        <span className="font-medium">{stats.completed}</span>
-      </div>
-      {stats.failed > 0 && (
+    <div className="space-y-2">
+      <div className="flex items-center gap-4 text-sm">
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-red-400" />
-          <span className="text-surface-400">Failed:</span>
-          <span className="font-medium text-red-400">{stats.failed}</span>
+          <div className="w-2 h-2 rounded-full bg-yellow-400" />
+          <span className="text-surface-400">Pending:</span>
+          <span className="font-medium">{stats.pending}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-brand-400 animate-pulse" />
+          <span className="text-surface-400">Running:</span>
+          <span className="font-medium">{stats.running}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-green-400" />
+          <span className="text-surface-400">Completed:</span>
+          <span className="font-medium">{stats.completed}</span>
+        </div>
+        {stats.failed > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-red-400" />
+            <span className="text-surface-400">Failed:</span>
+            <span className="font-medium text-red-400">{stats.failed}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Time estimate */}
+      {(stats.pending > 0 || stats.running > 0) && (
+        <div className="flex items-center gap-2 text-sm">
+          <Clock className="w-4 h-4 text-brand-400" />
+          <span className="text-brand-400 font-medium">{timeString}</span>
+          {completionString && (
+            <span className="text-surface-500">({completionString})</span>
+          )}
         </div>
       )}
     </div>
   );
 }
 
+// Worker status badge
+function WorkerStatusBadge({ isPaused, isLoading }: { isPaused: boolean; isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-surface-700 text-surface-400">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        Loading...
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+        isPaused
+          ? 'bg-yellow-500/20 text-yellow-400'
+          : 'bg-green-500/20 text-green-400'
+      )}
+      role="status"
+      aria-label={isPaused ? 'Queue worker is paused' : 'Queue worker is running'}
+    >
+      {isPaused ? (
+        <>
+          <Pause className="w-3 h-3" />
+          Paused
+        </>
+      ) : (
+        <>
+          <Zap className="w-3 h-3" />
+          Running
+        </>
+      )}
+    </span>
+  );
+}
+
 export function QueueManager({ projectId, compact = false, onJobClick }: QueueManagerProps) {
   const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isTogglingWorker, setIsTogglingWorker] = useState(false);
+
+  // Get worker status and controls from store
+  const {
+    workerStatus,
+    fetchWorkerStatus,
+    pauseWorker,
+    resumeWorker,
+  } = useGenerationStore();
+
+  // Fetch worker status on mount and periodically
+  useEffect(() => {
+    fetchWorkerStatus();
+    const interval = setInterval(fetchWorkerStatus, 10000); // Every 10 seconds
+    return () => clearInterval(interval);
+  }, [fetchWorkerStatus]);
+
+  // Handle pause/resume toggle
+  const handleToggleWorker = useCallback(async () => {
+    setIsTogglingWorker(true);
+    try {
+      if (workerStatus?.is_paused) {
+        await resumeWorker();
+      } else {
+        await pauseWorker();
+      }
+      // Refetch status after action
+      await fetchWorkerStatus();
+    } finally {
+      setIsTogglingWorker(false);
+    }
+  }, [workerStatus?.is_paused, pauseWorker, resumeWorker, fetchWorkerStatus]);
 
   // Fetch queue
   const { data: jobs, isLoading, refetch } = useQuery({
@@ -426,7 +557,10 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
   if (compact) {
     return (
       <div className="p-3 bg-surface-800 rounded-lg">
-        {stats && <QueueStatsSummary stats={stats} />}
+        <div className="flex items-center justify-between mb-2">
+          {stats && <QueueStatsSummary stats={stats} />}
+          <WorkerStatusBadge isPaused={workerStatus?.is_paused ?? false} isLoading={!workerStatus} />
+        </div>
         {isLoading && <Loader2 className="w-4 h-4 animate-spin text-brand-400" />}
       </div>
     );
@@ -437,10 +571,13 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-medium flex items-center gap-2">
-            <Clock className="w-5 h-5 text-brand-400" />
-            Generation Queue
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-medium flex items-center gap-2">
+              <Clock className="w-5 h-5 text-brand-400" />
+              Generation Queue
+            </h2>
+            <WorkerStatusBadge isPaused={workerStatus?.is_paused ?? false} isLoading={!workerStatus} />
+          </div>
           {stats && (
             <div className="mt-1">
               <QueueStatsSummary stats={stats} />
@@ -449,6 +586,29 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Pause/Resume Worker Button */}
+          <button
+            onClick={handleToggleWorker}
+            disabled={isTogglingWorker || !workerStatus}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors',
+              workerStatus?.is_paused
+                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+            )}
+            title={workerStatus?.is_paused ? 'Resume processing new jobs' : 'Pause processing new jobs'}
+            aria-label={workerStatus?.is_paused ? 'Resume queue worker' : 'Pause queue worker'}
+          >
+            {isTogglingWorker ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : workerStatus?.is_paused ? (
+              <Play className="w-4 h-4" />
+            ) : (
+              <Pause className="w-4 h-4" />
+            )}
+            {workerStatus?.is_paused ? 'Resume' : 'Pause'}
+          </button>
+
           <button
             onClick={() => refetch()}
             disabled={isLoading}
@@ -502,10 +662,11 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
         </div>
       ) : jobs && jobs.length > 0 ? (
         <div className="space-y-2">
-          {jobs.map((job) => (
+          {jobs.map((job, index) => (
             <QueueJobRow
               key={job.id}
               job={job}
+              position={index + 1}
               onMoveUp={() => handleMoveUp(job)}
               onMoveDown={() => handleMoveDown(job)}
               onMoveToTop={() => moveToTop.mutate(job.id)}

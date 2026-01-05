@@ -1,9 +1,7 @@
 """
-SceneMachine.ai - Screenplay to Movie Generation Platform
+SceneMachine.ai Core Backend
 
-This package contains the core backend functionality for SceneMachine.ai,
-including API endpoints, data models, generation orchestration, and
-screenplay parsing.
+Screenplay-to-Movie Generation Platform
 """
 
 __version__ = "0.1.0"

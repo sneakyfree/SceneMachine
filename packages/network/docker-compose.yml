@@ -1,0 +1,366 @@
+# SceneMachine Network - Docker Compose Configuration
+# Usage: docker-compose up -d
+
+version: "3.9"
+
+services:
+  # ==========================================================================
+  # INFRASTRUCTURE
+  # ==========================================================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: smn-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: scenemachine_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: smn-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MinIO - Local S3-compatible storage (replaces R2 for local dev)
+  minio:
+    image: minio/minio:latest
+    container_name: smn-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Mailhog - Local email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: smn-mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+  # ==========================================================================
+  # BACKEND SERVICES
+  # ==========================================================================
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    container_name: smn-auth
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-change-in-production}
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  content-service:
+    build:
+      context: .
+      dockerfile: services/content/Dockerfile
+    container_name: smn-content
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+      - R2_ENDPOINT_URL=http://minio:9000
+      - R2_ACCESS_KEY_ID=minioadmin
+      - R2_SECRET_ACCESS_KEY=minioadmin
+      - R2_BUCKET_NAME=scenemachine-network
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - upload_temp:/tmp/uploads
+
+  streaming-service:
+    build:
+      context: .
+      dockerfile: services/streaming/Dockerfile
+    container_name: smn-streaming
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+      - R2_ENDPOINT_URL=http://minio:9000
+      - R2_ACCESS_KEY_ID=minioadmin
+      - R2_SECRET_ACCESS_KEY=minioadmin
+    ports:
+      - "8003:8003"
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+  social-service:
+    build:
+      context: .
+      dockerfile: services/social/Dockerfile
+    container_name: smn-social
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  discovery-service:
+    build:
+      context: .
+      dockerfile: services/discovery/Dockerfile
+    container_name: smn-discovery
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8005:8005"
+    depends_on:
+      - postgres
+      - redis
+
+  monetization-service:
+    build:
+      context: .
+      dockerfile: services/monetization/Dockerfile
+    container_name: smn-monetization
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+    ports:
+      - "8006:8006"
+    depends_on:
+      - postgres
+      - redis
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: services/analytics/Dockerfile
+    container_name: smn-analytics
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8007:8007"
+    depends_on:
+      - postgres
+      - redis
+
+  studio-service:
+    build:
+      context: .
+      dockerfile: services/studio/Dockerfile
+    container_name: smn-studio
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8008:8008"
+    depends_on:
+      - postgres
+      - redis
+
+  moderation-service:
+    build:
+      context: .
+      dockerfile: services/moderation/Dockerfile
+    container_name: smn-moderation
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8009:8009"
+    depends_on:
+      - postgres
+      - redis
+
+  distribution-service:
+    build:
+      context: .
+      dockerfile: services/distribution/Dockerfile
+    container_name: smn-distribution
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+      - R2_ENDPOINT_URL=http://minio:9000
+      - R2_ACCESS_KEY_ID=minioadmin
+      - R2_SECRET_ACCESS_KEY=minioadmin
+    ports:
+      - "8010:8010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  events-service:
+    build:
+      context: .
+      dockerfile: services/events/Dockerfile
+    container_name: smn-events
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+    ports:
+      - "8011:8011"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # BACKGROUND WORKERS
+  # ==========================================================================
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: services/content/Dockerfile
+    container_name: smn-celery-worker
+    command: celery -A tasks worker --loglevel=info --concurrency=2
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/scenemachine_network
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - R2_ENDPOINT_URL=http://minio:9000
+      - R2_ACCESS_KEY_ID=minioadmin
+      - R2_SECRET_ACCESS_KEY=minioadmin
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    volumes:
+      - upload_temp:/tmp/uploads
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: services/content/Dockerfile
+    container_name: smn-celery-beat
+    command: celery -A tasks beat --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - redis
+      - celery-worker
+
+  # ==========================================================================
+  # FRONTEND
+  # ==========================================================================
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: smn-web
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXT_PUBLIC_STREAMING_URL=http://localhost:8003
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - content-service
+      - social-service
+
+  # ==========================================================================
+  # API GATEWAY (NGINX)
+  # ==========================================================================
+
+  nginx:
+    image: nginx:alpine
+    container_name: smn-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+      - content-service
+      - streaming-service
+      - social-service
+      - discovery-service
+      - monetization-service
+      - analytics-service
+      - studio-service
+      - moderation-service
+
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  upload_temp:
+
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
+
+networks:
+  default:
+    name: scenemachine-network

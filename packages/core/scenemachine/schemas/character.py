@@ -1,7 +1,7 @@
 """Pydantic schemas for Character API endpoints."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from pydantic import Field, field_validator
