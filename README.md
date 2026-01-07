@@ -120,6 +120,39 @@ SceneMachine uses a hybrid architecture:
 
 See [docs/architecture/](docs/architecture/) for detailed architecture documentation.
 
+## Documentation
+
+### Core Documentation
+
+| Document | Description |
+|----------|-------------|
+| [SECURITY.md](docs/SECURITY.md) | Security architecture, encryption, rate limiting |
+| [DATABASE.md](docs/DATABASE.md) | Database schema, ER diagrams, migrations |
+| [CONFIGURATION.md](docs/CONFIGURATION.md) | Environment variables, runtime config |
+| [PERFORMANCE.md](docs/PERFORMANCE.md) | Benchmarks, tuning, optimization |
+| [CACHING.md](docs/CACHING.md) | Caching strategies and implementation |
+
+### API Documentation
+
+| Document | Description |
+|----------|-------------|
+| [REST-API.md](docs/api/REST-API.md) | Complete REST API reference (200+ endpoints) |
+| [IPC-API.md](docs/api/README.md) | IPC API for frontend-backend communication |
+
+### Architecture Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Architecture Overview](docs/architecture/) | System architecture and design |
+| [Project Structure](docs/architecture/) | Codebase organization |
+
+### Quick Links
+
+- **API Reference**: [REST API](docs/api/REST-API.md) • [IPC API](docs/api/README.md)
+- **Security**: [Security Guide](docs/SECURITY.md) • [Rate Limiting](docs/SECURITY.md#rate-limiting)
+- **Database**: [Schema](docs/DATABASE.md#model-reference) • [Migrations](docs/DATABASE.md#migrations)
+- **Performance**: [Benchmarks](docs/PERFORMANCE.md#benchmark-results) • [Tuning](docs/PERFORMANCE.md#tuning-guide)
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.

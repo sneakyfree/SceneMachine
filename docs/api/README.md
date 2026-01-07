@@ -1,8 +1,47 @@
 # SceneMachine API Documentation
 
-This document describes the IPC API used for communication between the Electron frontend and Python backend.
+SceneMachine provides two API interfaces for different use cases:
 
-## Overview
+| API | Protocol | Use Case | Documentation |
+|-----|----------|----------|---------------|
+| **REST API** | HTTP/JSON | External integrations, web clients, testing | [REST-API.md](REST-API.md) |
+| **IPC API** | Unix Socket/JSON | Desktop app frontend-backend communication | This document |
+
+## When to Use Which API
+
+| Scenario | Recommended API |
+|----------|-----------------|
+| Building external integrations | REST API |
+| Web application development | REST API |
+| API testing with curl | REST API |
+| Desktop app (Electron) | IPC API |
+| Low-latency local operations | IPC API |
+
+---
+
+## REST API Reference
+
+For the complete REST API with 200+ endpoints, curl examples, and detailed request/response schemas, see:
+
+**[REST-API.md](REST-API.md)** - Complete REST API Reference
+
+### REST API Quick Links
+
+- [Health & System](REST-API.md#health-api) - Server health, readiness, version info
+- [Projects](REST-API.md#projects-api) - Project CRUD operations
+- [Screenplays](REST-API.md#screenplays-api) - Upload and parse screenplays
+- [Characters](REST-API.md#characters-api) - Character management and locking
+- [Scenes](REST-API.md#scenes-api) - Scene and shot planning
+- [Generation](REST-API.md#generation-api) - Video generation queue
+- [Settings](REST-API.md#settings-api) - Configuration and API keys
+
+---
+
+## IPC API Documentation
+
+This section describes the IPC API used for communication between the Electron frontend and Python backend.
+
+### Overview
 
 SceneMachine uses an IPC (Inter-Process Communication) pattern over Unix domain sockets. The frontend sends requests to named handlers, and the backend returns JSON responses.
 

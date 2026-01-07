@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(for f in SECURITY.md api/REST-API.md DATABASE.md CONFIGURATION.md PERFORMANCE.md CACHING.md)",
+      "Bash(done)"
+    ]
+  }
+}
