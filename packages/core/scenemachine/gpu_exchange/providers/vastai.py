@@ -8,6 +8,8 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
+import httpx
+
 from scenemachine.gpu_exchange.base import (
     GPUExchangeProvider,
     GPUInstance,
@@ -47,6 +49,9 @@ class VastAIProvider(GPUExchangeProvider):
         GPUType.H100: (2.00, 3.00),
     }
 
+    # Vast.ai API base URL
+    API_BASE = "https://console.vast.ai/api/v0"
+
     def __init__(self, api_key: Optional[str] = None) -> None:
         """Initialize Vast.ai provider.
 
@@ -55,6 +60,34 @@ class VastAIProvider(GPUExchangeProvider):
         """
         self.api_key = api_key
         self._cached_offers: List[Dict[str, Any]] = []
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create HTTP client with auth."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.API_BASE,
+                headers={
+                    "Accept": "application/json",
+                },
+                timeout=30.0,
+            )
+        return self._client
+
+    async def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Make an authenticated API request."""
+        client = await self._get_client()
+        # Vast.ai uses query param for API key
+        params = kwargs.pop("params", {})
+        params["api_key"] = self.api_key
+        response = await client.request(method, endpoint, params=params, **kwargs)
+        response.raise_for_status()
+        return response.json()
 
     @property
     def name(self) -> str:
@@ -89,61 +122,119 @@ class VastAIProvider(GPUExchangeProvider):
         gpu_type: Optional[GPUType] = None,
         region: Optional[str] = None,
     ) -> List[GPUInstance]:
-        """Get available Vast.ai instances."""
+        """Get available Vast.ai instances from the marketplace."""
         if not self.api_key:
             logger.warning("Vast.ai API key not configured")
             return []
 
         try:
-            # In production, this would call the Vast.ai API
-            # offers = await self._search_offers(gpu_type, region)
+            # Build search query for Vast.ai offers
+            query = {
+                "verified": {"eq": True},
+                "rentable": {"eq": True},
+                "rented": {"eq": False},
+            }
+
+            # Add GPU filter if specified
+            if gpu_type:
+                gpu_name = self._get_gpu_name(gpu_type)
+                if gpu_name:
+                    query["gpu_name"] = {"eq": gpu_name}
+
+            # Search offers from Vast.ai API
+            data = await self._make_request(
+                "GET",
+                "/bundles/",
+                params={"q": str(query)},
+            )
+            offers = data.get("offers", [])
 
             instances = []
+            for offer in offers:
+                # Map GPU name to our type
+                offer_gpu_name = offer.get("gpu_name", "").lower()
+                gtype = self._map_gpu_type(offer_gpu_name)
 
-            for gtype, (min_price, max_price) in self.TYPICAL_PRICING.items():
+                if gtype is None:
+                    continue
                 if gpu_type and gtype != gpu_type:
                     continue
 
-                # Simulate multiple offers per GPU type
-                for i, price in enumerate([min_price, (min_price + max_price) / 2, max_price]):
-                    offer_id = f"vast_{gtype.value}_{i}"
+                # Extract pricing
+                dph = offer.get("dph_total", 0)  # Price per hour
+                pricing = GPUPricing(
+                    gpu_type=gtype,
+                    price_per_hour=dph,
+                    price_per_second=dph / 3600,
+                    spot_price_per_hour=dph * 0.7 if offer.get("is_bid", False) else None,
+                    region=offer.get("geolocation", "unknown"),
+                    availability=1,
+                )
 
-                    pricing = GPUPricing(
+                instances.append(
+                    GPUInstance(
+                        id=str(offer.get("id")),
+                        provider=self.provider_id,
                         gpu_type=gtype,
-                        price_per_hour=price,
-                        price_per_second=price / 3600,
-                        spot_price_per_hour=price * 0.7,  # 30% cheaper spot
-                        region=region or "us",
-                        availability=3 - i,  # Cheaper = more available (simulated)
+                        gpu_count=offer.get("num_gpus", 1),
+                        vram_gb=int(offer.get("gpu_ram", 0) / 1024),  # MB to GB
+                        cpu_cores=offer.get("cpu_cores", 0),
+                        ram_gb=int(offer.get("cpu_ram", 0) / 1024),  # MB to GB
+                        storage_gb=int(offer.get("disk_space", 0)),
+                        region=offer.get("geolocation", "unknown"),
+                        is_available=True,
+                        is_spot=offer.get("is_bid", False),
+                        pricing=pricing,
+                        capabilities=self.capabilities,
+                        metadata={
+                            "reliability_score": offer.get("reliability2", 0.9),
+                            "host_id": str(offer.get("machine_id")),
+                            "dlperf": offer.get("dlperf", 0),
+                            "cuda_version": offer.get("cuda_max_good", ""),
+                        },
                     )
-
-                    instances.append(
-                        GPUInstance(
-                            id=offer_id,
-                            provider=self.provider_id,
-                            gpu_type=gtype,
-                            gpu_count=1,
-                            vram_gb=self._get_vram(gtype),
-                            cpu_cores=16,
-                            ram_gb=64,
-                            storage_gb=100,
-                            region=region or "us",
-                            is_available=True,
-                            is_spot=True,
-                            pricing=pricing,
-                            capabilities=self.capabilities,
-                            metadata={
-                                "reliability_score": 0.95 - (i * 0.05),
-                                "host_id": f"host_{offer_id}",
-                            },
-                        )
-                    )
+                )
 
             return instances
 
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Vast.ai API error: {e.response.status_code} - {e.response.text}")
+            return []
         except Exception as e:
             logger.error(f"Failed to get Vast.ai instances: {e}")
             return []
+
+    def _get_gpu_name(self, gpu_type: GPUType) -> Optional[str]:
+        """Get Vast.ai GPU name from our type."""
+        gpu_names = {
+            GPUType.RTX_3090: "RTX 3090",
+            GPUType.RTX_4090: "RTX 4090",
+            GPUType.A10: "A10",
+            GPUType.A40: "A40",
+            GPUType.A100_40GB: "A100",
+            GPUType.A100_80GB: "A100",
+            GPUType.H100: "H100",
+        }
+        return gpu_names.get(gpu_type)
+
+    def _map_gpu_type(self, gpu_name: str) -> Optional[GPUType]:
+        """Map GPU name to our GPUType enum."""
+        name_lower = gpu_name.lower()
+        if "h100" in name_lower:
+            return GPUType.H100
+        elif "a100" in name_lower and "80" in name_lower:
+            return GPUType.A100_80GB
+        elif "a100" in name_lower:
+            return GPUType.A100_40GB
+        elif "a40" in name_lower:
+            return GPUType.A40
+        elif "a10" in name_lower:
+            return GPUType.A10
+        elif "4090" in name_lower:
+            return GPUType.RTX_4090
+        elif "3090" in name_lower:
+            return GPUType.RTX_3090
+        return None
 
     def _get_vram(self, gpu_type: GPUType) -> int:
         """Get VRAM for GPU type."""
@@ -216,12 +307,52 @@ class VastAIProvider(GPUExchangeProvider):
             )
 
         try:
-            # In production, this would:
-            # 1. Search for matching offers
-            # 2. Create instance with Docker template
-            # vast.create_instance(offer_id=best_offer, image="scenemachine/worker:latest")
+            # Find best matching offer within budget
+            instances = await self.get_available_instances(gpu_type=gpu_type, region=region)
 
-            instance_id = f"i-vast-{gpu_type.value}-{region or 'us'}"
+            # Filter by price and sort by best value
+            matching = [
+                i for i in instances
+                if i.pricing and i.pricing.price_per_hour <= max_price_per_hour
+            ]
+
+            if not matching:
+                return ProvisionResult(
+                    success=False,
+                    error_message=f"No offers found within ${max_price_per_hour}/hr budget",
+                    error_code="NO_OFFERS",
+                )
+
+            # Sort by price (cheapest first)
+            matching.sort(key=lambda x: x.pricing.price_per_hour if x.pricing else float('inf'))
+            best_offer = matching[0]
+
+            # Create instance via Vast.ai API
+            create_data = {
+                "id": int(best_offer.id),
+                "image": "scenemachine/worker:latest",
+                "disk": 50,  # GB
+                "onstart": "",  # Startup script
+            }
+
+            response = await self._make_request("PUT", "/asks/", json=create_data)
+            new_contract = response.get("new_contract")
+
+            if not new_contract:
+                return ProvisionResult(
+                    success=False,
+                    error_message="Failed to create instance",
+                    error_code="CREATE_FAILED",
+                )
+
+            instance_id = str(new_contract)
+
+            # Get instance details
+            details = await self._make_request("GET", f"/instances/{instance_id}")
+            instance_info = details.get("instances", [{}])[0] if details.get("instances") else {}
+
+            ssh_host = instance_info.get("public_ipaddr", "")
+            ssh_port = instance_info.get("ports", {}).get("22/tcp", [{}])[0].get("HostPort", 22)
 
             return ProvisionResult(
                 success=True,
@@ -230,19 +361,32 @@ class VastAIProvider(GPUExchangeProvider):
                     id=instance_id,
                     provider=self.provider_id,
                     gpu_type=gpu_type,
-                    gpu_count=1,
-                    vram_gb=self._get_vram(gpu_type),
-                    region=region or "us",
+                    gpu_count=best_offer.gpu_count,
+                    vram_gb=best_offer.vram_gb,
+                    region=best_offer.region,
                     is_available=True,
                     is_spot=spot,
+                    pricing=best_offer.pricing,
                 ),
-                ssh_host=f"{instance_id}.vast.ai",
-                ssh_port=22,
+                ssh_host=ssh_host,
+                ssh_port=int(ssh_port) if ssh_port else 22,
                 ssh_user="root",
-                api_endpoint=f"http://{instance_id}.vast.ai:8080",
-                startup_time_seconds=60.0,  # Vast can be slower to start
+                api_endpoint=f"http://{ssh_host}:8080",
+                startup_time_seconds=60.0,
             )
 
+        except httpx.HTTPStatusError as e:
+            error_msg = str(e)
+            try:
+                error_msg = e.response.json().get("msg", str(e))
+            except Exception:
+                pass
+            logger.error(f"Vast.ai API error during provision: {error_msg}")
+            return ProvisionResult(
+                success=False,
+                error_message=error_msg,
+                error_code="API_ERROR",
+            )
         except Exception as e:
             logger.error(f"Failed to provision Vast.ai instance: {e}")
             return ProvisionResult(
@@ -257,9 +401,13 @@ class VastAIProvider(GPUExchangeProvider):
             return False
 
         try:
-            # In production: vast.destroy_instance(instance_id)
+            # Call Vast.ai API to destroy instance
+            await self._make_request("DELETE", f"/instances/{instance_id}/")
             logger.info(f"Terminated Vast.ai instance: {instance_id}")
             return True
+        except httpx.HTTPStatusError as e:
+            logger.error(f"API error terminating instance {instance_id}: {e.response.status_code}")
+            return False
         except Exception as e:
             logger.error(f"Failed to terminate instance {instance_id}: {e}")
             return False
@@ -282,8 +430,8 @@ class VastAIProvider(GPUExchangeProvider):
 
             start = time.time()
 
-            # In production: await vast.get_user()
-            await asyncio.sleep(0.15)  # Simulate API call
+            # Check API health by getting user info
+            await self._make_request("GET", "/users/current/")
 
             latency = (time.time() - start) * 1000
 
@@ -297,6 +445,12 @@ class VastAIProvider(GPUExchangeProvider):
                 instances_available=available_count,
             )
 
+        except httpx.HTTPStatusError as e:
+            return ProviderHealth(
+                available=False,
+                message=f"API error: {e.response.status_code}",
+                error_code="API_ERROR",
+            )
         except Exception as e:
             return ProviderHealth(
                 available=False,

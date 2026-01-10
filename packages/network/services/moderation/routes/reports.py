@@ -35,13 +35,76 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 def _require_moderator(user: User) -> None:
     """Verify user is a moderator."""
-    # In production, check user role
-    # For now, check if verified (simplified)
-    if not user.is_verified:
+    # Check user role for moderator access
+    if not (user.is_verified or getattr(user, "role", None) in ("moderator", "admin")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Moderator access required",
         )
+
+
+async def calculate_reporter_credibility(
+    user_id: uuid.UUID, db: AsyncSession
+) -> float:
+    """
+    Calculate a reporter's credibility score based on their report history.
+
+    Returns a score between 0.0 (low credibility) and 1.0 (high credibility).
+    Used to prioritize reports and detect abuse of the reporting system.
+    """
+    # Get user's report history
+    result = await db.execute(
+        select(Report).where(Report.reporter_id == user_id)
+    )
+    reports = result.scalars().all()
+
+    if not reports:
+        # New reporter - neutral credibility
+        return 0.5
+
+    total_reports = len(reports)
+    resolved_reports = [r for r in reports if r.status != ReportStatus.PENDING]
+
+    if not resolved_reports:
+        # All reports still pending - slightly lower credibility
+        return 0.4
+
+    # Count outcome types
+    upheld = sum(1 for r in resolved_reports if r.status == ReportStatus.ACTION_TAKEN)
+    dismissed = sum(1 for r in resolved_reports if r.status == ReportStatus.DISMISSED)
+    resolved_count = len(resolved_reports)
+
+    # Calculate base credibility from upheld/dismissed ratio
+    upheld_ratio = upheld / resolved_count if resolved_count > 0 else 0
+    dismissed_ratio = dismissed / resolved_count if resolved_count > 0 else 0
+
+    base_score = 0.5 + (upheld_ratio * 0.4) - (dismissed_ratio * 0.3)
+
+    # Apply volume factors
+    # Bonus for consistent, accurate reporters (many upheld reports)
+    if upheld >= 5 and upheld_ratio > 0.7:
+        base_score += 0.1
+
+    # Penalty for high volume of dismissed reports (potential abuse)
+    if dismissed >= 5 and dismissed_ratio > 0.5:
+        base_score -= 0.2
+
+    # Penalty for excessive reporting (more than 50 reports)
+    if total_reports > 50:
+        base_score -= 0.1
+
+    # Check for recent false reports (last 30 days)
+    recent_dismissed = sum(
+        1 for r in resolved_reports
+        if r.status == ReportStatus.DISMISSED
+        and r.reviewed_at
+        and (datetime.now(timezone.utc) - r.reviewed_at).days <= 30
+    )
+    if recent_dismissed >= 3:
+        base_score -= 0.15
+
+    # Clamp to valid range
+    return max(0.0, min(1.0, base_score))
 
 
 @router.post("", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
@@ -113,10 +176,19 @@ async def create_report(
                 detail="You have already reported this content",
             )
 
-    # Calculate priority
-    priority = REPORT_PRIORITY.get(request.reason, 5)
+    # Calculate base priority from report reason
+    base_priority = REPORT_PRIORITY.get(request.reason, 5)
 
-    # Create report
+    # Adjust priority based on reporter credibility
+    credibility = 0.5  # Default for anonymous
+    if current_user:
+        credibility = await calculate_reporter_credibility(current_user.id, db)
+
+    # High credibility reporters get priority boost, low credibility gets reduced priority
+    priority_adjustment = int((credibility - 0.5) * 4)  # -2 to +2 adjustment
+    priority = max(1, min(10, base_priority + priority_adjustment))
+
+    # Create report with calculated priority
     report = Report(
         reporter_id=current_user.id if current_user else None,
         target_type=request.target_type,

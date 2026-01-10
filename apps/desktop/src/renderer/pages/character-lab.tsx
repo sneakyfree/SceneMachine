@@ -5,7 +5,7 @@
  * to ensure visual consistency across all generated content.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,10 +17,14 @@ import {
   Filter,
   Search,
   Sparkles,
+  Keyboard,
 } from 'lucide-react';
 import { CharacterCard } from '../components/character-card';
+import { LoadingContainer, SkeletonProjectCard } from '../components/skeleton';
 import { cn } from '../lib/utils';
 import { useExperienceStore } from '../stores/experience-store';
+import { useToast } from '../components/toast';
+import { announce } from '../lib/accessibility';
 
 interface Character {
   id: string;
@@ -51,11 +55,61 @@ export function CharacterLabPage() {
   const queryClient = useQueryClient();
   const { getTerm, isSimplifiedMode } = useExperienceStore();
   const isStoryMode = isSimplifiedMode('characters');
+  const { addToast } = useToast();
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // ? - Show shortcuts help
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowShortcuts((prev) => !prev);
+        return;
+      }
+
+      // / - Focus search
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const searchInput = document.querySelector<HTMLInputElement>('input[type="text"]');
+        searchInput?.focus();
+        return;
+      }
+
+      // Escape - Clear search or close shortcuts
+      if (e.key === 'Escape') {
+        if (showShortcuts) {
+          setShowShortcuts(false);
+        } else if (searchQuery) {
+          setSearchQuery('');
+        }
+        return;
+      }
+
+      // 1-4 - Quick filter
+      if (e.key >= '1' && e.key <= '4' && !e.ctrlKey && !e.metaKey) {
+        const filters: FilterType[] = ['all', 'locked', 'unlocked', 'protagonist'];
+        const index = parseInt(e.key) - 1;
+        if (index < filters.length) {
+          setFilter(filters[index]);
+          announce(`Filter set to ${filters[index]}`);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchQuery, showShortcuts]);
 
   // Fetch characters
   const { data: characters, isLoading } = useQuery({
@@ -77,9 +131,23 @@ export function CharacterLabPage() {
         character_id: characterId,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, characterId) => {
       queryClient.invalidateQueries({ queryKey: ['characters', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      const char = characters?.find((c) => c.id === characterId);
+      addToast({
+        type: 'success',
+        title: 'Character Locked',
+        message: `${char?.name || 'Character'} appearance is now locked for consistency.`,
+      });
+      announce(`${char?.name || 'Character'} locked`);
+    },
+    onError: (error) => {
+      addToast({
+        type: 'error',
+        title: 'Failed to Lock',
+        message: error instanceof Error ? error.message : 'Please try again.',
+      });
     },
   });
 
@@ -90,8 +158,22 @@ export function CharacterLabPage() {
         character_id: characterId,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, characterId) => {
       queryClient.invalidateQueries({ queryKey: ['characters', projectId] });
+      const char = characters?.find((c) => c.id === characterId);
+      addToast({
+        type: 'info',
+        title: 'Character Unlocked',
+        message: `${char?.name || 'Character'} can now be edited.`,
+      });
+      announce(`${char?.name || 'Character'} unlocked`);
+    },
+    onError: (error) => {
+      addToast({
+        type: 'error',
+        title: 'Failed to Unlock',
+        message: error instanceof Error ? error.message : 'Please try again.',
+      });
     },
   });
 
@@ -102,8 +184,21 @@ export function CharacterLabPage() {
         character_id: characterId,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, characterId) => {
       queryClient.invalidateQueries({ queryKey: ['characters', projectId] });
+      const char = characters?.find((c) => c.id === characterId);
+      addToast({
+        type: 'success',
+        title: 'Description Generated',
+        message: `AI description created for ${char?.name || 'character'}.`,
+      });
+    },
+    onError: (error) => {
+      addToast({
+        type: 'error',
+        title: 'Generation Failed',
+        message: error instanceof Error ? error.message : 'Please try again.',
+      });
     },
   });
 
@@ -230,13 +325,12 @@ export function CharacterLabPage() {
   const lockedCharacters = characters?.filter((c) => c.isLocked).length ?? 0;
   const allLocked = totalCharacters > 0 && lockedCharacters === totalCharacters;
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-surface-400">Loading characters...</div>
-      </div>
-    );
-  }
+  // Determine loading state
+  const loadingState = isLoading
+    ? 'loading'
+    : !characters || characters.length === 0
+      ? 'empty'
+      : 'success';
 
   return (
     <div className="p-8">
@@ -371,46 +465,116 @@ export function CharacterLabPage() {
       </div>
 
       {/* Character Grid */}
-      {filteredCharacters && filteredCharacters.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredCharacters.map((character) => (
-            <CharacterCard
-              key={character.id}
-              character={character}
-              onEdit={(char) => {
-                setSelectedCharacter(char);
-                setIsEditing(true);
-              }}
-              onLock={(id) => lockMutation.mutate(id)}
-              onUnlock={(id) => unlockMutation.mutate(id)}
-              onUploadReference={handleUploadReference}
-              onDeleteReference={handleDeleteReference}
-              onGenerateDescription={(id) => generateDescriptionMutation.mutate(id)}
-              onUpdatePhysicalDescription={(characterId, physicalDescription) =>
-                updatePhysicalDescriptionMutation.mutate({ characterId, physicalDescription })
+      <LoadingContainer
+        state={loadingState}
+        skeleton={<SkeletonProjectCard />}
+        skeletonCount={4}
+        loadingMessage="Loading characters..."
+        emptyMessage={
+          searchQuery || filter !== 'all'
+            ? 'No characters match your search or filter.'
+            : 'Characters will appear here once a screenplay is parsed.'
+        }
+        emptyIcon={<Users className="w-16 h-16 text-surface-600" />}
+        emptyAction={searchQuery || filter !== 'all' ? 'Clear filters' : undefined}
+        onEmptyAction={
+          searchQuery || filter !== 'all'
+            ? () => {
+                setSearchQuery('');
+                setFilter('all');
               }
-              onVoiceChange={(characterId, voiceId, provider, voiceName) =>
-                updateVoiceMutation.mutate({ characterId, voiceId, provider, voiceName })
-              }
-              disabled={
-                lockMutation.isPending ||
-                unlockMutation.isPending ||
-                generateDescriptionMutation.isPending ||
-                updateVoiceMutation.isPending ||
-                updatePhysicalDescriptionMutation.isPending
-              }
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-16">
-          <Users className="w-16 h-16 mx-auto text-surface-600 mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Characters Found</h3>
-          <p className="text-surface-400">
-            {searchQuery || filter !== 'all'
-              ? 'Try adjusting your search or filter.'
-              : 'Characters will appear here once a screenplay is parsed.'}
-          </p>
+            : undefined
+        }
+      >
+        {filteredCharacters && filteredCharacters.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" role="list" aria-label="Characters">
+            {filteredCharacters.map((character) => (
+              <div key={character.id} role="listitem">
+                <CharacterCard
+                  character={character}
+                  onEdit={(char) => {
+                    setSelectedCharacter(char);
+                    setIsEditing(true);
+                  }}
+                  onLock={(id) => lockMutation.mutate(id)}
+                  onUnlock={(id) => unlockMutation.mutate(id)}
+                  onUploadReference={handleUploadReference}
+                  onDeleteReference={handleDeleteReference}
+                  onGenerateDescription={(id) => generateDescriptionMutation.mutate(id)}
+                  onUpdatePhysicalDescription={(characterId, physicalDescription) =>
+                    updatePhysicalDescriptionMutation.mutate({ characterId, physicalDescription })
+                  }
+                  onVoiceChange={(characterId, voiceId, provider, voiceName) =>
+                    updateVoiceMutation.mutate({ characterId, voiceId, provider, voiceName })
+                  }
+                  disabled={
+                    lockMutation.isPending ||
+                    unlockMutation.isPending ||
+                    generateDescriptionMutation.isPending ||
+                    updateVoiceMutation.isPending ||
+                    updatePhysicalDescriptionMutation.isPending
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </LoadingContainer>
+
+      {/* Keyboard Shortcuts Help */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowShortcuts(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
+        >
+          <div
+            className="bg-surface-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <Keyboard className="w-5 h-5 text-brand-400" />
+              <h2 className="text-lg font-semibold">Keyboard Shortcuts</h2>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-surface-400">Focus search</span>
+                <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">/</kbd>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-surface-400">Show all</span>
+                <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">1</kbd>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-surface-400">Show locked</span>
+                <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">2</kbd>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-surface-400">Show unlocked</span>
+                <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">3</kbd>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-surface-400">Show protagonists</span>
+                <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">4</kbd>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-surface-400">Clear / Close</span>
+                <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">Esc</kbd>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-surface-400">Show this help</span>
+                <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">?</kbd>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowShortcuts(false)}
+              className="mt-4 w-full py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
 

@@ -17,6 +17,8 @@ from ....shared.models import (
     Transaction,
     TransactionType,
     TransactionStatus,
+    Payout,
+    PayoutStatus,
     User,
     Video,
     CostTracking,
@@ -97,17 +99,30 @@ async def get_earnings_summary(
     # Calculate tier info
     tier, platform_cut, creator_cut = get_tier_info(total_all_time)
 
-    # Available for payout (completed but not paid out)
+    # Get total amount already paid out
     result = await db.execute(
-        select(func.sum(Transaction.amount_net)).where(
+        select(func.sum(Payout.amount)).where(
             and_(
-                Transaction.creator_id == current_user.id,
-                Transaction.status == TransactionStatus.COMPLETED,
-                # Add logic to exclude already paid out transactions
+                Payout.creator_id == current_user.id,
+                Payout.status == PayoutStatus.COMPLETED,
             )
         )
     )
-    available = result.scalar() or Decimal("0")
+    total_paid_out = result.scalar() or Decimal("0")
+
+    # Available for payout = total earnings - total already paid out
+    available = total_all_time - total_paid_out
+
+    # Get pending payout amount (payouts in pending or processing state)
+    result = await db.execute(
+        select(func.sum(Payout.amount)).where(
+            and_(
+                Payout.creator_id == current_user.id,
+                Payout.status.in_([PayoutStatus.PENDING, PayoutStatus.PROCESSING]),
+            )
+        )
+    )
+    pending_payout = result.scalar() or Decimal("0")
 
     return EarningsSummaryResponse(
         creator_id=current_user.id,
@@ -121,7 +136,7 @@ async def get_earnings_summary(
         ticket_revenue_this_month=ticket_revenue,
         tip_revenue_this_month=tip_revenue,
         available_for_payout=available,
-        pending_payout=Decimal("0"),  # TODO: Sum pending payouts
+        pending_payout=pending_payout,
         period_start=month_start,
         period_end=now,
     )

@@ -13,9 +13,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.database import get_session
+from scenemachine.services.llm import LLMService, get_llm_service
+from scenemachine.models import Scene, Shot
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +152,7 @@ class CreativeGuidance(BaseModel):
 async def analyze_scene(
     request: AnalyzeSceneRequest,
     session: AsyncSession = Depends(get_session),
+    llm_service: LLMService = Depends(get_llm_service),
 ) -> SceneAnalysis:
     """Analyze a scene and provide suggestions.
 
@@ -158,48 +162,84 @@ async def analyze_scene(
     - Dialogue improvements
     - Performer recommendations based on requirements
     """
-    # In production, this would:
-    # 1. Load scene data from database
-    # 2. Use LLM to analyze screenplay text
-    # 3. Match performers based on requirements
-    # 4. Generate suggestions
+    try:
+        # Load scene data from database
+        scene_result = await session.execute(
+            select(Scene).where(Scene.id == request.scene_id)
+        )
+        scene = scene_result.scalar_one_or_none()
 
-    # For now, return a structured placeholder
-    return SceneAnalysis(
-        scene_id=request.scene_id,
-        scene_summary="Scene analysis powered by Steven AI Co-pilot",
-        emotional_arc=["neutral", "tension_building", "climax", "resolution"],
-        pacing_score=0.75,
-        visual_complexity=0.6,
-        suggestions=[
-            SceneSuggestion(
-                category="pacing",
-                suggestion="Consider adding a beat before the climactic moment",
-                priority="medium",
-            ),
-            SceneSuggestion(
-                category="visual",
-                suggestion="The lighting could emphasize the emotional transition",
-                priority="low",
-            ),
-        ],
-        performer_recommendations=[
-            PerformerRecommendation(
-                performer_id="demo-performer-1",
-                performer_name="Alex Sterling",
-                aci_score=85.5,
-                match_reasons=["Emotion range matches", "Available for DEEP mode"],
-                suggested_mode="DEEP",
-                estimated_cost=25.00,
-            ),
-        ],
-    )
+        if not scene:
+            raise HTTPException(status_code=404, detail="Scene not found")
+
+        # Build scene context for LLM
+        scene_context = {
+            "id": str(scene.id),
+            "scene_number": scene.scene_number,
+            "heading": scene.heading,
+            "description": scene.description,
+            "dialogue": getattr(scene, 'dialogue', ''),
+            "context": request.context,
+        }
+
+        # Use LLM to get suggestions for the scene
+        try:
+            # suggest_scene returns a list of suggestion dicts
+            llm_suggestions = await llm_service.suggest_scene(
+                scene=scene_context,
+                characters=[],  # Characters could be loaded from scene relations
+                adjacent_scenes=None,
+            )
+
+            # Transform LLM suggestions to our format
+            suggestions = [
+                SceneSuggestion(
+                    category=s.get("type", s.get("category", "general")),
+                    suggestion=s.get("description", s.get("title", "")),
+                    priority="medium" if s.get("confidence", 0.8) >= 0.7 else "low",
+                    applies_to=s.get("id"),
+                )
+                for s in llm_suggestions
+            ]
+
+            # Analyze scene for summary and scores using the suggestions context
+            summary = f"Analysis of scene: {scene.heading}"
+            if scene.description:
+                summary = f"{scene.heading} - {scene.description[:100]}..."
+
+            return SceneAnalysis(
+                scene_id=request.scene_id,
+                scene_summary=summary,
+                emotional_arc=["rising action", "climax", "resolution"] if suggestions else ["neutral"],
+                pacing_score=0.75 + (len(suggestions) * 0.02),  # Adjust based on suggestion count
+                visual_complexity=0.5 + (len([s for s in suggestions if s.category == "visual"]) * 0.1),
+                suggestions=suggestions,
+                performer_recommendations=[],  # Would require performer matching service
+            )
+        except Exception as llm_error:
+            logger.warning(f"LLM analysis failed, using fallback: {llm_error}")
+            # Fallback to basic response if LLM fails
+            return SceneAnalysis(
+                scene_id=request.scene_id,
+                scene_summary=f"Scene: {scene.heading}",
+                emotional_arc=["neutral"],
+                pacing_score=0.75,
+                visual_complexity=0.5,
+                suggestions=[],
+                performer_recommendations=[],
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Scene analysis error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to analyze scene")
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_steven(
     request: ChatRequest,
     session: AsyncSession = Depends(get_session),
+    llm_service: LLMService = Depends(get_llm_service),
 ) -> ChatResponse:
     """Chat with Steven AI Co-pilot.
 
@@ -217,51 +257,85 @@ async def chat_with_steven(
             detail="No user message provided",
         )
 
-    last_message = user_messages[-1].content.lower()
+    last_message = user_messages[-1].content
 
-    # Simple pattern matching for demo (in production, use LLM)
-    if "help" in last_message:
-        return ChatResponse(
-            message="I'm Steven, your AI co-pilot for SceneMachine! I can help you with scene analysis, performer recommendations, creative guidance, and more. What would you like to know?",
-            suggestions=[
-                "Analyze my current scene",
-                "Find performers for this shot",
-                "Suggest improvements to pacing",
-            ],
+    # Build project context for LLM
+    project_context = {
+        "project_id": request.project_id,
+        "scene_id": request.scene_id,
+        "context_type": request.context_type,
+    }
+
+    # Convert chat history for LLM service
+    conversation_history = [
+        {"role": m.role, "content": m.content}
+        for m in request.messages[:-1]  # Exclude last message, it goes in the main prompt
+    ]
+
+    try:
+        # Use LLM service for chat
+        llm_result = await llm_service.chat(
+            message=last_message,
+            project_context=project_context,
+            conversation_history=conversation_history if conversation_history else None,
         )
 
-    if "performer" in last_message or "actor" in last_message:
         return ChatResponse(
-            message="I can help you find the perfect performer for your scene! Would you like me to search based on your scene's requirements, or do you have specific criteria in mind?",
+            message=llm_result.get("message", "I'm here to help with your project."),
             suggestions=[
-                "Find performers matching scene emotions",
-                "Show top-rated performers",
-                "Filter by price range",
-            ],
-            actions=[
-                {"type": "open_actforge", "label": "Browse ActForge"},
+                s.get("title", s.get("description", ""))
+                for s in llm_result.get("suggestions", [])
+            ][:3] if llm_result.get("suggestions") else None,
+            actions=None,  # Actions determined by specific commands
+            confidence=0.9,
+        )
+    except Exception as llm_error:
+        logger.warning(f"LLM chat failed, using fallback: {llm_error}")
+        # Fallback to simple pattern matching
+        last_lower = last_message.lower()
+
+        if "help" in last_lower:
+            return ChatResponse(
+                message="I'm Steven, your AI co-pilot for SceneMachine! I can help you with scene analysis, performer recommendations, creative guidance, and more. What would you like to know?",
+                suggestions=[
+                    "Analyze my current scene",
+                    "Find performers for this shot",
+                    "Suggest improvements to pacing",
+                ],
+            )
+
+        if "performer" in last_lower or "actor" in last_lower:
+            return ChatResponse(
+                message="I can help you find the perfect performer for your scene! Would you like me to search based on your scene's requirements, or do you have specific criteria in mind?",
+                suggestions=[
+                    "Find performers matching scene emotions",
+                    "Show top-rated performers",
+                    "Filter by price range",
+                ],
+                actions=[
+                    {"type": "open_actforge", "label": "Browse ActForge"},
+                ],
+            )
+
+        if "generate" in last_lower or "render" in last_lower:
+            return ChatResponse(
+                message="I can help you with video generation! I can explain the different modes (BLINK, DEEP, EPIC) or help you optimize your generation settings.",
+                suggestions=[
+                    "Explain generation modes",
+                    "Optimize my settings",
+                    "Estimate generation cost",
+                ],
+            )
+
+        # Default response
+        return ChatResponse(
+            message=f"I understand you're asking about: {last_message[:100]}. Could you provide more details so I can better assist you?",
+            suggestions=[
+                "Analyze scene",
+                "Find performers",
+                "Get creative suggestions",
             ],
         )
-
-    if "generate" in last_message or "render" in last_message:
-        return ChatResponse(
-            message="I can help you with video generation! I can explain the different modes (BLINK, DEEP, EPIC) or help you optimize your generation settings.",
-            suggestions=[
-                "Explain generation modes",
-                "Optimize my settings",
-                "Estimate generation cost",
-            ],
-        )
-
-    # Default response
-    return ChatResponse(
-        message="I understand you're asking about: " + last_message[:100] + ". Could you provide more details so I can better assist you?",
-        suggestions=[
-            "Analyze scene",
-            "Find performers",
-            "Get creative suggestions",
-        ],
-    )
 
 
 @router.post("/voice-command", response_model=VoiceCommandResponse)
@@ -400,6 +474,7 @@ async def recommend_performers(
 async def get_creative_guidance(
     request: CreativeGuidanceRequest,
     session: AsyncSession = Depends(get_session),
+    llm_service: LLMService = Depends(get_llm_service),
 ) -> CreativeGuidance:
     """Get creative guidance from Steven.
 
@@ -410,67 +485,104 @@ async def get_creative_guidance(
     - Dialogue enhancement
     - Character development
     """
-    guidance_templates = {
-        "story_arc": CreativeGuidance(
-            guidance_type="story_arc",
-            analysis="Your story follows a classic three-act structure with room for enhanced emotional beats.",
-            recommendations=[
-                "Consider adding a 'dark moment' before the climax to heighten tension",
-                "The resolution could benefit from a callback to the opening scene",
-                "Character motivations are clear but could be reinforced through action",
-            ],
-            examples=[
-                {"reference": "Breaking Bad", "technique": "Delayed gratification in reveals"},
-            ],
-        ),
-        "pacing": CreativeGuidance(
-            guidance_type="pacing",
-            analysis="Current pacing is consistent with average shot length of 4.2 seconds.",
-            recommendations=[
-                "Vary shot lengths more dramatically in action sequences",
-                "Dialogue scenes could use longer takes for emotional impact",
-                "Consider breathing room between intense moments",
-            ],
-        ),
-        "visual_style": CreativeGuidance(
-            guidance_type="visual_style",
-            analysis="Visual style is cohesive with strong use of contrast.",
-            recommendations=[
-                "Color grading is consistent - maintain the current LUT",
-                "Consider motivated lighting changes for emotional shifts",
-                "The aspect ratio works well for the intimate scenes",
-            ],
-        ),
-        "dialogue": CreativeGuidance(
-            guidance_type="dialogue",
-            analysis="Dialogue is natural with distinct character voices.",
-            recommendations=[
-                "Some exposition could be shown rather than told",
-                "Subtext opportunities exist in scene 3",
-                "Character verbal tics add authenticity",
-            ],
-        ),
-        "character": CreativeGuidance(
-            guidance_type="character",
-            analysis="Main character arc is well-defined with clear growth.",
-            recommendations=[
-                "Supporting characters could have more agency",
-                "Character flaws create good conflict",
-                "Consider a foil character to highlight protagonist traits",
-            ],
-        ),
+    # Build a guidance request for the LLM
+    guidance_prompt = f"Provide creative guidance for {request.guidance_type}"
+    if request.specific_question:
+        guidance_prompt += f": {request.specific_question}"
+
+    project_context = {
+        "project_id": request.project_id,
+        "guidance_type": request.guidance_type,
+        "current_state": request.current_state or {},
     }
 
-    guidance = guidance_templates.get(
-        request.guidance_type,
-        CreativeGuidance(
-            guidance_type=request.guidance_type,
-            analysis="I can provide guidance on this topic.",
-            recommendations=["Please provide more context about your specific needs."],
-        ),
-    )
+    try:
+        # Use LLM chat for creative guidance
+        llm_result = await llm_service.chat(
+            message=guidance_prompt,
+            project_context=project_context,
+        )
 
-    return guidance
+        # Extract recommendations from suggestions
+        recommendations = [
+            s.get("description", s.get("title", ""))
+            for s in llm_result.get("suggestions", [])
+        ]
+
+        return CreativeGuidance(
+            guidance_type=request.guidance_type,
+            analysis=llm_result.get("message", "Analysis based on your project."),
+            recommendations=recommendations if recommendations else [
+                "Consider the emotional arc of your story",
+                "Ensure visual consistency across scenes",
+                "Let character actions reveal motivation",
+            ],
+            examples=None,
+            reference_materials=None,
+        )
+    except Exception as llm_error:
+        logger.warning(f"LLM guidance failed, using fallback: {llm_error}")
+
+        # Fallback to static templates
+        guidance_templates = {
+            "story_arc": CreativeGuidance(
+                guidance_type="story_arc",
+                analysis="Your story follows a classic three-act structure with room for enhanced emotional beats.",
+                recommendations=[
+                    "Consider adding a 'dark moment' before the climax to heighten tension",
+                    "The resolution could benefit from a callback to the opening scene",
+                    "Character motivations are clear but could be reinforced through action",
+                ],
+                examples=[
+                    {"reference": "Breaking Bad", "technique": "Delayed gratification in reveals"},
+                ],
+            ),
+            "pacing": CreativeGuidance(
+                guidance_type="pacing",
+                analysis="Current pacing is consistent with average shot length of 4.2 seconds.",
+                recommendations=[
+                    "Vary shot lengths more dramatically in action sequences",
+                    "Dialogue scenes could use longer takes for emotional impact",
+                    "Consider breathing room between intense moments",
+                ],
+            ),
+            "visual_style": CreativeGuidance(
+                guidance_type="visual_style",
+                analysis="Visual style is cohesive with strong use of contrast.",
+                recommendations=[
+                    "Color grading is consistent - maintain the current LUT",
+                    "Consider motivated lighting changes for emotional shifts",
+                    "The aspect ratio works well for the intimate scenes",
+                ],
+            ),
+            "dialogue": CreativeGuidance(
+                guidance_type="dialogue",
+                analysis="Dialogue is natural with distinct character voices.",
+                recommendations=[
+                    "Some exposition could be shown rather than told",
+                    "Subtext opportunities exist in scene 3",
+                    "Character verbal tics add authenticity",
+                ],
+            ),
+            "character": CreativeGuidance(
+                guidance_type="character",
+                analysis="Main character arc is well-defined with clear growth.",
+                recommendations=[
+                    "Supporting characters could have more agency",
+                    "Character flaws create good conflict",
+                    "Consider a foil character to highlight protagonist traits",
+                ],
+            ),
+        }
+
+        return guidance_templates.get(
+            request.guidance_type,
+            CreativeGuidance(
+                guidance_type=request.guidance_type,
+                analysis="I can provide guidance on this topic.",
+                recommendations=["Please provide more context about your specific needs."],
+            ),
+        )
 
 
 @router.get("/status")

@@ -24,6 +24,7 @@ import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
 import { ProjectState } from '@shared/types';
 import { ScreenplayUpload, MoviePlanViewer, ShareDialog, CommentsPanel } from '../components';
+import { DataLoadError } from '../components/error-display';
 import { useSharingStore } from '../stores/sharing-store';
 import { useToast } from '../stores/toast-store';
 
@@ -226,8 +227,12 @@ export function ProjectPage() {
 
   if (error || !project) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-red-400">Failed to load project</div>
+      <div className="flex items-center justify-center h-full p-8">
+        <DataLoadError
+          entity="project"
+          error={error || new Error('Project not found')}
+          onRetry={() => queryClient.invalidateQueries({ queryKey: ['project', projectId] })}
+        />
       </div>
     );
   }

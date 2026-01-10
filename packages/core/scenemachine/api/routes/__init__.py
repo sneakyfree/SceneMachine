@@ -1,6 +1,7 @@
 """API route modules."""
 
 from scenemachine.api.routes import (
+    auth,
     health,
     projects,
     performers,
@@ -9,6 +10,7 @@ from scenemachine.api.routes import (
 )
 
 __all__ = [
+    "auth",
     "health",
     "projects",
     "performers",

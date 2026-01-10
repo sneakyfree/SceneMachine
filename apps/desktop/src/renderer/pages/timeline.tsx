@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDebouncedCallback } from 'use-debounce';
 import {
   Film,
   Play,
@@ -16,11 +17,7 @@ import {
   VolumeX,
   ZoomIn,
   ZoomOut,
-  Maximize2,
-  Clock,
-  Scissors,
   Trash2,
-  Copy,
   GripVertical,
   ChevronLeft,
   Loader2,
@@ -32,10 +29,18 @@ import {
   Eye,
   EyeOff,
   Layers,
+  AlertCircle,
+  Check,
+  CloudOff,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUndoRedo } from '../hooks/use-undo-redo';
 import { useWebSocketEvent, EventType } from '../lib/websocket';
+import { VideoPlayer } from '../components/video-player';
+import { ClipContextMenu, LipSyncQuickModal, TransitionZone, TransitionConfig } from '../components/timeline';
+
+// Transition types (extended to match TransitionZone)
+type TransitionType = 'cut' | 'fade' | 'crossfade' | 'dissolve' | 'wipe' | 'slide';
 
 // Timeline clip interface
 interface TimelineClip {
@@ -50,6 +55,8 @@ interface TimelineClip {
   videoUrl?: string;
   isLocked: boolean;
   isVisible: boolean;
+  transition: TransitionType;
+  transitionDuration: number;
 }
 
 // Scene group for timeline
@@ -109,7 +116,9 @@ function TimelineClipComponent({
   onDragStart,
   onToggleLock,
   onToggleVisibility,
-  onDelete,
+  onContextMenu,
+  onTrimStart,
+  onTrimEnd,
 }: {
   clip: TimelineClip;
   zoom: number;
@@ -118,9 +127,60 @@ function TimelineClipComponent({
   onDragStart: (e: React.DragEvent) => void;
   onToggleLock: () => void;
   onToggleVisibility: () => void;
-  onDelete: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+  onTrimStart?: (deltaSeconds: number) => void;
+  onTrimEnd?: (deltaSeconds: number) => void;
 }) {
+  const [isTrimming, setIsTrimming] = useState<'start' | 'end' | null>(null);
+  const trimStartRef = useRef<{ startX: number; originalDuration: number } | null>(null);
   const width = clip.duration * 50 * zoom;
+
+  // Handle trim drag start
+  const handleTrimMouseDown = useCallback((e: React.MouseEvent, edge: 'start' | 'end') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsTrimming(edge);
+    trimStartRef.current = { startX: e.clientX, originalDuration: clip.duration };
+  }, [clip.duration]);
+
+  // Handle trim drag
+  useEffect(() => {
+    if (!isTrimming || !trimStartRef.current) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!trimStartRef.current) return;
+
+      const deltaX = e.clientX - trimStartRef.current.startX;
+      const deltaSeconds = deltaX / (50 * zoom);
+
+      if (isTrimming === 'end') {
+        // Trim end: increase/decrease duration
+        const newDuration = Math.max(0.5, trimStartRef.current.originalDuration + deltaSeconds);
+        if (onTrimEnd && Math.abs(newDuration - clip.duration) > 0.01) {
+          onTrimEnd(newDuration - clip.duration);
+        }
+      } else if (isTrimming === 'start') {
+        // Trim start: decrease/increase duration (reverse direction)
+        const newDuration = Math.max(0.5, trimStartRef.current.originalDuration - deltaSeconds);
+        if (onTrimStart && Math.abs(newDuration - clip.duration) > 0.01) {
+          onTrimStart(clip.duration - newDuration);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsTrimming(null);
+      trimStartRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isTrimming, zoom, clip.duration, onTrimStart, onTrimEnd]);
 
   return (
     <div
@@ -134,6 +194,7 @@ function TimelineClipComponent({
       )}
       style={{ width: `${width}px`, minWidth: '60px' }}
       onClick={onSelect}
+      onContextMenu={onContextMenu}
       draggable={!clip.isLocked}
       onDragStart={onDragStart}
     >
@@ -196,8 +257,20 @@ function TimelineClipComponent({
       {/* Resize handles */}
       {!clip.isLocked && (
         <>
-          <div className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-brand-500 opacity-0 group-hover:opacity-100" />
-          <div className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize bg-brand-500 opacity-0 group-hover:opacity-100" />
+          <div
+            className={cn(
+              "absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize bg-brand-500 transition-opacity",
+              isTrimming === 'start' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            )}
+            onMouseDown={(e) => handleTrimMouseDown(e, 'start')}
+          />
+          <div
+            className={cn(
+              "absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize bg-brand-500 transition-opacity",
+              isTrimming === 'end' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            )}
+            onMouseDown={(e) => handleTrimMouseDown(e, 'end')}
+          />
         </>
       )}
     </div>
@@ -337,6 +410,33 @@ export function TimelinePage() {
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
 
+  // Auto-save state
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousClipsRef = useRef<TimelineClip[] | null>(null);
+
+  // Context menu state
+  const [contextMenuState, setContextMenuState] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    clipId: string | null;
+  }>({
+    isOpen: false,
+    position: { x: 0, y: 0 },
+    clipId: null,
+  });
+
+  // Lip sync modal state
+  const [lipSyncModalState, setLipSyncModalState] = useState<{
+    isOpen: boolean;
+    clipId: string;
+    clipLabel: string;
+  }>({
+    isOpen: false,
+    clipId: '',
+    clipLabel: '',
+  });
+
   // Undo/Redo state for timeline clips
   const {
     state: timelineState,
@@ -394,8 +494,10 @@ export function TimelinePage() {
               duration: shot.duration_seconds || 3,
               thumbnailUrl: shot.thumbnail_path ? `file://${shot.thumbnail_path}` : undefined,
               videoUrl: shot.output_path ? `file://${shot.output_path}` : undefined,
-              isLocked: false,
-              isVisible: true,
+              isLocked: shot.timeline_locked || false,
+              isVisible: shot.timeline_visible !== false,
+              transition: (shot.transition_type as TransitionType) || 'cut',
+              transitionDuration: shot.transition_duration || 0.5,
             });
             currentTime += shot.duration_seconds || 3;
           }
@@ -425,7 +527,7 @@ export function TimelinePage() {
   });
 
   // Listen for WebSocket updates - refresh timeline when shots complete
-  useWebSocketEvent(EventType.JOB_COMPLETED, () => {
+  useWebSocketEvent(EventType.GENERATION_COMPLETED, () => {
     refetch();
   });
 
@@ -461,6 +563,64 @@ export function TimelinePage() {
       };
     }
   }, [isPlaying, timelineData]);
+
+  // Clip manipulation handlers with undo support
+  const handleDeleteClip = useCallback((clipId: string) => {
+    setTimelineState(prev => ({
+      ...prev,
+      clips: prev.clips.filter(c => c.id !== clipId),
+      sceneGroups: prev.sceneGroups.map(g => ({
+        ...g,
+        clips: g.clips.filter(c => c.id !== clipId),
+      })),
+    }));
+    setSelectedClipId(null);
+  }, [setTimelineState]);
+
+  const handleToggleClipLock = useCallback((clipId: string) => {
+    setTimelineState(prev => ({
+      ...prev,
+      clips: prev.clips.map(c =>
+        c.id === clipId ? { ...c, isLocked: !c.isLocked } : c
+      ),
+      sceneGroups: prev.sceneGroups.map(g => ({
+        ...g,
+        clips: g.clips.map(c =>
+          c.id === clipId ? { ...c, isLocked: !c.isLocked } : c
+        ),
+      })),
+    }));
+  }, [setTimelineState]);
+
+  const handleToggleClipVisibility = useCallback((clipId: string) => {
+    setTimelineState(prev => ({
+      ...prev,
+      clips: prev.clips.map(c =>
+        c.id === clipId ? { ...c, isVisible: !c.isVisible } : c
+      ),
+      sceneGroups: prev.sceneGroups.map(g => ({
+        ...g,
+        clips: g.clips.map(c =>
+          c.id === clipId ? { ...c, isVisible: !c.isVisible } : c
+        ),
+      })),
+    }));
+  }, [setTimelineState]);
+
+  const handleUpdateClipDuration = useCallback((clipId: string, duration: number) => {
+    setTimelineState(prev => ({
+      ...prev,
+      clips: prev.clips.map(c =>
+        c.id === clipId ? { ...c, duration } : c
+      ),
+      sceneGroups: prev.sceneGroups.map(g => ({
+        ...g,
+        clips: g.clips.map(c =>
+          c.id === clipId ? { ...c, duration } : c
+        ),
+      })),
+    }));
+  }, [setTimelineState]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -537,64 +697,6 @@ export function TimelinePage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedClipId, timelineData, canUndo, canRedo, undo, redo, handleDeleteClip, handleToggleClipLock, handleToggleClipVisibility]);
 
-  // Clip manipulation handlers with undo support
-  const handleDeleteClip = useCallback((clipId: string) => {
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.filter(c => c.id !== clipId),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.filter(c => c.id !== clipId),
-      })),
-    }));
-    setSelectedClipId(null);
-  }, [setTimelineState]);
-
-  const handleToggleClipLock = useCallback((clipId: string) => {
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.map(c =>
-        c.id === clipId ? { ...c, isLocked: !c.isLocked } : c
-      ),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.map(c =>
-          c.id === clipId ? { ...c, isLocked: !c.isLocked } : c
-        ),
-      })),
-    }));
-  }, [setTimelineState]);
-
-  const handleToggleClipVisibility = useCallback((clipId: string) => {
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.map(c =>
-        c.id === clipId ? { ...c, isVisible: !c.isVisible } : c
-      ),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.map(c =>
-          c.id === clipId ? { ...c, isVisible: !c.isVisible } : c
-        ),
-      })),
-    }));
-  }, [setTimelineState]);
-
-  const handleUpdateClipDuration = useCallback((clipId: string, duration: number) => {
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.map(c =>
-        c.id === clipId ? { ...c, duration } : c
-      ),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.map(c =>
-          c.id === clipId ? { ...c, duration } : c
-        ),
-      })),
-    }));
-  }, [setTimelineState]);
-
   // Handlers
   const handleZoomIn = () => setZoom((z) => Math.min(z * 1.5, 4));
   const handleZoomOut = () => setZoom((z) => Math.max(z / 1.5, 0.25));
@@ -637,7 +739,83 @@ export function TimelinePage() {
     }
   };
 
-  // Save timeline mutation
+  // Context menu handlers
+  const handleClipContextMenu = useCallback((e: React.MouseEvent, clipId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuState({
+      isOpen: true,
+      position: { x: e.clientX, y: e.clientY },
+      clipId,
+    });
+    setSelectedClipId(clipId);
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenuState((prev) => ({
+      ...prev,
+      isOpen: false,
+    }));
+  }, []);
+
+  const handleOpenLipSyncModal = useCallback(() => {
+    const clipId = contextMenuState.clipId;
+    if (!clipId) return;
+
+    // Find the clip to get its label
+    let clip: TimelineClip | null = null;
+    for (const group of timelineState.sceneGroups) {
+      const found = group.clips.find((c) => c.id === clipId);
+      if (found) {
+        clip = found;
+        break;
+      }
+    }
+
+    if (clip) {
+      setLipSyncModalState({
+        isOpen: true,
+        clipId: clip.id,
+        clipLabel: `Shot ${clip.shotNumber} (Scene ${clip.sceneNumber})`,
+      });
+    }
+    handleCloseContextMenu();
+  }, [contextMenuState.clipId, timelineState.sceneGroups, handleCloseContextMenu]);
+
+  const handleCloseLipSyncModal = useCallback(() => {
+    setLipSyncModalState((prev) => ({
+      ...prev,
+      isOpen: false,
+    }));
+  }, []);
+
+  const handleLipSyncSuccess = useCallback((jobId: string) => {
+    // Show toast notification
+    console.log('Lip sync job started:', jobId);
+    // Optionally refetch timeline to show updated clip when lip sync completes
+  }, []);
+
+  // Get available audio tracks for lip sync (from TTS or imported audio)
+  const availableAudioTracks = useMemo(() => {
+    // For now, return mock audio tracks
+    // TODO: Integrate with actual audio tracks from project
+    return [
+      { id: 'audio-1', label: 'Dialogue Track 1', path: '/audio/dialogue-1.wav' },
+      { id: 'audio-2', label: 'Dialogue Track 2', path: '/audio/dialogue-2.wav' },
+    ];
+  }, []);
+
+  // Get the context menu clip info
+  const contextMenuClip = useMemo(() => {
+    if (!contextMenuState.clipId) return null;
+    for (const group of timelineState.sceneGroups) {
+      const clip = group.clips.find((c) => c.id === contextMenuState.clipId);
+      if (clip) return clip;
+    }
+    return null;
+  }, [contextMenuState.clipId, timelineState.sceneGroups]);
+
+  // Save timeline mutation with optimistic updates
   const saveMutation = useMutation({
     mutationFn: async (clips: TimelineClip[]) => {
       return window.electronAPI.backendRequest('timeline.save', {
@@ -648,18 +826,170 @@ export function TimelinePage() {
           isVisible: clip.isVisible,
           isLocked: clip.isLocked,
           orderIndex: index,
+          transition: {
+            type: clip.transition,
+            duration: clip.transitionDuration,
+          },
         })),
       });
     },
+    onMutate: async () => {
+      // Store previous state for potential rollback
+      previousClipsRef.current = timelineState.clips;
+      setAutoSaveStatus('saving');
+      // Clear any existing status timeout
+      if (saveStatusTimeoutRef.current) {
+        clearTimeout(saveStatusTimeoutRef.current);
+      }
+    },
     onSuccess: () => {
+      setAutoSaveStatus('saved');
+      // Clear "saved" status after 2 seconds
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setAutoSaveStatus('idle');
+      }, 2000);
       queryClient.invalidateQueries({ queryKey: ['timeline', projectId] });
     },
+    onError: (error) => {
+      console.error('Timeline save failed:', error);
+      setAutoSaveStatus('error');
+      // Rollback to previous state
+      if (previousClipsRef.current) {
+        const prevClips = previousClipsRef.current;
+        setTimelineState(prev => ({
+          ...prev,
+          clips: prevClips,
+          sceneGroups: prev.sceneGroups.map(g => ({
+            ...g,
+            clips: prevClips.filter(c => c.sceneId === g.id),
+          })),
+        }), { merge: true });
+      }
+      // Show error for 3 seconds, then reset
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setAutoSaveStatus('idle');
+      }, 3000);
+    },
   });
+
+  // Debounced auto-save function (500ms delay)
+  const debouncedAutoSave = useDebouncedCallback(
+    (clips: TimelineClip[]) => {
+      saveMutation.mutate(clips);
+    },
+    500,
+    { leading: false, trailing: true }
+  );
+
+  // Trigger auto-save when timeline state changes (after initial load)
+  useEffect(() => {
+    // Skip if no clips or still loading initial data
+    if (isLoading || timelineState.clips.length === 0) return;
+
+    // Skip the initial load (when previousClipsRef is null)
+    if (previousClipsRef.current === null) {
+      previousClipsRef.current = timelineState.clips;
+      return;
+    }
+
+    // Only auto-save if there are actual changes
+    const hasChanges = JSON.stringify(timelineState.clips) !== JSON.stringify(previousClipsRef.current);
+    if (hasChanges && historySize > 0) {
+      debouncedAutoSave(timelineState.clips);
+    }
+  }, [timelineState.clips, isLoading, historySize, debouncedAutoSave]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveStatusTimeoutRef.current) {
+        clearTimeout(saveStatusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSave = async () => {
     const allClips = timelineState.sceneGroups.flatMap((g) => g.clips);
     await saveMutation.mutateAsync(allClips);
   };
+
+  // Get the currently selected clip
+  const selectedClip = useMemo(() => {
+    if (!selectedClipId) return null;
+    for (const group of timelineState.sceneGroups) {
+      const clip = group.clips.find(c => c.id === selectedClipId);
+      if (clip) return clip;
+    }
+    return null;
+  }, [selectedClipId, timelineState.sceneGroups]);
+
+  // Handle clip transition change (accepts TransitionConfig from TransitionZone)
+  const handleUpdateClipTransition = useCallback((clipId: string, transitionConfig: TransitionConfig) => {
+    const transition = transitionConfig.type as TransitionType;
+    const transitionDuration = transitionConfig.duration;
+    setTimelineState(prev => ({
+      ...prev,
+      clips: prev.clips.map(c =>
+        c.id === clipId
+          ? { ...c, transition, transitionDuration }
+          : c
+      ),
+      sceneGroups: prev.sceneGroups.map(g => ({
+        ...g,
+        clips: g.clips.map(c =>
+          c.id === clipId
+            ? { ...c, transition, transitionDuration }
+            : c
+        ),
+      })),
+    }));
+  }, [setTimelineState]);
+
+  // Handle drag and drop reorder
+  const handleDrop = useCallback((targetSceneId: string, targetIndex: number, draggedClipId: string) => {
+    setTimelineState(prev => {
+      // Find the dragged clip
+      let draggedClip: TimelineClip | null = null;
+      let sourceGroupIndex = -1;
+      for (let gi = 0; gi < prev.sceneGroups.length; gi++) {
+        const clipIndex = prev.sceneGroups[gi].clips.findIndex(c => c.id === draggedClipId);
+        if (clipIndex !== -1) {
+          draggedClip = prev.sceneGroups[gi].clips[clipIndex];
+          sourceGroupIndex = gi;
+          break;
+        }
+      }
+
+      if (!draggedClip || sourceGroupIndex === -1) return prev;
+
+      // Create new scene groups with the clip moved
+      const newGroups = prev.sceneGroups.map((group, gi) => {
+        let newClips = [...group.clips];
+
+        // Remove from source
+        if (gi === sourceGroupIndex) {
+          newClips = newClips.filter(c => c.id !== draggedClipId);
+        }
+
+        // Add to target
+        if (group.id === targetSceneId) {
+          newClips.splice(targetIndex, 0, { ...draggedClip!, sceneId: targetSceneId });
+        }
+
+        return {
+          ...group,
+          clips: newClips,
+          totalDuration: newClips.reduce((sum, c) => sum + c.duration, 0),
+        };
+      });
+
+      return {
+        ...prev,
+        sceneGroups: newGroups,
+        clips: newGroups.flatMap(g => g.clips),
+      };
+    });
+  }, [setTimelineState]);
 
   if (isLoading) {
     return (
@@ -732,8 +1062,30 @@ export function TimelinePage() {
             </button>
           </div>
 
-          {/* Save */}
-          {hasChanges && (
+          {/* Auto-save status indicator */}
+          <div className="flex items-center gap-2">
+            {autoSaveStatus === 'saving' && (
+              <div className="flex items-center gap-1.5 text-surface-400 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </div>
+            )}
+            {autoSaveStatus === 'saved' && (
+              <div className="flex items-center gap-1.5 text-green-400 text-sm">
+                <Check className="w-4 h-4" />
+                <span>Saved</span>
+              </div>
+            )}
+            {autoSaveStatus === 'error' && (
+              <div className="flex items-center gap-1.5 text-red-400 text-sm">
+                <CloudOff className="w-4 h-4" />
+                <span>Save failed</span>
+              </div>
+            )}
+          </div>
+
+          {/* Manual Save button (shown when there are unsaved changes or error) */}
+          {(hasChanges || autoSaveStatus === 'error') && (
             <button
               onClick={handleSave}
               disabled={saveMutation.isPending}
@@ -761,13 +1113,34 @@ export function TimelinePage() {
       {/* Preview area */}
       <div className="flex-1 flex">
         {/* Preview panel */}
-        <div className="w-1/2 bg-black flex items-center justify-center border-r border-surface-800">
-          {selectedClipId ? (
-            <div className="text-center">
-              <div className="w-80 h-48 bg-surface-900 rounded-lg flex items-center justify-center mb-2">
-                <Film className="w-12 h-12 text-surface-600" />
+        <div className="w-1/2 bg-black flex items-center justify-center border-r border-surface-800 p-4">
+          {selectedClip?.videoUrl ? (
+            <div className="w-full max-w-2xl">
+              <VideoPlayer
+                src={selectedClip.videoUrl}
+                poster={selectedClip.thumbnailUrl}
+                autoPlay={false}
+                showControls={true}
+                className="rounded-lg overflow-hidden"
+                onEnded={() => {
+                  // Optionally auto-advance to next clip
+                }}
+              />
+              <div className="mt-2 text-center">
+                <p className="text-sm text-surface-400">
+                  Shot {selectedClip.shotNumber} &middot; Scene {selectedClip.sceneNumber}
+                </p>
               </div>
-              <p className="text-sm text-surface-400">Preview player</p>
+            </div>
+          ) : selectedClip ? (
+            <div className="text-center text-surface-400">
+              <div className="w-80 h-48 bg-surface-900 rounded-lg flex items-center justify-center mb-2">
+                <AlertCircle className="w-12 h-12 text-surface-600" />
+              </div>
+              <p className="text-sm">No video file available</p>
+              <p className="text-xs text-surface-500 mt-1">
+                Shot {selectedClip.shotNumber} has not been generated yet
+              </p>
             </div>
           ) : (
             <div className="text-center text-surface-400">
@@ -778,12 +1151,16 @@ export function TimelinePage() {
         </div>
 
         {/* Clip properties */}
-        <div className="w-1/2 p-4 overflow-y-auto">
-          {selectedClipId ? (
+        <div className="w-1/2 p-4 overflow-y-auto bg-surface-900">
+          {selectedClip ? (
             <div className="space-y-4">
-              <h3 className="font-medium">Clip Properties</h3>
-              {/* Property editors would go here */}
-              <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">Clip Properties</h3>
+                <span className="text-xs text-surface-500">Shot {selectedClip.shotNumber}</span>
+              </div>
+
+              <div className="space-y-4">
+                {/* Duration */}
                 <div>
                   <label className="block text-sm text-surface-400 mb-1">Duration</label>
                   <div className="flex items-center gap-2">
@@ -791,20 +1168,109 @@ export function TimelinePage() {
                       type="number"
                       step="0.1"
                       min="0.5"
-                      className="flex-1 bg-surface-800 border border-surface-700 rounded px-3 py-2"
-                      defaultValue="3.0"
+                      max="60"
+                      className="flex-1 bg-surface-800 border border-surface-700 rounded px-3 py-2 disabled:opacity-50"
+                      value={selectedClip.duration}
+                      disabled={selectedClip.isLocked}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        if (!isNaN(value) && value >= 0.5) {
+                          handleUpdateClipDuration(selectedClip.id, value);
+                        }
+                      }}
                     />
                     <span className="text-surface-400">seconds</span>
                   </div>
                 </div>
+
+                {/* Transition */}
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">Transition</label>
-                  <select className="w-full bg-surface-800 border border-surface-700 rounded px-3 py-2">
-                    <option>Cut</option>
-                    <option>Fade</option>
-                    <option>Dissolve</option>
-                    <option>Wipe</option>
+                  <label className="block text-sm text-surface-400 mb-1">Transition In</label>
+                  <select
+                    className="w-full bg-surface-800 border border-surface-700 rounded px-3 py-2 disabled:opacity-50"
+                    value={selectedClip.transition}
+                    disabled={selectedClip.isLocked}
+                    onChange={(e) => handleUpdateClipTransition(selectedClip.id, {
+                      type: e.target.value as 'cut' | 'fade' | 'crossfade',
+                      duration: selectedClip.transitionDuration
+                    })}
+                  >
+                    <option value="cut">Cut (instant)</option>
+                    <option value="fade">Fade</option>
+                    <option value="crossfade">Crossfade</option>
                   </select>
+                </div>
+
+                {/* Transition duration (only for non-cut transitions) */}
+                {selectedClip.transition !== 'cut' && (
+                  <div>
+                    <label className="block text-sm text-surface-400 mb-1">Transition Duration</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        max="3"
+                        className="flex-1 bg-surface-800 border border-surface-700 rounded px-3 py-2 disabled:opacity-50"
+                        value={selectedClip.transitionDuration}
+                        disabled={selectedClip.isLocked}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value);
+                          if (!isNaN(value) && value >= 0.1) {
+                            handleUpdateClipTransition(selectedClip.id, {
+                              type: selectedClip.transition as 'cut' | 'fade' | 'crossfade',
+                              duration: value
+                            });
+                          }
+                        }}
+                      />
+                      <span className="text-surface-400">seconds</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status indicators */}
+                <div className="pt-2 border-t border-surface-700 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-surface-400">Locked</span>
+                    <button
+                      onClick={() => handleToggleClipLock(selectedClip.id)}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-medium',
+                        selectedClip.isLocked
+                          ? 'bg-yellow-500/20 text-yellow-400'
+                          : 'bg-surface-700 text-surface-400'
+                      )}
+                    >
+                      {selectedClip.isLocked ? 'Yes' : 'No'}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-surface-400">Visible</span>
+                    <button
+                      onClick={() => handleToggleClipVisibility(selectedClip.id)}
+                      className={cn(
+                        'px-3 py-1 rounded text-xs font-medium',
+                        selectedClip.isVisible
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      )}
+                    >
+                      {selectedClip.isVisible ? 'Yes' : 'No'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="pt-2 border-t border-surface-700">
+                  <button
+                    onClick={() => handleDeleteClip(selectedClip.id)}
+                    disabled={selectedClip.isLocked}
+                    className="w-full px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Remove from Timeline
+                  </button>
                 </div>
               </div>
             </div>
@@ -839,7 +1305,7 @@ export function TimelinePage() {
             <Playhead position={currentTime} zoom={zoom} />
 
             {/* Scene tracks */}
-            {timelineData?.sceneGroups.map((group, index) => (
+            {timelineData?.sceneGroups.map((group) => (
               <div
                 key={group.id}
                 className="flex items-center border-b border-surface-800"
@@ -855,21 +1321,77 @@ export function TimelinePage() {
                 </div>
 
                 {/* Clips */}
-                <div className="flex items-center gap-1 p-2">
-                  {group.clips.map((clip) => (
-                    <TimelineClipComponent
-                      key={clip.id}
-                      clip={clip}
-                      zoom={zoom}
-                      isSelected={selectedClipId === clip.id}
-                      onSelect={() => setSelectedClipId(clip.id)}
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('clipId', clip.id);
-                      }}
-                      onToggleLock={() => handleToggleClipLock(clip.id)}
-                      onToggleVisibility={() => handleToggleClipVisibility(clip.id)}
-                      onDelete={() => handleDeleteClip(clip.id)}
-                    />
+                <div
+                  className="flex items-center gap-1 p-2 min-h-[80px]"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.add('bg-brand-500/10');
+                  }}
+                  onDragLeave={(e) => {
+                    e.currentTarget.classList.remove('bg-brand-500/10');
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('bg-brand-500/10');
+                    const clipId = e.dataTransfer.getData('clipId');
+                    if (clipId) {
+                      // Calculate drop position based on mouse x
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left;
+                      let insertIndex = 0;
+                      let accumulatedWidth = 0;
+                      for (let i = 0; i < group.clips.length; i++) {
+                        const clipWidth = group.clips[i].duration * 50 * zoom + 4; // 4px gap
+                        if (x < accumulatedWidth + clipWidth / 2) {
+                          insertIndex = i;
+                          break;
+                        }
+                        accumulatedWidth += clipWidth;
+                        insertIndex = i + 1;
+                      }
+                      handleDrop(group.id, insertIndex, clipId);
+                    }
+                  }}
+                >
+                  {group.clips.map((clip, clipIdx) => (
+                    <div key={clip.id} className="flex items-center">
+                      {/* Transition zone (shown between clips, not before first clip) */}
+                      {clipIdx > 0 && (
+                        <TransitionZone
+                          transition={{
+                            type: (clip.transition === 'cut' || clip.transition === 'fade' || clip.transition === 'crossfade')
+                              ? clip.transition
+                              : 'cut',
+                            duration: clip.transitionDuration,
+                          }}
+                          onChange={(newTransition) => handleUpdateClipTransition(clip.id, newTransition)}
+                          className="h-16"
+                        />
+                      )}
+                      <TimelineClipComponent
+                        clip={clip}
+                        zoom={zoom}
+                        isSelected={selectedClipId === clip.id}
+                        onSelect={() => setSelectedClipId(clip.id)}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('clipId', clip.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onContextMenu={(e) => handleClipContextMenu(e, clip.id)}
+                        onToggleLock={() => handleToggleClipLock(clip.id)}
+                        onToggleVisibility={() => handleToggleClipVisibility(clip.id)}
+                        onTrimStart={(delta) => {
+                          // Trim from start: decrease duration
+                          const newDuration = Math.max(0.5, clip.duration - delta);
+                          handleUpdateClipDuration(clip.id, newDuration);
+                        }}
+                        onTrimEnd={(delta) => {
+                          // Trim from end: adjust duration
+                          const newDuration = Math.max(0.5, clip.duration + delta);
+                          handleUpdateClipDuration(clip.id, newDuration);
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -902,6 +1424,42 @@ export function TimelinePage() {
         onMuteToggle={() => setIsMuted(!isMuted)}
         onPrevious={handlePrevious}
         onNext={handleNext}
+      />
+
+      {/* Context Menu */}
+      {contextMenuClip && (
+        <ClipContextMenu
+          isOpen={contextMenuState.isOpen}
+          position={contextMenuState.position}
+          onClose={handleCloseContextMenu}
+          clipId={contextMenuClip.id}
+          isLocked={contextMenuClip.isLocked}
+          isVisible={contextMenuClip.isVisible}
+          hasVideo={!!contextMenuClip.videoUrl}
+          onApplyLipSync={handleOpenLipSyncModal}
+          onDelete={() => {
+            handleDeleteClip(contextMenuClip.id);
+            handleCloseContextMenu();
+          }}
+          onToggleLock={() => {
+            handleToggleClipLock(contextMenuClip.id);
+            handleCloseContextMenu();
+          }}
+          onToggleVisibility={() => {
+            handleToggleClipVisibility(contextMenuClip.id);
+            handleCloseContextMenu();
+          }}
+        />
+      )}
+
+      {/* Lip Sync Quick Modal */}
+      <LipSyncQuickModal
+        isOpen={lipSyncModalState.isOpen}
+        onClose={handleCloseLipSyncModal}
+        clipId={lipSyncModalState.clipId}
+        clipLabel={lipSyncModalState.clipLabel}
+        availableAudioTracks={availableAudioTracks}
+        onSuccess={handleLipSyncSuccess}
       />
     </div>
   );

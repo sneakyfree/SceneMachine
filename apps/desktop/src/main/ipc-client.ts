@@ -55,7 +55,14 @@ export class IPCClient extends EventEmitter {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.socket = net.createConnection(this.socketPath);
+      // On Windows, connect to TCP port; on Unix, use socket file
+      const isWindows = process.platform === 'win32';
+      if (isWindows) {
+        // Python backend listens on TCP port 19847
+        this.socket = net.createConnection({ host: '127.0.0.1', port: 19847 });
+      } else {
+        this.socket = net.createConnection(this.socketPath);
+      }
 
       this.socket.on('connect', () => {
         this.connected = true;

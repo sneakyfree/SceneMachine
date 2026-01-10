@@ -15,7 +15,7 @@ from ....shared.models.events import (
     UserBadge,
 )
 from ....shared.models.user import User
-from ...auth.dependencies import get_current_user
+from ...auth.dependencies import get_current_user, get_current_admin
 from ..schemas import BadgeAwardRequest, BadgeInfo, UserBadgeResponse
 
 logger = logging.getLogger(__name__)
@@ -169,11 +169,9 @@ async def toggle_featured_badge(
 async def award_badge(
     data: BadgeAwardRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ) -> UserBadge:
     """Award a badge to a user (admin only)."""
-    # TODO: Add admin role check
-
     try:
         badge_type = BadgeType(data.badge_type)
     except ValueError:

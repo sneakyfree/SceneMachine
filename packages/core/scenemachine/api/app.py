@@ -23,10 +23,12 @@ from scenemachine.api.routes import (
     archive,
     assembly,
     audio,
+    auth,
     characters,
     copilot,
     generation,
     health,
+    lipsync,
     movie_plan,
     projects,
     scenes,
@@ -169,6 +171,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     # Include routers
+    app.include_router(
+        auth.router,
+        prefix="/api/v1",
+        tags=["Authentication"],
+    )
     app.include_router(health.router, tags=["Health"])
     app.include_router(
         projects.router,
@@ -238,6 +245,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         audio.router,
         prefix="/api/v1/audio",
         tags=["Audio"],
+    )
+    app.include_router(
+        lipsync.router,
+        tags=["Lip Sync"],
     )
     app.include_router(
         text_overlays.router,

@@ -1,0 +1,129 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: scenemachine
+  labels:
+    app.kubernetes.io/name: scenemachine
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 3600
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: scenemachine
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 999
+            fsGroup: 999
+          containers:
+            - name: backup
+              image: postgres:15-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="/backups/scenemachine_${TIMESTAMP}.sql.gz"
+
+                  echo "Starting backup at $(date)"
+
+                  pg_dump -h postgres-service -U scenemachine -d scenemachine | gzip > "${BACKUP_FILE}"
+
+                  echo "Backup completed: ${BACKUP_FILE}"
+                  ls -lh "${BACKUP_FILE}"
+
+                  # Keep only last 7 days of backups
+                  find /backups -name "scenemachine_*.sql.gz" -mtime +7 -delete
+
+                  echo "Cleanup completed at $(date)"
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: scenemachine-secrets
+                      key: POSTGRES_PASSWORD
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: postgres-backups
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backups
+  namespace: scenemachine
+  labels:
+    app.kubernetes.io/name: scenemachine
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: redis-backup
+  namespace: scenemachine
+  labels:
+    app.kubernetes.io/name: scenemachine
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 600
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: scenemachine
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: redis:7-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo "Triggering Redis BGSAVE..."
+                  redis-cli -h redis-service BGSAVE
+                  sleep 5
+                  echo "Redis backup triggered at $(date)"
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "128Mi"

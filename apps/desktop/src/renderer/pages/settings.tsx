@@ -37,6 +37,7 @@ import {
   Contrast,
   MousePointer,
   Minimize2,
+  Keyboard,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
@@ -51,6 +52,8 @@ import { useAudioStore, TTSProvider, Voice } from '../stores/audio-store';
 import { BudgetSettings } from '../components/budget-settings';
 import { CircuitBreakerPanel } from '../components/circuit-breaker-status';
 import { ExperienceModeSelector } from '../components/experience-mode-selector';
+import { useToast } from '../components/toast';
+import { announce } from '../lib/accessibility';
 
 // Format bytes to human readable
 function formatBytes(bytes: number): string {
@@ -902,6 +905,7 @@ function ExperienceModeSettingsSection() {
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const {
     settings,
     providerStatuses,
@@ -927,6 +931,7 @@ export function SettingsPage() {
   // Local state for unsaved changes
   const [localSettings, setLocalSettings] = useState<Record<string, any>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // Fetch version info
   const { data: versionInfo } = useQuery({
@@ -973,8 +978,20 @@ export function SettingsPage() {
       await saveSettings(localSettings);
       setLocalSettings({});
       setHasChanges(false);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
+      addToast({
+        type: 'success',
+        title: 'Settings Saved',
+        message: 'Your preferences have been saved successfully.',
+      });
+      announce('Settings saved successfully');
+    } catch (err) {
+      console.error('Failed to save settings:', err);
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: 'Failed to save settings. Please try again.',
+      });
+      announce('Failed to save settings');
     }
   };
 
@@ -982,13 +999,67 @@ export function SettingsPage() {
   const handleDiscard = () => {
     setLocalSettings({});
     setHasChanges(false);
+    addToast({
+      type: 'info',
+      title: 'Changes Discarded',
+      message: 'Your changes have been discarded.',
+    });
+    announce('Changes discarded');
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ? - Show shortcuts help
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && target.tagName !== 'SELECT') {
+          e.preventDefault();
+          setShowShortcuts(true);
+          announce('Keyboard shortcuts opened');
+        }
+      }
+      // Escape - Close shortcuts or discard changes
+      if (e.key === 'Escape') {
+        if (showShortcuts) {
+          setShowShortcuts(false);
+          announce('Keyboard shortcuts closed');
+        } else if (hasChanges) {
+          handleDiscard();
+        }
+      }
+      // Ctrl/Cmd + S - Save changes
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (hasChanges) {
+          handleSave();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasChanges, showShortcuts]);
 
   // Clear cache mutation
   const clearCacheMutation = useMutation({
     mutationFn: (cacheType: string) => clearCache(cacheType),
-    onSuccess: () => {
+    onSuccess: (_data, cacheType) => {
       fetchStorageStats();
+      addToast({
+        type: 'success',
+        title: 'Cache Cleared',
+        message: `${cacheType.charAt(0).toUpperCase() + cacheType.slice(1)} cache has been cleared.`,
+      });
+      announce(`${cacheType} cache cleared`);
+    },
+    onError: (_error, cacheType) => {
+      addToast({
+        type: 'error',
+        title: 'Clear Failed',
+        message: `Failed to clear ${cacheType} cache.`,
+      });
+      announce(`Failed to clear ${cacheType} cache`);
     },
   });
 
@@ -1021,28 +1092,40 @@ export function SettingsPage() {
             </p>
           </div>
 
-          {hasChanges && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleDiscard}
-                className="px-4 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm"
-              >
-                Discard
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-sm flex items-center gap-2"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                Save Changes
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowShortcuts(true)}
+              className="p-2 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded-lg"
+              title="Keyboard shortcuts (?)"
+              aria-label="Show keyboard shortcuts"
+            >
+              <Keyboard className="w-5 h-5" />
+            </button>
+            {hasChanges && (
+              <>
+                <button
+                  onClick={handleDiscard}
+                  className="px-4 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm"
+                  title="Discard changes (Escape)"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-sm flex items-center gap-2"
+                  title="Save changes (Ctrl+S)"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Save Changes
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -1584,6 +1667,59 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowShortcuts(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="shortcuts-title"
+        >
+          <div
+            className="bg-surface-900 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-surface-700 flex items-center justify-between">
+              <h2 id="shortcuts-title" className="text-lg font-medium flex items-center gap-2">
+                <Keyboard className="w-5 h-5 text-brand-400" />
+                Keyboard Shortcuts
+              </h2>
+              <button
+                onClick={() => setShowShortcuts(false)}
+                className="p-1 hover:bg-surface-700 rounded"
+                aria-label="Close shortcuts"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-surface-800">
+                <span className="text-surface-300">Save changes</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">Ctrl+S</kbd>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-surface-800">
+                <span className="text-surface-300">Discard changes</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">Escape</kbd>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-surface-800">
+                <span className="text-surface-300">Show shortcuts</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">?</kbd>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-surface-300">Close modal</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">Escape</kbd>
+              </div>
+            </div>
+            <div className="p-4 bg-surface-800/50 text-center">
+              <p className="text-sm text-surface-400">
+                Press <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs font-mono">?</kbd> anytime to see shortcuts
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

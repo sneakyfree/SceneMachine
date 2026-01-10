@@ -2,9 +2,11 @@
 Comment routes for social service.
 """
 
+import logging
+import re
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, delete, func, select
@@ -22,7 +24,98 @@ from ..schemas import (
     UserSummary,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["comments"])
+
+
+# ============================================================================
+# Content Filtering
+# ============================================================================
+
+# Common profanity patterns (simplified - production would use a proper library)
+PROFANITY_PATTERNS = [
+    r"\bf+u+c+k+\b",
+    r"\bs+h+i+t+\b",
+    r"\ba+s+s+h+o+l+e+\b",
+    r"\bb+i+t+c+h+\b",
+    r"\bd+a+m+n+\b",
+    r"\bc+u+n+t+\b",
+    r"\bn+i+g+g+[ae]+r*\b",
+    r"\bf+a+g+g*o*t*\b",
+    r"\br+e+t+a+r+d+\b",
+]
+
+# Spam patterns
+SPAM_PATTERNS = [
+    r"(https?://\S+){3,}",  # Multiple URLs
+    r"(.)\1{10,}",  # Repeated characters (10+)
+    r"([\U0001F600-\U0001F64F])\1{5,}",  # Repeated emojis
+    r"\b(buy now|click here|free money|make \$\d+|earn \$\d+)\b",
+    r"(follow me|check my|subscribe to my|link in bio)",
+    r"(\b\w+\b)(?:\s+\1){4,}",  # Same word repeated 5+ times
+]
+
+# Compiled patterns for efficiency
+_profanity_compiled = [re.compile(p, re.IGNORECASE) for p in PROFANITY_PATTERNS]
+_spam_compiled = [re.compile(p, re.IGNORECASE) for p in SPAM_PATTERNS]
+
+
+def filter_comment_content(content: str) -> Tuple[str, bool, Optional[str]]:
+    """
+    Filter comment content for profanity and spam.
+
+    Returns:
+        Tuple of (filtered_content, is_flagged, flag_reason)
+    """
+    if not content:
+        return content, False, None
+
+    filtered = content
+    is_flagged = False
+    flag_reason = None
+
+    # Check for profanity and censor
+    for pattern in _profanity_compiled:
+        if pattern.search(filtered):
+            # Replace profanity with asterisks
+            filtered = pattern.sub(lambda m: "*" * len(m.group()), filtered)
+            is_flagged = True
+            flag_reason = "profanity"
+
+    # Check for spam patterns
+    for pattern in _spam_compiled:
+        if pattern.search(content):
+            is_flagged = True
+            flag_reason = flag_reason or "spam"
+            break
+
+    # Check for excessive caps (shouting)
+    if len(content) > 10:
+        caps_ratio = sum(1 for c in content if c.isupper()) / len(content)
+        if caps_ratio > 0.7:
+            is_flagged = True
+            flag_reason = flag_reason or "excessive_caps"
+            # Convert to sentence case
+            filtered = filtered.capitalize()
+
+    # Check for very short low-effort comments
+    stripped = re.sub(r"[^\w\s]", "", content).strip()
+    if len(stripped) < 2 and len(content) < 5:
+        is_flagged = True
+        flag_reason = flag_reason or "low_effort"
+
+    return filtered, is_flagged, flag_reason
+
+
+def check_comment_rate_limit(user_id: uuid.UUID, db: AsyncSession) -> bool:
+    """
+    Check if user is posting comments too quickly.
+
+    Returns True if rate limit exceeded.
+    """
+    # This would check Redis in production for rate limiting
+    # Simplified version just returns False (no limit)
+    return False
 
 
 @router.get("/comments/me", response_model=CommentListResponse)
@@ -272,12 +365,23 @@ async def create_comment(
                 detail="Cannot reply to a reply",
             )
 
-    # Create comment
+    # Filter comment content for profanity, spam, and other violations
+    filtered_content, is_flagged, flag_reason = filter_comment_content(request.content)
+
+    # Log flagged content for moderation review
+    if is_flagged:
+        logger.info(
+            f"Comment flagged for {flag_reason} from user {current_user.id}: "
+            f"{request.content[:100]}..."
+        )
+
+    # Create comment with filtered content
     comment = Comment(
         video_id=video_id,
         user_id=current_user.id,
         parent_id=request.parent_id,
-        content=request.content,
+        content=filtered_content,
+        is_hidden=flag_reason == "spam",  # Auto-hide spam comments
     )
     db.add(comment)
 

@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: scenemachine-staging
+
+resources:
+  - ../../base
+
+nameSuffix: -staging
+
+labels:
+  - pairs:
+      environment: staging
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /metadata/name
+        value: scenemachine-staging
+    target:
+      kind: Namespace
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: backend
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
+    target:
+      kind: HorizontalPodAutoscaler
+      name: backend-hpa
+
+configMapGenerator:
+  - name: scenemachine-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=DEBUG
+      - ENABLE_ANALYTICS=false
+      - ENABLE_SHARING=false
+
+images:
+  - name: scenemachine/backend
+    newTag: staging

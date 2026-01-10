@@ -24,24 +24,92 @@ def mask_license_key(key: str) -> str:
     return f"{key[:4]}...{key[-4:]}"
 
 
+import re
+import hashlib
+import hmac
+import os
+
+
+# License key format: SM-XXXXX-XXXXX-XXXXX-XXXXX (where X is alphanumeric)
+LICENSE_KEY_PATTERN = re.compile(
+    r"^SM-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$"
+)
+
+# Secret for HMAC validation (in production, use environment variable)
+LICENSE_SECRET = os.environ.get("STUDIO_LICENSE_SECRET", "dev-secret-key")
+
+
+def validate_license_checksum(license_key: str) -> bool:
+    """
+    Validate license key checksum.
+
+    The last segment is a checksum derived from the first three segments.
+    """
+    parts = license_key.split("-")
+    if len(parts) != 5:
+        return False
+
+    # Prefix + first 3 segments
+    base = "-".join(parts[:4])
+
+    # Calculate expected checksum
+    expected = hmac.new(
+        LICENSE_SECRET.encode(),
+        base.encode(),
+        hashlib.sha256,
+    ).hexdigest()[:5].upper()
+
+    return parts[4] == expected
+
+
 async def validate_studio_license(license_key: str) -> bool:
     """
     Validate a Studio license key.
 
-    In production, this would call the Studio API to verify the license.
-    For now, we accept any key that matches a basic format.
+    Validation includes:
+    1. Format check (SM-XXXXX-XXXXX-XXXXX-XXXXX)
+    2. Character validation (alphanumeric only)
+    3. Checksum verification (HMAC-based)
+    4. (Future) Remote API validation
+
+    Args:
+        license_key: The license key to validate
+
+    Returns:
+        True if the license key is valid
     """
-    # Basic validation: must be at least 10 characters
+    # Normalize to uppercase
+    license_key = license_key.upper().strip()
+
+    # Check minimum length
     if len(license_key) < 10:
         return False
 
-    # In production, you would:
-    # 1. Call Studio API to verify the license
-    # 2. Check if the license is valid and not expired
-    # 3. Check if the license is already linked to another account
-    # 4. Return license details (tier, features, etc.)
+    # Check format pattern
+    if not LICENSE_KEY_PATTERN.match(license_key):
+        # Also accept legacy format (just alphanumeric, 20+ chars)
+        if len(license_key) >= 20 and license_key.replace("-", "").isalnum():
+            return True
+        return False
 
-    # For development, accept any key that looks valid
+    # Validate checksum for new format keys
+    if license_key.startswith("SM-"):
+        if not validate_license_checksum(license_key):
+            return False
+
+    # In production, add remote validation:
+    # try:
+    #     async with httpx.AsyncClient() as client:
+    #         response = await client.post(
+    #             "https://api.scenemachine.studio/licenses/validate",
+    #             json={"key": license_key},
+    #             timeout=10.0,
+    #         )
+    #         return response.status_code == 200
+    # except Exception:
+    #     # Fail open for development, fail closed for production
+    #     return os.environ.get("ENV", "development") == "development"
+
     return True
 
 

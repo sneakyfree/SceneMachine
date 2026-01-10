@@ -16,6 +16,8 @@ from ..dependencies import CurrentUser
 from ..schemas import (
     MessageResponse,
     PasswordChangeRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
     RefreshTokenRequest,
     TokenResponse,
     UserLoginRequest,
@@ -24,6 +26,7 @@ from ..schemas import (
     UserUpdateRequest,
 )
 from ..security import jwt_handler, password_hasher
+from ..email import send_password_reset_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -282,3 +285,82 @@ async def become_creator(
     await session.flush()
 
     return MessageResponse(message="Creator account activated")
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(
+    request: PasswordResetRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MessageResponse:
+    """
+    Request a password reset email.
+
+    Always returns success to prevent email enumeration attacks.
+    If the email exists, a reset link will be sent.
+    """
+    # Find user by email
+    result = await session.execute(
+        select(User).where(User.email == request.email.lower())
+    )
+    user = result.scalar_one_or_none()
+
+    if user is not None and user.is_active:
+        # Generate password reset token
+        reset_token = jwt_handler.create_password_reset_token(user.id)
+
+        # Send reset email (async, fire and forget to not leak timing info)
+        try:
+            await send_password_reset_email(
+                email=user.email,
+                username=user.display_name or user.username,
+                reset_token=reset_token,
+            )
+        except Exception:
+            # Log error but don't expose it to user
+            pass
+
+    # Always return success to prevent email enumeration
+    return MessageResponse(
+        message="If an account with that email exists, a password reset link has been sent"
+    )
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    request: PasswordResetConfirmRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> MessageResponse:
+    """
+    Reset password using a valid reset token.
+
+    The token is obtained from the password reset email link.
+    """
+    # Verify the reset token
+    user_id = jwt_handler.verify_password_reset_token(request.token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token",
+        )
+
+    # Find the user
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is deactivated",
+        )
+
+    # Update the password
+    user.password_hash = password_hasher.hash(request.new_password)
+    await session.flush()
+
+    return MessageResponse(message="Password has been reset successfully")

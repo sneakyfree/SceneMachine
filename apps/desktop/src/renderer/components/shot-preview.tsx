@@ -16,8 +16,10 @@ import {
   Download,
   ThumbsUp,
   ThumbsDown,
+  Minimize,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { VideoPlayer } from './video-player';
 
 interface Shot {
   id: string;
@@ -113,32 +115,61 @@ export const ShotPreview = memo(function ShotPreview({
         ) : isGenerated || isApproved ? (
           /* Video preview */
           <>
-            {shot.outputThumbnailPath ? (
-              <img
-                src={`file://${shot.outputThumbnailPath}`}
-                alt={shot.description}
-                className="w-full h-full object-cover"
-              />
+            {isPlaying && shot.outputVideoPath ? (
+              /* Video Player - Inline */
+              <>
+                <VideoPlayer
+                  src={shot.outputVideoPath}
+                  poster={shot.outputThumbnailPath}
+                  className="w-full h-full"
+                  onError={(error) => {
+                    console.error('Video playback error:', error);
+                    setIsPlaying(false);
+                  }}
+                />
+                {/* Collapse button */}
+                <button
+                  onClick={() => setIsPlaying(false)}
+                  className="absolute top-3 left-3 p-2 bg-black/50 hover:bg-black/70 text-white rounded-lg transition-colors z-10"
+                  title="Close player"
+                >
+                  <Minimize className="w-4 h-4" />
+                </button>
+              </>
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-surface-800 to-surface-900 flex items-center justify-center">
-                <Play className="w-16 h-16 text-surface-600" />
-              </div>
-            )}
+              <>
+                {/* Thumbnail Preview */}
+                {shot.outputThumbnailPath ? (
+                  <img
+                    src={`file://${shot.outputThumbnailPath}`}
+                    alt={shot.description}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-surface-800 to-surface-900 flex items-center justify-center">
+                    <Play className="w-16 h-16 text-surface-600" />
+                  </div>
+                )}
 
-            {/* Play overlay */}
-            {!isPlaying && (
-              <button
-                onClick={() => setIsPlaying(true)}
-                className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity"
-              >
-                <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                  <Play className="w-8 h-8 text-white ml-1" />
-                </div>
-              </button>
+                {/* Play overlay */}
+                {shot.outputVideoPath && (
+                  <button
+                    onClick={() => setIsPlaying(true)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity group"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center transition-transform group-hover:scale-110">
+                      <Play className="w-8 h-8 text-white ml-1" />
+                    </div>
+                    <span className="absolute bottom-4 text-white text-sm font-medium">
+                      Click to preview
+                    </span>
+                  </button>
+                )}
+              </>
             )}
 
             {/* Approval badge */}
-            {isApproved && (
+            {isApproved && !isPlaying && (
               <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-green-500/90 text-white text-xs font-medium rounded-full">
                 <Check className="w-3 h-3" />
                 Approved
@@ -188,8 +219,57 @@ export const ShotPreview = memo(function ShotPreview({
 
         <p className="text-sm text-surface-400 line-clamp-2">{shot.description}</p>
 
-        {/* Action Buttons */}
-        {isGenerated && !isApproved && (
+        {/* Quick Actions when video is playing */}
+        {isPlaying && shot.outputVideoPath && (
+          <div className="flex gap-2 mt-4 pt-4 border-t border-surface-700">
+            <button
+              onClick={() => {
+                onApprove(shot.id);
+                setIsPlaying(false);
+              }}
+              disabled={disabled || isApproved}
+              className="flex-1 btn-primary text-sm"
+              title="Approve this take"
+            >
+              <Check className="w-4 h-4 mr-1" />
+              Use This Take
+            </button>
+            <button
+              onClick={() => {
+                onRegenerate(shot.id);
+                setIsPlaying(false);
+              }}
+              disabled={disabled}
+              className="flex-1 btn-secondary text-sm"
+              title="Generate another take"
+            >
+              <RotateCcw className="w-4 h-4 mr-1" />
+              Regenerate
+            </button>
+            <button
+              onClick={async () => {
+                if (shot.outputVideoPath) {
+                  try {
+                    await window.electronAPI.backendRequest('files.downloadFile', {
+                      path: shot.outputVideoPath,
+                      filename: `shot-${shot.shotNumber}.mp4`,
+                    });
+                  } catch (error) {
+                    console.error('Download failed:', error);
+                  }
+                }
+              }}
+              disabled={disabled}
+              className="btn-secondary text-sm"
+              title="Download video file"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Action Buttons when not playing */}
+        {!isPlaying && isGenerated && !isApproved && (
           <div className="flex gap-2 mt-4">
             <button
               onClick={() => onApprove(shot.id)}
@@ -218,7 +298,7 @@ export const ShotPreview = memo(function ShotPreview({
           </div>
         )}
 
-        {(isFailed || shot.state === 'rejected') && (
+        {!isPlaying && (isFailed || shot.state === 'rejected') && (
           <button
             onClick={() => onRegenerate(shot.id)}
             disabled={disabled}

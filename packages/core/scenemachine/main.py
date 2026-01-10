@@ -1,5 +1,6 @@
 """Main entry point for SceneMachine backend."""
 
+import argparse
 import asyncio
 import logging
 import os
@@ -66,8 +67,40 @@ async def run_ipc_server() -> None:
         logger.info("Shutdown complete")
 
 
+async def seed_database() -> None:
+    """Seed the database with sample data."""
+    from scenemachine.seeds.performers import seed_performers
+
+    db_manager = get_db_manager()
+    await db_manager.initialize()
+    logger.info("Database initialized")
+
+    logger.info("Seeding performers...")
+    count = await seed_performers()
+    logger.info(f"Seeded {count} performers")
+
+    await db_manager.close()
+    logger.info("Database seeding complete")
+
+
 def main() -> None:
     """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="SceneMachine Backend",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--seed",
+        action="store_true",
+        help="Seed the database with sample data (performers, etc.)",
+    )
+    parser.add_argument(
+        "--seed-performers",
+        action="store_true",
+        help="Seed only performers into the database",
+    )
+    args = parser.parse_args()
+
     settings = get_settings()
 
     # Configure logging
@@ -78,6 +111,15 @@ def main() -> None:
 
     logger.info(f"Starting SceneMachine v{settings.version}")
     logger.info(f"Environment: {settings.environment}")
+
+    # Handle CLI commands
+    if args.seed or args.seed_performers:
+        try:
+            asyncio.run(seed_database())
+        except Exception as e:
+            logger.exception(f"Seeding error: {e}")
+            sys.exit(1)
+        return
 
     # Run the IPC server
     try:

@@ -8,8 +8,14 @@ import { routes } from './routes';
 import { ToastContainer } from './components/toast';
 import { Onboarding, useOnboardingStatus } from './components/onboarding';
 import { ErrorBoundary, setupGlobalErrorHandlers } from './components/error-boundary';
+import { ShortcutsOverlay, useShortcutsOverlay } from './components/shortcuts-overlay';
+import { SkipLinks } from './components/skip-links';
 import { useSettingsStore } from './stores/settings-store';
 import { Loader2 } from 'lucide-react';
+import {
+  initializeAnnouncer,
+  initializeFocusVisible,
+} from './lib/accessibility';
 
 // Import accessibility styles
 import './styles/accessibility.css';
@@ -18,14 +24,19 @@ import './styles/accessibility.css';
 const router = createHashRouter(routes);
 
 export function App() {
-  // Set up global error handlers on mount
+  // Set up global error handlers and accessibility features on mount
   useEffect(() => {
     setupGlobalErrorHandlers();
+    initializeAnnouncer();
+    initializeFocusVisible();
   }, []);
 
   const { shouldShowOnboarding, isChecking, completeOnboarding, skipOnboarding } =
     useOnboardingStatus();
   const settings = useSettingsStore((state) => state.settings);
+
+  // Shortcuts overlay (triggered by `?` key)
+  const shortcutsOverlay = useShortcutsOverlay();
 
   // Apply accessibility settings to document root
   useEffect(() => {
@@ -75,8 +86,13 @@ export function App() {
   // Regular app - StevenAssistant is now inside MainLayout (within router context)
   return (
     <ErrorBoundary>
+      <SkipLinks />
       <RouterProvider router={router} />
       <ToastContainer />
+      <ShortcutsOverlay
+        isOpen={shortcutsOverlay.isOpen}
+        onClose={shortcutsOverlay.close}
+      />
     </ErrorBoundary>
   );
 }

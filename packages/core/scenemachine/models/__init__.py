@@ -28,6 +28,7 @@ from scenemachine.models.performance_take import PerformanceTake, TakeMode, Take
 from scenemachine.models.booking import Booking, BookingMode, BookingStatus, PaymentStatus
 from scenemachine.models.auction import Auction, AuctionBid, AuctionStatus, BidStatus
 from scenemachine.models.performer_rating import PerformerRating
+from scenemachine.models.user import User, RefreshToken, UserRole
 
 __all__ = [
     # Base
@@ -103,4 +104,8 @@ __all__ = [
     "BidStatus",
     # ActCore - Ratings
     "PerformerRating",
+    # User & Auth
+    "User",
+    "RefreshToken",
+    "UserRole",
 ]

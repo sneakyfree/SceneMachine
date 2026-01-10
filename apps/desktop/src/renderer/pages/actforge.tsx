@@ -18,6 +18,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useActForgeStore } from '../stores/actforge-store';
+import { useProjectStore } from '../stores/project-store';
 import { PerformerCard } from '../components/performer-card';
 import { BookingModal } from '../components/booking-modal';
 import type { Performer, BookingMode, PerformerType } from '../api/client';
@@ -40,6 +41,9 @@ export function ActForgePage(): JSX.Element {
     openBookingModal,
     closeBookingModal,
   } = useActForgeStore();
+
+  // Get current project for booking context
+  const currentProject = useProjectStore((state) => state.currentProject);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerformer, setSelectedPerformer] = useState<Performer | null>(null);
@@ -370,7 +374,7 @@ export function ActForgePage(): JSX.Element {
         onClose={closeBookingModal}
         performer={selectedPerformer}
         mode={bookingMode ?? 'BLINK'}
-        projectId="" // TODO: Get from context
+        projectId={currentProject?.id ?? ''}
         onSuccess={() => {
           setSelectedPerformer(null);
         }}

@@ -6,8 +6,9 @@ A SceneMachine project representing a single movie production.
 
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
+from uuid import UUID
 
-from sqlalchemy import String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from scenemachine.models.scene import Scene
     from scenemachine.models.share import ProjectShare
     from scenemachine.models.export_history import ExportHistory
+    from scenemachine.models.user import User
 
 
 class ProjectState(str, Enum):
@@ -63,6 +65,13 @@ class Project(Base, UUIDMixin, TimestampMixin):
     """
 
     __tablename__ = "projects"
+
+    # Owner (foreign key to User)
+    owner_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,  # Nullable for backward compatibility with existing projects
+        index=True,
+    )
 
     # Basic metadata
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -123,6 +132,11 @@ class Project(Base, UUIDMixin, TimestampMixin):
         "ExportHistory",
         back_populates="project",
         cascade="all, delete-orphan",
+    )
+    owner: Mapped[Optional["User"]] = relationship(
+        "User",
+        back_populates="projects",
+        foreign_keys=[owner_id],
     )
 
     @property

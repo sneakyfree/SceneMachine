@@ -250,7 +250,7 @@ class AudioLibraryService:
         # Copy file
         shutil.copy2(source_path, dest_path)
 
-        # Get audio duration (placeholder - would use ffprobe in production)
+        # Get audio duration using ffprobe
         duration = await self._get_audio_duration(dest_path)
 
         # Calculate file hash

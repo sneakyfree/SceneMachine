@@ -164,6 +164,59 @@ async def get_optional_user(
     return user
 
 
+async def get_current_moderator(
+    user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """
+    Get the current user if they are a moderator.
+
+    Raises HTTPException if user is not a moderator.
+    """
+    # Moderators are either admins or have the is_moderator flag
+    if not user.is_admin and not getattr(user, 'is_moderator', False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Moderator access required",
+        )
+    return user
+
+
+def require_role(role: str):
+    """
+    Factory function to create role-checking dependencies.
+
+    Usage:
+        @router.post("/admin-action")
+        async def admin_action(user: User = Depends(require_role("admin"))):
+            ...
+    """
+    async def role_checker(
+        user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        role_checks = {
+            "admin": lambda u: u.is_admin,
+            "creator": lambda u: u.is_creator,
+            "verified": lambda u: u.email_verified,
+            "moderator": lambda u: u.is_admin or getattr(u, 'is_moderator', False),
+        }
+
+        checker = role_checks.get(role)
+        if checker is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unknown role: {role}",
+            )
+
+        if not checker(user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"{role.capitalize()} access required",
+            )
+        return user
+
+    return role_checker
+
+
 # Type aliases for cleaner dependency injection
 CurrentUserId = Annotated[uuid.UUID, Depends(get_current_user_id)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
@@ -171,4 +224,5 @@ CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
 CurrentVerifiedUser = Annotated[User, Depends(get_current_verified_user)]
 CurrentCreator = Annotated[User, Depends(get_current_creator)]
 CurrentAdmin = Annotated[User, Depends(get_current_admin)]
+CurrentModerator = Annotated[User, Depends(get_current_moderator)]
 OptionalUser = Annotated[Optional[User], Depends(get_optional_user)]

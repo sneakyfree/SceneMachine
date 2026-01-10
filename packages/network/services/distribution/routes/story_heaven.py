@@ -135,22 +135,74 @@ async def get_for_you_feed(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[StoryHeavenPost]:
-    """Get personalized 'For You' feed based on user preferences."""
-    # TODO: Implement ML-based recommendations
-    # For now, return a mix of trending and recent content
+    """Get personalized 'For You' feed based on user preferences and behavior."""
+    from ....shared.models.social import Follow, VideoLike
+    from ....shared.models.analytics import VideoView
 
+    # Get user's followed creators for boosting their content
+    follows_result = await session.execute(
+        select(Follow.followed_id).where(Follow.follower_id == current_user.id)
+    )
+    followed_ids = {row[0] for row in follows_result.all()}
+
+    # Get hashtags from user's recently liked videos (last 50)
+    liked_videos_result = await session.execute(
+        select(StoryHeavenPost.hashtags)
+        .join(VideoLike, VideoLike.video_id == StoryHeavenPost.video_id)
+        .where(VideoLike.user_id == current_user.id)
+        .order_by(VideoLike.created_at.desc())
+        .limit(50)
+    )
+    preferred_hashtags = set()
+    for row in liked_videos_result.all():
+        if row[0]:
+            preferred_hashtags.update(row[0][:5])  # Top 5 hashtags per video
+
+    # Get all candidate posts (recent + trending)
     query = (
         select(StoryHeavenPost)
-        .order_by(
-            desc(StoryHeavenPost.trending_score * 0.7 + StoryHeavenPost.view_count * 0.3),
-            desc(StoryHeavenPost.created_at),
-        )
-        .offset(offset)
-        .limit(limit)
+        .where(StoryHeavenPost.created_at >= datetime.utcnow() - timedelta(days=7))
+        .order_by(desc(StoryHeavenPost.trending_score))
+        .limit(200)  # Candidate pool
     )
-
     result = await session.execute(query)
-    return list(result.scalars().all())
+    candidates = list(result.scalars().all())
+
+    # Score each post based on personalization factors
+    scored_posts = []
+    for post in candidates:
+        score = post.trending_score or 0
+
+        # Boost content from followed creators (2x boost)
+        if post.creator_id in followed_ids:
+            score *= 2.0
+
+        # Boost content with matching hashtags (1.5x per matching tag, max 3x)
+        matching_tags = len(set(post.hashtags or []) & preferred_hashtags)
+        if matching_tags > 0:
+            score *= min(3.0, 1.0 + (matching_tags * 0.5))
+
+        # Recency boost: newer content gets a boost
+        hours_old = (datetime.utcnow() - post.created_at).total_seconds() / 3600
+        recency_factor = max(0.5, 1.0 - (hours_old / 168))  # Decay over 7 days
+        score *= recency_factor
+
+        # Engagement velocity: high engagement in short time
+        if hours_old > 0:
+            velocity = (post.like_count + post.comment_count * 2) / hours_old
+            score += velocity * 0.1
+
+        # Diversity: slight penalty for creators we've seen a lot recently
+        # (simplified - full implementation would track session views)
+
+        scored_posts.append((post, score))
+
+    # Sort by personalized score
+    scored_posts.sort(key=lambda x: x[1], reverse=True)
+
+    # Apply pagination
+    paginated = scored_posts[offset : offset + limit]
+    return [post for post, _ in paginated]
 
 
 @router.get("/feed/following", response_model=list[StoryHeavenPostResponse])

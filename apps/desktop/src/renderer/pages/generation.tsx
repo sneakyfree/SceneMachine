@@ -26,8 +26,9 @@ import {
   XCircle,
   Settings,
   ChevronDown,
+  GitCompare,
 } from 'lucide-react';
-import { ShotPreview, ModelSelector, BatchCostSummary } from '../components';
+import { ShotPreview, ModelSelector, BatchCostSummary, ComparisonView } from '../components';
 import { cn } from '../lib/utils';
 import { useWebSocketEvent, EventType, WebSocketEvent } from '../lib/websocket';
 import { useToast } from '../stores/toast-store';
@@ -86,6 +87,9 @@ export function GenerationPage() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showModelSettings, setShowModelSettings] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
+  const [showComparison, setShowComparison] = useState(false);
   const toast = useToast();
 
   // Generation store for provider/model selection
@@ -357,6 +361,46 @@ export function GenerationPage() {
     [regenerateShotMutation]
   );
 
+  const toggleCompareMode = useCallback(() => {
+    setCompareMode((prev) => !prev);
+    setSelectedForCompare(new Set());
+  }, []);
+
+  const toggleShotSelection = useCallback((shotId: string) => {
+    setSelectedForCompare((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(shotId)) {
+        newSet.delete(shotId);
+      } else {
+        // Limit to 3 selections
+        if (newSet.size < 3) {
+          newSet.add(shotId);
+        } else {
+          toast.warning('Maximum 3 videos', 'You can only compare up to 3 videos at once');
+        }
+      }
+      return newSet;
+    });
+  }, [toast]);
+
+  const handleCompare = useCallback(() => {
+    if (selectedForCompare.size >= 2) {
+      setShowComparison(true);
+    } else {
+      toast.info('Select videos', 'Select at least 2 videos to compare');
+    }
+  }, [selectedForCompare, toast]);
+
+  const handleSelectBest = useCallback(
+    (shotId: string) => {
+      approveShotMutation.mutate(shotId);
+      setShowComparison(false);
+      setCompareMode(false);
+      setSelectedForCompare(new Set());
+    },
+    [approveShotMutation]
+  );
+
   if (isLoadingScenes) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -591,30 +635,59 @@ export function GenerationPage() {
           )}
         </div>
 
-        {/* View Toggle */}
-        <div className="flex items-center gap-1 bg-surface-800 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={cn(
-              'p-1.5 rounded transition-colors',
-              viewMode === 'grid'
-                ? 'bg-surface-700 text-white'
-                : 'text-surface-400 hover:text-white'
-            )}
-          >
-            <Grid className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={cn(
-              'p-1.5 rounded transition-colors',
-              viewMode === 'list'
-                ? 'bg-surface-700 text-white'
-                : 'text-surface-400 hover:text-white'
-            )}
-          >
-            <List className="w-4 h-4" />
-          </button>
+        {/* View and Compare Controls */}
+        <div className="flex items-center gap-2">
+          {/* Compare Mode Toggle */}
+          {stats.review > 0 && (
+            <button
+              onClick={toggleCompareMode}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2',
+                compareMode
+                  ? 'bg-brand-500/20 text-brand-400'
+                  : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
+              )}
+            >
+              <GitCompare className="w-4 h-4" />
+              {compareMode ? 'Cancel Compare' : 'Compare'}
+            </button>
+          )}
+
+          {/* Compare Selected Button */}
+          {compareMode && selectedForCompare.size >= 2 && (
+            <button
+              onClick={handleCompare}
+              className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm transition-colors"
+            >
+              Compare Selected ({selectedForCompare.size})
+            </button>
+          )}
+
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 bg-surface-800 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                viewMode === 'grid'
+                  ? 'bg-surface-700 text-white'
+                  : 'text-surface-400 hover:text-white'
+              )}
+            >
+              <Grid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                viewMode === 'list'
+                  ? 'bg-surface-700 text-white'
+                  : 'text-surface-400 hover:text-white'
+              )}
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -630,21 +703,38 @@ export function GenerationPage() {
           {filteredShots.map((shot) => {
             const jobsForShot = pendingJobs?.filter((j) => j.shotId === shot.id);
             const latestJob = jobsForShot?.[0];
+            const isSelected = selectedForCompare.has(shot.id);
+            const canSelect = shot.outputVideoPath && (shot.state === 'generated' || shot.state === 'approved');
 
             return (
-              <ShotPreview
-                key={shot.id}
-                shot={shot}
-                latestJob={latestJob}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onRegenerate={handleRegenerate}
-                disabled={
-                  approveShotMutation.isPending ||
-                  rejectShotMutation.isPending ||
-                  regenerateShotMutation.isPending
-                }
-              />
+              <div key={shot.id} className="relative">
+                {/* Compare Mode Checkbox */}
+                {compareMode && canSelect && (
+                  <div className="absolute top-2 right-2 z-20">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleShotSelection(shot.id)}
+                      className="w-5 h-5 rounded border-2 border-white bg-black/50 checked:bg-brand-500 checked:border-brand-500 cursor-pointer"
+                      aria-label={`Select ${shot.shotNumber} for comparison`}
+                    />
+                  </div>
+                )}
+
+                <ShotPreview
+                  shot={shot}
+                  latestJob={latestJob}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                  onRegenerate={handleRegenerate}
+                  disabled={
+                    compareMode ||
+                    approveShotMutation.isPending ||
+                    rejectShotMutation.isPending ||
+                    regenerateShotMutation.isPending
+                  }
+                />
+              </div>
             );
           })}
         </div>
@@ -671,6 +761,26 @@ export function GenerationPage() {
             Continue to Export
           </button>
         </div>
+      )}
+
+      {/* Comparison View Modal */}
+      {showComparison && selectedForCompare.size >= 2 && (
+        <ComparisonView
+          videos={Array.from(selectedForCompare)
+            .map((shotId) => {
+              const shot = allShots.find((s) => s.id === shotId);
+              if (!shot || !shot.outputVideoPath) return null;
+              return {
+                id: shot.id,
+                src: shot.outputVideoPath,
+                label: `Shot ${shot.shotNumber}`,
+                poster: shot.outputThumbnailPath,
+              };
+            })
+            .filter((v): v is NonNullable<typeof v> => v !== null)}
+          onClose={() => setShowComparison(false)}
+          onSelectBest={handleSelectBest}
+        />
       )}
     </div>
   );

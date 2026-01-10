@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production-use-strong-random-key"
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # JWT Authentication
+    jwt_secret_key: str = "jwt-secret-change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 30
+    jwt_refresh_token_expire_days: int = 7
+
     # AI/ML Configuration
     default_llm_provider: str = "anthropic"
     anthropic_api_key: Optional[str] = None
@@ -79,6 +85,13 @@ class Settings(BaseSettings):
     # ElevenLabs API (text-to-speech)
     elevenlabs_api_key: Optional[str] = None
     elevenlabs_voice_id: Optional[str] = None
+
+    # Redis Configuration
+    redis_url: str = "redis://localhost:6379/0"
+    redis_password: Optional[str] = None
+    redis_ssl: bool = False
+    redis_max_connections: int = 10
+    cache_default_ttl_seconds: int = 3600
 
     # IPC Configuration
     ipc_socket_path: str = "/tmp/scenemachine.sock"

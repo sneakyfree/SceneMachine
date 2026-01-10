@@ -8,8 +8,18 @@ export { CharacterCard } from './character-card';
 export { ShotCard } from './shot-card';
 export { ShotPreview } from './shot-preview';
 export { TimelinePreview } from './timeline-preview';
+export { VideoPlayer, useVideoPlayer } from './video-player';
+export { ComparisonView } from './video/comparison-view';
+export { LipSyncPanel } from './lipsync/lipsync-panel';
 export { ToastContainer, ProgressToast } from './toast';
 export { ErrorBoundary, PageErrorBoundary, withErrorBoundary } from './error-boundary';
+export {
+  ErrorDisplay,
+  DataLoadError,
+  FieldError,
+  ConnectionError,
+  useError,
+} from './error-display';
 export { VoiceSelector } from './voice-selector';
 export {
   PhysicalDescriptionForm,
@@ -60,3 +70,19 @@ export { CommandPalette, useCommandPalette } from './command-palette';
 // ActForge Components
 export { PerformerCard } from './performer-card';
 export { BookingModal } from './booking-modal';
+
+// Virtual Scrolling
+export { VirtualList, VirtualGrid, InfiniteScrollList } from './virtual-list';
+export type { VirtualListHandle } from './virtual-list';
+
+// Accessibility
+export { SkipLink } from './skip-link';
+export {
+  Modal,
+  ConfirmDialog,
+  AlertDialog,
+  useModal,
+} from './accessible-modal';
+
+// Timeline Components
+export { ClipContextMenu, LipSyncQuickModal } from './timeline';

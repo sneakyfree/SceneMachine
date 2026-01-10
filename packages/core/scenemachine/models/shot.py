@@ -8,7 +8,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -167,6 +167,13 @@ class Shot(Base, UUIDMixin, TimestampMixin):
     # Timing
     duration_seconds: Mapped[float] = mapped_column(Float, default=3.0, nullable=False)
     actual_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    # Timeline editing fields
+    timeline_order: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    timeline_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    timeline_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    transition_type: Mapped[Optional[str]] = mapped_column(String(50), default="cut", nullable=True)
+    transition_duration: Mapped[Optional[float]] = mapped_column(Float, default=0.5, nullable=True)
 
     # State
     state: Mapped[ShotState] = mapped_column(

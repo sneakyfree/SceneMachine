@@ -25,7 +25,7 @@ from ....shared.models.events import (
 )
 from ....shared.models.user import User
 from ....shared.models.video import Video
-from ...auth.dependencies import get_current_user
+from ...auth.dependencies import get_current_user, get_current_admin
 from ..schemas import (
     CoreCastEventCreate,
     CoreCastEventResponse,
@@ -123,11 +123,9 @@ async def get_event(
 async def create_event(
     data: CoreCastEventCreate,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ) -> CoreCastEvent:
     """Create a new CoreCast event (admin only)."""
-    # TODO: Add admin role check
-
     # Check for existing event in same month
     existing = await session.execute(
         select(CoreCastEvent).where(
@@ -446,8 +444,6 @@ async def judge_vote(
     current_user: User = Depends(get_current_user),
 ) -> CoreCastVote:
     """Cast a judge vote on a submission (judge only)."""
-    # TODO: Add judge role check
-
     if data.score is None:
         raise HTTPException(status_code=400, detail="Judge votes require a score")
 
@@ -458,6 +454,13 @@ async def judge_vote(
     event = await session.get(CoreCastEvent, submission.event_id)
     if not event or event.status != EventStatus.JUDGING:
         raise HTTPException(status_code=400, detail="Judging phase not active")
+
+    # Verify user is a judge for this event
+    if str(current_user.id) not in (event.judge_ids or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized as a judge for this event"
+        )
 
     # Check for existing judge vote from this user
     existing = await session.execute(

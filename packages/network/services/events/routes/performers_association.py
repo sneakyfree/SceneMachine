@@ -20,7 +20,7 @@ from ....shared.models.events import (
     UserBadge,
 )
 from ....shared.models.user import User
-from ...auth.dependencies import get_current_user
+from ...auth.dependencies import get_current_user, get_current_admin
 from ..schemas import (
     PerformersAssociationResponse,
     TierProgress,
@@ -315,11 +315,9 @@ async def suspend_membership(
     user_id: UUID,
     reason: str,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ) -> dict:
     """Suspend a user's membership (admin only)."""
-    # TODO: Add admin role check
-
     result = await session.execute(
         select(PerformersAssociationMembership).where(
             PerformersAssociationMembership.user_id == user_id
@@ -344,11 +342,9 @@ async def suspend_membership(
 async def reinstate_membership(
     user_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_admin),
 ) -> PerformersAssociationResponse:
     """Reinstate a suspended membership (admin only)."""
-    # TODO: Add admin role check
-
     result = await session.execute(
         select(PerformersAssociationMembership).where(
             PerformersAssociationMembership.user_id == user_id

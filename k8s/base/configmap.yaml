@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scenemachine-config
+  namespace: scenemachine
+  labels:
+    app.kubernetes.io/name: scenemachine
+data:
+  # Database configuration
+  POSTGRES_DB: scenemachine
+  POSTGRES_USER: scenemachine
+
+  # Redis configuration
+  REDIS_HOST: redis-service
+  REDIS_PORT: "6379"
+
+  # Application configuration
+  SCENEMACHINE_ENV: production
+  LOG_LEVEL: INFO
+
+  # Feature flags
+  ENABLE_TELEMETRY: "true"
+  ENABLE_RATE_LIMITING: "true"
+
+  # API Configuration
+  API_V1_PREFIX: /api/v1
+  CORS_ORIGINS: "https://app.scenemachine.io"
+
+  # Storage paths (PVC mounted)
+  UPLOADS_PATH: /app/uploads
+  OUTPUTS_PATH: /app/outputs
+  CACHE_PATH: /app/cache

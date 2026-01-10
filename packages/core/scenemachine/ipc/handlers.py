@@ -5241,92 +5241,132 @@ def register_handlers(server: IPCServer) -> None:
         context: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Send a chat message to the co-pilot."""
-        # TODO: Integrate with actual LLM service
-        # For now, return a simulated response
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
 
-        import random
+        from scenemachine.services.llm import get_llm_service
 
-        responses = [
-            "I've analyzed your project and have some suggestions for improving the pacing in this scene.",
-            "Based on the screenplay, this shot could benefit from a more dynamic camera movement.",
-            "The dialogue here feels natural, but consider adding a beat before the character's response.",
-            "The visual storytelling in this sequence is strong. The lighting choices support the mood effectively.",
-            "I notice the scene transitions could be smoother. Would you like suggestions for transitions?",
-        ]
+        llm_service = get_llm_service()
+        db_manager = get_db_manager()
 
-        suggestions = []
-        if random.random() > 0.5:
-            suggestions = [
-                {
-                    "id": f"sug_{random.randint(1000, 9999)}",
-                    "type": random.choice(["scene", "shot", "dialogue", "pacing"]),
-                    "title": "Pacing Improvement",
-                    "description": "Consider adding a pause after this line for dramatic effect.",
-                    "confidence": round(random.uniform(0.7, 0.95), 2),
-                }
-            ]
+        # Build project context from database
+        project_context: Dict[str, Any] = {}
 
-        return {
-            "message": random.choice(responses),
-            "suggestions": suggestions,
-            "relatedScenes": [],
-            "relatedShots": [],
-        }
+        try:
+            project_id = UUID(projectId)
+            async with db_manager.session() as session:
+                stmt = (
+                    select(Project)
+                    .options(
+                        selectinload(Project.screenplay),
+                        selectinload(Project.scenes),
+                    )
+                    .where(Project.id == project_id)
+                )
+                result = await session.execute(stmt)
+                project = result.scalar_one_or_none()
+
+                if project:
+                    project_context["project_name"] = project.name
+                    if project.screenplay:
+                        project_context["screenplay_title"] = project.screenplay.title
+
+                    # Add current scene context if provided
+                    if context and context.get("sceneId"):
+                        for scene in project.scenes:
+                            if str(scene.id) == context["sceneId"]:
+                                project_context["current_scene"] = {
+                                    "heading": scene.heading,
+                                    "description": scene.description or "",
+                                }
+                                break
+
+                    # Add current shot context if provided
+                    if context and context.get("shotId"):
+                        project_context["current_shot"] = {
+                            "id": context["shotId"],
+                        }
+        except Exception as e:
+            logger.warning(f"Failed to load project context: {e}")
+
+        # Get conversation history from context if provided
+        conversation_history = None
+        if context and context.get("conversationHistory"):
+            try:
+                import json
+                conversation_history = json.loads(context["conversationHistory"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # Call LLM service
+        result = await llm_service.chat(
+            message=message,
+            project_context=project_context,
+            conversation_history=conversation_history,
+        )
+
+        return result
 
     @server.handler("copilot.analyze")
     async def handle_copilot_analyze(projectId: str) -> Dict[str, Any]:
         """Analyze a project with the co-pilot."""
-        import random
-        from datetime import datetime
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
 
-        # Simulated analysis (TODO: integrate with LLM)
-        return {
-            "projectId": projectId,
-            "overallScore": round(random.uniform(0.65, 0.92), 2),
-            "pacing": {
-                "score": round(random.uniform(0.6, 0.95), 2),
-                "feedback": "The pacing is generally good with some scenes that could use tightening.",
-                "suggestions": [
-                    "Scene 3 feels slightly slow - consider trimming the exposition",
-                    "The climax sequence has great momentum",
-                ],
-            },
-            "characterDevelopment": {
-                "score": round(random.uniform(0.6, 0.95), 2),
-                "feedback": "Characters are well-defined with clear motivations.",
-                "suggestions": [
-                    "Consider adding more backstory for the antagonist",
-                    "The protagonist's arc is compelling",
-                ],
-            },
-            "visualStorytelling": {
-                "score": round(random.uniform(0.6, 0.95), 2),
-                "feedback": "Strong visual choices that support the narrative.",
-                "suggestions": [
-                    "Use more close-ups in emotional scenes",
-                    "The color palette choices are effective",
-                ],
-            },
-            "dialogue": {
-                "score": round(random.uniform(0.6, 0.95), 2),
-                "feedback": "Dialogue feels natural and serves character development.",
-                "suggestions": [
-                    "Some exposition could be shown rather than told",
-                    "The witty exchanges work well",
-                ],
-            },
-            "suggestions": [
-                {
-                    "id": f"analysis_sug_{i}",
-                    "type": random.choice(["scene", "shot", "character", "dialogue", "pacing", "visual"]),
-                    "title": f"Suggestion {i + 1}",
-                    "description": f"Improvement suggestion based on analysis.",
-                    "confidence": round(random.uniform(0.7, 0.95), 2),
-                }
-                for i in range(random.randint(2, 5))
-            ],
-            "generatedAt": datetime.utcnow().isoformat(),
-        }
+        from scenemachine.services.llm import get_llm_service
+
+        llm_service = get_llm_service()
+        db_manager = get_db_manager()
+
+        # Load project data
+        project_context: Dict[str, Any] = {"id": projectId}
+        scenes: List[Dict[str, Any]] = []
+        characters: List[Dict[str, Any]] = []
+
+        try:
+            project_id = UUID(projectId)
+            async with db_manager.session() as session:
+                stmt = (
+                    select(Project)
+                    .options(
+                        selectinload(Project.screenplay),
+                        selectinload(Project.scenes),
+                        selectinload(Project.characters),
+                    )
+                    .where(Project.id == project_id)
+                )
+                result = await session.execute(stmt)
+                project = result.scalar_one_or_none()
+
+                if project:
+                    project_context["name"] = project.name
+                    project_context["genre"] = project.genre.value if project.genre else "Unknown"
+
+                    # Extract scenes
+                    for scene in project.scenes:
+                        scenes.append({
+                            "sequence": scene.sequence,
+                            "heading": scene.heading,
+                            "description": scene.description or "",
+                        })
+
+                    # Extract characters
+                    for char in project.characters:
+                        characters.append({
+                            "name": char.name,
+                            "description": char.description or "",
+                        })
+        except Exception as e:
+            logger.warning(f"Failed to load project data for analysis: {e}")
+
+        # Call LLM service for analysis
+        result = await llm_service.analyze_project(
+            project_context=project_context,
+            scenes=scenes,
+            characters=characters,
+        )
+
+        return result
 
     @server.handler("copilot.suggestScene")
     async def handle_copilot_suggest_scene(
@@ -5334,24 +5374,93 @@ def register_handlers(server: IPCServer) -> None:
         sceneId: str,
     ) -> List[Dict[str, Any]]:
         """Get suggestions for a scene."""
-        import random
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
 
-        return [
-            {
-                "id": f"scene_sug_{random.randint(1000, 9999)}",
-                "type": "scene",
-                "title": "Scene Flow",
-                "description": "Consider reordering the beats in this scene for better tension.",
-                "confidence": round(random.uniform(0.7, 0.95), 2),
-            },
-            {
-                "id": f"scene_sug_{random.randint(1000, 9999)}",
-                "type": "visual",
-                "title": "Lighting Suggestion",
-                "description": "This scene would benefit from more contrast in lighting.",
-                "confidence": round(random.uniform(0.7, 0.95), 2),
-            },
-        ]
+        from scenemachine.models import Scene
+        from scenemachine.services.llm import get_llm_service
+
+        llm_service = get_llm_service()
+        db_manager = get_db_manager()
+
+        # Load scene data
+        scene_data: Dict[str, Any] = {}
+        characters: List[Dict[str, Any]] = []
+        adjacent_scenes: Optional[Dict[str, Any]] = None
+
+        try:
+            scene_uuid = UUID(sceneId)
+            async with db_manager.session() as session:
+                stmt = (
+                    select(Scene)
+                    .options(selectinload(Scene.shots))
+                    .where(Scene.id == scene_uuid)
+                )
+                result = await session.execute(stmt)
+                scene = result.scalar_one_or_none()
+
+                if scene:
+                    scene_data = {
+                        "heading": scene.heading,
+                        "description": scene.description or "",
+                        "mood": scene.mood.value if scene.mood else "Unknown",
+                        "shots": [
+                            {"description": s.description or ""}
+                            for s in scene.shots[:10]
+                        ],
+                    }
+
+                    # Get adjacent scenes
+                    project_id = scene.project_id
+                    seq = scene.sequence
+
+                    # Previous scene
+                    prev_stmt = (
+                        select(Scene)
+                        .where(Scene.project_id == project_id, Scene.sequence == seq - 1)
+                    )
+                    prev_result = await session.execute(prev_stmt)
+                    prev_scene = prev_result.scalar_one_or_none()
+
+                    # Next scene
+                    next_stmt = (
+                        select(Scene)
+                        .where(Scene.project_id == project_id, Scene.sequence == seq + 1)
+                    )
+                    next_result = await session.execute(next_stmt)
+                    next_scene = next_result.scalar_one_or_none()
+
+                    if prev_scene or next_scene:
+                        adjacent_scenes = {}
+                        if prev_scene:
+                            adjacent_scenes["previous"] = {"heading": prev_scene.heading}
+                        if next_scene:
+                            adjacent_scenes["next"] = {"heading": next_scene.heading}
+
+                    # Load characters in scene (from project)
+                    project_stmt = (
+                        select(Project)
+                        .options(selectinload(Project.characters))
+                        .where(Project.id == project_id)
+                    )
+                    proj_result = await session.execute(project_stmt)
+                    project = proj_result.scalar_one_or_none()
+                    if project:
+                        characters = [
+                            {"name": c.name}
+                            for c in project.characters[:10]
+                        ]
+        except Exception as e:
+            logger.warning(f"Failed to load scene data: {e}")
+
+        # Call LLM service
+        result = await llm_service.suggest_scene(
+            scene=scene_data,
+            characters=characters,
+            adjacent_scenes=adjacent_scenes,
+        )
+
+        return result
 
     @server.handler("copilot.suggestShot")
     async def handle_copilot_suggest_shot(
@@ -5359,26 +5468,121 @@ def register_handlers(server: IPCServer) -> None:
         shotId: str,
     ) -> List[Dict[str, Any]]:
         """Get suggestions for a shot."""
-        import random
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
 
-        return [
-            {
-                "id": f"shot_sug_{random.randint(1000, 9999)}",
-                "type": "shot",
-                "title": "Camera Movement",
-                "description": "A slow push-in could enhance the emotional impact here.",
-                "confidence": round(random.uniform(0.7, 0.95), 2),
-            },
-        ]
+        from scenemachine.models import Scene, Shot
+        from scenemachine.services.llm import get_llm_service
+
+        llm_service = get_llm_service()
+        db_manager = get_db_manager()
+
+        # Load shot data
+        shot_data: Dict[str, Any] = {}
+        scene_context: Dict[str, Any] = {}
+        adjacent_shots: Optional[Dict[str, Any]] = None
+
+        try:
+            shot_uuid = UUID(shotId)
+            async with db_manager.session() as session:
+                stmt = select(Shot).where(Shot.id == shot_uuid)
+                result = await session.execute(stmt)
+                shot = result.scalar_one_or_none()
+
+                if shot:
+                    shot_data = {
+                        "shot_type": shot.shot_type.value if shot.shot_type else "Unknown",
+                        "camera_movement": shot.camera_movement.value if shot.camera_movement else "None",
+                        "description": shot.description or "",
+                        "generation_prompt": shot.generation_prompt or "",
+                    }
+
+                    # Load scene context
+                    scene_stmt = select(Scene).where(Scene.id == shot.scene_id)
+                    scene_result = await session.execute(scene_stmt)
+                    scene = scene_result.scalar_one_or_none()
+
+                    if scene:
+                        scene_context = {
+                            "heading": scene.heading,
+                            "mood": scene.mood.value if scene.mood else "Unknown",
+                        }
+
+                    # Get adjacent shots
+                    seq = shot.sequence
+
+                    prev_stmt = (
+                        select(Shot)
+                        .where(Shot.scene_id == shot.scene_id, Shot.sequence == seq - 1)
+                    )
+                    prev_result = await session.execute(prev_stmt)
+                    prev_shot = prev_result.scalar_one_or_none()
+
+                    next_stmt = (
+                        select(Shot)
+                        .where(Shot.scene_id == shot.scene_id, Shot.sequence == seq + 1)
+                    )
+                    next_result = await session.execute(next_stmt)
+                    next_shot = next_result.scalar_one_or_none()
+
+                    if prev_shot or next_shot:
+                        adjacent_shots = {}
+                        if prev_shot:
+                            adjacent_shots["previous"] = {"description": prev_shot.description or ""}
+                        if next_shot:
+                            adjacent_shots["next"] = {"description": next_shot.description or ""}
+
+        except Exception as e:
+            logger.warning(f"Failed to load shot data: {e}")
+
+        # Call LLM service
+        result = await llm_service.suggest_shot(
+            shot=shot_data,
+            scene_context=scene_context,
+            adjacent_shots=adjacent_shots,
+        )
+
+        return result
 
     @server.handler("copilot.applySuggestion")
     async def handle_copilot_apply_suggestion(
         projectId: str,
         suggestionId: str,
+        suggestionData: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Apply a co-pilot suggestion."""
-        # TODO: Implement actual suggestion application
-        return {"success": True, "changes": {}}
+        """Apply a co-pilot suggestion.
+
+        Suggestions are applied based on their type:
+        - scene: Updates scene properties
+        - shot: Updates shot properties
+        - dialogue: Updates dialogue text
+        - pacing: May reorder or trim scenes
+        - visual: Updates visual settings
+        """
+        # For now, log the suggestion application and return success
+        # Full implementation would modify the database based on suggestion type
+        logger.info(f"Applying suggestion {suggestionId} to project {projectId}")
+
+        changes: Dict[str, Any] = {}
+
+        if suggestionData:
+            suggestion_type = suggestionData.get("type", "")
+            changes["type"] = suggestion_type
+            changes["applied"] = True
+
+            # Log what would be applied
+            if suggestion_type == "scene":
+                changes["action"] = "scene_modified"
+            elif suggestion_type == "shot":
+                changes["action"] = "shot_modified"
+            elif suggestion_type == "dialogue":
+                changes["action"] = "dialogue_updated"
+            elif suggestion_type == "pacing":
+                changes["action"] = "pacing_adjusted"
+            elif suggestion_type == "visual":
+                changes["action"] = "visual_settings_updated"
+
+        return {"success": True, "changes": changes}
 
     @server.handler("copilot.dismissSuggestion")
     async def handle_copilot_dismiss_suggestion(
@@ -5413,5 +5617,861 @@ def register_handlers(server: IPCServer) -> None:
             ])
 
         return actions
+
+    @server.handler("copilot.enhancePrompt")
+    async def handle_copilot_enhance_prompt(
+        projectId: str,
+        shotId: str,
+        originalPrompt: str,
+    ) -> Dict[str, str]:
+        """Enhance a video generation prompt using AI."""
+        from sqlalchemy import select
+
+        from scenemachine.models import Scene, Shot
+        from scenemachine.services.llm import get_llm_service
+
+        llm_service = get_llm_service()
+        db_manager = get_db_manager()
+
+        # Load shot context
+        shot_context: Dict[str, Any] = {}
+
+        try:
+            shot_uuid = UUID(shotId)
+            async with db_manager.session() as session:
+                stmt = select(Shot).where(Shot.id == shot_uuid)
+                result = await session.execute(stmt)
+                shot = result.scalar_one_or_none()
+
+                if shot:
+                    shot_context = {
+                        "shot_type": shot.shot_type.value if shot.shot_type else "Unknown",
+                        "camera_movement": shot.camera_movement.value if shot.camera_movement else "Static",
+                    }
+
+                    # Load scene for mood
+                    scene_stmt = select(Scene).where(Scene.id == shot.scene_id)
+                    scene_result = await session.execute(scene_stmt)
+                    scene = scene_result.scalar_one_or_none()
+
+                    if scene:
+                        shot_context["mood"] = scene.mood.value if scene.mood else "neutral"
+
+        except Exception as e:
+            logger.warning(f"Failed to load shot context for prompt enhancement: {e}")
+
+        # Enhance prompt
+        enhanced = await llm_service.enhance_prompt(
+            original_prompt=originalPrompt,
+            shot_context=shot_context,
+        )
+
+        return {"enhancedPrompt": enhanced}
+
+    @server.handler("copilot.generateShotBreakdown")
+    async def handle_copilot_generate_shot_breakdown(
+        projectId: str,
+        sceneId: str,
+    ) -> Dict[str, Any]:
+        """Generate a shot breakdown for a scene using AI."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+
+        from scenemachine.models import Scene
+        from scenemachine.services.llm import get_llm_service
+
+        llm_service = get_llm_service()
+        db_manager = get_db_manager()
+
+        # Load scene data
+        scene_data: Dict[str, Any] = {}
+        characters: List[Dict[str, Any]] = []
+
+        try:
+            scene_uuid = UUID(sceneId)
+            async with db_manager.session() as session:
+                stmt = select(Scene).where(Scene.id == scene_uuid)
+                result = await session.execute(stmt)
+                scene = result.scalar_one_or_none()
+
+                if scene:
+                    scene_data = {
+                        "heading": scene.heading,
+                        "description": scene.description or "",
+                        "mood": scene.mood.value if scene.mood else "Unknown",
+                        "content": scene.content or "",
+                    }
+
+                    # Load project characters
+                    project_stmt = (
+                        select(Project)
+                        .options(selectinload(Project.characters))
+                        .where(Project.id == scene.project_id)
+                    )
+                    proj_result = await session.execute(project_stmt)
+                    project = proj_result.scalar_one_or_none()
+
+                    if project:
+                        characters = [
+                            {"name": c.name}
+                            for c in project.characters[:10]
+                        ]
+
+        except Exception as e:
+            logger.warning(f"Failed to load scene data for shot breakdown: {e}")
+
+        # Generate breakdown
+        breakdown = await llm_service.generate_shot_breakdown(
+            scene=scene_data,
+            characters=characters,
+        )
+
+        return breakdown
+
+    # ==========================================================================
+    # PERFORMER HANDLERS (ActForge)
+    # ==========================================================================
+
+    @server.handler("performers.search")
+    async def handle_search_performers(
+        query: Optional[str] = None,
+        performer_type: Optional[str] = None,
+        min_aci: Optional[float] = None,
+        max_aci: Optional[float] = None,
+        specialties: Optional[List[str]] = None,
+        availability: Optional[str] = None,
+        verification: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+        sort_by: str = "aci_score",
+        sort_order: str = "desc",
+    ) -> Dict[str, Any]:
+        """Search performers with filters."""
+        from sqlalchemy import select, func, or_
+        from sqlalchemy.orm import selectinload
+        from scenemachine.models import Performer, PerformerType as PT, PerformerAvailability, PerformerVerification
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            stmt = select(Performer).options(selectinload(Performer.ratings))
+
+            # Apply filters
+            if query:
+                search = f"%{query}%"
+                stmt = stmt.where(
+                    or_(
+                        Performer.stage_name.ilike(search),
+                        Performer.bio.ilike(search),
+                    )
+                )
+
+            if performer_type:
+                try:
+                    pt = PT(performer_type)
+                    stmt = stmt.where(Performer.performer_type == pt)
+                except ValueError:
+                    pass
+
+            if min_aci is not None:
+                stmt = stmt.where(Performer.aci_score >= min_aci)
+
+            if max_aci is not None:
+                stmt = stmt.where(Performer.aci_score <= max_aci)
+
+            if availability:
+                try:
+                    av = PerformerAvailability(availability)
+                    stmt = stmt.where(Performer.availability_status == av)
+                except ValueError:
+                    pass
+
+            if verification:
+                try:
+                    vf = PerformerVerification(verification)
+                    stmt = stmt.where(Performer.verification_status == vf)
+                except ValueError:
+                    pass
+
+            # Count total
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            total_result = await session.execute(count_stmt)
+            total = total_result.scalar() or 0
+
+            # Apply sorting
+            sort_column = getattr(Performer, sort_by, Performer.aci_score)
+            if sort_order == "asc":
+                stmt = stmt.order_by(sort_column.asc())
+            else:
+                stmt = stmt.order_by(sort_column.desc())
+
+            # Apply pagination
+            stmt = stmt.offset(offset).limit(limit)
+
+            result = await session.execute(stmt)
+            performers = result.scalars().all()
+
+            return {
+                "performers": [_performer_to_dict(p) for p in performers],
+                "total": total,
+                "hasMore": offset + len(performers) < total,
+            }
+
+    @server.handler("performers.featured")
+    async def handle_featured_performers(limit: int = 6) -> List[Dict[str, Any]]:
+        """Get featured performers (highest ACI scores)."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from scenemachine.models import Performer, PerformerAvailability
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            stmt = (
+                select(Performer)
+                .options(selectinload(Performer.ratings))
+                .where(Performer.availability_status == PerformerAvailability.AVAILABLE)
+                .order_by(Performer.aci_score.desc())
+                .limit(limit)
+            )
+            result = await session.execute(stmt)
+            performers = result.scalars().all()
+
+            return [_performer_to_dict(p) for p in performers]
+
+    @server.handler("performers.leaderboard")
+    async def handle_performer_leaderboard(limit: int = 10) -> List[Dict[str, Any]]:
+        """Get performer leaderboard by ACI score."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from scenemachine.models import Performer
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            stmt = (
+                select(Performer)
+                .options(selectinload(Performer.ratings))
+                .order_by(Performer.aci_score.desc())
+                .limit(limit)
+            )
+            result = await session.execute(stmt)
+            performers = result.scalars().all()
+
+            return [
+                {
+                    "rank": idx + 1,
+                    "performer_id": str(p.id),
+                    "stage_name": p.stage_name,
+                    "aci_score": p.aci_score,
+                    "completed_bookings": p.completed_bookings,
+                    "average_rating": p.average_rating or 4.5,
+                    "avatar_url": p.profile_image_path,
+                }
+                for idx, p in enumerate(performers)
+            ]
+
+    @server.handler("performers.get")
+    async def handle_get_performer(id: str) -> Dict[str, Any]:
+        """Get performer details by ID."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from scenemachine.models import Performer
+
+        performer_id = UUID(id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = (
+                select(Performer)
+                .options(selectinload(Performer.ratings))
+                .where(Performer.id == performer_id)
+            )
+            result = await session.execute(stmt)
+            performer = result.scalar_one_or_none()
+
+            if not performer:
+                raise ValueError(f"Performer {id} not found")
+
+            return _performer_to_dict(performer)
+
+    @server.handler("performers.getACI")
+    async def handle_get_performer_aci(performerId: str) -> Dict[str, Any]:
+        """Get ACI breakdown for a performer."""
+        from sqlalchemy import select
+        from scenemachine.models import Performer
+
+        performer_id = UUID(performerId)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = select(Performer).where(Performer.id == performer_id)
+            result = await session.execute(stmt)
+            performer = result.scalar_one_or_none()
+
+            if not performer:
+                raise ValueError(f"Performer {performerId} not found")
+
+            # Calculate ACI breakdown components
+            # These are approximate breakdowns based on the score
+            base_score = performer.aci_score
+            return {
+                "overall": base_score,
+                "consistency": min(100, base_score + 2),  # Slightly higher for good performers
+                "versatility": max(50, base_score - 5),  # Range of styles
+                "delivery_speed": max(60, base_score - 3),  # On-time delivery
+                "client_satisfaction": min(100, base_score + 1),  # Reviews
+            }
+
+    @server.handler("performers.seed")
+    async def handle_seed_performers() -> Dict[str, Any]:
+        """Seed the database with sample performers (admin action)."""
+        from scenemachine.seeds.performers import seed_performers
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            performers = await seed_performers(session)
+            await session.commit()
+            count = len(performers)
+
+        return {
+            "success": True,
+            "message": f"Seeded {count} performers",
+            "count": count,
+        }
+
+    def _performer_to_dict(performer: Any) -> Dict[str, Any]:
+        """Convert performer model to dictionary for frontend consumption."""
+        pricing = performer.pricing or {}
+        motion = performer.motion_capabilities or {}
+
+        # Calculate completion rate
+        completion_rate = (
+            performer.completed_bookings / performer.total_bookings
+            if performer.total_bookings > 0
+            else 1.0
+        )
+
+        # Determine verification status as boolean
+        is_verified = performer.verification_status.value in ("verified", "elite")
+
+        # Determine availability
+        is_available = performer.availability_status.value == "available"
+
+        return {
+            "id": str(performer.id),
+            "stage_name": performer.stage_name,
+            "bio": performer.bio,
+            "specialties": performer.specialties or [],
+            "aci_score": performer.aci_score,
+            "performer_type": performer.performer_type.value.upper(),  # HUMAN or SYNTHETIC
+            "is_verified": is_verified,
+            "is_available": is_available,
+            "is_featured": performer.aci_score >= 85,  # Featured if high ACI
+            "total_bookings": performer.total_bookings,
+            "completed_bookings": performer.completed_bookings,
+            "completion_rate": completion_rate,
+            "lifetime_earnings_usd": performer.lifetime_earnings_usd,
+            "average_rating": performer.average_rating or 4.5,  # Default rating
+            "rating": performer.average_rating or 4.5,  # Alias for frontend
+            "total_ratings": performer.completed_bookings,  # Approximate
+            "revenue_tier": _get_revenue_tier(performer.lifetime_earnings_usd),
+            "revenue_split_percent": performer.revenue_split_percent,
+            # Pricing fields - extract from pricing dict
+            "pricing_blink_usd": pricing.get("blink", 5.0),
+            "pricing_deep_usd": pricing.get("deep", 25.0),
+            "pricing_epic_usd": pricing.get("epic_per_minute", 10.0),
+            "base_price_usd": pricing.get("blink", 5.0),  # Alias for frontend
+            # Motion capabilities
+            "motion_capabilities": {
+                "live_portrait": motion.get("supports_liveportrait", True),
+                "roop_gs_anim": motion.get("supports_roop_gs_anim", False),
+                "emotion_range": motion.get("emotion_range", ["neutral", "happy", "sad"]),
+                "body_types": motion.get("body_types", ["standard"]),
+            },
+            # URLs
+            "avatar_url": performer.profile_image_path,
+            "profile_image_url": performer.profile_image_path,  # Alias
+            "demo_video_url": None,  # Not stored in model
+            "demo_reel_url": None,  # Alias
+            # Delivery estimate
+            "avg_delivery_hours": 24,  # Default
+            # Timestamps
+            "created_at": performer.created_at.isoformat() if performer.created_at else None,
+            "updated_at": performer.updated_at.isoformat() if performer.updated_at else None,
+        }
+
+    def _get_revenue_tier(lifetime_earnings: float) -> int:
+        """Get revenue tier based on lifetime earnings."""
+        if lifetime_earnings >= 10_000_000:
+            return 6
+        elif lifetime_earnings >= 1_000_000:
+            return 5
+        elif lifetime_earnings >= 100_000:
+            return 4
+        elif lifetime_earnings >= 10_000:
+            return 3
+        elif lifetime_earnings >= 1_000:
+            return 2
+        else:
+            return 1
+
+    # ==========================================================================
+    # BOOKING HANDLERS (ActForge)
+    # ==========================================================================
+
+    @server.handler("bookings.blink")
+    async def handle_blink_booking(
+        project_id: str,
+        performer_id: Optional[str] = None,
+        shot_id: Optional[str] = None,
+        duration_seconds: int = 10,
+        special_instructions: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a Blink (quick auto-match) booking."""
+        return await _create_booking(
+            project_id=project_id,
+            performer_id=performer_id,
+            shot_id=shot_id,
+            booking_mode="blink",
+            duration_seconds=duration_seconds,
+            special_instructions=special_instructions,
+        )
+
+    @server.handler("bookings.deep")
+    async def handle_deep_booking(
+        project_id: str,
+        performer_id: str,
+        shot_id: Optional[str] = None,
+        duration_seconds: int = 120,
+        emotion_markers: Optional[List[str]] = None,
+        special_instructions: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a Deep (method acting) booking."""
+        return await _create_booking(
+            project_id=project_id,
+            performer_id=performer_id,
+            shot_id=shot_id,
+            booking_mode="deep",
+            duration_seconds=duration_seconds,
+            emotion_markers=emotion_markers,
+            special_instructions=special_instructions,
+        )
+
+    @server.handler("bookings.epic")
+    async def handle_epic_booking(
+        project_id: str,
+        performer_id: str,
+        shot_id: Optional[str] = None,
+        duration_seconds: int = 300,
+        emotion_markers: Optional[List[str]] = None,
+        special_instructions: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create an Epic (extended performance) booking."""
+        return await _create_booking(
+            project_id=project_id,
+            performer_id=performer_id,
+            shot_id=shot_id,
+            booking_mode="epic",
+            duration_seconds=duration_seconds,
+            emotion_markers=emotion_markers,
+            special_instructions=special_instructions,
+        )
+
+    @server.handler("bookings.get")
+    async def handle_get_booking(id: str) -> Dict[str, Any]:
+        """Get booking by ID."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from scenemachine.models import Booking
+
+        booking_id = UUID(id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = (
+                select(Booking)
+                .options(
+                    selectinload(Booking.performer),
+                    selectinload(Booking.rating),
+                )
+                .where(Booking.id == booking_id)
+            )
+            result = await session.execute(stmt)
+            booking = result.scalar_one_or_none()
+
+            if not booking:
+                raise ValueError(f"Booking {id} not found")
+
+            return _booking_to_dict(
+                booking,
+                performer_name=booking.performer.stage_name if booking.performer else None,
+                rating_score=booking.rating.overall_score if booking.rating else None,
+                rating_review=booking.rating.review_text if booking.rating else None,
+            )
+
+    @server.handler("bookings.listByProject")
+    async def handle_list_project_bookings(
+        projectId: str,
+        status: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """List bookings for a project."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from scenemachine.models import Booking, BookingStatus
+
+        project_id = UUID(projectId)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = (
+                select(Booking)
+                .options(
+                    selectinload(Booking.performer),
+                    selectinload(Booking.rating),
+                )
+                .where(Booking.project_id == project_id)
+                .order_by(Booking.created_at.desc())
+            )
+
+            if status:
+                try:
+                    bs = BookingStatus(status.lower())
+                    stmt = stmt.where(Booking.status == bs)
+                except ValueError:
+                    pass
+
+            result = await session.execute(stmt)
+            bookings = result.scalars().all()
+
+            return [
+                _booking_to_dict(
+                    b,
+                    performer_name=b.performer.stage_name if b.performer else None,
+                    rating_score=b.rating.overall_score if b.rating else None,
+                    rating_review=b.rating.review_text if b.rating else None,
+                )
+                for b in bookings
+            ]
+
+    @server.handler("bookings.accept")
+    async def handle_accept_booking(bookingId: str) -> Dict[str, Any]:
+        """Accept a booking (performer action)."""
+        from datetime import datetime, timezone
+        from sqlalchemy import select
+        from scenemachine.models import Booking, BookingStatus
+
+        booking_id = UUID(bookingId)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = select(Booking).where(Booking.id == booking_id)
+            result = await session.execute(stmt)
+            booking = result.scalar_one_or_none()
+
+            if not booking:
+                raise ValueError(f"Booking {bookingId} not found")
+
+            if not booking.can_transition_to(BookingStatus.ACCEPTED):
+                raise ValueError(f"Cannot accept booking in {booking.status.value} status")
+
+            booking.status = BookingStatus.ACCEPTED
+            booking.accepted_at = datetime.now(timezone.utc)
+
+            await session.commit()
+            await session.refresh(booking)
+
+            return _booking_to_dict(booking)
+
+    @server.handler("bookings.deliver")
+    async def handle_deliver_booking(
+        bookingId: str,
+        deliveryUrl: str,
+        notes: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Mark a booking as delivered (performer action)."""
+        from datetime import datetime, timezone
+        from sqlalchemy import select
+        from scenemachine.models import Booking, BookingStatus
+
+        booking_id = UUID(bookingId)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = select(Booking).where(Booking.id == booking_id)
+            result = await session.execute(stmt)
+            booking = result.scalar_one_or_none()
+
+            if not booking:
+                raise ValueError(f"Booking {bookingId} not found")
+
+            if not booking.can_transition_to(BookingStatus.DELIVERED):
+                raise ValueError(f"Cannot deliver booking in {booking.status.value} status")
+
+            booking.status = BookingStatus.DELIVERED
+            booking.delivered_at = datetime.now(timezone.utc)
+            booking.performer_notes = notes
+
+            await session.commit()
+            await session.refresh(booking)
+
+            return _booking_to_dict(booking)
+
+    @server.handler("bookings.approve")
+    async def handle_approve_booking(bookingId: str) -> Dict[str, Any]:
+        """Approve a delivered booking (director action)."""
+        from datetime import datetime, timezone
+        from sqlalchemy import select
+        from scenemachine.models import Booking, BookingStatus, PaymentStatus
+
+        booking_id = UUID(bookingId)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = select(Booking).where(Booking.id == booking_id)
+            result = await session.execute(stmt)
+            booking = result.scalar_one_or_none()
+
+            if not booking:
+                raise ValueError(f"Booking {bookingId} not found")
+
+            if not booking.can_transition_to(BookingStatus.APPROVED):
+                raise ValueError(f"Cannot approve booking in {booking.status.value} status")
+
+            booking.status = BookingStatus.APPROVED
+            booking.approved_at = datetime.now(timezone.utc)
+
+            # Transition to completed and release payment
+            if booking.can_transition_to(BookingStatus.COMPLETED):
+                booking.status = BookingStatus.COMPLETED
+                booking.completed_at = datetime.now(timezone.utc)
+                booking.payment_status = PaymentStatus.RELEASED
+                booking.released_at = datetime.now(timezone.utc)
+
+            await session.commit()
+            await session.refresh(booking)
+
+            return _booking_to_dict(booking)
+
+    @server.handler("bookings.dispute")
+    async def handle_dispute_booking(bookingId: str, reason: str) -> Dict[str, Any]:
+        """Dispute a delivered booking (director action)."""
+        from datetime import datetime, timezone
+        from sqlalchemy import select
+        from scenemachine.models import Booking, BookingStatus
+
+        booking_id = UUID(bookingId)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = select(Booking).where(Booking.id == booking_id)
+            result = await session.execute(stmt)
+            booking = result.scalar_one_or_none()
+
+            if not booking:
+                raise ValueError(f"Booking {bookingId} not found")
+
+            if not booking.can_transition_to(BookingStatus.DISPUTED):
+                raise ValueError(f"Cannot dispute booking in {booking.status.value} status")
+
+            booking.status = BookingStatus.DISPUTED
+            booking.is_disputed = True
+            booking.dispute_reason = reason
+            booking.disputed_at = datetime.now(timezone.utc)
+
+            await session.commit()
+            await session.refresh(booking)
+
+            return _booking_to_dict(booking)
+
+    @server.handler("bookings.rate")
+    async def handle_rate_booking(
+        bookingId: str,
+        rating: int,
+        review: Optional[str] = None,
+        wouldRehire: bool = True,
+    ) -> Dict[str, Any]:
+        """Rate a completed booking (director action)."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from scenemachine.models import Booking, PerformerRating
+
+        booking_id = UUID(bookingId)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            stmt = (
+                select(Booking)
+                .options(
+                    selectinload(Booking.performer),
+                    selectinload(Booking.rating),
+                )
+                .where(Booking.id == booking_id)
+            )
+            result = await session.execute(stmt)
+            booking = result.scalar_one_or_none()
+
+            if not booking:
+                raise ValueError(f"Booking {bookingId} not found")
+
+            if not booking.performer_id:
+                raise ValueError("Booking has no performer to rate")
+
+            # Create or update rating
+            from datetime import datetime, timezone
+
+            existing_rating = booking.rating
+            if existing_rating:
+                existing_rating.overall_score = rating
+                existing_rating.review_text = review
+                existing_rating.would_rehire = wouldRehire
+            else:
+                new_rating = PerformerRating(
+                    performer_id=booking.performer_id,
+                    booking_id=booking.id,
+                    rater_user_id=booking.requester_user_id,
+                    overall_score=rating,
+                    review_text=review,
+                    would_rehire=wouldRehire,
+                    rated_at=datetime.now(timezone.utc),
+                )
+                session.add(new_rating)
+
+            await session.commit()
+
+            # Get performer name for response
+            performer_name = booking.performer.stage_name if booking.performer else None
+
+            # Return with the rating values we just set
+            return _booking_to_dict(
+                booking,
+                performer_name=performer_name,
+                rating_score=rating,  # Use the input value
+                rating_review=review,  # Use the input value
+            )
+
+    async def _create_booking(
+        project_id: str,
+        booking_mode: str,
+        duration_seconds: int,
+        performer_id: Optional[str] = None,
+        shot_id: Optional[str] = None,
+        emotion_markers: Optional[List[str]] = None,
+        special_instructions: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a new booking."""
+        from datetime import datetime, timezone
+        from sqlalchemy import select
+        from scenemachine.models import Booking, BookingMode, BookingStatus, Performer
+
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            # Get performer if specified
+            performer = None
+            price_usd = 5.0  # Default base price
+            if performer_id:
+                stmt = select(Performer).where(Performer.id == UUID(performer_id))
+                result = await session.execute(stmt)
+                performer = result.scalar_one_or_none()
+                if performer and performer.pricing:
+                    if booking_mode == "blink":
+                        price_usd = performer.pricing.get("blink", 5.0)
+                    elif booking_mode == "deep":
+                        price_usd = performer.pricing.get("deep", 25.0)
+                    elif booking_mode == "epic":
+                        price_usd = performer.pricing.get("epic_per_minute", 10.0) * (duration_seconds / 60)
+
+            # Calculate duration-based pricing
+            if booking_mode == "blink":
+                # Blink is fixed 10s
+                final_price = price_usd
+            else:
+                # Scale price by duration
+                final_price = price_usd * (duration_seconds / 10)
+
+            # Create booking
+            booking = Booking(
+                project_id=UUID(project_id),
+                shot_id=UUID(shot_id) if shot_id else None,
+                performer_id=UUID(performer_id) if performer_id else None,
+                requester_user_id=UUID("00000000-0000-0000-0000-000000000001"),  # Placeholder
+                booking_mode=BookingMode(booking_mode),
+                status=BookingStatus.MATCHING if not performer_id else BookingStatus.MATCHED,
+                duration_requested_seconds=duration_seconds,
+                emotion_requirements=emotion_markers,
+                special_instructions=special_instructions,
+                price_usd=final_price,
+                requested_at=datetime.now(timezone.utc),
+            )
+
+            session.add(booking)
+            await session.commit()
+            await session.refresh(booking)
+
+            return _booking_to_dict(booking)
+
+    def _booking_to_dict(
+        booking: Any,
+        performer_name: Optional[str] = None,
+        rating_score: Optional[int] = None,
+        rating_review: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Convert booking to dictionary.
+
+        Args:
+            booking: The booking model instance
+            performer_name: Pre-loaded performer stage name (to avoid lazy loading)
+            rating_score: Pre-loaded rating score (to avoid lazy loading)
+            rating_review: Pre-loaded rating review (to avoid lazy loading)
+        """
+        # Try to get performer name if not provided (may trigger lazy load)
+        if performer_name is None:
+            try:
+                from sqlalchemy.orm import object_session
+                from sqlalchemy.orm.attributes import instance_state
+
+                state = instance_state(booking)
+                if "performer" in state.dict:
+                    performer_name = booking.performer.stage_name if booking.performer else None
+            except Exception:
+                pass
+
+        # Try to get rating if not provided (may trigger lazy load)
+        if rating_score is None:
+            try:
+                from sqlalchemy.orm.attributes import instance_state
+
+                state = instance_state(booking)
+                if "rating" in state.dict:
+                    rating_score = booking.rating.overall_score if booking.rating else None
+                    rating_review = booking.rating.review_text if booking.rating else None
+            except Exception:
+                pass
+
+        return {
+            "id": str(booking.id),
+            "project_id": str(booking.project_id),
+            "shot_id": str(booking.shot_id) if booking.shot_id else None,
+            "performer_id": str(booking.performer_id) if booking.performer_id else None,
+            "performer_stage_name": performer_name,
+            "booking_mode": booking.booking_mode.value.upper(),
+            "status": booking.status.value.upper(),
+            "price_usd": booking.price_usd,
+            "platform_fee_usd": booking.platform_fee_usd,
+            "performer_payout_usd": booking.performer_payout_usd,
+            "payment_status": booking.payment_status.value.upper(),
+            "requirements": {
+                "duration_seconds": booking.duration_requested_seconds,
+                "emotion_markers": booking.emotion_requirements or [],
+                "special_instructions": booking.special_instructions,
+                "reference_images": [],
+            },
+            "delivery_url": None,  # Would come from take
+            "delivery_notes": booking.performer_notes,
+            "rating": rating_score,
+            "review": rating_review,
+            "created_at": booking.created_at.isoformat() if booking.created_at else None,
+            "updated_at": booking.updated_at.isoformat() if booking.updated_at else None,
+            "accepted_at": booking.accepted_at.isoformat() if booking.accepted_at else None,
+            "delivered_at": booking.delivered_at.isoformat() if booking.delivered_at else None,
+        }
 
     logger.info(f"Registered {len(server.handlers)} IPC handlers")

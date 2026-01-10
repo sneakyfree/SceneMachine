@@ -264,11 +264,41 @@ async def get_format_optimization(
 
     recommendations = FORMAT_RECOMMENDATIONS[channel]
 
-    # Analyze current format (would need actual video metadata)
-    # For now, assume 16:9 horizontal as default
-    original_format = "16:9"
+    # Detect actual aspect ratio from video metadata
+    original_format = None
+
+    # Check transcoded_versions first for cached aspect ratio
     if video.transcoded_versions:
-        original_format = video.transcoded_versions.get("aspect_ratio", "16:9")
+        original_format = video.transcoded_versions.get("aspect_ratio")
+
+    # If not cached, derive from video dimensions
+    if not original_format and video.width and video.height:
+        width = video.width
+        height = video.height
+        aspect_ratio = width / height
+
+        # Map to standard aspect ratios with tolerance
+        if abs(aspect_ratio - (9/16)) < 0.05:
+            original_format = "9:16"
+        elif abs(aspect_ratio - 1.0) < 0.05:
+            original_format = "1:1"
+        elif abs(aspect_ratio - (16/9)) < 0.05:
+            original_format = "16:9"
+        elif abs(aspect_ratio - 2.35) < 0.1:
+            original_format = "2.35:1"
+        elif abs(aspect_ratio - 1.43) < 0.1:
+            original_format = "1.43:1"
+        elif abs(aspect_ratio - (4/3)) < 0.05:
+            original_format = "4:3"
+        elif aspect_ratio < 1:
+            original_format = "9:16"  # Vertical
+        else:
+            original_format = "16:9"  # Default horizontal
+
+    # Fallback to 16:9 if no dimensions available
+    if not original_format:
+        original_format = "16:9"
+        logger.warning(f"Could not detect aspect ratio for video {video.id}, defaulting to 16:9")
 
     # Determine recommended format
     try:

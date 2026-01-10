@@ -23,6 +23,7 @@ from ....shared.models import (
     WatchHistory,
     WatchSession,
     ViewEvent,
+    TicketPurchase,
     VIEW_DEDUP_WINDOW_HOURS,
     VIEW_MINIMUM_WATCH_PERCENT,
     VIEW_MINIMUM_WATCH_SECONDS,
@@ -132,11 +133,28 @@ async def get_manifest(
 
     # Check monetization
     if video.monetization_type.value == "paid":
-        # TODO: Check if user has purchased access
         if current_user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication required for paid content",
+            )
+
+        # Check if user has purchased access to this video
+        purchase_result = await session.execute(
+            select(TicketPurchase).where(
+                and_(
+                    TicketPurchase.buyer_id == current_user.id,
+                    TicketPurchase.video_id == video_id,
+                    TicketPurchase.status == "completed",
+                )
+            )
+        )
+        purchase = purchase_result.scalar_one_or_none()
+
+        if purchase is None and not is_owner:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Purchase required to access this content",
             )
 
     # Get transcoded versions

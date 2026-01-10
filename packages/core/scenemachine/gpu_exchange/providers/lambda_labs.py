@@ -8,6 +8,8 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
+import httpx
+
 from scenemachine.gpu_exchange.base import (
     GPUExchangeProvider,
     GPUInstance,
@@ -51,6 +53,9 @@ class LambdaLabsProvider(GPUExchangeProvider):
         GPUType.H100: 2.49,
     }
 
+    # Lambda Labs API base URL
+    API_BASE = "https://cloud.lambdalabs.com/api/v1"
+
     def __init__(self, api_key: Optional[str] = None) -> None:
         """Initialize Lambda Labs provider.
 
@@ -58,7 +63,32 @@ class LambdaLabsProvider(GPUExchangeProvider):
             api_key: Lambda Labs API key
         """
         self.api_key = api_key
-        self._client = None
+        self._client: Optional[httpx.AsyncClient] = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create HTTP client with auth."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.API_BASE,
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=30.0,
+            )
+        return self._client
+
+    async def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Make an authenticated API request."""
+        client = await self._get_client()
+        response = await client.request(method, endpoint, **kwargs)
+        response.raise_for_status()
+        return response.json()
 
     @property
     def name(self) -> str:
@@ -91,39 +121,52 @@ class LambdaLabsProvider(GPUExchangeProvider):
         gpu_type: Optional[GPUType] = None,
         region: Optional[str] = None,
     ) -> List[GPUInstance]:
-        """Get available Lambda Labs instances."""
+        """Get available Lambda Labs instances from the API."""
         if not self.api_key:
             logger.warning("Lambda Labs API key not configured")
             return []
 
         try:
-            # In production, this would call the Lambda Labs API
-            # For now, return simulated availability
+            # Query instance types from Lambda Labs API
+            data = await self._make_request("GET", "/instance-types")
+            instance_types = data.get("data", {})
+
             instances = []
 
-            for gtype, instance_type in self.INSTANCE_TYPES.items():
+            for instance_name, info in instance_types.items():
+                # Map Lambda instance type to our GPU type
+                specs = info.get("instance_type", {}).get("specs", {})
+                gpu_count = specs.get("gpus", 1)
+                gpu_name = specs.get("gpu_description", "").lower()
+
+                # Determine GPU type from specs
+                gtype = self._map_gpu_type(gpu_name)
+                if gtype is None:
+                    continue
+
                 if gpu_type and gtype != gpu_type:
                     continue
 
-                # Simulate availability check
-                for reg in self.regions:
-                    if region and reg != region:
+                # Check regions with availability
+                regions_available = info.get("regions_with_capacity_available", [])
+                for reg in regions_available:
+                    reg_name = reg.get("name", "unknown")
+                    if region and reg_name != region:
                         continue
 
-                    # Get pricing
-                    pricing = await self.get_current_pricing(gtype, reg)
+                    pricing = await self.get_current_pricing(gtype, reg_name)
 
                     instances.append(
                         GPUInstance(
-                            id=f"lambda_{instance_type}_{reg}",
+                            id=f"lambda_{instance_name}_{reg_name}",
                             provider=self.provider_id,
                             gpu_type=gtype,
-                            gpu_count=1,
-                            vram_gb=self._get_vram(gtype),
-                            cpu_cores=30,
-                            ram_gb=200,
-                            storage_gb=512,
-                            region=reg,
+                            gpu_count=gpu_count,
+                            vram_gb=specs.get("memory_gib", self._get_vram(gtype)),
+                            cpu_cores=specs.get("vcpus", 30),
+                            ram_gb=specs.get("ram_gib", 200),
+                            storage_gb=specs.get("storage_gib", 512),
+                            region=reg_name,
                             is_available=True,
                             is_spot=False,
                             pricing=pricing,
@@ -133,9 +176,25 @@ class LambdaLabsProvider(GPUExchangeProvider):
 
             return instances
 
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Lambda Labs API error: {e.response.status_code} - {e.response.text}")
+            return []
         except Exception as e:
             logger.error(f"Failed to get Lambda Labs instances: {e}")
             return []
+
+    def _map_gpu_type(self, gpu_description: str) -> Optional[GPUType]:
+        """Map GPU description to our GPUType enum."""
+        desc_lower = gpu_description.lower()
+        if "h100" in desc_lower:
+            return GPUType.H100
+        elif "a100" in desc_lower and "80" in desc_lower:
+            return GPUType.A100_80GB
+        elif "a100" in desc_lower:
+            return GPUType.A100_40GB
+        elif "a10" in desc_lower:
+            return GPUType.A10
+        return None
 
     def _get_vram(self, gpu_type: GPUType) -> int:
         """Get VRAM for GPU type."""
@@ -199,11 +258,38 @@ class LambdaLabsProvider(GPUExchangeProvider):
             )
 
         try:
-            # In production, this would call Lambda Labs API to launch instance
-            # lambda_cloud.instances.create(...)
+            # Get the Lambda Labs instance type name
+            instance_type = self.INSTANCE_TYPES.get(gpu_type)
+            if not instance_type:
+                return ProvisionResult(
+                    success=False,
+                    error_message=f"No instance type mapping for {gpu_type}",
+                    error_code="UNSUPPORTED_GPU",
+                )
 
-            # Simulate successful provision
-            instance_id = f"i-lambda-{gpu_type.value}-{region or 'us-tx-1'}"
+            # Launch instance via Lambda Labs API
+            launch_data = {
+                "region_name": region or "us-tx-1",
+                "instance_type_name": instance_type,
+                "ssh_key_names": [],  # Would be configured per-user
+                "quantity": 1,
+            }
+
+            response = await self._make_request("POST", "/instance-operations/launch", json=launch_data)
+            instance_ids = response.get("data", {}).get("instance_ids", [])
+
+            if not instance_ids:
+                return ProvisionResult(
+                    success=False,
+                    error_message="No instance launched",
+                    error_code="LAUNCH_FAILED",
+                )
+
+            instance_id = instance_ids[0]
+
+            # Get instance details
+            details = await self._make_request("GET", f"/instances/{instance_id}")
+            instance_data = details.get("data", {})
 
             return ProvisionResult(
                 success=True,
@@ -214,16 +300,25 @@ class LambdaLabsProvider(GPUExchangeProvider):
                     gpu_type=gpu_type,
                     gpu_count=1,
                     vram_gb=self._get_vram(gpu_type),
-                    region=region or "us-tx-1",
+                    region=instance_data.get("region", {}).get("name", region or "us-tx-1"),
                     is_available=True,
                     pricing=pricing,
                 ),
-                ssh_host=f"{instance_id}.cloud.lambdalabs.com",
+                ssh_host=instance_data.get("ip", f"{instance_id}.cloud.lambdalabs.com"),
                 ssh_port=22,
                 ssh_user="ubuntu",
                 startup_time_seconds=45.0,
             )
 
+        except httpx.HTTPStatusError as e:
+            error_data = e.response.json() if e.response.content else {}
+            error_msg = error_data.get("error", {}).get("message", str(e))
+            logger.error(f"Lambda Labs API error during provision: {error_msg}")
+            return ProvisionResult(
+                success=False,
+                error_message=error_msg,
+                error_code="API_ERROR",
+            )
         except Exception as e:
             logger.error(f"Failed to provision Lambda Labs instance: {e}")
             return ProvisionResult(
@@ -238,9 +333,17 @@ class LambdaLabsProvider(GPUExchangeProvider):
             return False
 
         try:
-            # In production: lambda_cloud.instances.terminate(instance_id)
+            # Call Lambda Labs API to terminate instance
+            await self._make_request(
+                "POST",
+                "/instance-operations/terminate",
+                json={"instance_ids": [instance_id]},
+            )
             logger.info(f"Terminated Lambda Labs instance: {instance_id}")
             return True
+        except httpx.HTTPStatusError as e:
+            logger.error(f"API error terminating instance {instance_id}: {e.response.status_code}")
+            return False
         except Exception as e:
             logger.error(f"Failed to terminate instance {instance_id}: {e}")
             return False
@@ -259,9 +362,8 @@ class LambdaLabsProvider(GPUExchangeProvider):
 
             start = time.time()
 
-            # In production, make a lightweight API call
-            # await self._make_request("instance-types")
-            await asyncio.sleep(0.1)  # Simulate API call
+            # Make a lightweight API call to check health
+            await self._make_request("GET", "/instance-types")
 
             latency = (time.time() - start) * 1000
 
@@ -275,6 +377,12 @@ class LambdaLabsProvider(GPUExchangeProvider):
                 instances_available=available_count,
             )
 
+        except httpx.HTTPStatusError as e:
+            return ProviderHealth(
+                available=False,
+                message=f"API error: {e.response.status_code}",
+                error_code="API_ERROR",
+            )
         except Exception as e:
             return ProviderHealth(
                 available=False,

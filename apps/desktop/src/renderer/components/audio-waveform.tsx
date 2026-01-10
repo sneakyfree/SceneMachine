@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Pause, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Loader2, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface AudioWaveformProps {
@@ -20,6 +20,30 @@ interface AudioWaveformProps {
   onEnded?: () => void;
   externalCurrentTime?: number;
   onSeek?: (time: number) => void;
+  /**
+   * Enable zoom controls
+   */
+  zoomable?: boolean;
+  /**
+   * Initial zoom level (1 = full view, higher = zoomed in)
+   */
+  initialZoom?: number;
+  /**
+   * Show time markers
+   */
+  showTimeMarkers?: boolean;
+  /**
+   * Cut points from video timeline for snap-to-cut feature
+   */
+  cutPoints?: number[];
+  /**
+   * Called when near a cut point during seeking
+   */
+  onSnapToCut?: (cutTime: number) => void;
+  /**
+   * Snap threshold in seconds
+   */
+  snapThreshold?: number;
 }
 
 function formatTime(seconds: number): string {
@@ -43,12 +67,19 @@ export function AudioWaveform({
   onEnded,
   externalCurrentTime,
   onSeek,
+  zoomable = false,
+  initialZoom = 1,
+  showTimeMarkers = false,
+  cutPoints = [],
+  onSnapToCut,
+  snapThreshold = 0.5,
 }: AudioWaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number>();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const [waveformData, setWaveformData] = useState<number[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -58,6 +89,11 @@ export function AudioWaveform({
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(initialZoom);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showSnapIndicator, setShowSnapIndicator] = useState(false);
+  const [snapTime, setSnapTime] = useState<number | null>(null);
 
   // Load and analyze audio file
   useEffect(() => {
@@ -175,31 +211,92 @@ export function AudioWaveform({
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
 
-    const width = rect.width;
-    const barWidth = width / waveformData.length;
+    const visibleWidth = rect.width;
+    const totalWidth = visibleWidth * zoom;
+    const barWidth = totalWidth / waveformData.length;
     const progress = duration > 0 ? currentTime / duration : 0;
-    const progressX = progress * width;
+    const progressX = progress * totalWidth - scrollOffset;
 
     // Clear
     ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, visibleWidth, height);
+
+    // Calculate visible range
+    const startIndex = Math.floor((scrollOffset / totalWidth) * waveformData.length);
+    const endIndex = Math.ceil(((scrollOffset + visibleWidth) / totalWidth) * waveformData.length);
 
     // Draw waveform bars
-    waveformData.forEach((value, index) => {
-      const x = index * barWidth;
-      const barHeight = value * (height - 10);
-      const y = (height - barHeight) / 2;
+    for (let i = Math.max(0, startIndex - 1); i < Math.min(waveformData.length, endIndex + 1); i++) {
+      const value = waveformData[i];
+      const x = (i * barWidth) - scrollOffset;
+      const barHeight = value * (height - (showTimeMarkers ? 20 : 10));
+      const y = (height - barHeight - (showTimeMarkers ? 10 : 0)) / 2 + (showTimeMarkers ? 10 : 0);
 
-      ctx.fillStyle = x < progressX ? progressColor : waveColor;
-      ctx.fillRect(x, y, barWidth - 1, barHeight);
-    });
+      const barProgress = i / waveformData.length;
+      ctx.fillStyle = barProgress < progress ? progressColor : waveColor;
+      ctx.fillRect(x, y, Math.max(barWidth - 1, 1), barHeight);
+    }
+
+    // Draw time markers
+    if (showTimeMarkers && duration > 0) {
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '10px sans-serif';
+
+      // Calculate marker interval based on zoom
+      const markerInterval = zoom > 4 ? 1 : zoom > 2 ? 5 : zoom > 1.5 ? 10 : 30;
+
+      for (let t = 0; t <= duration; t += markerInterval) {
+        const x = (t / duration) * totalWidth - scrollOffset;
+        if (x >= -20 && x <= visibleWidth + 20) {
+          ctx.fillRect(x, 0, 1, 8);
+          ctx.fillText(formatTime(t), x + 2, 8);
+        }
+      }
+    }
+
+    // Draw cut points
+    if (cutPoints.length > 0 && duration > 0) {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+
+      cutPoints.forEach((cutTime) => {
+        const x = (cutTime / duration) * totalWidth - scrollOffset;
+        if (x >= 0 && x <= visibleWidth) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+      });
+
+      ctx.setLineDash([]);
+    }
+
+    // Draw snap indicator
+    if (showSnapIndicator && snapTime !== null && duration > 0) {
+      const snapX = (snapTime / duration) * totalWidth - scrollOffset;
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(snapX - 2, 0, 4, height);
+      ctx.fillStyle = '#22c55e';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('SNAP', snapX + 5, 15);
+    }
 
     // Draw playhead
-    if (progress > 0) {
+    if (progress > 0 && progressX >= 0 && progressX <= visibleWidth) {
       ctx.fillStyle = progressColor;
       ctx.fillRect(progressX - 1, 0, 2, height);
+
+      // Playhead triangle
+      ctx.beginPath();
+      ctx.moveTo(progressX - 5, 0);
+      ctx.lineTo(progressX + 5, 0);
+      ctx.lineTo(progressX, 8);
+      ctx.closePath();
+      ctx.fill();
     }
-  }, [waveformData, currentTime, duration, height, waveColor, progressColor, backgroundColor]);
+  }, [waveformData, currentTime, duration, height, waveColor, progressColor, backgroundColor, zoom, scrollOffset, showTimeMarkers, cutPoints, showSnapIndicator, snapTime]);
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current;
@@ -212,18 +309,112 @@ export function AudioWaveform({
     }
   }, []);
 
+  // Check if seeking should snap to a cut point
+  const checkSnapToCut = useCallback(
+    (seekTime: number, shiftKey: boolean): number => {
+      if (shiftKey || cutPoints.length === 0) {
+        // Shift disables snapping
+        setShowSnapIndicator(false);
+        return seekTime;
+      }
+
+      // Find nearest cut point within threshold
+      for (const cutTime of cutPoints) {
+        if (Math.abs(seekTime - cutTime) <= snapThreshold) {
+          setShowSnapIndicator(true);
+          setSnapTime(cutTime);
+          onSnapToCut?.(cutTime);
+          setTimeout(() => {
+            setShowSnapIndicator(false);
+            setSnapTime(null);
+          }, 500);
+          return cutTime;
+        }
+      }
+
+      setShowSnapIndicator(false);
+      return seekTime;
+    },
+    [cutPoints, snapThreshold, onSnapToCut]
+  );
+
   const handleSeek = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     const audio = audioRef.current;
     if (!canvas || !audio) return;
 
     const rect = canvas.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    const newTime = percent * duration;
+    const totalWidth = rect.width * zoom;
+    const clickX = e.clientX - rect.left + scrollOffset;
+    const percent = clickX / totalWidth;
+    const rawTime = percent * duration;
+
+    // Check for snap-to-cut
+    const newTime = checkSnapToCut(Math.max(0, Math.min(duration, rawTime)), e.shiftKey);
 
     audio.currentTime = newTime;
     onSeek?.(newTime);
-  }, [duration, onSeek]);
+  }, [duration, onSeek, zoom, scrollOffset, checkSnapToCut]);
+
+  // Zoom controls
+  const handleZoomIn = useCallback(() => {
+    setZoom((prev) => Math.min(prev * 1.5, 10));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((prev) => Math.max(prev / 1.5, 1));
+  }, []);
+
+  const handleZoomReset = useCallback(() => {
+    setZoom(1);
+    setScrollOffset(0);
+  }, []);
+
+  // Handle scroll for panning zoomed waveform
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<HTMLCanvasElement>) => {
+      if (zoom <= 1) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const totalWidth = rect.width * zoom;
+      const maxScroll = totalWidth - rect.width;
+
+      if (e.shiftKey) {
+        // Horizontal scroll with shift
+        e.preventDefault();
+        setScrollOffset((prev) => Math.max(0, Math.min(maxScroll, prev + e.deltaY)));
+      } else if (e.ctrlKey || e.metaKey) {
+        // Zoom with ctrl/cmd
+        e.preventDefault();
+        const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+        setZoom((prev) => Math.max(1, Math.min(10, prev * zoomDelta)));
+      }
+    },
+    [zoom]
+  );
+
+  // Keep playhead in view when zoomed
+  useEffect(() => {
+    if (zoom <= 1 || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const totalWidth = rect.width * zoom;
+    const playheadX = (currentTime / duration) * totalWidth;
+    const maxScroll = totalWidth - rect.width;
+
+    // Auto-scroll to keep playhead visible
+    if (isPlaying) {
+      if (playheadX < scrollOffset) {
+        setScrollOffset(Math.max(0, playheadX - 50));
+      } else if (playheadX > scrollOffset + rect.width - 50) {
+        setScrollOffset(Math.min(maxScroll, playheadX - rect.width + 100));
+      }
+    }
+  }, [currentTime, duration, zoom, scrollOffset, isPlaying]);
 
   const toggleMute = useCallback(() => {
     const audio = audioRef.current;
@@ -260,7 +451,7 @@ export function AudioWaveform({
       />
 
       {/* Waveform canvas */}
-      <div className="relative">
+      <div className="relative" ref={containerRef}>
         {isLoading ? (
           <div
             className="flex items-center justify-center"
@@ -274,7 +465,15 @@ export function AudioWaveform({
             className="w-full cursor-pointer"
             style={{ height }}
             onClick={handleSeek}
+            onWheel={handleWheel}
           />
+        )}
+
+        {/* Zoom indicator */}
+        {zoom > 1 && (
+          <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-surface-900/80 rounded text-xs text-surface-400">
+            {zoom.toFixed(1)}x
+          </div>
         )}
       </div>
 
@@ -299,6 +498,39 @@ export function AudioWaveform({
           </div>
 
           <div className="flex-1" />
+
+          {/* Zoom controls */}
+          {zoomable && (
+            <div className="flex items-center gap-1 border-r border-surface-700 pr-3 mr-2">
+              <button
+                onClick={handleZoomOut}
+                disabled={zoom <= 1}
+                className="icon-btn p-1.5 text-surface-400 hover:text-white transition-colors disabled:opacity-30 rounded"
+                aria-label="Zoom out"
+                title="Zoom out"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleZoomReset}
+                disabled={zoom === 1}
+                className="icon-btn p-1.5 text-surface-400 hover:text-white transition-colors disabled:opacity-30 rounded"
+                aria-label="Reset zoom"
+                title="Reset zoom"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleZoomIn}
+                disabled={zoom >= 10}
+                className="icon-btn p-1.5 text-surface-400 hover:text-white transition-colors disabled:opacity-30 rounded"
+                aria-label="Zoom in"
+                title="Zoom in"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center gap-1">
             <button

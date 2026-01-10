@@ -2,27 +2,42 @@
  * Home page - Project list and creation.
  */
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Film, Trash2, FolderOpen } from 'lucide-react';
+import { Plus, Film, Trash2, FolderOpen, Keyboard, Search, X, RefreshCw } from 'lucide-react';
 import { api } from '../api/client';
 import { useProjectStore } from '../stores/project-store';
 import { cn, formatDate } from '../lib/utils';
+import { DataLoadError, FieldError } from '../components/error-display';
+import { useToast } from '../components/toast';
+import { announce } from '../lib/accessibility';
+import { LoadingContainer, SkeletonProjectCard } from '../components/skeleton';
 import type { Project } from '@shared/types';
 
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
   const { setCurrentProject } = useProjectStore();
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const createInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch projects
-  const { data: projects, isLoading, error } = useQuery({
+  const { data: projects, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['projects'],
     queryFn: () => api.listProjects(),
   });
+
+  // Filter projects by search
+  const filteredProjects = projects?.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
 
   // Create project mutation
   const createMutation = useMutation({
@@ -30,7 +45,21 @@ export function HomePage() {
     onSuccess: (project) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setCurrentProject(project);
+      addToast({
+        type: 'success',
+        title: 'Project Created',
+        message: `"${project.name}" has been created successfully.`,
+      });
+      announce(`Project ${project.name} created`);
       navigate(`/project/${project.id}`);
+    },
+    onError: (error) => {
+      addToast({
+        type: 'error',
+        title: 'Creation Failed',
+        message: 'Failed to create project. Please try again.',
+      });
+      announce('Failed to create project');
     },
   });
 
@@ -39,8 +68,74 @@ export function HomePage() {
     mutationFn: (id: string) => api.deleteProject(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      addToast({
+        type: 'success',
+        title: 'Project Deleted',
+        message: 'Project has been deleted.',
+      });
+      announce('Project deleted');
+      setProjectToDelete(null);
+    },
+    onError: () => {
+      addToast({
+        type: 'error',
+        title: 'Delete Failed',
+        message: 'Failed to delete project. Please try again.',
+      });
+      announce('Failed to delete project');
     },
   });
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
+      // ? - Show shortcuts
+      if (e.key === '?' && !isInputFocused) {
+        e.preventDefault();
+        setShowShortcuts(true);
+        announce('Keyboard shortcuts opened');
+      }
+      // Escape - Close dialogs
+      if (e.key === 'Escape') {
+        if (showShortcuts) {
+          setShowShortcuts(false);
+          announce('Shortcuts closed');
+        } else if (projectToDelete) {
+          setProjectToDelete(null);
+          announce('Delete cancelled');
+        } else if (isCreating) {
+          setIsCreating(false);
+          setNewProjectName('');
+          announce('Create cancelled');
+        }
+      }
+      // N - New project
+      if (e.key === 'n' && !isInputFocused && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setIsCreating(true);
+        setTimeout(() => createInputRef.current?.focus(), 100);
+        announce('Create new project');
+      }
+      // / - Focus search
+      if (e.key === '/' && !isInputFocused) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        announce('Search focused');
+      }
+      // R - Refresh
+      if (e.key === 'r' && !isInputFocused && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        refetch();
+        announce('Refreshing projects');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showShortcuts, isCreating, projectToDelete, refetch]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,47 +148,99 @@ export function HomePage() {
 
   const handleOpenProject = (project: Project) => {
     setCurrentProject(project);
+    announce(`Opening ${project.name}`);
     navigate(`/project/${project.id}`);
   };
 
-  const handleDeleteProject = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteProject = async (e: React.MouseEvent, project: Project) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this project? This cannot be undone.')) {
-      await deleteMutation.mutateAsync(id);
+    setProjectToDelete(project);
+  };
+
+  const confirmDelete = async () => {
+    if (projectToDelete) {
+      await deleteMutation.mutateAsync(projectToDelete.id);
     }
   };
 
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Projects</h1>
           <p className="text-surface-400 mt-1">
             Create and manage your screenplay-to-movie projects
           </p>
         </div>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          New Project
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowShortcuts(true)}
+            className="p-2 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded-lg"
+            title="Keyboard shortcuts (?)"
+            aria-label="Show keyboard shortcuts"
+          >
+            <Keyboard className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="p-2 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded-lg"
+            title="Refresh (R)"
+            aria-label="Refresh projects"
+          >
+            <RefreshCw className={cn('w-5 h-5', isRefetching && 'animate-spin')} />
+          </button>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="btn-primary flex items-center gap-2"
+            title="New Project (N)"
+          >
+            <Plus className="w-4 h-4" />
+            New Project
+          </button>
+        </div>
       </div>
+
+      {/* Search bar */}
+      {projects && projects.length > 0 && (
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-surface-400" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search projects... (press / to focus)"
+            className="w-full pl-10 pr-10 py-2 bg-surface-800 border border-surface-700 rounded-lg focus:border-brand-500 focus:outline-none"
+            aria-label="Search projects"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-200"
+              aria-label="Clear search"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Create project dialog */}
       {isCreating && (
-        <div className="card mb-8 animate-fade-in">
+        <div className="card mb-8 animate-fade-in" role="dialog" aria-labelledby="create-project-title">
           <form onSubmit={handleCreateProject}>
-            <h3 className="text-lg font-medium mb-4">Create New Project</h3>
+            <h3 id="create-project-title" className="text-lg font-medium mb-4">Create New Project</h3>
             <input
+              ref={createInputRef}
               type="text"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               placeholder="Project name..."
               className="input mb-4"
               autoFocus
+              aria-label="Project name"
             />
             <div className="flex gap-3">
               <button
@@ -108,26 +255,36 @@ export function HomePage() {
                 onClick={() => {
                   setIsCreating(false);
                   setNewProjectName('');
+                  announce('Create cancelled');
                 }}
                 className="btn-secondary"
               >
                 Cancel
               </button>
             </div>
+            <p className="mt-3 text-xs text-surface-500">
+              Press <kbd className="px-1 py-0.5 bg-surface-700 rounded text-xs">Escape</kbd> to cancel
+            </p>
           </form>
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading state with skeletons */}
       {isLoading && (
-        <div className="text-center py-12 text-surface-400">Loading projects...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <SkeletonProjectCard key={i} />
+          ))}
+        </div>
       )}
 
       {/* Error state */}
       {error && (
-        <div className="card border-red-500/50 bg-red-500/10 text-red-400">
-          Failed to load projects. Please check that the backend is running.
-        </div>
+        <DataLoadError
+          entity="projects"
+          error={error}
+          onRetry={() => queryClient.invalidateQueries({ queryKey: ['projects'] })}
+        />
       )}
 
       {/* Empty state */}
@@ -147,60 +304,198 @@ export function HomePage() {
 
       {/* Project grid */}
       {!isLoading && !error && projects && projects.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((project) => (
-            <div
-              key={project.id}
-              onClick={() => handleOpenProject(project)}
-              className={cn(
-                'card cursor-pointer transition-all hover:border-brand-500/50',
-                'hover:shadow-lg hover:shadow-brand-500/10'
-              )}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-brand-500/20 flex items-center justify-center">
-                    <Film className="w-5 h-5 text-brand-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">{project.name}</h3>
-                    <p className="text-sm text-surface-400">
-                      {formatDate(project.updatedAt)}
-                    </p>
-                  </div>
-                </div>
+        <>
+          {/* Search results info */}
+          {searchQuery && (
+            <p className="text-sm text-surface-400 mb-4">
+              {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} found
+              {filteredProjects.length === 0 && (
                 <button
-                  onClick={(e) => handleDeleteProject(e, project.id)}
-                  className="p-2 text-surface-500 hover:text-red-400 transition-colors"
-                  disabled={deleteMutation.isPending}
+                  onClick={() => setSearchQuery('')}
+                  className="ml-2 text-brand-400 hover:text-brand-300"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  Clear search
+                </button>
+              )}
+            </p>
+          )}
+
+          <div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            role="list"
+            aria-label="Projects"
+          >
+            {filteredProjects.map((project) => (
+              <div
+                key={project.id}
+                onClick={() => handleOpenProject(project)}
+                className={cn(
+                  'card cursor-pointer transition-all hover:border-brand-500/50',
+                  'hover:shadow-lg hover:shadow-brand-500/10'
+                )}
+                role="listitem"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleOpenProject(project);
+                  }
+                }}
+                aria-label={`${project.name}, ${project.characterCount || 0} characters, ${project.sceneCount || 0} scenes, ${project.state}`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-brand-500/20 flex items-center justify-center">
+                      <Film className="w-5 h-5 text-brand-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">{project.name}</h3>
+                      <p className="text-sm text-surface-400">
+                        {formatDate(project.updatedAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => handleDeleteProject(e, project)}
+                    className="p-2 text-surface-500 hover:text-red-400 transition-colors"
+                    disabled={deleteMutation.isPending}
+                    aria-label={`Delete ${project.name}`}
+                    title="Delete project"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Project stats */}
+                <div className="flex gap-4 text-sm text-surface-400">
+                  <span>{project.characterCount || 0} characters</span>
+                  <span>{project.sceneCount || 0} scenes</span>
+                </div>
+
+                {/* Status badge */}
+                <div className="mt-3">
+                  <span
+                    className={cn(
+                      'text-xs px-2 py-1 rounded-full',
+                      project.state === 'empty'
+                        ? 'bg-surface-800 text-surface-400'
+                        : project.state === 'complete'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-brand-500/20 text-brand-400'
+                    )}
+                  >
+                    {project.state.replace(/_/g, ' ')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Delete confirmation modal */}
+      {projectToDelete && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setProjectToDelete(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-title"
+        >
+          <div
+            className="bg-surface-900 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h2 id="delete-title" className="text-lg font-medium mb-2">Delete Project?</h2>
+              <p className="text-surface-400 mb-6">
+                Are you sure you want to delete <strong>"{projectToDelete.name}"</strong>?
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setProjectToDelete(null)}
+                  className="px-4 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={deleteMutation.isPending}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg flex items-center gap-2"
+                >
+                  {deleteMutation.isPending ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* Project stats */}
-              <div className="flex gap-4 text-sm text-surface-400">
-                <span>{project.characterCount || 0} characters</span>
-                <span>{project.sceneCount || 0} scenes</span>
+      {/* Keyboard shortcuts modal */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowShortcuts(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="shortcuts-title"
+        >
+          <div
+            className="bg-surface-900 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-surface-700 flex items-center justify-between">
+              <h2 id="shortcuts-title" className="text-lg font-medium flex items-center gap-2">
+                <Keyboard className="w-5 h-5 text-brand-400" />
+                Keyboard Shortcuts
+              </h2>
+              <button
+                onClick={() => setShowShortcuts(false)}
+                className="p-1 hover:bg-surface-700 rounded"
+                aria-label="Close shortcuts"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-surface-800">
+                <span className="text-surface-300">New project</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">N</kbd>
               </div>
-
-              {/* Status badge */}
-              <div className="mt-3">
-                <span
-                  className={cn(
-                    'text-xs px-2 py-1 rounded-full',
-                    project.state === 'empty'
-                      ? 'bg-surface-800 text-surface-400'
-                      : project.state === 'complete'
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-brand-500/20 text-brand-400'
-                  )}
-                >
-                  {project.state.replace(/_/g, ' ')}
-                </span>
+              <div className="flex items-center justify-between py-2 border-b border-surface-800">
+                <span className="text-surface-300">Search projects</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">/</kbd>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-surface-800">
+                <span className="text-surface-300">Refresh list</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">R</kbd>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-surface-800">
+                <span className="text-surface-300">Show shortcuts</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">?</kbd>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-surface-300">Close/Cancel</span>
+                <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">Escape</kbd>
               </div>
             </div>
-          ))}
+            <div className="p-4 bg-surface-800/50 text-center">
+              <p className="text-sm text-surface-400">
+                Press <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs font-mono">?</kbd> anytime to see shortcuts
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -231,13 +231,23 @@ async def complete_studio_upload(
     video.status = VideoStatus.PROCESSING
     video.transcoding_status = TranscodingStatus.IN_PROGRESS
 
-    # TODO: Queue actual transcoding task
-    # For now, simulate completion
-    video.transcoding_status = TranscodingStatus.COMPLETED
-    video.transcoding_progress = 100
-    video.status = VideoStatus.READY
-
     await db.commit()
+
+    # Queue the actual transcoding task
+    try:
+        from ..content.tasks.transcoding import process_video_upload_task
+
+        process_video_upload_task.delay(
+            video_id=str(video.id),
+            source_key=video.source_file_key,
+            creator_id=str(current_user.id),
+        )
+    except Exception as e:
+        # If task queue unavailable, log warning but don't fail the request
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Could not queue transcoding task for video {video.id}: {e}"
+        )
 
     return {
         "status": "processing",

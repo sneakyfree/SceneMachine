@@ -259,6 +259,13 @@ class CoreCastEvent(Base, UUIDMixin, TimestampMixin):
         nullable=False,
     )
 
+    # Judges (list of user UUIDs who can cast judge votes)
+    judge_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(String(36)),
+        default=list,
+        nullable=False,
+    )
+
     __table_args__ = (
         UniqueConstraint("month", "year", name="uq_corecast_month_year"),
         Index("ix_corecast_events_status", "status"),
