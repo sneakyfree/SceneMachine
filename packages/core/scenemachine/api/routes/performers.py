@@ -178,7 +178,7 @@ def performer_to_list_response(performer: Performer) -> PerformerListItemRespons
         availability_status=performer.availability_status.value,
         verification_status=performer.verification_status.value,
         total_bookings=performer.total_bookings,
-        average_rating=performer.average_rating,
+        average_rating=None,  # Avoid lazy loading ratings relationship for list
         pricing=performer.pricing,
     )
 

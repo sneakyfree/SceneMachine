@@ -132,9 +132,31 @@ class Timeline:
 
     project_id: str
     total_duration: float
-    scene_count: int
-    shot_count: int
-    scenes: List[Dict[str, Any]]
+    scene_count: int = 0
+    shot_count: int = 0
+    scenes: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class TimelineShot:
+    """Timeline shot representation for tests."""
+
+    shot_id: UUID
+    shot_number: str
+    duration: float
+    output_path: Optional[str] = None
+    thumbnail_path: Optional[str] = None
+
+
+@dataclass
+class TimelineScene:
+    """Timeline scene representation for tests."""
+
+    scene_id: UUID
+    scene_number: str
+    title: str
+    duration: float
+    shots: List[TimelineShot] = field(default_factory=list)
 
 
 class ProgressCallback(Protocol):
@@ -793,20 +815,90 @@ class AssemblyService:
         return str(output_path)
 
     def _map_transition_type(self, trans_type: str) -> str:
-        """Map our transition types to FFmpeg xfade transitions."""
+        """Map our transition types to FFmpeg xfade transitions.
+        
+        Supports an expanded set of cinematic transitions for
+        professional-quality scene transitions.
+        """
+        # Extended transition mapping with categories:
+        # - Basic fades and dissolves
+        # - Directional wipes (left, right, up, down)
+        # - Slides and pushes
+        # - Zoom effects
+        # - Creative/stylized effects
         mapping = {
+            # Basic fades
             "fade": "fade",
             "dissolve": "dissolve",
+            "fadewhite": "fadewhite",
+            "fadeblack": "fadeblack",
+            "fadegrays": "fadegrays",
+            
+            # Directional wipes
             "wipe_left": "wipeleft",
             "wipe_right": "wiperight",
             "wipe_up": "wipeup",
             "wipe_down": "wipedown",
+            "wipe_br": "wipebr",  # Bottom right
+            "wipe_bl": "wipebl",  # Bottom left
+            "wipe_tr": "wipetr",  # Top right
+            "wipe_tl": "wipetl",  # Top left
+            
+            # Slides
             "slide_left": "slideleft",
             "slide_right": "slideright",
+            "slide_up": "slideup",
+            "slide_down": "slidedown",
+            
+            # Smooth directional
+            "smooth_left": "smoothleft",
+            "smooth_right": "smoothright",
+            "smooth_up": "smoothup",
+            "smooth_down": "smoothdown",
+            
+            # Circle effects
+            "circle_open": "circleopen",
+            "circle_close": "circleclose",
+            "circle_crop": "circlecrop",
+            
+            # Rectangle effects
+            "rect_crop": "rectcrop",
+            "hr_slice": "hrslice",  # Horizontal slice
+            "vr_slice": "vrslice",  # Vertical slice
+            
+            # Distance/blur effects
+            "distance": "distance",
+            "hlslice": "hlslice",
+            "vlslice": "vlslice",
+            
+            # Zoom effects
             "zoom_in": "zoomin",
             "zoom_out": "fadefast",
+            "squeeze_h": "squeezeh",
+            "squeeze_v": "squeezev",
+            
+            # Radial effects
+            "radial": "radial",
+            "reveal_h": "revealh",
+            "reveal_v": "revealv",
+            
+            # Pixel and grain effects
+            "pixelize": "pixelize",
+            "diagtl": "diagtl",  # Diagonal top-left
+            "diagtr": "diagtr",  # Diagonal top-right
+            "diagbl": "diagbl",  # Diagonal bottom-left
+            "diagbr": "diagbr",  # Diagonal bottom-right
+            
+            # Cover effects
+            "cover_left": "coverleft",
+            "cover_right": "coverright",
+            "cover_up": "coverup",
+            "cover_down": "coverdown",
+            
+            # Legacy aliases
             "blur": "smoothleft",
             "flash": "fadewhite",
+            "blackout": "fadeblack",
         }
         return mapping.get(trans_type, "fade")
 

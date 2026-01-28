@@ -76,8 +76,9 @@ async def seed_database() -> None:
     logger.info("Database initialized")
 
     logger.info("Seeding performers...")
-    count = await seed_performers()
-    logger.info(f"Seeded {count} performers")
+    async with db_manager.session() as session:
+        count = await seed_performers(session)
+        logger.info(f"Seeded {count} performers")
 
     await db_manager.close()
     logger.info("Database seeding complete")

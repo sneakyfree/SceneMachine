@@ -55,6 +55,7 @@ class JobStatus(str, Enum):
     FAILED = "failed"  # Failed with error
     CANCELLED = "cancelled"  # Cancelled by user
     PAUSED = "paused"  # Paused by user or system
+    TIMEOUT = "timeout"  # Timed out waiting for resources or completion
 
 
 class JobProvider(str, Enum):
@@ -63,6 +64,7 @@ class JobProvider(str, Enum):
     LOCAL = "local"  # Local GPU
     SCENEMACHINE_CLOUD = "scenemachine_cloud"  # SceneMachine cloud
     REPLICATE = "replicate"  # Replicate.com
+    FAL = "fal"  # Fal.ai
     RUNPOD = "runpod"  # RunPod
     MODAL = "modal"  # Modal.com
     COMFYUI = "comfyui"  # Local ComfyUI
@@ -143,10 +145,12 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
         default=JobProvider.LOCAL,
         nullable=False,
     )
+    model_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Queue management
     priority: Mapped[int] = mapped_column(Integer, default=50, nullable=False)  # 0-100
     queue_position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    job_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # Attempt number
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_retries: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
 
@@ -159,6 +163,10 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
 
     # Input parameters
     input_params: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    # Alias for input_params - used by generation service
+    parameters: Mapped[Optional[dict]] = mapped_column(
+        "parameters", JSONType, nullable=True
+    )
     # Structure varies by job_type:
     #
     # For SHOT_VIDEO:
@@ -303,6 +311,11 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
         if self.cost_info:
             return self.cost_info.get("actual_cost_usd")
         return None
+
+    @property
+    def cost_usd(self) -> Optional[float]:
+        """Alias for actual_cost - used by analytics service."""
+        return self.actual_cost or self.estimated_cost or 0.0
 
     def can_transition_to(self, new_status: JobStatus) -> bool:
         """Check if transition to new status is valid."""

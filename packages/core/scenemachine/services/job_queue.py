@@ -47,6 +47,83 @@ class JobType(str, Enum):
     BATCH_OPERATION = "batch_operation"
 
 
+class RetryStrategy(str, Enum):
+    """Retry strategy for failed jobs."""
+    
+    EXPONENTIAL = "exponential"  # Standard exponential backoff
+    LINEAR = "linear"  # Linear backoff (for rate limits)
+    IMMEDIATE = "immediate"  # Retry immediately (transient errors)
+    NO_RETRY = "no_retry"  # Permanent failures
+
+
+# Error patterns that are safe to retry
+RETRYABLE_ERROR_PATTERNS = [
+    "rate limit",
+    "rate_limit",
+    "ratelimit",
+    "too many requests",
+    "429",
+    "503",
+    "502",
+    "connection reset",
+    "connection timeout",
+    "temporary failure",
+    "temporarily unavailable",
+    "service unavailable",
+    "gpu memory",
+    "cuda out of memory",
+    "resource exhausted",
+]
+
+# Error patterns that should NOT be retried (permanent failures)
+NON_RETRYABLE_ERROR_PATTERNS = [
+    "invalid_api_key",
+    "authentication failed",
+    "unauthorized",
+    "403",
+    "invalid request",
+    "validation error",
+    "model not found",
+    "content policy violation",
+    "nsfw",
+    "quota exceeded",
+]
+
+
+def classify_error(error_message: str) -> RetryStrategy:
+    """Classify an error message to determine retry strategy.
+    
+    Args:
+        error_message: The error message to classify
+        
+    Returns:
+        RetryStrategy indicating how to handle the error
+    """
+    error_lower = error_message.lower()
+    
+    # Check for non-retryable (permanent) errors first
+    for pattern in NON_RETRYABLE_ERROR_PATTERNS:
+        if pattern.lower() in error_lower:
+            return RetryStrategy.NO_RETRY
+    
+    # Check for retryable errors
+    for pattern in RETRYABLE_ERROR_PATTERNS:
+        if pattern.lower() in error_lower:
+            # Rate limit errors get linear backoff
+            if any(x in error_lower for x in ["rate", "429", "too many"]):
+                return RetryStrategy.LINEAR
+            # Connection errors can retry faster
+            if any(x in error_lower for x in ["connection", "timeout"]):
+                return RetryStrategy.EXPONENTIAL
+            # GPU/resource errors need longer waits
+            if any(x in error_lower for x in ["gpu", "cuda", "memory"]):
+                return RetryStrategy.EXPONENTIAL
+            return RetryStrategy.EXPONENTIAL
+    
+    # Default: retry with exponential for unknown errors
+    return RetryStrategy.EXPONENTIAL
+
+
 @dataclass
 class QueuedJob:
     """A job waiting in the queue."""
@@ -589,3 +666,7 @@ async def shutdown_job_queue() -> None:
     if _job_queue:
         await _job_queue.stop()
         _job_queue = None
+
+
+# Backwards compatibility aliases
+JobQueueService = BackgroundJobQueue

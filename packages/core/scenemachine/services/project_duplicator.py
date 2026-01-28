@@ -353,3 +353,7 @@ async def duplicate_project(
     """
     duplicator = ProjectDuplicator(session)
     return await duplicator.duplicate(project_id, new_name, include_generated_videos)
+
+
+# Backwards compatibility alias
+ProjectDuplicatorService = ProjectDuplicator

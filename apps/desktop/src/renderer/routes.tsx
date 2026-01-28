@@ -17,6 +17,7 @@ import { HelpPage } from './pages/help';
 import { ArchivePage } from './pages/archive';
 import { AdminPage } from './pages/admin';
 import { ActForgePage } from './pages/actforge';
+import { DnaStrandDemoPage } from './pages/dna-strand-demo';
 
 export const routes: RouteObject[] = [
   {
@@ -78,6 +79,10 @@ export const routes: RouteObject[] = [
       {
         path: 'project/:projectId/actforge',
         element: <ActForgePage />,
+      },
+      {
+        path: 'dna-strand-demo',
+        element: <DnaStrandDemoPage />,
       },
     ],
   },

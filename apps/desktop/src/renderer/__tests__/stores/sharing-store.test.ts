@@ -1,5 +1,8 @@
 /**
  * Sharing store unit tests.
+ *
+ * Tests the collaboration sharing functionality including shares, comments,
+ * and project collaboration state management.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -9,227 +12,159 @@ import { useSharingStore } from '../../stores/sharing-store';
 // Mock the API client
 vi.mock('../../api/client', () => ({
   api: {
-    createShareLink: vi.fn(),
-    getShareLinks: vi.fn(),
-    deleteShareLink: vi.fn(),
-    getShareAnalytics: vi.fn(),
-    exportProject: vi.fn(),
+    getProjectShares: vi.fn(),
+    getProjectComments: vi.fn(),
+    createShare: vi.fn(),
+    revokeShare: vi.fn(),
+    addComment: vi.fn(),
   },
 }));
 
-const mockShareLink = {
+const mockShare = {
   id: 'share-1',
   projectId: 'project-1',
-  url: 'https://share.scenemachine.com/abc123',
-  accessLevel: 'view' as const,
-  expiresAt: new Date(Date.now() + 86400000).toISOString(),
+  permission: 'view' as const,
+  recipientEmail: 'test@example.com',
+  recipientName: 'Test User',
+  status: 'active' as const,
   createdAt: new Date().toISOString(),
-  viewCount: 5,
+};
+
+const mockComment = {
+  id: 'comment-1',
+  projectId: 'project-1',
+  authorName: 'Test Author',
+  content: 'Test comment',
+  isResolved: false,
+  createdAt: new Date().toISOString(),
 };
 
 describe('SharingStore', () => {
   beforeEach(() => {
     // Reset store state before each test
     useSharingStore.setState({
-      shareLinks: [],
-      activeShareLink: null,
-      shareAnalytics: null,
-      isCreatingLink: false,
-      isLoadingLinks: false,
-      isDeletingLink: false,
-      isExporting: false,
-      exportProgress: 0,
-      error: null,
+      currentProjectId: null,
+      shares: [],
+      isLoadingShares: false,
+      sharesError: null,
+      comments: [],
+      isLoadingComments: false,
+      commentsError: null,
+      selectedCommentId: null,
+      isShareDialogOpen: false,
+      isCommentsOpen: false,
     });
     vi.clearAllMocks();
   });
 
-  describe('setShareLinks', () => {
-    it('should set share links', () => {
-      const { setShareLinks } = useSharingStore.getState();
+  describe('setCurrentProject', () => {
+    it('should set the current project', () => {
+      const { setCurrentProject } = useSharingStore.getState();
 
       act(() => {
-        setShareLinks([mockShareLink]);
+        setCurrentProject('project-123');
       });
 
-      expect(useSharingStore.getState().shareLinks).toHaveLength(1);
-      expect(useSharingStore.getState().shareLinks[0]).toEqual(mockShareLink);
+      expect(useSharingStore.getState().currentProjectId).toBe('project-123');
+    });
+
+    it('should allow clearing the project', () => {
+      useSharingStore.setState({ currentProjectId: 'project-1' });
+
+      const { setCurrentProject } = useSharingStore.getState();
+
+      act(() => {
+        setCurrentProject(null);
+      });
+
+      expect(useSharingStore.getState().currentProjectId).toBeNull();
     });
   });
 
-  describe('addShareLink', () => {
-    it('should add a share link', () => {
-      const { addShareLink } = useSharingStore.getState();
+  describe('setShares', () => {
+    it('should set shares list', () => {
+      const { setShares } = useSharingStore.getState();
 
       act(() => {
-        addShareLink(mockShareLink);
+        setShares([mockShare]);
       });
 
-      expect(useSharingStore.getState().shareLinks).toHaveLength(1);
-    });
-
-    it('should add to existing links', () => {
-      useSharingStore.setState({ shareLinks: [mockShareLink] });
-
-      const newLink = { ...mockShareLink, id: 'share-2' };
-      const { addShareLink } = useSharingStore.getState();
-
-      act(() => {
-        addShareLink(newLink);
-      });
-
-      expect(useSharingStore.getState().shareLinks).toHaveLength(2);
+      expect(useSharingStore.getState().shares).toHaveLength(1);
+      expect(useSharingStore.getState().shares[0]).toEqual(mockShare);
     });
   });
 
-  describe('removeShareLink', () => {
-    it('should remove a share link by ID', () => {
-      useSharingStore.setState({
-        shareLinks: [mockShareLink, { ...mockShareLink, id: 'share-2' }],
-      });
-
-      const { removeShareLink } = useSharingStore.getState();
+  describe('setComments', () => {
+    it('should set comments list', () => {
+      const { setComments } = useSharingStore.getState();
 
       act(() => {
-        removeShareLink('share-1');
+        setComments([mockComment]);
       });
 
-      expect(useSharingStore.getState().shareLinks).toHaveLength(1);
-      expect(useSharingStore.getState().shareLinks[0].id).toBe('share-2');
-    });
-
-    it('should clear activeShareLink if it was removed', () => {
-      useSharingStore.setState({
-        shareLinks: [mockShareLink],
-        activeShareLink: mockShareLink,
-      });
-
-      const { removeShareLink } = useSharingStore.getState();
-
-      act(() => {
-        removeShareLink('share-1');
-      });
-
-      expect(useSharingStore.getState().activeShareLink).toBeNull();
+      expect(useSharingStore.getState().comments).toHaveLength(1);
+      expect(useSharingStore.getState().comments[0]).toEqual(mockComment);
     });
   });
 
-  describe('setActiveShareLink', () => {
-    it('should set the active share link', () => {
-      const { setActiveShareLink } = useSharingStore.getState();
+  describe('setSelectedComment', () => {
+    it('should set the selected comment', () => {
+      const { setSelectedComment } = useSharingStore.getState();
 
       act(() => {
-        setActiveShareLink(mockShareLink);
+        setSelectedComment('comment-1');
       });
 
-      expect(useSharingStore.getState().activeShareLink).toEqual(mockShareLink);
+      expect(useSharingStore.getState().selectedCommentId).toBe('comment-1');
     });
 
-    it('should allow clearing the active link', () => {
-      useSharingStore.setState({ activeShareLink: mockShareLink });
+    it('should allow clearing the selection', () => {
+      useSharingStore.setState({ selectedCommentId: 'comment-1' });
 
-      const { setActiveShareLink } = useSharingStore.getState();
+      const { setSelectedComment } = useSharingStore.getState();
 
       act(() => {
-        setActiveShareLink(null);
+        setSelectedComment(null);
       });
 
-      expect(useSharingStore.getState().activeShareLink).toBeNull();
+      expect(useSharingStore.getState().selectedCommentId).toBeNull();
     });
   });
 
-  describe('setShareAnalytics', () => {
-    it('should set share analytics', () => {
-      const analytics = { totalViews: 100, uniqueViewers: 50 };
-      const { setShareAnalytics } = useSharingStore.getState();
+  describe('setShareDialogOpen', () => {
+    it('should set share dialog visibility', () => {
+      const { setShareDialogOpen } = useSharingStore.getState();
 
       act(() => {
-        setShareAnalytics(analytics);
+        setShareDialogOpen(true);
       });
 
-      expect(useSharingStore.getState().shareAnalytics).toEqual(analytics);
+      expect(useSharingStore.getState().isShareDialogOpen).toBe(true);
     });
   });
 
-  describe('setExportProgress', () => {
-    it('should set export progress', () => {
-      const { setExportProgress } = useSharingStore.getState();
+  describe('setCommentsOpen', () => {
+    it('should set comments panel visibility', () => {
+      const { setCommentsOpen } = useSharingStore.getState();
 
       act(() => {
-        setExportProgress(75);
+        setCommentsOpen(true);
       });
 
-      expect(useSharingStore.getState().exportProgress).toBe(75);
-    });
-  });
-
-  describe('setError', () => {
-    it('should set error message', () => {
-      const { setError } = useSharingStore.getState();
-
-      act(() => {
-        setError('Share failed');
-      });
-
-      expect(useSharingStore.getState().error).toBe('Share failed');
-    });
-  });
-
-  describe('clearError', () => {
-    it('should clear the error', () => {
-      useSharingStore.setState({ error: 'Previous error' });
-
-      const { clearError } = useSharingStore.getState();
-
-      act(() => {
-        clearError();
-      });
-
-      expect(useSharingStore.getState().error).toBeNull();
-    });
-  });
-
-  describe('getActiveLinks', () => {
-    it('should return non-expired links', () => {
-      const expiredLink = {
-        ...mockShareLink,
-        id: 'expired',
-        expiresAt: new Date(Date.now() - 86400000).toISOString(),
-      };
-      useSharingStore.setState({
-        shareLinks: [mockShareLink, expiredLink],
-      });
-
-      const { getActiveLinks } = useSharingStore.getState();
-      const activeLinks = getActiveLinks();
-
-      expect(activeLinks).toHaveLength(1);
-      expect(activeLinks[0].id).toBe('share-1');
-    });
-  });
-
-  describe('getLinksByAccessLevel', () => {
-    it('should filter links by access level', () => {
-      const editLink = { ...mockShareLink, id: 'edit-1', accessLevel: 'edit' as const };
-      useSharingStore.setState({
-        shareLinks: [mockShareLink, editLink],
-      });
-
-      const { getLinksByAccessLevel } = useSharingStore.getState();
-      const viewLinks = getLinksByAccessLevel('view');
-
-      expect(viewLinks).toHaveLength(1);
-      expect(viewLinks[0].accessLevel).toBe('view');
+      expect(useSharingStore.getState().isCommentsOpen).toBe(true);
     });
   });
 
   describe('reset', () => {
     it('should reset store to initial state', () => {
       useSharingStore.setState({
-        shareLinks: [mockShareLink],
-        activeShareLink: mockShareLink,
-        error: 'Some error',
-        exportProgress: 50,
+        currentProjectId: 'project-1',
+        shares: [mockShare],
+        comments: [mockComment],
+        selectedCommentId: 'comment-1',
+        isShareDialogOpen: true,
+        isCommentsOpen: true,
+        sharesError: 'Some error',
       });
 
       const { reset } = useSharingStore.getState();
@@ -239,10 +174,47 @@ describe('SharingStore', () => {
       });
 
       const state = useSharingStore.getState();
-      expect(state.shareLinks).toHaveLength(0);
-      expect(state.activeShareLink).toBeNull();
-      expect(state.error).toBeNull();
-      expect(state.exportProgress).toBe(0);
+      expect(state.currentProjectId).toBeNull();
+      expect(state.shares).toHaveLength(0);
+      expect(state.comments).toHaveLength(0);
+      expect(state.selectedCommentId).toBeNull();
+      expect(state.isShareDialogOpen).toBe(false);
+      expect(state.isCommentsOpen).toBe(false);
+      expect(state.sharesError).toBeNull();
+    });
+  });
+
+  describe('useShareCount hook', () => {
+    it('should count active shares', () => {
+      const activeShare = { ...mockShare, status: 'active' as const };
+      const expiredShare = { ...mockShare, id: 'share-2', status: 'expired' as const };
+
+      useSharingStore.setState({
+        shares: [activeShare, expiredShare],
+      });
+
+      // Get current state
+      const state = useSharingStore.getState();
+      const activeCount = state.shares.filter((s) => s.status === 'active').length;
+
+      expect(activeCount).toBe(1);
+    });
+  });
+
+  describe('useUnresolvedCommentCount hook', () => {
+    it('should count unresolved comments', () => {
+      const unresolvedComment = { ...mockComment, isResolved: false };
+      const resolvedComment = { ...mockComment, id: 'comment-2', isResolved: true };
+
+      useSharingStore.setState({
+        comments: [unresolvedComment, resolvedComment],
+      });
+
+      // Get current state
+      const state = useSharingStore.getState();
+      const unresolvedCount = state.comments.filter((c) => !c.isResolved).length;
+
+      expect(unresolvedCount).toBe(1);
     });
   });
 });

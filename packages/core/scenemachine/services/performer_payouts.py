@@ -432,3 +432,7 @@ class PerformerPayoutService:
 def get_payout_service(session: AsyncSession) -> PerformerPayoutService:
     """Get payout service instance."""
     return PerformerPayoutService(session)
+
+
+# Backwards compatibility alias
+PerformerPayoutsService = PerformerPayoutService

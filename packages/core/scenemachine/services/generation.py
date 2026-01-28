@@ -20,7 +20,7 @@ from sqlalchemy.orm import selectinload
 from scenemachine.config import get_settings
 from scenemachine.utils.ffmpeg import get_ffmpeg, FFmpegNotFoundError
 from scenemachine.models import Character, Project, Scene, Shot
-from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus
+from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus, JobType
 from scenemachine.models.project import ProjectState
 from scenemachine.models.shot import ShotState
 
@@ -54,6 +54,119 @@ class GenerationRequest:
     character_references: List[Dict[str, Any]] = field(default_factory=list)
     style_preset: Optional[str] = None
     extra_params: Dict[str, Any] = field(default_factory=dict)
+    
+    # S-P1-04: IP-Adapter Adaptive Injection settings
+    ip_adapter_strength: float = 0.6  # Default strength (0.0-1.0)
+    ip_adapter_mode: str = "balanced"  # balanced, high_fidelity, creative
+
+
+# S-P1-04: IP-Adapter Adaptive Injection Configuration
+@dataclass
+class IPAdapterConfig:
+    """Configuration for adaptive IP-Adapter injection.
+    
+    IP-Adapter allows injecting reference images to guide
+    character consistency in video generation. The strength
+    is adjusted dynamically based on scene requirements.
+    """
+    
+    # Strength presets based on scene type
+    STRENGTH_PRESETS: Dict[str, float] = field(default_factory=lambda: {
+        "close_up": 0.85,       # High fidelity for close-up shots
+        "medium_shot": 0.65,   # Balanced for medium shots
+        "wide_shot": 0.45,     # Lower strength for wide shots (environment focus)
+        "action": 0.55,        # Slightly lower for motion-heavy scenes
+        "dialogue": 0.75,      # Higher for dialogue (face visible)
+        "default": 0.60,       # Default balanced strength
+    })
+    
+    # Mode configurations
+    MODE_SETTINGS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
+        "balanced": {
+            "strength_multiplier": 1.0,
+            "blend_mode": "linear",
+            "description": "Balanced between fidelity and creativity",
+        },
+        "high_fidelity": {
+            "strength_multiplier": 1.3,
+            "blend_mode": "emphasis",
+            "description": "Prioritize character similarity over scene creativity",
+        },
+        "creative": {
+            "strength_multiplier": 0.7,
+            "blend_mode": "soft",
+            "description": "Allow more creative freedom, less strict matching",
+        },
+    })
+    
+    def get_adaptive_strength(
+        self,
+        base_strength: float,
+        scene_type: str = "default",
+        mode: str = "balanced",
+    ) -> float:
+        """Calculate adaptive IP-Adapter strength.
+        
+        Args:
+            base_strength: Base strength setting (0.0-1.0)
+            scene_type: Type of scene (close_up, medium_shot, etc.)
+            mode: Injection mode (balanced, high_fidelity, creative)
+            
+        Returns:
+            Adjusted strength value clamped to 0.0-1.0
+        """
+        # Get scene-based strength
+        scene_strength = self.STRENGTH_PRESETS.get(scene_type, self.STRENGTH_PRESETS["default"])
+        
+        # Get mode multiplier
+        mode_config = self.MODE_SETTINGS.get(mode, self.MODE_SETTINGS["balanced"])
+        multiplier = mode_config["strength_multiplier"]
+        
+        # Blend base strength with scene-specific strength
+        blended = (base_strength * 0.4) + (scene_strength * 0.6)
+        
+        # Apply mode multiplier
+        final_strength = blended * multiplier
+        
+        # Clamp to valid range
+        return max(0.0, min(1.0, final_strength))
+    
+    def get_reference_weights(
+        self,
+        references: List[Dict[str, Any]],
+        strength: float,
+    ) -> List[float]:
+        """Get weights for multiple character references.
+        
+        First reference (primary) gets higher weight,
+        subsequent references get progressively lower weights.
+        
+        Args:
+            references: List of character reference dicts
+            strength: Base strength setting
+            
+        Returns:
+            List of weights for each reference
+        """
+        if not references:
+            return []
+        
+        weights = []
+        remaining = strength
+        
+        for i, _ in enumerate(references):
+            if i == 0:
+                # Primary reference gets 60% of total strength
+                weight = strength * 0.6
+            else:
+                # Distribute remaining among secondary refs
+                secondary_count = len(references) - 1
+                weight = (strength * 0.4) / secondary_count
+            
+            weights.append(round(weight, 3))
+            remaining -= weight
+        
+        return weights
 
 
 @dataclass
@@ -1362,7 +1475,9 @@ class GenerationService:
 
         # Create job
         job = GenerationJob(
+            project_id=shot.scene.project_id,  # Set as column value
             shot_id=shot_id,
+            job_type=JobType.SHOT_VIDEO,
             job_number=attempt_count + 1,
             status=JobStatus.PENDING,
             provider=provider,
@@ -1375,7 +1490,6 @@ class GenerationService:
                 "fps": 24,
                 "duration_seconds": shot.duration_seconds,
                 "priority": priority,
-                "project_id": project_id,
             },
             queued_at=datetime.now(timezone.utc),
         )

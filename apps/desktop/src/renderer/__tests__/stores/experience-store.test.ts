@@ -1,282 +1,299 @@
 /**
  * Experience store unit tests.
+ *
+ * Tests the experience mode switching functionality (Story/Creator/Pro modes)
+ * and Steven assistant state management.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { act } from '@testing-library/react';
-import { useExperienceStore } from '../../stores/experience-store';
+import { useExperienceStore, MODE_INFO, FRIENDLY_TERMS } from '../../stores/experience-store';
 
 describe('ExperienceStore', () => {
   beforeEach(() => {
     // Reset store state before each test
     useExperienceStore.setState({
-      onboardingCompleted: false,
-      onboardingStep: 0,
-      tourCompleted: false,
-      tourStep: 0,
-      showWelcomeModal: true,
-      showWhatsNew: false,
-      lastSeenVersion: null,
-      featureFlags: {},
-      userPreferences: {
-        showTips: true,
-        animationsEnabled: true,
-        soundEnabled: true,
-      },
-      completedTutorials: new Set(),
-      dismissedTips: new Set(),
-    });
-    vi.clearAllMocks();
-  });
-
-  describe('setOnboardingCompleted', () => {
-    it('should set onboarding completed state', () => {
-      const { setOnboardingCompleted } = useExperienceStore.getState();
-
-      act(() => {
-        setOnboardingCompleted(true);
-      });
-
-      expect(useExperienceStore.getState().onboardingCompleted).toBe(true);
+      globalMode: 'creator',
+      featureOverrides: {},
+      rememberGlobal: true,
+      stevenEnabled: true,
+      stevenMinimized: false,
+      stevenLastMessage: null,
+      stevenMessageHistory: [],
     });
   });
 
-  describe('setOnboardingStep', () => {
-    it('should set onboarding step', () => {
-      const { setOnboardingStep } = useExperienceStore.getState();
+  describe('setGlobalMode', () => {
+    it('should set the global experience mode', () => {
+      const { setGlobalMode } = useExperienceStore.getState();
 
       act(() => {
-        setOnboardingStep(3);
+        setGlobalMode('story');
       });
 
-      expect(useExperienceStore.getState().onboardingStep).toBe(3);
-    });
-  });
-
-  describe('nextOnboardingStep', () => {
-    it('should increment onboarding step', () => {
-      useExperienceStore.setState({ onboardingStep: 2 });
-
-      const { nextOnboardingStep } = useExperienceStore.getState();
-
-      act(() => {
-        nextOnboardingStep();
-      });
-
-      expect(useExperienceStore.getState().onboardingStep).toBe(3);
-    });
-  });
-
-  describe('prevOnboardingStep', () => {
-    it('should decrement onboarding step', () => {
-      useExperienceStore.setState({ onboardingStep: 3 });
-
-      const { prevOnboardingStep } = useExperienceStore.getState();
-
-      act(() => {
-        prevOnboardingStep();
-      });
-
-      expect(useExperienceStore.getState().onboardingStep).toBe(2);
+      expect(useExperienceStore.getState().globalMode).toBe('story');
     });
 
-    it('should not go below 0', () => {
-      useExperienceStore.setState({ onboardingStep: 0 });
-
-      const { prevOnboardingStep } = useExperienceStore.getState();
-
-      act(() => {
-        prevOnboardingStep();
-      });
-
-      expect(useExperienceStore.getState().onboardingStep).toBe(0);
-    });
-  });
-
-  describe('setTourCompleted', () => {
-    it('should set tour completed state', () => {
-      const { setTourCompleted } = useExperienceStore.getState();
-
-      act(() => {
-        setTourCompleted(true);
-      });
-
-      expect(useExperienceStore.getState().tourCompleted).toBe(true);
-    });
-  });
-
-  describe('setTourStep', () => {
-    it('should set tour step', () => {
-      const { setTourStep } = useExperienceStore.getState();
-
-      act(() => {
-        setTourStep(5);
-      });
-
-      expect(useExperienceStore.getState().tourStep).toBe(5);
-    });
-  });
-
-  describe('setShowWelcomeModal', () => {
-    it('should set welcome modal visibility', () => {
-      const { setShowWelcomeModal } = useExperienceStore.getState();
-
-      act(() => {
-        setShowWelcomeModal(false);
-      });
-
-      expect(useExperienceStore.getState().showWelcomeModal).toBe(false);
-    });
-  });
-
-  describe('setShowWhatsNew', () => {
-    it('should set whats new visibility', () => {
-      const { setShowWhatsNew } = useExperienceStore.getState();
-
-      act(() => {
-        setShowWhatsNew(true);
-      });
-
-      expect(useExperienceStore.getState().showWhatsNew).toBe(true);
-    });
-  });
-
-  describe('setLastSeenVersion', () => {
-    it('should set last seen version', () => {
-      const { setLastSeenVersion } = useExperienceStore.getState();
-
-      act(() => {
-        setLastSeenVersion('2.0.0');
-      });
-
-      expect(useExperienceStore.getState().lastSeenVersion).toBe('2.0.0');
-    });
-  });
-
-  describe('setFeatureFlag', () => {
-    it('should set a feature flag', () => {
-      const { setFeatureFlag } = useExperienceStore.getState();
-
-      act(() => {
-        setFeatureFlag('newFeature', true);
-      });
-
-      expect(useExperienceStore.getState().featureFlags['newFeature']).toBe(true);
-    });
-  });
-
-  describe('getFeatureFlag', () => {
-    it('should get a feature flag value', () => {
+    it('should clear feature overrides when rememberGlobal is true', () => {
       useExperienceStore.setState({
-        featureFlags: { testFeature: true },
+        rememberGlobal: true,
+        featureOverrides: { screenplay: 'pro' },
       });
 
-      const { getFeatureFlag } = useExperienceStore.getState();
-      expect(getFeatureFlag('testFeature')).toBe(true);
-    });
-
-    it('should return false for non-existent flag', () => {
-      const { getFeatureFlag } = useExperienceStore.getState();
-      expect(getFeatureFlag('nonexistent')).toBe(false);
-    });
-  });
-
-  describe('setUserPreference', () => {
-    it('should set a user preference', () => {
-      const { setUserPreference } = useExperienceStore.getState();
+      const { setGlobalMode } = useExperienceStore.getState();
 
       act(() => {
-        setUserPreference('showTips', false);
+        setGlobalMode('story');
       });
 
-      expect(useExperienceStore.getState().userPreferences.showTips).toBe(false);
+      expect(useExperienceStore.getState().featureOverrides).toEqual({});
     });
   });
 
-  describe('markTutorialCompleted', () => {
-    it('should mark a tutorial as completed', () => {
-      const { markTutorialCompleted } = useExperienceStore.getState();
+  describe('setFeatureMode', () => {
+    it('should set per-feature mode override', () => {
+      const { setFeatureMode } = useExperienceStore.getState();
 
       act(() => {
-        markTutorialCompleted('intro-tutorial');
+        setFeatureMode('screenplay', 'pro');
       });
 
-      expect(useExperienceStore.getState().completedTutorials.has('intro-tutorial')).toBe(true);
+      expect(useExperienceStore.getState().featureOverrides.screenplay).toBe('pro');
     });
-  });
 
-  describe('isTutorialCompleted', () => {
-    it('should check if tutorial is completed', () => {
+    it('should clear override when mode is null', () => {
       useExperienceStore.setState({
-        completedTutorials: new Set(['tutorial-1']),
+        featureOverrides: { screenplay: 'pro' },
       });
 
-      const { isTutorialCompleted } = useExperienceStore.getState();
-      expect(isTutorialCompleted('tutorial-1')).toBe(true);
-      expect(isTutorialCompleted('tutorial-2')).toBe(false);
-    });
-  });
-
-  describe('dismissTip', () => {
-    it('should dismiss a tip', () => {
-      const { dismissTip } = useExperienceStore.getState();
+      const { setFeatureMode } = useExperienceStore.getState();
 
       act(() => {
-        dismissTip('tip-1');
+        setFeatureMode('screenplay', null);
       });
 
-      expect(useExperienceStore.getState().dismissedTips.has('tip-1')).toBe(true);
+      expect(useExperienceStore.getState().featureOverrides.screenplay).toBeUndefined();
     });
   });
 
-  describe('isTipDismissed', () => {
-    it('should check if tip is dismissed', () => {
+  describe('getEffectiveMode', () => {
+    it('should return global mode when no feature override exists', () => {
+      useExperienceStore.setState({ globalMode: 'pro' });
+
+      const { getEffectiveMode } = useExperienceStore.getState();
+
+      expect(getEffectiveMode('screenplay')).toBe('pro');
+    });
+
+    it('should return feature override when it exists', () => {
       useExperienceStore.setState({
-        dismissedTips: new Set(['tip-1']),
+        globalMode: 'creator',
+        featureOverrides: { screenplay: 'story' },
       });
 
-      const { isTipDismissed } = useExperienceStore.getState();
-      expect(isTipDismissed('tip-1')).toBe(true);
-      expect(isTipDismissed('tip-2')).toBe(false);
+      const { getEffectiveMode } = useExperienceStore.getState();
+
+      expect(getEffectiveMode('screenplay')).toBe('story');
+    });
+
+    it('should return global mode when no feature specified', () => {
+      useExperienceStore.setState({ globalMode: 'story' });
+
+      const { getEffectiveMode } = useExperienceStore.getState();
+
+      expect(getEffectiveMode()).toBe('story');
     });
   });
 
-  describe('completeOnboarding', () => {
-    it('should complete onboarding and hide welcome modal', () => {
-      const { completeOnboarding } = useExperienceStore.getState();
+  describe('resetFeatureOverrides', () => {
+    it('should clear all feature overrides', () => {
+      useExperienceStore.setState({
+        featureOverrides: { screenplay: 'pro', characters: 'story' },
+      });
+
+      const { resetFeatureOverrides } = useExperienceStore.getState();
 
       act(() => {
-        completeOnboarding();
+        resetFeatureOverrides();
+      });
+
+      expect(useExperienceStore.getState().featureOverrides).toEqual({});
+    });
+  });
+
+  describe('Steven Assistant', () => {
+    it('should set Steven enabled state', () => {
+      const { setStevenEnabled } = useExperienceStore.getState();
+
+      act(() => {
+        setStevenEnabled(false);
+      });
+
+      expect(useExperienceStore.getState().stevenEnabled).toBe(false);
+    });
+
+    it('should set Steven minimized state', () => {
+      const { setStevenMinimized } = useExperienceStore.getState();
+
+      act(() => {
+        setStevenMinimized(true);
+      });
+
+      expect(useExperienceStore.getState().stevenMinimized).toBe(true);
+    });
+
+    it('should send Steven message and add to history', () => {
+      const { sendStevenMessage } = useExperienceStore.getState();
+
+      act(() => {
+        sendStevenMessage('Test message', 'info');
       });
 
       const state = useExperienceStore.getState();
-      expect(state.onboardingCompleted).toBe(true);
-      expect(state.showWelcomeModal).toBe(false);
+      expect(state.stevenLastMessage).toBe('Test message');
+      expect(state.stevenMessageHistory).toHaveLength(1);
+      expect(state.stevenMessageHistory[0].message).toBe('Test message');
+      expect(state.stevenMessageHistory[0].type).toBe('info');
     });
-  });
 
-  describe('resetExperience', () => {
-    it('should reset experience state', () => {
+    it('should clear Steven history', () => {
       useExperienceStore.setState({
-        onboardingCompleted: true,
-        onboardingStep: 5,
-        tourCompleted: true,
-        completedTutorials: new Set(['t1']),
-        dismissedTips: new Set(['tip1']),
+        stevenLastMessage: 'Test',
+        stevenMessageHistory: [{ message: 'Test', timestamp: Date.now(), type: 'info' }],
       });
 
-      const { resetExperience } = useExperienceStore.getState();
+      const { clearStevenHistory } = useExperienceStore.getState();
 
       act(() => {
-        resetExperience();
+        clearStevenHistory();
       });
 
       const state = useExperienceStore.getState();
-      expect(state.onboardingCompleted).toBe(false);
-      expect(state.onboardingStep).toBe(0);
-      expect(state.tourCompleted).toBe(false);
-      expect(state.completedTutorials.size).toBe(0);
-      expect(state.dismissedTips.size).toBe(0);
+      expect(state.stevenLastMessage).toBeNull();
+      expect(state.stevenMessageHistory).toHaveLength(0);
+    });
+
+    it('should check if Steven should be shown', () => {
+      useExperienceStore.setState({
+        stevenEnabled: true,
+        stevenMinimized: false,
+      });
+
+      const { shouldShowSteven } = useExperienceStore.getState();
+
+      expect(shouldShowSteven()).toBe(true);
+    });
+
+    it('should not show Steven when minimized', () => {
+      useExperienceStore.setState({
+        stevenEnabled: true,
+        stevenMinimized: true,
+      });
+
+      const { shouldShowSteven } = useExperienceStore.getState();
+
+      expect(shouldShowSteven()).toBe(false);
+    });
+  });
+
+  describe('getTerm', () => {
+    it('should return friendly term for story mode', () => {
+      useExperienceStore.setState({ globalMode: 'story' });
+
+      const { getTerm } = useExperienceStore.getState();
+
+      expect(getTerm('1080p')).toBe('Great Quality (Looks great on any TV)');
+    });
+
+    it('should return technical term for pro mode', () => {
+      useExperienceStore.setState({ globalMode: 'pro' });
+
+      const { getTerm } = useExperienceStore.getState();
+
+      expect(getTerm('1080p')).toBe('1920×1080 (1080p)');
+    });
+
+    it('should return original term if no translation exists', () => {
+      useExperienceStore.setState({ globalMode: 'pro' });
+
+      const { getTerm } = useExperienceStore.getState();
+
+      expect(getTerm('unknownTerm')).toBe('unknownTerm');
+    });
+  });
+
+  describe('isSimplifiedMode', () => {
+    it('should return true for story mode', () => {
+      useExperienceStore.setState({ globalMode: 'story' });
+
+      const { isSimplifiedMode } = useExperienceStore.getState();
+
+      expect(isSimplifiedMode()).toBe(true);
+    });
+
+    it('should return false for creator mode', () => {
+      useExperienceStore.setState({ globalMode: 'creator' });
+
+      const { isSimplifiedMode } = useExperienceStore.getState();
+
+      expect(isSimplifiedMode()).toBe(false);
+    });
+  });
+
+  describe('shouldShowTechnical', () => {
+    it('should return false for story mode', () => {
+      useExperienceStore.setState({ globalMode: 'story' });
+
+      const { shouldShowTechnical } = useExperienceStore.getState();
+
+      expect(shouldShowTechnical()).toBe(false);
+    });
+
+    it('should return true for pro mode', () => {
+      useExperienceStore.setState({ globalMode: 'pro' });
+
+      const { shouldShowTechnical } = useExperienceStore.getState();
+
+      expect(shouldShowTechnical()).toBe(true);
+    });
+
+    it('should return true for creator mode', () => {
+      useExperienceStore.setState({ globalMode: 'creator' });
+
+      const { shouldShowTechnical } = useExperienceStore.getState();
+
+      expect(shouldShowTechnical()).toBe(true);
+    });
+  });
+
+  describe('MODE_INFO', () => {
+    it('should have info for all modes', () => {
+      expect(MODE_INFO.story).toBeDefined();
+      expect(MODE_INFO.creator).toBeDefined();
+      expect(MODE_INFO.pro).toBeDefined();
+    });
+
+    it('should have required properties for each mode', () => {
+      for (const mode of Object.values(MODE_INFO)) {
+        expect(mode.name).toBeDefined();
+        expect(mode.shortName).toBeDefined();
+        expect(mode.description).toBeDefined();
+        expect(mode.icon).toBeDefined();
+        expect(mode.color).toBeDefined();
+      }
+    });
+  });
+
+  describe('FRIENDLY_TERMS', () => {
+    it('should have translations for common terms', () => {
+      expect(FRIENDLY_TERMS['1080p']).toBeDefined();
+      expect(FRIENDLY_TERMS['h264']).toBeDefined();
+      expect(FRIENDLY_TERMS['queued']).toBeDefined();
+    });
+
+    it('should provide different translations per mode', () => {
+      const term = FRIENDLY_TERMS['1080p'];
+      expect(term.story).not.toBe(term.pro);
     });
   });
 });

@@ -389,13 +389,16 @@ class TestFalProvider:
 @pytest_asyncio.fixture
 async def sample_scene(db_session: AsyncSession, sample_project: Project) -> Scene:
     """Create a sample scene for testing."""
+    from scenemachine.models.scene import SceneType, TimeOfDay
+    
     scene = Scene(
         project_id=sample_project.id,
         scene_number="1",
         sequence_number=1,
-        int_ext="INT",
+        scene_type=SceneType.INTERIOR,
         location="OFFICE",
-        time_of_day="DAY",
+        time_of_day=TimeOfDay.DAY,
+        raw_content="INT. OFFICE - DAY\n\nA wide shot of the office.",
     )
     db_session.add(scene)
     await db_session.commit()
@@ -408,6 +411,7 @@ async def sample_shot(db_session: AsyncSession, sample_scene: Scene) -> Shot:
     """Create a sample shot for testing."""
     shot = Shot(
         scene_id=sample_scene.id,
+        shot_number="1",
         sequence_number=1,
         shot_type=ShotType.ESTABLISHING,
         camera_movement=CameraMovement.STATIC,

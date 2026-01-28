@@ -106,3 +106,20 @@ export {
   useHasAvailableProviders,
   useGPUTypeOptions,
 } from './gpu-exchange-store';
+
+// Auth store (wired to backend)
+export {
+  useAuthStore,
+  useUser,
+  useIsAuthenticated,
+  useAuthLoading,
+  useAuthError,
+} from './auth-store';
+
+// Asset store (wired to backend)
+export { useAssetStore } from './asset-store';
+export type { Asset } from './asset-store';
+
+// Timeline store (wired to backend)
+export { useTimelineStore } from './timeline-store';
+export type { Track, Clip } from './timeline-store';

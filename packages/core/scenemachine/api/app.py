@@ -26,6 +26,7 @@ from scenemachine.api.routes import (
     auth,
     characters,
     copilot,
+    crew,
     generation,
     health,
     lipsync,
@@ -35,6 +36,7 @@ from scenemachine.api.routes import (
     screenplay,
     settings as settings_routes,
     sharing,
+    snapshots,
     text_overlays,
     watermarks,
     ws,
@@ -277,6 +279,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         gpu_exchange.router,
         prefix="/api/v1",
         tags=["GPU Exchange"],
+    )
+    # Agentic Crew
+    app.include_router(
+        crew.router,
+        prefix="/api/v1",
+        tags=["Agentic Crew"],
+    )
+    # Snapshots (Audit Trail)
+    app.include_router(
+        snapshots.router,
+        prefix="/api/v1",
+        tags=["Snapshots"],
     )
 
     return app

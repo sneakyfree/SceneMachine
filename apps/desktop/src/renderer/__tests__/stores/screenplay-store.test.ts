@@ -1,5 +1,7 @@
 /**
  * Screenplay store unit tests.
+ *
+ * Tests the screenplay upload, parsing, and movie plan generation workflow.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -20,14 +22,21 @@ vi.mock('../../api/client', () => ({
   },
 }));
 
-const mockScreenplay = {
+const mockScreenplaySummary = {
   id: 'screenplay-1',
-  projectId: 'project-1',
   filename: 'test-script.pdf',
-  status: 'parsed',
-  title: 'Test Script',
   pageCount: 120,
-  createdAt: new Date().toISOString(),
+  sceneCount: 45,
+  characterCount: 12,
+  uploadedAt: new Date().toISOString(),
+  parsedAt: null,
+  status: 'uploaded' as const,
+};
+
+const mockParsedScreenplaySummary = {
+  ...mockScreenplaySummary,
+  status: 'parsed' as const,
+  parsedAt: new Date().toISOString(),
 };
 
 const mockMoviePlan = {
@@ -37,6 +46,7 @@ const mockMoviePlan = {
   scenes: [],
   characters: [],
   estimatedDuration: 120,
+  approved: false,
   createdAt: new Date().toISOString(),
 };
 
@@ -61,17 +71,18 @@ describe('ScreenplayStore', () => {
 
   describe('setCurrentScreenplay', () => {
     it('should set the current screenplay', () => {
+      const screenplay = { id: 'sp-1', title: 'Test' };
       const { setCurrentScreenplay } = useScreenplayStore.getState();
 
       act(() => {
-        setCurrentScreenplay(mockScreenplay);
+        setCurrentScreenplay(screenplay as any);
       });
 
-      expect(useScreenplayStore.getState().currentScreenplay).toEqual(mockScreenplay);
+      expect(useScreenplayStore.getState().currentScreenplay).toEqual(screenplay);
     });
 
     it('should allow clearing the screenplay', () => {
-      useScreenplayStore.setState({ currentScreenplay: mockScreenplay });
+      useScreenplayStore.setState({ currentScreenplay: { id: 'sp-1' } as any });
 
       const { setCurrentScreenplay } = useScreenplayStore.getState();
 
@@ -85,14 +96,13 @@ describe('ScreenplayStore', () => {
 
   describe('setScreenplaySummary', () => {
     it('should set the screenplay summary', () => {
-      const summary = { id: 'sp-1', title: 'Test', pageCount: 100 };
       const { setScreenplaySummary } = useScreenplayStore.getState();
 
       act(() => {
-        setScreenplaySummary(summary);
+        setScreenplaySummary(mockScreenplaySummary as any);
       });
 
-      expect(useScreenplayStore.getState().screenplaySummary).toEqual(summary);
+      expect(useScreenplayStore.getState().screenplaySummary).toEqual(mockScreenplaySummary);
     });
   });
 
@@ -101,7 +111,7 @@ describe('ScreenplayStore', () => {
       const { setMoviePlan } = useScreenplayStore.getState();
 
       act(() => {
-        setMoviePlan(mockMoviePlan);
+        setMoviePlan(mockMoviePlan as any);
       });
 
       expect(useScreenplayStore.getState().moviePlan).toEqual(mockMoviePlan);
@@ -169,27 +179,39 @@ describe('ScreenplayStore', () => {
   });
 
   describe('isReadyForParsing', () => {
-    it('should return false when no screenplay', () => {
+    it('should return false when no screenplay summary', () => {
       const { isReadyForParsing } = useScreenplayStore.getState();
 
       expect(isReadyForParsing()).toBe(false);
     });
 
-    it('should return true when screenplay is uploaded', () => {
+    it('should return true when screenplay is uploaded and not parsing', () => {
       useScreenplayStore.setState({
-        currentScreenplay: { ...mockScreenplay, status: 'uploaded' },
+        screenplaySummary: mockScreenplaySummary as any,
+        isParsing: false,
       });
 
       const { isReadyForParsing } = useScreenplayStore.getState();
 
       expect(isReadyForParsing()).toBe(true);
     });
+
+    it('should return false when already parsing', () => {
+      useScreenplayStore.setState({
+        screenplaySummary: mockScreenplaySummary as any,
+        isParsing: true,
+      });
+
+      const { isReadyForParsing } = useScreenplayStore.getState();
+
+      expect(isReadyForParsing()).toBe(false);
+    });
   });
 
   describe('isReadyForPlanGeneration', () => {
     it('should return false when screenplay not parsed', () => {
       useScreenplayStore.setState({
-        currentScreenplay: { ...mockScreenplay, status: 'uploaded' },
+        screenplaySummary: mockScreenplaySummary as any, // status: 'uploaded'
       });
 
       const { isReadyForPlanGeneration } = useScreenplayStore.getState();
@@ -197,14 +219,26 @@ describe('ScreenplayStore', () => {
       expect(isReadyForPlanGeneration()).toBe(false);
     });
 
-    it('should return true when screenplay is parsed', () => {
+    it('should return true when screenplay is parsed and not generating', () => {
       useScreenplayStore.setState({
-        currentScreenplay: { ...mockScreenplay, status: 'parsed' },
+        screenplaySummary: mockParsedScreenplaySummary as any,
+        isGeneratingPlan: false,
       });
 
       const { isReadyForPlanGeneration } = useScreenplayStore.getState();
 
       expect(isReadyForPlanGeneration()).toBe(true);
+    });
+
+    it('should return false when already generating plan', () => {
+      useScreenplayStore.setState({
+        screenplaySummary: mockParsedScreenplaySummary as any,
+        isGeneratingPlan: true,
+      });
+
+      const { isReadyForPlanGeneration } = useScreenplayStore.getState();
+
+      expect(isReadyForPlanGeneration()).toBe(false);
     });
   });
 
@@ -217,7 +251,7 @@ describe('ScreenplayStore', () => {
 
     it('should return false when plan not approved', () => {
       useScreenplayStore.setState({
-        moviePlan: mockMoviePlan,
+        moviePlan: mockMoviePlan as any,
         moviePlanApproved: false,
       });
 
@@ -228,7 +262,7 @@ describe('ScreenplayStore', () => {
 
     it('should return true when plan is approved', () => {
       useScreenplayStore.setState({
-        moviePlan: mockMoviePlan,
+        moviePlan: mockMoviePlan as any,
         moviePlanApproved: true,
       });
 
@@ -241,8 +275,9 @@ describe('ScreenplayStore', () => {
   describe('reset', () => {
     it('should reset store to initial state', () => {
       useScreenplayStore.setState({
-        currentScreenplay: mockScreenplay,
-        moviePlan: mockMoviePlan,
+        currentScreenplay: { id: 'sp-1' } as any,
+        screenplaySummary: mockScreenplaySummary as any,
+        moviePlan: mockMoviePlan as any,
         moviePlanApproved: true,
         uploadProgress: 100,
         error: 'Some error',
@@ -256,6 +291,7 @@ describe('ScreenplayStore', () => {
 
       const state = useScreenplayStore.getState();
       expect(state.currentScreenplay).toBeNull();
+      expect(state.screenplaySummary).toBeNull();
       expect(state.moviePlan).toBeNull();
       expect(state.moviePlanApproved).toBe(false);
       expect(state.uploadProgress).toBe(0);

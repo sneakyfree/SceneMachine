@@ -30,6 +30,7 @@ class AssetType(str, Enum):
 
     # Generated content
     SHOT_VIDEO = "shot_video"  # Generated video for a shot
+    SHOT_AUDIO = "shot_audio"  # Generated audio for a shot (TTS dialogue)
     SHOT_THUMBNAIL = "shot_thumbnail"  # Thumbnail for a shot
     SHOT_FRAMES = "shot_frames"  # Individual frames from a shot
     SCENE_VIDEO = "scene_video"  # Assembled scene video

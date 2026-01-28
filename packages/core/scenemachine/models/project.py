@@ -203,6 +203,30 @@ class Project(Base, UUIDMixin, TimestampMixin):
         }
         return state_progress.get(self.state, 0)
 
+    @property
+    def character_count(self) -> int:
+        """Get the number of characters in the project."""
+        return len(self.characters) if self.characters else 0
+
+    @property
+    def scene_count(self) -> int:
+        """Get the number of scenes in the project."""
+        return len(self.scenes) if self.scenes else 0
+
+    @property
+    def locked_character_count(self) -> int:
+        """Get the number of locked characters in the project."""
+        if not self.characters:
+            return 0
+        return sum(1 for c in self.characters if c.is_locked)
+
+    @property
+    def approved_scene_count(self) -> int:
+        """Get the number of approved scenes in the project."""
+        if not self.scenes:
+            return 0
+        return sum(1 for s in self.scenes if s.shot_breakdown_approved)
+
     def __repr__(self) -> str:
         """String representation."""
         return f"<Project(id={self.id}, name='{self.name}', state={self.state.value})>"

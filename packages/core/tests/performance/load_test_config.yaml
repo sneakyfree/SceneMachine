@@ -1,0 +1,89 @@
+# SceneMachine Load Test Configuration
+# =====================================
+# 
+# Usage:
+#   locust -f tests/performance/load_test_suite.py --config tests/performance/load_test_config.yaml
+#
+
+# Target host
+host: http://localhost:8000
+
+# Test profiles
+# Run specific profiles with: locust --config load_test_config.yaml -u 25 -r 5 -t 5m
+
+# User configuration
+users: 25
+spawn-rate: 5
+run-time: 5m
+
+# Output
+headless: true
+html: load_test_report.html
+csv: load_test_results
+
+# Logging
+loglevel: WARNING
+logfile: load_test.log
+
+# User classes to include (comma-separated)
+# Options: HealthCheckUser,ProjectUser,CharacterLabUser,GenerationUser,TimelineUser,ExplainabilityUser,MixedWorkloadUser
+# Default: all
+
+# Performance thresholds (for CI/CD validation)
+# These are checked by the standalone test runner
+
+---
+# Smoke Test Profile
+# Run with: locust --config load_test_config.yaml --headless -u 5 -r 1 -t 1m
+smoke:
+  users: 5
+  spawn_rate: 1
+  duration: 1m
+  thresholds:
+    response_time_p95_ms: 1000
+    error_rate_percent: 1
+
+---
+# Load Test Profile  
+# Run with: locust --config load_test_config.yaml --headless -u 25 -r 5 -t 5m
+load:
+  users: 25
+  spawn_rate: 5
+  duration: 5m
+  thresholds:
+    response_time_p95_ms: 2000
+    error_rate_percent: 5
+
+---
+# Stress Test Profile
+# Run with: locust --config load_test_config.yaml --headless -u 50 -r 10 -t 10m
+stress:
+  users: 50
+  spawn_rate: 10
+  duration: 10m
+  thresholds:
+    response_time_p95_ms: 3000
+    error_rate_percent: 10
+
+---
+# Spike Test Profile
+# Run with: locust --config load_test_config.yaml --headless -u 100 -r 50 -t 2m
+spike:
+  users: 100
+  spawn_rate: 50
+  duration: 2m
+  thresholds:
+    response_time_p95_ms: 5000
+    error_rate_percent: 15
+
+---
+# Soak Test Profile (long duration)
+# Run with: locust --config load_test_config.yaml --headless -u 25 -r 2 -t 30m
+soak:
+  users: 25
+  spawn_rate: 2
+  duration: 30m
+  thresholds:
+    response_time_p95_ms: 2000
+    error_rate_percent: 3
+    memory_growth_percent: 10

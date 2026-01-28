@@ -134,7 +134,7 @@ describe('PageErrorBoundary', () => {
       </PageErrorBoundary>
     );
 
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByText('Page Error')).toBeInTheDocument();
   });
 });
 

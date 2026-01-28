@@ -38,6 +38,7 @@ import { useUndoRedo } from '../hooks/use-undo-redo';
 import { useWebSocketEvent, EventType } from '../lib/websocket';
 import { VideoPlayer } from '../components/video-player';
 import { ClipContextMenu, LipSyncQuickModal, TransitionZone, TransitionConfig } from '../components/timeline';
+import { AudioMixer, useAudioMixer, AudioTrack } from '../components/audio-mixer';
 
 // Transition types (extended to match TransitionZone)
 type TransitionType = 'cut' | 'fade' | 'crossfade' | 'dissolve' | 'wipe' | 'slide';
@@ -436,6 +437,14 @@ export function TimelinePage() {
     clipId: '',
     clipLabel: '',
   });
+
+  // Audio mixer state
+  const [showAudioMixer, setShowAudioMixer] = useState(false);
+  const audioMixer = useAudioMixer([
+    { id: 'dialogue', name: 'Dialogue', type: 'dialogue', volume: 0.8, pan: 0, muted: false, solo: false, color: '#3b82f6' },
+    { id: 'music', name: 'Music', type: 'music', volume: 0.5, pan: 0, muted: false, solo: false, color: '#8b5cf6' },
+    { id: 'sfx', name: 'SFX', type: 'sfx', volume: 0.7, pan: 0, muted: false, solo: false, color: '#22c55e' },
+  ] as AudioTrack[]);
 
   // Undo/Redo state for timeline clips
   const {
@@ -1102,6 +1111,19 @@ export function TimelinePage() {
 
           {/* Export */}
           <button
+            onClick={() => setShowAudioMixer(!showAudioMixer)}
+            className={cn(
+              'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
+              showAudioMixer
+                ? 'bg-brand-500/20 text-brand-400'
+                : 'bg-surface-700 hover:bg-surface-600'
+            )}
+            title="Toggle Audio Mixer"
+          >
+            <Volume2 className="w-4 h-4" />
+            Mixer
+          </button>
+          <button
             onClick={() => navigate(`/project/${projectId}/export`)}
             className="px-4 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm"
           >
@@ -1425,6 +1447,22 @@ export function TimelinePage() {
         onPrevious={handlePrevious}
         onNext={handleNext}
       />
+
+      {/* Audio Mixer Panel */}
+      {showAudioMixer && (
+        <div className="border-t border-surface-700">
+          <AudioMixer
+            tracks={audioMixer.tracks}
+            onTrackChange={audioMixer.updateTrack}
+            onTrackAdd={audioMixer.addTrack}
+            onTrackRemove={audioMixer.removeTrack}
+            masterVolume={audioMixer.masterVolume}
+            onMasterVolumeChange={audioMixer.setMasterVolume}
+            isPlaying={isPlaying}
+            onPlayPause={() => setIsPlaying(!isPlaying)}
+          />
+        </div>
+      )}
 
       {/* Context Menu */}
       {contextMenuClip && (

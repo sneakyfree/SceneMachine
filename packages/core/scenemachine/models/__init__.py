@@ -17,6 +17,7 @@ from scenemachine.models.share import ProjectShare, ProjectComment, SharePermiss
 from scenemachine.models.export_history import ExportHistory, ExportStatus, ExportFormat
 from scenemachine.models.audio_asset import AudioAsset, AudioAssetType
 from scenemachine.models.text_overlay import TextOverlay, TextOverlayType
+from scenemachine.models.lipsync_job import LipsyncJob, LipsyncJobStatus
 # ActCore models
 from scenemachine.models.performer import (
     Performer,
@@ -83,6 +84,9 @@ __all__ = [
     # Text Overlay
     "TextOverlay",
     "TextOverlayType",
+    # Lipsync Job
+    "LipsyncJob",
+    "LipsyncJobStatus",
     # ActCore - Performer
     "Performer",
     "PerformerType",

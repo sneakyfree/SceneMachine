@@ -87,11 +87,11 @@ export const useShotStore = create<ShotStoreState>()(
       ...initialState,
 
       // State setters
-      setShots: (shots) =>
+      setShots: (shots: Shot[]) =>
         set((state) => {
           state.shotMap = {};
           state.shotsByScene = {};
-          shots.forEach((shot) => {
+          shots.forEach((shot: Shot) => {
             state.shotMap[shot.id] = shot;
             if (!state.shotsByScene[shot.sceneId]) {
               state.shotsByScene[shot.sceneId] = [];
@@ -99,28 +99,28 @@ export const useShotStore = create<ShotStoreState>()(
             state.shotsByScene[shot.sceneId].push(shot);
           });
           // Sort shots by number within each scene
-          Object.keys(state.shotsByScene).forEach((sceneId) => {
-            state.shotsByScene[sceneId].sort((a, b) => a.shotNumber - b.shotNumber);
+          Object.keys(state.shotsByScene).forEach((sceneId: string) => {
+            state.shotsByScene[sceneId].sort((a: Shot, b: Shot) => a.shotNumber - b.shotNumber);
           });
         }),
 
-      setSelectedShotId: (id) =>
+      setSelectedShotId: (id: string | null) =>
         set((state) => {
           state.selectedShotId = id;
           state.selectedShot = id ? state.shotMap[id] ?? null : null;
         }),
 
-      updateShotInState: (shot) =>
+      updateShotInState: (shot: Shot) =>
         set((state) => {
           state.shotMap[shot.id] = shot;
           // Update in scene list
           if (state.shotsByScene[shot.sceneId]) {
-            const idx = state.shotsByScene[shot.sceneId].findIndex((s) => s.id === shot.id);
+            const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shot.id);
             if (idx >= 0) {
               state.shotsByScene[shot.sceneId][idx] = shot;
             } else {
               state.shotsByScene[shot.sceneId].push(shot);
-              state.shotsByScene[shot.sceneId].sort((a, b) => a.shotNumber - b.shotNumber);
+              state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.shotNumber - b.shotNumber);
             }
           } else {
             state.shotsByScene[shot.sceneId] = [shot];
@@ -131,14 +131,14 @@ export const useShotStore = create<ShotStoreState>()(
           }
         }),
 
-      removeShotFromState: (shotId) =>
+      removeShotFromState: (shotId: string) =>
         set((state) => {
           const shot = state.shotMap[shotId];
           if (shot) {
             delete state.shotMap[shotId];
             if (state.shotsByScene[shot.sceneId]) {
               state.shotsByScene[shot.sceneId] = state.shotsByScene[shot.sceneId].filter(
-                (s) => s.id !== shotId
+                (s: Shot) => s.id !== shotId
               );
             }
             if (state.selectedShotId === shotId) {
@@ -148,13 +148,13 @@ export const useShotStore = create<ShotStoreState>()(
           }
         }),
 
-      setError: (error) =>
+      setError: (error: string | null) =>
         set((state) => {
           state.error = error;
         }),
 
       // Async actions - Get
-      fetchShot: async (shotId) => {
+      fetchShot: async (shotId: string) => {
         set((state) => {
           state.isLoading = true;
           state.error = null;
@@ -167,12 +167,12 @@ export const useShotStore = create<ShotStoreState>()(
             if (!state.shotsByScene[shot.sceneId]) {
               state.shotsByScene[shot.sceneId] = [];
             }
-            const idx = state.shotsByScene[shot.sceneId].findIndex((s) => s.id === shotId);
+            const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
             if (idx >= 0) {
               state.shotsByScene[shot.sceneId][idx] = shot;
             } else {
               state.shotsByScene[shot.sceneId].push(shot);
-              state.shotsByScene[shot.sceneId].sort((a, b) => a.shotNumber - b.shotNumber);
+              state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.shotNumber - b.shotNumber);
             }
             if (state.selectedShotId === shotId) {
               state.selectedShot = shot;
@@ -190,7 +190,7 @@ export const useShotStore = create<ShotStoreState>()(
         }
       },
 
-      fetchShotJobs: async (shotId) => {
+      fetchShotJobs: async (shotId: string) => {
         try {
           const jobs = await api.getShotJobs(shotId);
           set((state) => {
@@ -204,7 +204,7 @@ export const useShotStore = create<ShotStoreState>()(
       },
 
       // Async actions - Update
-      updateShot: async (shotId, data) => {
+      updateShot: async (shotId: string, data: ShotUpdateRequest) => {
         set((state) => {
           state.isUpdating = shotId;
           state.error = null;
@@ -215,7 +215,7 @@ export const useShotStore = create<ShotStoreState>()(
             state.shotMap[shotId] = shot;
             // Update in scene list
             if (state.shotsByScene[shot.sceneId]) {
-              const idx = state.shotsByScene[shot.sceneId].findIndex((s) => s.id === shotId);
+              const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
               if (idx >= 0) {
                 state.shotsByScene[shot.sceneId][idx] = shot;
               }
@@ -236,7 +236,7 @@ export const useShotStore = create<ShotStoreState>()(
         }
       },
 
-      addShot: async (data) => {
+      addShot: async (data: ShotAddRequest) => {
         set((state) => {
           state.isLoading = true;
           state.error = null;
@@ -249,7 +249,7 @@ export const useShotStore = create<ShotStoreState>()(
               state.shotsByScene[shot.sceneId] = [];
             }
             state.shotsByScene[shot.sceneId].push(shot);
-            state.shotsByScene[shot.sceneId].sort((a, b) => a.shotNumber - b.shotNumber);
+            state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.shotNumber - b.shotNumber);
             state.isLoading = false;
           });
           return shot;
@@ -263,7 +263,7 @@ export const useShotStore = create<ShotStoreState>()(
         }
       },
 
-      deleteShot: async (shotId) => {
+      deleteShot: async (shotId: string) => {
         set((state) => {
           state.isUpdating = shotId;
           state.error = null;
@@ -277,7 +277,7 @@ export const useShotStore = create<ShotStoreState>()(
                 delete state.shotMap[shotId];
                 if (state.shotsByScene[shot.sceneId]) {
                   state.shotsByScene[shot.sceneId] = state.shotsByScene[shot.sceneId].filter(
-                    (s) => s.id !== shotId
+                    (s: Shot) => s.id !== shotId
                   );
                 }
               }
@@ -300,7 +300,7 @@ export const useShotStore = create<ShotStoreState>()(
       },
 
       // Async actions - Generation
-      queueShot: async (shotId, provider = 'local', priority = 0) => {
+      queueShot: async (shotId: string, provider = 'local', priority = 0) => {
         set((state) => {
           state.isQueuing = shotId;
           state.error = null;
@@ -314,7 +314,7 @@ export const useShotStore = create<ShotStoreState>()(
               const updated = { ...shot, state: 'queued' as const };
               state.shotMap[shotId] = updated;
               if (state.shotsByScene[shot.sceneId]) {
-                const idx = state.shotsByScene[shot.sceneId].findIndex((s) => s.id === shotId);
+                const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
                 if (idx >= 0) {
                   state.shotsByScene[shot.sceneId][idx] = updated;
                 }
@@ -336,7 +336,7 @@ export const useShotStore = create<ShotStoreState>()(
         }
       },
 
-      approveShot: async (shotId) => {
+      approveShot: async (shotId: string) => {
         set((state) => {
           state.isUpdating = shotId;
           state.error = null;
@@ -350,7 +350,7 @@ export const useShotStore = create<ShotStoreState>()(
                 const updated = { ...shot, state: 'approved' as const };
                 state.shotMap[shotId] = updated;
                 if (state.shotsByScene[shot.sceneId]) {
-                  const idx = state.shotsByScene[shot.sceneId].findIndex((s) => s.id === shotId);
+                  const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
                   if (idx >= 0) {
                     state.shotsByScene[shot.sceneId][idx] = updated;
                   }
@@ -373,7 +373,7 @@ export const useShotStore = create<ShotStoreState>()(
         }
       },
 
-      rejectShot: async (shotId, notes) => {
+      rejectShot: async (shotId: string, notes?: string) => {
         set((state) => {
           state.isUpdating = shotId;
           state.error = null;
@@ -387,7 +387,7 @@ export const useShotStore = create<ShotStoreState>()(
                 const updated = { ...shot, state: 'rejected' as const };
                 state.shotMap[shotId] = updated;
                 if (state.shotsByScene[shot.sceneId]) {
-                  const idx = state.shotsByScene[shot.sceneId].findIndex((s) => s.id === shotId);
+                  const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
                   if (idx >= 0) {
                     state.shotsByScene[shot.sceneId][idx] = updated;
                   }
@@ -411,29 +411,29 @@ export const useShotStore = create<ShotStoreState>()(
       },
 
       // Computed helpers
-      getShotById: (id) => {
+      getShotById: (id: string) => {
         return get().shotMap[id];
       },
 
-      getShotsForScene: (sceneId) => {
+      getShotsForScene: (sceneId: string) => {
         return get().shotsByScene[sceneId] ?? [];
       },
 
-      getShotsByState: (targetState) => {
-        return Object.values(get().shotMap).filter((s) => s.state === targetState);
+      getShotsByState: (targetState: Shot['state']) => {
+        return Object.values(get().shotMap).filter((s: Shot) => s.state === targetState);
       },
 
       getPendingShots: () => {
         return Object.values(get().shotMap).filter(
-          (s) => s.state === 'planned' || s.state === 'queued' || s.state === 'generating'
+          (s: Shot) => s.state === 'planned' || s.state === 'queued' || s.state === 'generating'
         );
       },
 
       getApprovedShots: () => {
-        return Object.values(get().shotMap).filter((s) => s.state === 'approved');
+        return Object.values(get().shotMap).filter((s: Shot) => s.state === 'approved');
       },
 
-      getShotGenerationProgress: (shotId) => {
+      getShotGenerationProgress: (shotId: string) => {
         const jobs = get().shotJobs[shotId];
         if (!jobs || jobs.length === 0) return 0;
         const latestJob = jobs[0];
@@ -461,14 +461,14 @@ export function useShotStats(): {
   progressPercentage: number;
 } {
   return useShotStore((state) => {
-    const shots = Object.values(state.shotMap);
+    const shots = Object.values(state.shotMap) as Shot[];
     const total = shots.length;
-    const planned = shots.filter((s) => s.state === 'planned').length;
-    const queued = shots.filter((s) => s.state === 'queued').length;
-    const generating = shots.filter((s) => s.state === 'generating').length;
-    const generated = shots.filter((s) => s.state === 'generated').length;
-    const approved = shots.filter((s) => s.state === 'approved').length;
-    const rejected = shots.filter((s) => s.state === 'rejected').length;
+    const planned = shots.filter((s: Shot) => s.state === 'planned').length;
+    const queued = shots.filter((s: Shot) => s.state === 'queued').length;
+    const generating = shots.filter((s: Shot) => s.state === 'generating').length;
+    const generated = shots.filter((s: Shot) => s.state === 'generated').length;
+    const approved = shots.filter((s: Shot) => s.state === 'approved').length;
+    const rejected = shots.filter((s: Shot) => s.state === 'rejected').length;
 
     const progressPercentage = total > 0
       ? Math.round(((generated + approved) / total) * 100)
@@ -494,7 +494,7 @@ export function useSceneShotsApproved(sceneId: string): boolean {
   return useShotStore((state) => {
     const shots = state.shotsByScene[sceneId] ?? [];
     if (shots.length === 0) return false;
-    return shots.every((s) => s.state === 'approved');
+    return shots.every((s: Shot) => s.state === 'approved');
   });
 }
 
@@ -503,7 +503,7 @@ export function useSceneShotsApproved(sceneId: string): boolean {
  */
 export function useNextShotToReview(): Shot | null {
   return useShotStore((state) => {
-    const shots = Object.values(state.shotMap);
-    return shots.find((s) => s.state === 'generated') ?? null;
+    const shots = Object.values(state.shotMap) as Shot[];
+    return shots.find((s: Shot) => s.state === 'generated') ?? null;
   });
 }
