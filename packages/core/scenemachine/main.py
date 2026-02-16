@@ -8,7 +8,7 @@ import signal
 import sys
 from typing import Optional
 
-from scenemachine.config import get_settings
+from scenemachine.config import get_settings, validate_secrets_for_production
 from scenemachine.database import get_db_manager
 from scenemachine.ipc import create_ipc_server, register_handlers
 
@@ -18,12 +18,31 @@ logger = logging.getLogger(__name__)
 async def run_ipc_server() -> None:
     """Run the IPC server for Electron communication."""
     settings = get_settings()
+    validate_secrets_for_production(settings)
     socket_path = os.environ.get("SCENEMACHINE_SOCKET_PATH", settings.ipc_socket_path)
 
     # Initialize database
     db_manager = get_db_manager()
     await db_manager.initialize()
     logger.info("Database initialized")
+
+    # Initialize and register all generation providers
+    from scenemachine.generators.registry import setup_providers, check_provider_status
+
+    registry = setup_providers()
+    logger.info(f"Provider registry initialized with {len(registry.list_providers())} providers")
+
+    # Run provider health checks at startup
+    try:
+        provider_status = await check_provider_status()
+        available_count = provider_status["total_available"]
+        total_count = provider_status["total_registered"]
+        logger.info(f"Provider health check: {available_count}/{total_count} providers available")
+        for p in provider_status["providers"]:
+            status_icon = "✓" if p["available"] else "✗"
+            logger.info(f"  {status_icon} {p['name']} ({p['type']}): {p['message']}")
+    except Exception as e:
+        logger.warning(f"Provider health check failed (non-fatal): {e}")
 
     # Create and configure IPC server
     server = create_ipc_server(socket_path)

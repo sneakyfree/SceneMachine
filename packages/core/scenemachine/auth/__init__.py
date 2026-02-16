@@ -35,6 +35,7 @@ from scenemachine.auth.schemas import (
     UserUpdateRequest,
 )
 from scenemachine.auth.service import (
+    AccountLockedError,
     AuthService,
     AuthServiceError,
     InvalidCredentialsError,
@@ -73,6 +74,7 @@ __all__ = [
     "UserResponse",
     "UserUpdateRequest",
     # Service
+    "AccountLockedError",
     "AuthService",
     "AuthServiceError",
     "InvalidCredentialsError",

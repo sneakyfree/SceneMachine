@@ -55,7 +55,7 @@ export function CharacterLabPage() {
   const queryClient = useQueryClient();
   const { getTerm, isSimplifiedMode } = useExperienceStore();
   const isStoryMode = isSimplifiedMode('characters');
-  const { addToast } = useToast();
+  const { toast: addToast } = useToast();
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,6 +224,67 @@ export function CharacterLabPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['characters', projectId] });
+    },
+  });
+
+  // FEAT-062: Suggest voice mutation
+  const suggestVoiceMutation = useMutation({
+    mutationFn: async (characterId: string) => {
+      return window.electronAPI.backendRequest<{
+        voiceId: string;
+        provider: string;
+        voiceName: string;
+      }>('characters.suggestVoice', {
+        character_id: characterId,
+      });
+    },
+    onSuccess: (result, characterId) => {
+      if (result) {
+        updateVoiceMutation.mutate({
+          characterId,
+          voiceId: result.voiceId,
+          provider: result.provider,
+          voiceName: result.voiceName,
+        });
+      }
+      addToast({
+        type: 'success',
+        title: 'Voice Suggested',
+        message: `AI matched voice: ${result?.voiceName || 'Best match'}`,
+      });
+    },
+    onError: (error) => {
+      addToast({
+        type: 'error',
+        title: 'Voice Suggestion Failed',
+        message: error instanceof Error ? error.message : 'Please try again.',
+      });
+    },
+  });
+
+  // FEAT-027: Check consistency mutation
+  const checkConsistencyMutation = useMutation({
+    mutationFn: async (characterId: string) => {
+      return window.electronAPI.backendRequest<{ score: number }>(
+        'characters.checkConsistency',
+        { character_id: characterId }
+      );
+    },
+    onSuccess: (_result, characterId) => {
+      const char = characters?.find((c) => c.id === characterId);
+      const score = _result?.score ?? 0;
+      addToast({
+        type: score >= 80 ? 'success' : score >= 60 ? 'info' : 'warning',
+        title: 'Consistency Check',
+        message: `${char?.name || 'Character'}: ${score}% match with generated shots.`,
+      });
+    },
+    onError: (error) => {
+      addToast({
+        type: 'error',
+        title: 'Consistency Check Failed',
+        message: error instanceof Error ? error.message : 'Please try again.',
+      });
     },
   });
 
@@ -480,9 +541,9 @@ export function CharacterLabPage() {
         onEmptyAction={
           searchQuery || filter !== 'all'
             ? () => {
-                setSearchQuery('');
-                setFilter('all');
-              }
+              setSearchQuery('');
+              setFilter('all');
+            }
             : undefined
         }
       >
@@ -507,12 +568,16 @@ export function CharacterLabPage() {
                   onVoiceChange={(characterId, voiceId, provider, voiceName) =>
                     updateVoiceMutation.mutate({ characterId, voiceId, provider, voiceName })
                   }
+                  onSuggestVoice={(id) => suggestVoiceMutation.mutate(id)}
+                  onCheckConsistency={(id) => checkConsistencyMutation.mutate(id)}
                   disabled={
                     lockMutation.isPending ||
                     unlockMutation.isPending ||
                     generateDescriptionMutation.isPending ||
                     updateVoiceMutation.isPending ||
-                    updatePhysicalDescriptionMutation.isPending
+                    updatePhysicalDescriptionMutation.isPending ||
+                    suggestVoiceMutation.isPending ||
+                    checkConsistencyMutation.isPending
                   }
                 />
               </div>

@@ -4,8 +4,9 @@ Authentication Service
 Business logic for user authentication and management.
 """
 
+import logging
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from uuid import UUID
 
@@ -61,8 +62,28 @@ class TokenError(AuthServiceError):
         super().__init__(message, code="token_error")
 
 
+class AccountLockedError(AuthServiceError):
+    """Raised when account is locked due to too many failed login attempts."""
+
+    def __init__(self, locked_until: datetime):
+        minutes_remaining = max(
+            1, int((locked_until - datetime.now(timezone.utc)).total_seconds() / 60)
+        )
+        super().__init__(
+            f"Account locked due to too many failed attempts. Try again in {minutes_remaining} minute(s).",
+            code="account_locked",
+        )
+
+
+logger = logging.getLogger(__name__)
+
+
 class AuthService:
     """Service for authentication operations."""
+
+    # FEAT-006: Account lockout configuration
+    MAX_LOGIN_ATTEMPTS: int = 5
+    LOCKOUT_DURATION_MINUTES: int = 15
 
     def __init__(self, session: AsyncSession):
         """Initialize auth service.
@@ -136,6 +157,7 @@ class AuthService:
 
         Raises:
             InvalidCredentialsError: If credentials are invalid
+            AccountLockedError: If account is locked due to too many failed attempts
         """
         # Find user
         result = await self.session.execute(
@@ -143,7 +165,32 @@ class AuthService:
         )
         user = result.scalar_one_or_none()
 
-        if not user or not verify_password(password, user.hashed_password):
+        if not user:
+            raise InvalidCredentialsError()
+
+        # FEAT-006: Check account lockout
+        if user.locked_until and user.locked_until > datetime.now(timezone.utc):
+            logger.warning(f"Login attempt on locked account: {email}")
+            raise AccountLockedError(user.locked_until)
+
+        # Verify password
+        if not verify_password(password, user.hashed_password):
+            # Increment failed attempts
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            logger.warning(
+                f"Failed login for {email}: attempt {user.failed_login_attempts}"
+            )
+
+            # Lock account after MAX_LOGIN_ATTEMPTS failures
+            if user.failed_login_attempts >= self.MAX_LOGIN_ATTEMPTS:
+                user.locked_until = datetime.now(timezone.utc) + timedelta(
+                    minutes=self.LOCKOUT_DURATION_MINUTES
+                )
+                logger.warning(
+                    f"Account locked for {email} until {user.locked_until}"
+                )
+
+            await self.session.commit()
             raise InvalidCredentialsError()
 
         if not user.is_active:
@@ -152,7 +199,9 @@ class AuthService:
                 code="user_inactive",
             )
 
-        # Update last login
+        # FEAT-006: Reset failed attempts on successful login
+        user.failed_login_attempts = 0
+        user.locked_until = None
         user.last_login_at = datetime.now(timezone.utc)
 
         # Generate tokens

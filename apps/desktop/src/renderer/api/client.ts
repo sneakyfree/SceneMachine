@@ -1261,6 +1261,23 @@ class APIClient {
     });
   }
 
+  /**
+   * Compare a character's face embedding against generated shots.
+   */
+  async getCharacterFaceSimilarity(characterId: string): Promise<{
+    character_id: string;
+    character_name: string;
+    comparisons: Array<{
+      shot_id: string;
+      similarity_score: number;
+      is_same_person: boolean;
+      thumbnail_url?: string;
+    }>;
+    average_similarity: number;
+  }> {
+    return this.request('characters.faceSimilarity', { character_id: characterId });
+  }
+
   // ============ Scenes ============
 
   /**
@@ -1478,6 +1495,54 @@ class APIClient {
    */
   async getShotJobs(shotId: string): Promise<GenerationJob[]> {
     return this.request<GenerationJob[]>('generation.getShotJobs', { shot_id: shotId });
+  }
+
+  /**
+   * Get quality review with dimensional breakdown for a completed job.
+   */
+  async getJobQualityReview(jobId: string): Promise<{
+    job_id: string;
+    overall_score: number;
+    passed: boolean;
+    dimensions: Array<{
+      dimension: string;
+      score: number;
+      confidence: number;
+      weight: number;
+      issues: string[];
+      notes: string;
+    }>;
+    requires_escalation: boolean;
+    escalation_reason?: string;
+    recommendations: string[];
+    reviewed_at?: string;
+  }> {
+    return this.request('generation.getJobQualityReview', { job_id: jobId });
+  }
+
+  /**
+   * Get IP-Adapter character consistency settings.
+   */
+  async getIPAdapterSettings(): Promise<{
+    mode: string;
+    strength: number;
+    available_modes: string[];
+  }> {
+    return this.request('generation.getIPAdapterSettings');
+  }
+
+  /**
+   * Update IP-Adapter character consistency settings.
+   */
+  async updateIPAdapterSettings(settings: {
+    mode?: string;
+    strength?: number;
+  }): Promise<{
+    mode: string;
+    strength: number;
+    available_modes: string[];
+  }> {
+    return this.request('generation.updateIPAdapterSettings', settings);
   }
 
   // ============ Queue Management ============

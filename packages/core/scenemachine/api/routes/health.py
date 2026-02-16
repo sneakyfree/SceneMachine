@@ -103,6 +103,26 @@ async def readiness_check(
     except Exception as e:
         checks["storage"] = f"error: {str(e)}"
 
+    # FFmpeg check (required for assembly/export)
+    try:
+        import shutil
+        import subprocess
+
+        ffmpeg_path = shutil.which("ffmpeg")
+        if ffmpeg_path:
+            result = subprocess.run(
+                [ffmpeg_path, "-version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            version_line = result.stdout.split("\n")[0] if result.stdout else "unknown"
+            checks["ffmpeg"] = f"ok ({version_line})"
+        else:
+            checks["ffmpeg"] = "warning: ffmpeg not found - assembly/export will fail"
+    except Exception as e:
+        checks["ffmpeg"] = f"error: {str(e)}"
+
     all_ok = all(v.startswith("ok") for v in checks.values())
 
     return ReadinessResponse(
@@ -404,3 +424,140 @@ async def reset_circuit_breaker(circuit_name: str) -> dict[str, Any]:
 
     cb.reset()
     return {"success": True, "message": f"Circuit '{circuit_name}' reset to closed state"}
+
+
+# ---------------------------------------------------------------------------
+# FEAT-119: Prometheus-Compatible /metrics Endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/metrics", response_class=None)
+async def prometheus_metrics(
+    db: AsyncSession = Depends(get_db),
+):
+    """Prometheus-compatible metrics endpoint.
+
+    Returns metrics in OpenMetrics text format for scraping by
+    Prometheus, Grafana Agent, or compatible monitoring systems.
+
+    Metrics exported:
+    - scenemachine_up: Application status (1=healthy)
+    - scenemachine_uptime_seconds: Time since process start
+    - scenemachine_info: Build/version metadata
+    - scenemachine_db_up: Database reachability
+    - scenemachine_db_latency_seconds: Database query latency
+    - scenemachine_provider_available: Per-provider availability
+    - scenemachine_circuit_breaker_state: Circuit breaker states
+    - process_resident_memory_bytes: RSS memory
+    """
+    from fastapi.responses import Response
+
+    lines: list[str] = []
+
+    def _gauge(name: str, help_text: str, value: float, labels: str = ""):
+        label_part = f"{{{labels}}}" if labels else ""
+        lines.append(f"# HELP {name} {help_text}")
+        lines.append(f"# TYPE {name} gauge")
+        lines.append(f"{name}{label_part} {value}")
+
+    settings = get_settings()
+    uptime = time.time() - _start_time
+
+    # Core metrics
+    _gauge("scenemachine_up", "Application health (1=up)", 1)
+    _gauge("scenemachine_uptime_seconds", "Seconds since process start", round(uptime, 2))
+
+    # Version info as a metric with labels
+    lines.append("# HELP scenemachine_info Application version info")
+    lines.append("# TYPE scenemachine_info gauge")
+    lines.append(
+        f'scenemachine_info{{version="{settings.version}",'
+        f'environment="{settings.environment}"}} 1'
+    )
+
+    # Database health
+    try:
+        start = time.time()
+        await db.execute(text("SELECT 1"))
+        db_latency = time.time() - start
+        _gauge("scenemachine_db_up", "Database reachability (1=ok)", 1)
+        _gauge(
+            "scenemachine_db_latency_seconds",
+            "Database query latency",
+            round(db_latency, 6),
+        )
+    except Exception:
+        _gauge("scenemachine_db_up", "Database reachability (1=ok)", 0)
+
+    # Provider availability
+    try:
+        from scenemachine.generators import get_provider_registry, setup_providers
+
+        registry = get_provider_registry()
+        if not registry.list_providers():
+            setup_providers()
+
+        health = await registry.get_all_health()
+        lines.append("# HELP scenemachine_provider_available Provider availability (1=up)")
+        lines.append("# TYPE scenemachine_provider_available gauge")
+        for ptype, pstatus in health.items():
+            val = 1 if pstatus.available else 0
+            lines.append(
+                f'scenemachine_provider_available{{provider="{ptype.value}"}} {val}'
+            )
+    except Exception:
+        pass  # Providers not yet initialized
+
+    # Circuit breaker states
+    try:
+        from scenemachine.utils.circuit_breaker import CircuitBreakerRegistry
+
+        cb_registry = CircuitBreakerRegistry.get_instance()
+        all_cb = cb_registry.get_all_status()
+        if all_cb:
+            state_map = {"closed": 0, "half_open": 1, "open": 2}
+            lines.append(
+                "# HELP scenemachine_circuit_breaker_state "
+                "Circuit breaker state (0=closed, 1=half_open, 2=open)"
+            )
+            lines.append("# TYPE scenemachine_circuit_breaker_state gauge")
+            for cb_name, cb_status in all_cb.items():
+                state_val = state_map.get(cb_status.get("state", "closed"), 0)
+                lines.append(
+                    f'scenemachine_circuit_breaker_state{{name="{cb_name}"}} {state_val}'
+                )
+    except Exception:
+        pass
+
+    # Process memory (Linux)
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    rss_kb = int(line.split()[1])
+                    _gauge(
+                        "process_resident_memory_bytes",
+                        "Resident memory size in bytes",
+                        rss_kb * 1024,
+                    )
+                    break
+    except Exception:
+        pass
+
+    # FFmpeg availability
+    try:
+        import shutil
+
+        ffmpeg_available = 1 if shutil.which("ffmpeg") else 0
+        _gauge(
+            "scenemachine_ffmpeg_available",
+            "FFmpeg availability (1=found)",
+            ffmpeg_available,
+        )
+    except Exception:
+        pass
+
+    body = "\n".join(lines) + "\n"
+    return Response(
+        content=body,
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )

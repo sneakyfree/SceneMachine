@@ -504,6 +504,78 @@ async def retry_job(
     return job_to_response(job)
 
 
+@router.get("/approval-queue")
+async def get_approval_queue(
+    project_id: Optional[str] = None,
+    limit: int = 50,
+    session: AsyncSession = Depends(get_session),
+) -> Dict[str, Any]:
+    """Get shots pending HITL approval.
+
+    FEAT-081: Returns shots that have been generated but are awaiting
+    human review before being approved for final assembly.
+
+    Args:
+        project_id: Optional project filter
+        limit: Maximum results (default 50)
+
+    Returns:
+        List of shots awaiting approval with generation details
+    """
+    from scenemachine.models import Shot, Scene, Project
+    from scenemachine.models.generation import GenerationJob
+
+    # Build query for shots in "generated" state (pending review)
+    stmt = (
+        select(Shot)
+        .where(Shot.state.in_(["generated", "pending_review", "review"]))
+        .order_by(Shot.updated_at.desc())
+        .limit(limit)
+    )
+
+    if project_id:
+        try:
+            pid = UUID(project_id)
+            stmt = stmt.join(Scene).where(Scene.project_id == pid)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid project ID format",
+            )
+
+    result = await session.execute(stmt)
+    shots = result.scalars().all()
+
+    queue_items = []
+    for shot in shots:
+        # Get latest generation job for this shot
+        job_stmt = (
+            select(GenerationJob)
+            .where(GenerationJob.shot_id == shot.id)
+            .order_by(GenerationJob.created_at.desc())
+            .limit(1)
+        )
+        job_result = await session.execute(job_stmt)
+        latest_job = job_result.scalar_one_or_none()
+
+        queue_items.append({
+            "shot_id": str(shot.id),
+            "shot_title": getattr(shot, "title", f"Shot {getattr(shot, 'order', '?')}"),
+            "scene_id": str(shot.scene_id) if shot.scene_id else None,
+            "state": shot.state.value if hasattr(shot.state, "value") else str(shot.state),
+            "thumbnail_path": latest_job.thumbnail_path if latest_job else None,
+            "output_path": latest_job.output_path if latest_job else None,
+            "provider": latest_job.provider if latest_job else None,
+            "generated_at": latest_job.completed_at.isoformat() if latest_job and latest_job.completed_at else None,
+            "cost_usd": latest_job.cost_usd if latest_job else None,
+        })
+
+    return {
+        "total": len(queue_items),
+        "items": queue_items,
+    }
+
+
 @router.post("/shots/{shot_id}/approve")
 async def approve_shot(
     shot_id: str,
@@ -633,96 +705,61 @@ async def get_providers_health(
     Returns:
         List of provider health information
     """
-    from scenemachine.services.generation import (
-        ReplicateProvider,
-        FalProvider,
-        MockGenerationProvider,
-    )
-    from scenemachine.config import get_settings
+    from scenemachine.generators.base import get_provider_registry
 
-    settings = get_settings()
+    registry = get_provider_registry()
     providers_health = []
 
-    # Check Replicate provider
-    replicate_configured = bool(settings.replicate_api_token)
-    replicate_available = False
-    replicate_error = None
-
-    if replicate_configured:
-        try:
-            provider = ReplicateProvider(
-                api_token=settings.replicate_api_token,
-                model_id=settings.replicate_video_model,
-            )
-            replicate_available = await provider.check_availability()
-        except Exception as e:
-            replicate_error = str(e)
-
-    providers_health.append(
-        ProviderHealthResponse(
-            provider="replicate",
-            name="Replicate",
-            available=replicate_available,
-            configured=replicate_configured,
-            models=[
-                ProviderModelResponse(**model)
-                for model in ReplicateProvider.list_models()
-            ],
-            default_model=settings.replicate_video_model or "minimax",
-            error=replicate_error,
-        )
-    )
-
-    # Check Fal.ai provider
-    fal_configured = bool(settings.fal_api_key)
-    fal_available = False
-    fal_error = None
-
-    if fal_configured:
-        try:
-            provider = FalProvider(
-                api_key=settings.fal_api_key,
-                model_id=settings.fal_video_model,
-            )
-            fal_available = await provider.check_availability()
-        except Exception as e:
-            fal_error = str(e)
-
-    providers_health.append(
-        ProviderHealthResponse(
-            provider="fal",
-            name="Fal.ai",
-            available=fal_available,
-            configured=fal_configured,
-            models=[
-                ProviderModelResponse(**model)
-                for model in FalProvider.list_models()
-            ],
-            default_model=settings.fal_video_model or "ltx",
-            error=fal_error,
-        )
-    )
-
-    # Local/Mock provider (always available)
-    providers_health.append(
-        ProviderHealthResponse(
-            provider="local",
-            name="Local (Development)",
-            available=True,
-            configured=True,
-            models=[
-                ProviderModelResponse(
-                    id="mock",
-                    name="Mock Generator",
-                    cost_per_second=0.0,
-                    supports_text_to_video=True,
-                    supports_image_to_video=True,
-                    max_duration=10.0,
+    for provider_type in registry.list_providers():
+        provider = registry.get_provider(provider_type)
+        if not provider:
+            providers_health.append(
+                ProviderHealthResponse(
+                    provider=provider_type.value,
+                    name=provider_type.value,
+                    available=False,
+                    configured=False,
+                    models=[],
+                    error="Failed to instantiate provider",
                 )
-            ],
-            default_model="mock",
+            )
+            continue
+
+        # Check availability
+        available = False
+        error = None
+        try:
+            available = await provider.check_availability()
+        except Exception as e:
+            error = str(e)
+
+        # Get models
+        models = []
+        try:
+            raw_models = provider.list_models()
+            for m in raw_models:
+                if isinstance(m, dict):
+                    models.append(ProviderModelResponse(
+                        id=m.get("id", "unknown"),
+                        name=m.get("name", "Unknown"),
+                        cost_per_second=m.get("cost_per_second", 0.0),
+                        supports_text_to_video=m.get("supports_text_to_video", True),
+                        supports_image_to_video=m.get("supports_image_to_video", False),
+                        max_duration=m.get("max_duration", 10.0),
+                    ))
+        except Exception:
+            pass
+
+        providers_health.append(
+            ProviderHealthResponse(
+                provider=provider_type.value,
+                name=provider.name,
+                available=available,
+                configured=True,
+                models=models,
+                error=error,
+            )
         )
-    )
 
     return providers_health
 
@@ -734,39 +771,49 @@ async def get_provider_models(
     """Get available models for a specific provider.
 
     Args:
-        provider_id: Provider identifier (replicate, fal, local)
+        provider_id: Provider identifier (replicate, fal, local, comfyui, runpod, actcore)
 
     Returns:
         List of available models
     """
-    from scenemachine.services.generation import ReplicateProvider, FalProvider
+    from scenemachine.generators.base import get_provider_registry
+    from scenemachine.models.generation_job import JobProvider
 
-    if provider_id == "replicate":
-        return [
-            ProviderModelResponse(**model)
-            for model in ReplicateProvider.list_models()
-        ]
-    elif provider_id == "fal":
-        return [
-            ProviderModelResponse(**model)
-            for model in FalProvider.list_models()
-        ]
-    elif provider_id == "local":
-        return [
-            ProviderModelResponse(
-                id="mock",
-                name="Mock Generator",
-                cost_per_second=0.0,
-                supports_text_to_video=True,
-                supports_image_to_video=True,
-                max_duration=10.0,
-            )
-        ]
-    else:
+    registry = get_provider_registry()
+
+    # Map provider_id string to JobProvider enum
+    try:
+        provider_type = JobProvider(provider_id)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Unknown provider: {provider_id}",
+            detail=f"Unknown provider: {provider_id}. Available: {[p.value for p in registry.list_providers()]}",
         )
+
+    provider = registry.get_provider(provider_type)
+    if not provider:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Provider {provider_id} not registered",
+        )
+
+    models = []
+    try:
+        raw_models = provider.list_models()
+        for m in raw_models:
+            if isinstance(m, dict):
+                models.append(ProviderModelResponse(
+                    id=m.get("id", "unknown"),
+                    name=m.get("name", "Unknown"),
+                    cost_per_second=m.get("cost_per_second", 0.0),
+                    supports_text_to_video=m.get("supports_text_to_video", True),
+                    supports_image_to_video=m.get("supports_image_to_video", False),
+                    max_duration=m.get("max_duration", 10.0),
+                ))
+    except Exception as e:
+        logger.warning(f"Failed to list models for {provider_id}: {e}")
+
+    return models
 
 
 @router.post("/estimate-cost")
@@ -869,3 +916,172 @@ async def resume_worker() -> Dict[str, bool]:
     worker.resume()
 
     return {"success": True, "paused": False}
+
+
+# ---- Quality Review ----
+
+class QualityDimensionScoreResponse(BaseModel):
+    """Score for a single quality dimension."""
+    dimension: str
+    score: float
+    confidence: float
+    weight: float
+    issues: List[str] = []
+    notes: str = ""
+
+
+class QualityReviewResponse(BaseModel):
+    """Full quality review result for a generation job."""
+    job_id: str
+    overall_score: float
+    passed: bool
+    dimensions: List[QualityDimensionScoreResponse]
+    requires_escalation: bool = False
+    escalation_reason: Optional[str] = None
+    recommendations: List[str] = []
+    reviewed_at: Optional[str] = None
+
+
+@router.get("/jobs/{job_id}/quality-review")
+async def get_job_quality_review(
+    job_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> QualityReviewResponse:
+    """Get quality review scores for a completed generation job.
+
+    Returns per-dimension quality scores (8 axes), overall score,
+    pass/fail verdict, and any escalation info.
+
+    Args:
+        job_id: Job UUID
+
+    Returns:
+        Quality review with dimensional breakdown
+    """
+    from scenemachine.services.video_quality_reviewer import get_video_quality_reviewer
+
+    try:
+        jid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid job ID format",
+        )
+
+    service = GenerationService(session)
+    job = await service.get_job(jid)
+
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job {job_id} not found",
+        )
+
+    # Run quality review on the output video
+    reviewer = get_video_quality_reviewer()
+    output_path = getattr(job, "output_path", None)
+
+    if not output_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Job has no output video to review",
+        )
+
+    result = await reviewer.review_video(output_path)
+
+    # Map dimension weights for response
+    weight_map = reviewer.DIMENSION_WEIGHTS
+    from datetime import datetime, timezone
+
+    dimensions = []
+    for ds in result.dimension_scores:
+        dimensions.append(QualityDimensionScoreResponse(
+            dimension=ds.dimension.value,
+            score=round(ds.score, 3),
+            confidence=round(ds.confidence, 3),
+            weight=weight_map.get(ds.dimension, 0.1),
+            issues=[i.value for i in ds.issues],
+            notes=ds.notes,
+        ))
+
+    return QualityReviewResponse(
+        job_id=job_id,
+        overall_score=round(result.overall_score, 3),
+        passed=result.passed,
+        dimensions=dimensions,
+        requires_escalation=result.requires_escalation,
+        escalation_reason=result.escalation_reason.value if result.escalation_reason else None,
+        recommendations=result.recommendations,
+        reviewed_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+# ---- IP-Adapter Settings ----
+
+class IPAdapterSettingsResponse(BaseModel):
+    """IP-Adapter character consistency settings."""
+    mode: str = "balanced"
+    strength: float = 0.6
+    available_modes: List[str] = ["balanced", "strong", "face_only"]
+
+
+class IPAdapterSettingsRequest(BaseModel):
+    """Request to update IP-Adapter settings."""
+    mode: Optional[str] = None
+    strength: Optional[float] = None
+
+
+# In-memory settings store (would be per-project in production)
+_ip_adapter_settings: Dict[str, Any] = {
+    "mode": "balanced",
+    "strength": 0.6,
+}
+
+
+@router.get("/settings/ip-adapter")
+async def get_ip_adapter_settings() -> IPAdapterSettingsResponse:
+    """Get current IP-Adapter character consistency settings.
+
+    Returns:
+        Current mode, strength, and available modes
+    """
+    return IPAdapterSettingsResponse(
+        mode=_ip_adapter_settings["mode"],
+        strength=_ip_adapter_settings["strength"],
+    )
+
+
+@router.put("/settings/ip-adapter")
+async def update_ip_adapter_settings(
+    request: IPAdapterSettingsRequest,
+) -> IPAdapterSettingsResponse:
+    """Update IP-Adapter character consistency settings.
+
+    Args:
+        request: New mode and/or strength values
+
+    Returns:
+        Updated settings
+    """
+    valid_modes = ["balanced", "strong", "face_only"]
+
+    if request.mode is not None:
+        if request.mode not in valid_modes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid mode: {request.mode}. Must be one of {valid_modes}",
+            )
+        _ip_adapter_settings["mode"] = request.mode
+
+    if request.strength is not None:
+        if not 0.0 <= request.strength <= 1.0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Strength must be between 0.0 and 1.0",
+            )
+        _ip_adapter_settings["strength"] = request.strength
+
+    return IPAdapterSettingsResponse(
+        mode=_ip_adapter_settings["mode"],
+        strength=_ip_adapter_settings["strength"],
+    )

@@ -29,6 +29,8 @@ import {
   GitCompare,
 } from 'lucide-react';
 import { ShotPreview, ModelSelector, BatchCostSummary, ComparisonView } from '../components';
+import { QualityRadarChart } from '../components/quality-radar-chart';
+import { IPAdapterControls } from '../components/ip-adapter-controls';
 import { cn } from '../lib/utils';
 import { useWebSocketEvent, EventType, WebSocketEvent } from '../lib/websocket';
 import { useToast } from '../stores/toast-store';
@@ -189,13 +191,13 @@ export function GenerationPage() {
       {
         action: event.data?.job_id
           ? {
-              label: 'Retry',
-              onClick: () => {
-                window.electronAPI.backendRequest('generation.retryJob', {
-                  job_id: event.data.job_id,
-                });
-              },
-            }
+            label: 'Retry',
+            onClick: () => {
+              window.electronAPI.backendRequest('generation.retryJob', {
+                job_id: event.data.job_id,
+              });
+            },
+          }
           : undefined,
       }
     );
@@ -564,11 +566,22 @@ export function GenerationPage() {
                   className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 >
                   <option value="">Select provider...</option>
-                  <option value="mock">Mock (Testing)</option>
-                  <option value="replicate">Replicate</option>
-                  <option value="fal">Fal.ai</option>
-                  <option value="comfyui">ComfyUI (Local)</option>
-                  <option value="runpod">RunPod</option>
+                  {useGenerationStore.getState().providersHealth.length > 0 ? (
+                    useGenerationStore.getState().providersHealth.map((p) => (
+                      <option key={p.provider} value={p.provider}>
+                        {p.name} {p.available ? '✓' : '(unavailable)'}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="local">Mock (Testing)</option>
+                      <option value="replicate">Replicate</option>
+                      <option value="fal">Fal.ai</option>
+                      <option value="comfyui">ComfyUI (Local)</option>
+                      <option value="runpod">RunPod</option>
+                      <option value="actcore">ActCore</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -603,6 +616,11 @@ export function GenerationPage() {
                 />
               </div>
             )}
+
+            {/* IP-Adapter Character Consistency Controls */}
+            <div className="mt-4 pt-4 border-t border-surface-700">
+              <IPAdapterControls />
+            </div>
           </div>
         )}
       </div>
@@ -734,6 +752,16 @@ export function GenerationPage() {
                     regenerateShotMutation.isPending
                   }
                 />
+
+                {/* Quality Radar Chart for completed/approved shots */}
+                {(shot.state === 'generated' || shot.state === 'approved') && latestJob?.id && (
+                  <div className="mt-2">
+                    <QualityRadarChart
+                      review={null}
+                      compact={viewMode === 'grid'}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}

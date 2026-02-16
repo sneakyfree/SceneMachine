@@ -1220,6 +1220,9 @@ export function TimelinePage() {
                     <option value="cut">Cut (instant)</option>
                     <option value="fade">Fade</option>
                     <option value="crossfade">Crossfade</option>
+                    <option value="dissolve">Dissolve</option>
+                    <option value="wipe">Wipe</option>
+                    <option value="slide">Slide</option>
                   </select>
                 </div>
 
@@ -1306,6 +1309,44 @@ export function TimelinePage() {
           )}
         </div>
       </div>
+
+      {/* Thumbnail minimap strip */}
+      {timelineData && timelineData.sceneGroups.length > 0 && (
+        <div className="h-10 bg-surface-900 border-t border-surface-800 flex items-center px-2 gap-0.5 overflow-hidden">
+          <span className="text-[10px] text-surface-500 mr-1 shrink-0">MAP</span>
+          {timelineData.sceneGroups.flatMap(g => g.clips).map((clip) => {
+            const fraction = clip.duration / (timelineData.totalDuration || 1);
+            return (
+              <button
+                key={clip.id}
+                onClick={() => {
+                  setCurrentTime(clip.startTime);
+                  setSelectedClipId(clip.id);
+                }}
+                className={cn(
+                  'h-7 rounded-sm border transition-all relative overflow-hidden',
+                  selectedClipId === clip.id
+                    ? 'border-brand-500 ring-1 ring-brand-500'
+                    : 'border-surface-700 hover:border-surface-500'
+                )}
+                style={{ width: `${Math.max(fraction * 100, 1.5)}%` }}
+                title={`Shot ${clip.shotNumber} — ${clip.duration.toFixed(1)}s`}
+              >
+                {clip.thumbnailUrl ? (
+                  <img src={clip.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-surface-800" />
+                )}
+              </button>
+            );
+          })}
+          {/* Playhead indicator in minimap */}
+          <div
+            className="absolute h-7 w-0.5 bg-red-500 pointer-events-none z-10"
+            style={{ left: `${2 + ((currentTime / (timelineData.totalDuration || 1)) * 96)}%` }}
+          />
+        </div>
+      )}
 
       {/* Timeline area */}
       <div className="h-64 border-t border-surface-800 flex flex-col">

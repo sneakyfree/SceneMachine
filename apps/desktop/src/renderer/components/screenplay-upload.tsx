@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect, DragEvent } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, Brain, Sparkles } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Brain, Sparkles, Wrench, XCircle, RefreshCw } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface ScreenplayUploadProps {
@@ -122,8 +122,8 @@ function UploadProgressBar({
                   isCompleted
                     ? 'bg-green-500 text-white'
                     : isActive
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-surface-700 text-surface-400'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface-700 text-surface-400'
                 )}
               >
                 {isCompleted ? (
@@ -165,8 +165,8 @@ function UploadProgressBar({
                 isCompleted
                   ? 'text-green-400'
                   : isActive
-                  ? 'text-primary-400'
-                  : 'text-surface-500'
+                    ? 'text-primary-400'
+                    : 'text-surface-500'
               )}
             >
               {p.label}
@@ -214,6 +214,10 @@ export function ScreenplayUpload({
   const [phaseStartTime, setPhaseStartTime] = useState<number>(0);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [parseBlockers, setParseBlockers] = useState<
+    Array<{ severity: 'critical' | 'warning'; message: string; fix?: string; fixType?: 'auto' | 'manual'; isFixing?: boolean; isFixed?: boolean }>
+  >([]);
+  const [screenplayId, setScreenplayId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -252,6 +256,8 @@ export function ScreenplayUpload({
   const uploadAndParse = useCallback(
     async (filePath: string, filename: string) => {
       try {
+        setParseBlockers([]);
+
         // Phase 1: Uploading
         startPhase('uploading');
         setProgress('Uploading screenplay...');
@@ -270,6 +276,7 @@ export function ScreenplayUpload({
             filename: filename,
           }
         );
+        setScreenplayId(uploadResult.id);
 
         clearInterval(uploadProgressInterval);
         setPercentage(100);
@@ -288,10 +295,14 @@ export function ScreenplayUpload({
           id: string;
           isParsed: boolean;
           parseErrors: string[] | null;
+          parseWarnings?: string[] | null;
           metadata: {
             scene_count?: number;
             character_count?: number;
             element_count?: number;
+            missing_sluglines?: number;
+            unnamed_characters?: number;
+            empty_scenes?: number;
           };
         }>('screenplays.parse', {
           screenplay_id: uploadResult.id,
@@ -300,8 +311,56 @@ export function ScreenplayUpload({
         clearInterval(parseProgressInterval);
         setPercentage(100);
 
+        // Detect blockers from parse result
+        const blockers: Array<{ severity: 'critical' | 'warning'; message: string; fix?: string; fixType?: 'auto' | 'manual'; isFixing?: boolean; isFixed?: boolean }> = [];
+
         if (parseResult.parseErrors && parseResult.parseErrors.length > 0) {
-          throw new Error(parseResult.parseErrors.join(', '));
+          parseResult.parseErrors.forEach((err) => {
+            blockers.push({ severity: 'critical', message: err, fix: 'Fix in screenplay file and re-upload' });
+          });
+        }
+
+        if (parseResult.parseWarnings) {
+          parseResult.parseWarnings.forEach((warn) => {
+            blockers.push({ severity: 'warning', message: warn });
+          });
+        }
+
+        if (parseResult.metadata.missing_sluglines && parseResult.metadata.missing_sluglines > 0) {
+          blockers.push({
+            severity: 'warning',
+            message: `${parseResult.metadata.missing_sluglines} scene(s) missing INT/EXT sluglines`,
+            fix: 'Add scene headings (e.g., INT. OFFICE - DAY)',
+            fixType: 'auto',
+          });
+        }
+
+        if (parseResult.metadata.unnamed_characters && parseResult.metadata.unnamed_characters > 0) {
+          blockers.push({
+            severity: 'warning',
+            message: `${parseResult.metadata.unnamed_characters} unnamed character(s) detected`,
+            fix: 'Replace with named characters for better generation',
+            fixType: 'auto',
+          });
+        }
+
+        if (parseResult.metadata.empty_scenes && parseResult.metadata.empty_scenes > 0) {
+          blockers.push({
+            severity: 'warning',
+            message: `${parseResult.metadata.empty_scenes} empty scene(s) with no action or dialogue`,
+            fix: 'Add content to empty scenes or remove them',
+            fixType: 'auto',
+          });
+        }
+
+        setParseBlockers(blockers);
+
+        // If there are critical blockers, stop here
+        const hasCritical = blockers.some((b) => b.severity === 'critical');
+        if (hasCritical) {
+          setState('error');
+          setErrorMessage('Critical issues found — fix before proceeding');
+          return;
         }
 
         // Phase 3: AI Analysis (optional)
@@ -340,7 +399,7 @@ export function ScreenplayUpload({
         setPercentage(100);
         setProgress(
           `Parsed ${parseResult.metadata.scene_count || 0} scenes, ` +
-            `${parseResult.metadata.character_count || 0} characters`
+          `${parseResult.metadata.character_count || 0} characters`
         );
 
         // Get full screenplay data
@@ -356,6 +415,7 @@ export function ScreenplayUpload({
           setState('idle');
           setProgress('');
           setPercentage(0);
+          setParseBlockers([]);
         }, 3000);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Upload failed';
@@ -369,6 +429,7 @@ export function ScreenplayUpload({
           setState('idle');
           setErrorMessage('');
           setPercentage(0);
+          setParseBlockers([]);
         }, 5000);
       }
     },
@@ -597,6 +658,128 @@ export function ScreenplayUpload({
               </div>
             )}
           </div>
+
+          {/* Blockers panel — shown after parsing detects issues */}
+          {parseBlockers.length > 0 && (state === 'success' || state === 'error') && (
+            <div className="w-full max-w-md space-y-2 mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-surface-300">
+                  {parseBlockers.filter(b => !b.isFixed).length} issue(s) found
+                </span>
+                {parseBlockers.some(b => b.fixType === 'auto' && !b.isFixed) && (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!screenplayId) return;
+                      setParseBlockers(prev => prev.map(b =>
+                        b.fixType === 'auto' && !b.isFixed ? { ...b, isFixing: true } : b
+                      ));
+                      try {
+                        await window.electronAPI.backendRequest('screenplays.autoFixAll', {
+                          screenplay_id: screenplayId,
+                        });
+                        setParseBlockers(prev => prev.map(b =>
+                          b.fixType === 'auto' ? { ...b, isFixing: false, isFixed: true } : b
+                        ));
+                      } catch {
+                        setParseBlockers(prev => prev.map(b => ({ ...b, isFixing: false })));
+                      }
+                    }}
+                    className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
+                  >
+                    <Wrench className="w-3 h-3" />
+                    Fix All
+                  </button>
+                )}
+              </div>
+              {parseBlockers.map((blocker, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    'flex items-start gap-2 p-2 rounded-lg text-xs text-left transition-all',
+                    blocker.isFixed
+                      ? 'bg-green-500/10 border border-green-500/30 opacity-60'
+                      : blocker.severity === 'critical'
+                        ? 'bg-red-500/10 border border-red-500/30'
+                        : 'bg-yellow-500/10 border border-yellow-500/30'
+                  )}
+                >
+                  {blocker.isFixed ? (
+                    <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-green-400" />
+                  ) : blocker.isFixing ? (
+                    <RefreshCw className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-400 animate-spin" />
+                  ) : (
+                    <AlertCircle
+                      className={cn(
+                        'w-3.5 h-3.5 mt-0.5 shrink-0',
+                        blocker.severity === 'critical' ? 'text-red-400' : 'text-yellow-400'
+                      )}
+                    />
+                  )}
+                  <div className="flex-1">
+                    <span className={cn(
+                      blocker.isFixed
+                        ? 'text-green-300 line-through'
+                        : blocker.severity === 'critical' ? 'text-red-300' : 'text-yellow-300'
+                    )}>
+                      {blocker.message}
+                    </span>
+                    {blocker.fix && !blocker.isFixed && (
+                      <p className="text-surface-500 mt-0.5">Fix: {blocker.fix}</p>
+                    )}
+                    {blocker.isFixed && (
+                      <p className="text-green-500 mt-0.5">✓ Fixed automatically</p>
+                    )}
+                  </div>
+                  {/* Action buttons */}
+                  {!blocker.isFixed && !blocker.isFixing && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {blocker.fixType === 'auto' && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!screenplayId) return;
+                            setParseBlockers(prev => prev.map((b, i) =>
+                              i === idx ? { ...b, isFixing: true } : b
+                            ));
+                            try {
+                              await window.electronAPI.backendRequest('screenplays.autoFix', {
+                                screenplay_id: screenplayId,
+                                issue_index: idx,
+                              });
+                              setParseBlockers(prev => prev.map((b, i) =>
+                                i === idx ? { ...b, isFixing: false, isFixed: true } : b
+                              ));
+                            } catch {
+                              setParseBlockers(prev => prev.map((b, i) =>
+                                i === idx ? { ...b, isFixing: false } : b
+                              ));
+                            }
+                          }}
+                          className="p-1 rounded hover:bg-blue-500/20 text-blue-400 transition-colors"
+                          title="Auto-fix this issue"
+                        >
+                          <Wrench className="w-3 h-3" />
+                        </button>
+                      )}
+                      {blocker.severity === 'warning' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setParseBlockers(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="p-1 rounded hover:bg-surface-700 text-surface-500 transition-colors"
+                          title="Dismiss this warning"
+                        >
+                          <XCircle className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Format badges */}
           {state === 'idle' && (

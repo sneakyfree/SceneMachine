@@ -28,8 +28,17 @@ const STATIC_ASSETS = [
 // API endpoints to cache with network-first strategy
 const API_CACHE_PATTERNS = [
     /\/api\/v1\/projects$/,
+    /\/api\/v1\/projects\/[^/]+$/,
     /\/api\/v1\/characters/,
     /\/api\/v1\/voices/,
+    /\/api\/v1\/screenplays/,
+    /\/api\/v1\/scenes/,
+    /\/api\/v1\/shots/,
+    /\/api\/v1\/generation\/jobs/,
+    /\/api\/v1\/assembly\/status/,
+    /\/api\/v1\/snapshots/,
+    /\/api\/v1\/export\/history/,
+    /\/api\/v1\/settings/,
 ];
 
 // ============================================================================

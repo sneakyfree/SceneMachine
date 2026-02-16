@@ -21,6 +21,7 @@ from scenemachine.auth.schemas import (
     UserUpdateRequest,
 )
 from scenemachine.auth.service import (
+    AccountLockedError,
     AuthService,
     AuthServiceError,
     InvalidCredentialsError,
@@ -108,6 +109,11 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=e.message,
             headers={"WWW-Authenticate": "Bearer"},
+        ) from e
+    except AccountLockedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=e.message,
         ) from e
     except AuthServiceError as e:
         raise HTTPException(

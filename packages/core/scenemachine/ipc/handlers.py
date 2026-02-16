@@ -2664,9 +2664,26 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("audio.generateDialogue")
-    async def handle_generate_dialogue(shot_id: str) -> Dict[str, Any]:
-        """Generate dialogue audio for a shot."""
+    async def handle_generate_dialogue(
+        shot_id: str,
+        emotion: str = "neutral",
+        speed: float = 1.0,
+    ) -> Dict[str, Any]:
+        """Generate dialogue audio for a shot.
+
+        FEAT-057: Accepts emotion modifier for expressive TTS.
+
+        Args:
+            shot_id: UUID of the shot to generate dialogue for
+            emotion: Emotion style — neutral, happy, sad, angry, whisper
+            speed: Speech speed multiplier (0.5–2.0)
+        """
         from scenemachine.services.audio import AudioService
+
+        VALID_EMOTIONS = {"neutral", "happy", "sad", "angry", "whisper"}
+        if emotion not in VALID_EMOTIONS:
+            emotion = "neutral"
+        speed = max(0.5, min(2.0, speed))
 
         sid = UUID(shot_id)
         db_manager = get_db_manager()
@@ -2675,14 +2692,81 @@ def register_handlers(server: IPCServer) -> None:
             service = AudioService(session)
             await service.initialize_providers()
 
-            result = await service.generate_dialogue(sid)
+            result = await service.generate_dialogue(
+                sid, emotion=emotion, speed=speed,
+            )
 
             return {
                 "success": result.success,
                 "audioPath": result.audio_path,
                 "durationSeconds": result.duration_seconds,
                 "errorMessage": result.error_message,
+                "emotion": emotion,
+                "speed": speed,
             }
+
+    @server.handler("audio.generateSceneDialogue")
+    async def handle_generate_scene_dialogue(
+        scene_id: str,
+    ) -> Dict[str, Any]:
+        """Generate dialogue audio for all shots in a scene (batch).
+
+        FEAT-061: One-click "Generate All Dialogue" for a scene.
+        Iterates through every shot in the scene, auto-assigns voices
+        if needed, then generates TTS for each dialogue line.
+        """
+        from scenemachine.services.audio import AudioService
+
+        sid = UUID(scene_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = AudioService(session)
+            await service.initialize_providers()
+
+            # Get all shots in the scene
+            from scenemachine.models.shot import Shot
+            from sqlalchemy import select
+
+            stmt = select(Shot).where(Shot.scene_id == sid).order_by(Shot.order)
+            result_rows = await session.execute(stmt)
+            shots = result_rows.scalars().all()
+
+            results = []
+            success_count = 0
+            total_cost = 0.0
+
+            for shot in shots:
+                try:
+                    result = await service.generate_dialogue(shot.id)
+                    results.append({
+                        "shotId": str(shot.id),
+                        "success": result.success,
+                        "audioPath": result.audio_path,
+                        "durationSeconds": result.duration_seconds,
+                        "errorMessage": result.error_message,
+                    })
+                    if result.success:
+                        success_count += 1
+                    if hasattr(result, "cost_usd") and result.cost_usd:
+                        total_cost += result.cost_usd
+                except Exception as e:
+                    results.append({
+                        "shotId": str(shot.id),
+                        "success": False,
+                        "audioPath": None,
+                        "durationSeconds": 0,
+                        "errorMessage": str(e),
+                    })
+
+            return {
+                "sceneId": scene_id,
+                "totalShots": len(shots),
+                "successCount": success_count,
+                "totalCostUsd": total_cost,
+                "results": results,
+            }
+
 
     @server.handler("audio.assignVoice")
     async def handle_assign_voice(
@@ -2773,6 +2857,247 @@ def register_handlers(server: IPCServer) -> None:
             service = AudioService(session)
             success = await service.delete_dialogue_audio(did)
             return {"success": success}
+
+    # Lip Sync handlers
+    @server.handler("lipSync.getProviders")
+    async def handle_get_lipsync_providers() -> List[Dict[str, Any]]:
+        """Get available lip sync providers with status."""
+        from scenemachine.services.lipsync import get_lip_sync_service
+
+        service = get_lip_sync_service()
+        await service.initialize_providers()
+        return await service.get_available_providers()
+
+    @server.handler("lipSync.analyzeAudio")
+    async def handle_lipsync_analyze(
+        audio_path: str,
+        provider: str = "mock",
+    ) -> Dict[str, Any]:
+        """Analyze audio and extract phoneme timing data."""
+        from scenemachine.services.lipsync import LipSyncProvider, get_lip_sync_service
+
+        service = get_lip_sync_service()
+        await service.initialize_providers()
+
+        result = await service.analyze_audio(
+            audio_path=audio_path,
+            provider=LipSyncProvider(provider),
+        )
+
+        return {
+            "success": result.success,
+            "errorMessage": result.error_message,
+            "processingTimeSeconds": result.processing_time_seconds,
+            "lipSyncData": result.lip_sync_data.to_dict() if result.lip_sync_data else None,
+        }
+
+    @server.handler("lipSync.applyToVideo")
+    async def handle_lipsync_apply(
+        video_path: str,
+        audio_path: str,
+        output_path: str,
+        provider: str = "mock",
+    ) -> Dict[str, Any]:
+        """Full pipeline: analyze audio and apply lip sync to video."""
+        from scenemachine.services.lipsync import LipSyncProvider, get_lip_sync_service
+
+        service = get_lip_sync_service()
+        await service.initialize_providers()
+
+        result = await service.apply_to_video(
+            video_path=video_path,
+            audio_path=audio_path,
+            output_path=output_path,
+            provider=LipSyncProvider(provider),
+        )
+
+        return {
+            "success": result.success,
+            "outputVideoPath": result.output_video_path,
+            "errorMessage": result.error_message,
+            "processingTimeSeconds": result.processing_time_seconds,
+            "lipSyncData": result.lip_sync_data.to_dict() if result.lip_sync_data else None,
+        }
+
+    # Production Pipeline handlers
+    @server.handler("pipeline.run")
+    async def handle_pipeline_run(
+        project_id: str,
+        screenplay_path: str,
+        file_format: str = "fountain",
+        mode: str = "full_auto",
+        max_parallel: int = 2,
+        quality_threshold: float = 0.7,
+        budget_limit: float = 100.0,
+    ) -> Dict[str, Any]:
+        """Run the full production pipeline (one-click generate).
+        
+        This is the main entry point for the screenplay-to-movie pipeline.
+        It orchestrates parsing, shot generation, TTS, lip sync, and assembly.
+        """
+        from scenemachine.services.production_pipeline import (
+            ProductionPipeline,
+            PipelineMode,
+        )
+        
+        pipeline = ProductionPipeline(
+            project_id=project_id,
+            max_parallel=max_parallel,
+            quality_threshold=quality_threshold,
+            budget_limit=budget_limit,
+        )
+        
+        try:
+            pipeline_mode = PipelineMode(mode)
+        except ValueError:
+            pipeline_mode = PipelineMode.FULL_AUTO
+        
+        result = await pipeline.run(
+            screenplay_path=screenplay_path,
+            file_format=file_format,
+            mode=pipeline_mode,
+        )
+        
+        return result.to_dict()
+
+    @server.handler("pipeline.getStatus")
+    async def handle_pipeline_status(project_id: str) -> Dict[str, Any]:
+        """Get status of a running pipeline.
+        
+        Note: In a production system, pipeline instances would be stored
+        in a registry. For now, returns basic project info.
+        """
+        return {
+            "project_id": project_id,
+            "stage": "unknown",
+            "message": "Pipeline status tracking requires a running pipeline instance",
+        }
+
+    # Crew IPC handlers — mirrors /api/crew/* REST endpoints for Electron
+    @server.handler("crew.listAgents")
+    async def handle_crew_list_agents() -> List[Dict[str, Any]]:
+        """List all registered agents in the orchestrator crew."""
+        from scenemachine.agents import (
+            OrchestratorAgent, ParserAgent, CharacterAgent,
+            GeneratorAgent, AssemblerAgent, ReviewerAgent,
+        )
+        orchestrator = OrchestratorAgent(name="Director")
+        orchestrator.register_agent(ParserAgent(name="Parser"))
+        orchestrator.register_agent(CharacterAgent(name="Character"))
+        orchestrator.register_agent(GeneratorAgent(name="Generator"))
+        orchestrator.register_agent(AssemblerAgent(name="Assembler"))
+        orchestrator.register_agent(ReviewerAgent(name="Reviewer"))
+        
+        return [
+            {
+                "type": atype.value,
+                "name": agent.name,
+                "capabilities": agent.capabilities,
+                "requires_approval": agent.requires_approval,
+            }
+            for atype, agent in orchestrator._agents.items()
+        ]
+
+    @server.handler("crew.getActionLogs")
+    async def handle_crew_get_logs(
+        agent_type: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Get action logs from the agent crew."""
+        from scenemachine.agents import AgentActionLogger, AgentType
+        
+        action_logger = AgentActionLogger()
+        type_filter = None
+        if agent_type:
+            try:
+                type_filter = AgentType(agent_type)
+            except ValueError:
+                pass
+        
+        logs = action_logger.get_logs(agent_type=type_filter, limit=limit)
+        return [log.to_dict() for log in logs]
+
+    @server.handler("crew.startPipeline")
+    async def handle_crew_start_pipeline(
+        project_id: str,
+        screenplay_path: Optional[str] = None,
+        phases: Optional[List[str]] = None,
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """Start the agentic crew pipeline."""
+        from scenemachine.agents import OrchestratorAgent, ActionContext
+        from scenemachine.api.routes.crew import get_orchestrator
+        from uuid import UUID
+        
+        orchestrator = get_orchestrator()
+        context = ActionContext(
+            project_id=UUID(project_id),
+            dry_run=dry_run,
+        )
+        result = await orchestrator.execute(
+            "run_pipeline",
+            context,
+            screenplay_path=screenplay_path or "",
+            phases=phases,
+        )
+        return {
+            "success": result.success,
+            "status": result.status.value,
+            "output": result.output,
+            "cost_usd": result.cost_usd,
+        }
+
+    @server.handler("crew.getPipelineStatus")
+    async def handle_crew_pipeline_status(
+        project_id: str,
+    ) -> Dict[str, Any]:
+        """Get crew pipeline execution status."""
+        from scenemachine.agents import ActionContext
+        from scenemachine.api.routes.crew import get_orchestrator
+        from uuid import UUID
+        
+        orchestrator = get_orchestrator()
+        context = ActionContext(project_id=UUID(project_id))
+        result = await orchestrator.execute("get_status", context)
+        output = result.output or {}
+        
+        return {
+            "project_id": output.get("project_id", project_id),
+            "status": output.get("status", "idle"),
+            "current_phase": output.get("current_phase", "none"),
+            "progress_percent": output.get("progress_percent", 0),
+            "total_cost_usd": output.get("total_cost_usd", 0),
+            "errors": output.get("errors", []),
+        }
+
+    @server.handler("crew.controlPipeline")
+    async def handle_crew_control_pipeline(
+        project_id: str,
+        action: str = "pause",
+    ) -> Dict[str, str]:
+        """Control pipeline: pause, resume, or cancel."""
+        from scenemachine.agents import ActionContext
+        from scenemachine.api.routes.crew import get_orchestrator
+        from uuid import UUID
+        
+        orchestrator = get_orchestrator()
+        context = ActionContext(project_id=UUID(project_id))
+        
+        action_map = {
+            "pause": "pause_pipeline",
+            "resume": "resume_pipeline",
+            "cancel": "cancel_pipeline",
+        }
+        method = action_map.get(action, "pause_pipeline")
+        result = await orchestrator.execute(method, context)
+        return {"message": result.output.get("message", f"Pipeline {action}d")}
+
+    @server.handler("crew.getTotalCost")
+    async def handle_crew_total_cost() -> Dict[str, float]:
+        """Get total cost of all crew actions."""
+        from scenemachine.agents import AgentActionLogger
+        action_logger = AgentActionLogger()
+        return {"total_cost_usd": action_logger.get_total_cost()}
 
     # Analytics handlers
     @server.handler("analytics.getGenerationStats")
@@ -6473,5 +6798,39 @@ def register_handlers(server: IPCServer) -> None:
             "accepted_at": booking.accepted_at.isoformat() if booking.accepted_at else None,
             "delivered_at": booking.delivered_at.isoformat() if booking.delivered_at else None,
         }
+
+    # ==========================================================================
+    # SNAPSHOT HANDLERS
+    # ==========================================================================
+
+    @server.handler("snapshots.compare")
+    async def handle_compare_snapshots(
+        snapshot_id_a: str,
+        snapshot_id_b: str,
+    ) -> Dict[str, Any]:
+        """Compare two snapshots and return delta report."""
+        from scenemachine.services.snapshots import SnapshotService
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            service = SnapshotService(session)
+            report = await service.compare_snapshots(
+                UUID(snapshot_id_a),
+                UUID(snapshot_id_b),
+            )
+            return {
+                "snapshot_a": snapshot_id_a,
+                "snapshot_b": snapshot_id_b,
+                "total_changes": report.total_changes,
+                "changes": [
+                    {
+                        "field": c.field,
+                        "old_value": c.old_value,
+                        "new_value": c.new_value,
+                        "change_type": c.change_type,
+                    }
+                    for c in report.changes
+                ],
+            }
 
     logger.info(f"Registered {len(server.handlers)} IPC handlers")

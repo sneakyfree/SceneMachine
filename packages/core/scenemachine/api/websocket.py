@@ -72,6 +72,12 @@ class EventType(str, Enum):
     PERFORMER_MATCHED = "performer.matched"
     DELIVERY_RECEIVED = "delivery.received"
 
+    # Agentic Crew events
+    AGENT_ACTION = "agent.action"
+    PIPELINE_STAGE_CHANGED = "pipeline.stage.changed"
+    PIPELINE_PROGRESS = "pipeline.progress"
+    APPROVAL_REQUIRED = "approval.required"
+
 
 @dataclass
 class WebSocketEvent:
@@ -431,6 +437,81 @@ async def emit_system_notification(
             "title": title,
             "message": message,
             "level": level,
+        },
+        project_id=project_id,
+    )
+    if project_id:
+        await manager.broadcast_to_project(project_id, event)
+    else:
+        await manager.broadcast(event)
+
+
+async def emit_agent_action(
+    agent_type: str,
+    agent_name: str,
+    action: str,
+    status: str,
+    project_id: Optional[str] = None,
+    confidence: float = 1.0,
+    cost_usd: float = 0.0,
+    details: Optional[dict] = None,
+) -> None:
+    """Emit an agent action event for the activity feed."""
+    event = WebSocketEvent(
+        type=EventType.AGENT_ACTION,
+        data={
+            "agent_type": agent_type,
+            "agent_name": agent_name,
+            "action": action,
+            "status": status,
+            "confidence": confidence,
+            "cost_usd": cost_usd,
+            "details": details or {},
+        },
+        project_id=project_id,
+    )
+    if project_id:
+        await manager.broadcast_to_project(project_id, event)
+    else:
+        await manager.broadcast(event)
+
+
+async def emit_pipeline_stage(
+    project_id: str,
+    stage: str,
+    progress_percent: float,
+    total_cost_usd: float = 0.0,
+    message: Optional[str] = None,
+) -> None:
+    """Emit pipeline stage change event."""
+    event = WebSocketEvent(
+        type=EventType.PIPELINE_STAGE_CHANGED,
+        data={
+            "stage": stage,
+            "progress_percent": progress_percent,
+            "total_cost_usd": total_cost_usd,
+            "message": message,
+        },
+        project_id=project_id,
+    )
+    await manager.broadcast_to_project(project_id, event)
+
+
+async def emit_approval_required(
+    approval_id: str,
+    agent_type: str,
+    action_type: str,
+    description: str,
+    project_id: Optional[str] = None,
+) -> None:
+    """Emit approval required event for HITL queue."""
+    event = WebSocketEvent(
+        type=EventType.APPROVAL_REQUIRED,
+        data={
+            "approval_id": approval_id,
+            "agent_type": agent_type,
+            "action_type": action_type,
+            "description": description,
         },
         project_id=project_id,
     )

@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from scenemachine.api.middleware import (
+    CSRFConfig,
+    CSRFMiddleware,
     RateLimitConfig,
     RateLimitMiddleware,
     SecurityHeadersConfig,
@@ -40,13 +42,24 @@ from scenemachine.api.routes import (
     text_overlays,
     watermarks,
     ws,
+    # Intake & Pipeline
+    intake,
+    pipeline,
+    # Character Lab
+    character_lab,
+    # Timeline
+    timeline,
+    # Assets
+    assets,
+    # Billing
+    billing,
     # ActForge marketplace
     performers,
     bookings,
     # GPU Exchange
     gpu_exchange,
 )
-from scenemachine.config import Settings, get_settings
+from scenemachine.config import Settings, get_settings, validate_secrets_for_production
 from scenemachine.database import get_db_manager
 
 logger = logging.getLogger(__name__)
@@ -70,6 +83,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for startup and shutdown."""
     settings = get_settings()
+    validate_secrets_for_production(settings)
     logger.info(f"Starting SceneMachine API v{settings.version}")
     logger.info(f"Environment: {settings.environment}")
 
@@ -137,6 +151,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         config=SecurityHeadersConfig(
             hsts_enabled=not settings.debug,
         ),
+    )
+
+    # CSRF protection (double-submit cookie pattern)
+    app.add_middleware(
+        CSRFMiddleware,
+        config=CSRFConfig(),
     )
 
     # Rate limiting (only in production)
@@ -291,6 +311,42 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         snapshots.router,
         prefix="/api/v1",
         tags=["Snapshots"],
+    )
+    # Intake Wizard
+    app.include_router(
+        intake.router,
+        prefix="/api/v1",
+        tags=["Intake"],
+    )
+    # Pipeline Orchestration
+    app.include_router(
+        pipeline.router,
+        prefix="/api/v1",
+        tags=["Pipeline"],
+    )
+    # Character Lab
+    app.include_router(
+        character_lab.router,
+        prefix="/api/v1",
+        tags=["Character Lab"],
+    )
+    # Timeline
+    app.include_router(
+        timeline.router,
+        prefix="/api/v1",
+        tags=["Timeline"],
+    )
+    # Assets
+    app.include_router(
+        assets.router,
+        prefix="/api/v1",
+        tags=["Assets"],
+    )
+    # Billing
+    app.include_router(
+        billing.router,
+        prefix="/api/v1",
+        tags=["Billing"],
     )
 
     return app

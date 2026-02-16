@@ -86,3 +86,8 @@ export {
 
 // Timeline Components
 export { ClipContextMenu, LipSyncQuickModal } from './timeline';
+
+// Agentic Crew Components
+export { AgentActivityFeed } from './agent-activity-feed';
+export { ApprovalQueue } from './approval-queue';
+export { PipelineControl } from './pipeline-control';

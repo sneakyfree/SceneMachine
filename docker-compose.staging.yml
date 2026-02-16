@@ -1,0 +1,225 @@
+# SceneMachine Docker Compose — Staging
+# Pre-production environment with debugging, seed data, and relaxed resource limits
+#
+# Usage:
+#   docker compose -f docker-compose.staging.yml up -d
+#   docker compose -f docker-compose.staging.yml --profile monitoring up -d
+
+version: '3.8'
+
+services:
+  # ──────────────────────────────────────────────
+  # PostgreSQL Database
+  # ──────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: scenemachine-staging-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-scenemachine}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-staging_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-scenemachine_staging}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scenemachine}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ──────────────────────────────────────────────
+  # Redis
+  # ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: scenemachine-staging-redis
+    command: >
+      redis-server
+        --appendonly yes
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ──────────────────────────────────────────────
+  # Backend API Server (debug mode)
+  # ──────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: tools/docker/Dockerfile.backend
+      args:
+        PYTHON_VERSION: "3.11"
+    container_name: scenemachine-staging-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scenemachine}:${POSTGRES_PASSWORD:-staging_pass}@db:5432/${POSTGRES_DB:-scenemachine_staging}
+      REDIS_URL: redis://redis:6379/0
+      SCENEMACHINE_ENV: staging
+      SCENEMACHINE_DEBUG: "true"
+      SCENEMACHINE_SECRET_KEY: ${SCENEMACHINE_SECRET_KEY:-staging-secret-key-change-me}
+      SCENEMACHINE_ALLOWED_ORIGINS: "*"
+      # API keys (use test/staging keys)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      REPLICATE_API_KEY: ${REPLICATE_API_KEY:-}
+      # Relaxed limits for testing
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      MAX_CONNECTIONS: ${MAX_CONNECTIONS:-10}
+      LOG_LEVEL: debug
+    volumes:
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+      - cache:/app/cache
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ──────────────────────────────────────────────
+  # Celery Worker
+  # ──────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: tools/docker/Dockerfile.backend
+    container_name: scenemachine-staging-worker
+    command: [ "celery", "-A", "scenemachine.tasks", "worker", "--loglevel=debug", "--concurrency=1" ]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scenemachine}:${POSTGRES_PASSWORD:-staging_pass}@db:5432/${POSTGRES_DB:-scenemachine_staging}
+      REDIS_URL: redis://redis:6379/0
+      SCENEMACHINE_ENV: staging
+      SCENEMACHINE_SECRET_KEY: ${SCENEMACHINE_SECRET_KEY:-staging-secret-key-change-me}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      REPLICATE_API_KEY: ${REPLICATE_API_KEY:-}
+      LOG_LEVEL: debug
+    volumes:
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+      - cache:/app/cache
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ──────────────────────────────────────────────
+  # Database Migrations + Seed Data
+  # ──────────────────────────────────────────────
+  migrations:
+    build:
+      context: .
+      dockerfile: tools/docker/Dockerfile.backend
+    container_name: scenemachine-staging-migrations
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scenemachine}:${POSTGRES_PASSWORD:-staging_pass}@db:5432/${POSTGRES_DB:-scenemachine_staging}
+    command: >
+      sh -c "alembic upgrade head && python -m scenemachine.main --seed"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - backend
+
+  # ──────────────────────────────────────────────
+  # Mailhog (email testing) — staging only
+  # ──────────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: scenemachine-staging-mailhog
+    ports:
+      - "8025:8025" # Web UI
+      - "1025:1025" # SMTP
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ──────────────────────────────────────────────
+  # Prometheus (monitoring) — opt-in profile
+  # ──────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: scenemachine-staging-prometheus
+    profiles: [ "monitoring" ]
+    volumes:
+      - ./tools/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # ──────────────────────────────────────────────
+  # Grafana — opt-in profile
+  # ──────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: scenemachine-staging-grafana
+    profiles: [ "monitoring" ]
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
+    name: scenemachine_staging_postgres
+  redis_data:
+    name: scenemachine_staging_redis
+  uploads:
+    name: scenemachine_staging_uploads
+  outputs:
+    name: scenemachine_staging_outputs
+  cache:
+    name: scenemachine_staging_cache
+  prometheus_data:
+    name: scenemachine_staging_prometheus
+  grafana_data:
+    name: scenemachine_staging_grafana
+
+networks:
+  backend:
+    name: scenemachine_staging_network
+    driver: bridge

@@ -12,11 +12,8 @@ import {
   Settings,
   ChevronLeft,
   Loader2,
-  Check,
   AlertTriangle,
   FileVideo,
-  HardDrive,
-  Clock,
   Folder,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -244,8 +241,8 @@ export function ExportPage() {
     }
   }, [project?.name]);
 
-  // Assemble movie mutation
-  const assembleMutation = useMutation({
+  // Assemble movie mutation (available for future "Assemble" button)
+  const _assembleMutation = useMutation({
     mutationFn: () =>
       window.electronAPI.backendRequest<any>('assembly.assembleMovie', {
         project_id: projectId,
@@ -281,7 +278,7 @@ export function ExportPage() {
         message: 'Starting export...',
       });
     },
-    onSuccess: (result) => {
+    onSuccess: (_result) => {
       setExportProgress({
         active: false,
         percent: 100,
@@ -423,13 +420,12 @@ export function ExportPage() {
                         assemblyStatus.isReady ? 'bg-green-500' : 'bg-brand-500'
                       )}
                       style={{
-                        width: `${
-                          assemblyStatus.totalShots > 0
-                            ? (assemblyStatus.generatedShots /
-                                assemblyStatus.totalShots) *
-                              100
-                            : 0
-                        }%`,
+                        width: `${assemblyStatus.totalShots > 0
+                          ? (assemblyStatus.generatedShots /
+                            assemblyStatus.totalShots) *
+                          100
+                          : 0
+                          }%`,
                       }}
                     />
                   </div>
@@ -558,7 +554,7 @@ export function ExportPage() {
                       <button
                         onClick={() => {
                           // Open file location
-                          window.electronAPI.showItemInFolder(item.outputPath);
+                          (window.electronAPI as any).showItemInFolder?.(item.outputPath);
                         }}
                         className="p-2 hover:bg-surface-700 rounded transition-colors"
                         title="Show in folder"
@@ -581,6 +577,45 @@ export function ExportPage() {
           </h2>
 
           <div className="space-y-4">
+            {/* Platform Presets */}
+            <div>
+              <label className="block text-sm text-surface-400 mb-2">Platform Preset</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'youtube_4k', label: 'YouTube 4K', icon: '📺', format: 'mp4_h264', resolution: '3840x2160', quality: 'master', fps: 30 },
+                  { id: 'youtube_1080p', label: 'YouTube HD', icon: '▶️', format: 'mp4_h264', resolution: '1920x1080', quality: 'high', fps: 30 },
+                  { id: 'instagram_reels', label: 'Instagram', icon: '📸', format: 'mp4_h264', resolution: '1080x1920', quality: 'high', fps: 30 },
+                  { id: 'tiktok', label: 'TikTok', icon: '🎵', format: 'mp4_h264', resolution: '1080x1920', quality: 'standard', fps: 30 },
+                  { id: 'vimeo', label: 'Vimeo', icon: '🎬', format: 'mp4_h264', resolution: '1920x1080', quality: 'high', fps: 24 },
+                  { id: 'archive', label: 'Archive', icon: '💾', format: 'mov_prores', resolution: '1920x1080', quality: 'master', fps: 24 },
+                ].map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      setSettings((prev) => ({
+                        ...prev,
+                        format: preset.format,
+                        resolution: preset.resolution,
+                        quality: preset.quality,
+                        frameRate: preset.fps,
+                      }));
+                    }}
+                    className={cn(
+                      'flex flex-col items-center gap-1 p-3 rounded-lg border text-xs transition-colors',
+                      settings.format === preset.format &&
+                        settings.resolution === preset.resolution &&
+                        settings.quality === preset.quality
+                        ? 'border-brand-500 bg-brand-500/10 text-brand-400'
+                        : 'border-surface-700 hover:border-surface-600'
+                    )}
+                  >
+                    <span className="text-lg">{preset.icon}</span>
+                    <span className="font-medium">{preset.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Format */}
             <div>
               <label className="block text-sm text-surface-400 mb-2">Format</label>
@@ -594,13 +629,13 @@ export function ExportPage() {
                     {fmt.label}
                   </option>
                 )) || (
-                  <>
-                    <option value="mp4_h264">MP4 (H.264)</option>
-                    <option value="mp4_h265">MP4 (H.265/HEVC)</option>
-                    <option value="mov_prores">MOV (ProRes)</option>
-                    <option value="webm_vp9">WebM (VP9)</option>
-                  </>
-                )}
+                    <>
+                      <option value="mp4_h264">MP4 (H.264)</option>
+                      <option value="mp4_h265">MP4 (H.265/HEVC)</option>
+                      <option value="mov_prores">MOV (ProRes)</option>
+                      <option value="webm_vp9">WebM (VP9)</option>
+                    </>
+                  )}
               </select>
             </div>
 
@@ -617,13 +652,13 @@ export function ExportPage() {
                     {preset.label}
                   </option>
                 )) || (
-                  <>
-                    <option value="draft">Draft (Fast)</option>
-                    <option value="standard">Standard</option>
-                    <option value="high">High</option>
-                    <option value="master">Master (Slow)</option>
-                  </>
-                )}
+                    <>
+                      <option value="draft">Draft (Fast)</option>
+                      <option value="standard">Standard</option>
+                      <option value="high">High</option>
+                      <option value="master">Master (Slow)</option>
+                    </>
+                  )}
               </select>
             </div>
 

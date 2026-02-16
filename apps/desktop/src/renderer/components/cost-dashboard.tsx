@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   DollarSign,
   TrendingUp,
@@ -17,6 +17,8 @@ import {
   BarChart3,
   Layers,
   Film,
+  Settings,
+  Shield,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -314,8 +316,8 @@ function ProviderUsageTable({ data }: { data: ProviderUsage[] }) {
                     provider.success_rate >= 90
                       ? 'text-green-400'
                       : provider.success_rate >= 70
-                      ? 'text-yellow-400'
-                      : 'text-red-400'
+                        ? 'text-yellow-400'
+                        : 'text-red-400'
                   )}
                 >
                   {provider.success_rate.toFixed(1)}%
@@ -370,7 +372,10 @@ interface CostDashboardProps {
 }
 
 export function CostDashboard({ projectId }: CostDashboardProps) {
+  const queryClient = useQueryClient();
   const [timeRange, setTimeRange] = useState('7d');
+  const [showBudgetForm, setShowBudgetForm] = useState(false);
+  const [budgetInput, setBudgetInput] = useState('100');
 
   // Fetch cost stats
   const { data: costStats, isLoading: costLoading, refetch: refetchCost } = useQuery({
@@ -402,6 +407,44 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
       return window.electronAPI.backendRequest<ProviderUsage[]>('analytics.getProviderUsage', {
         time_range: timeRange,
       });
+    },
+  });
+
+  // Fetch budget status
+  const { data: budgetStatus } = useQuery({
+    queryKey: ['budget-status'],
+    queryFn: async () => {
+      return window.electronAPI.backendRequest<{
+        budget: {
+          has_budget: boolean;
+          limit_usd?: number;
+          remaining_usd?: number;
+          percent_used?: number;
+          status?: string;
+        };
+        currentSpend: number;
+        totalJobs: number;
+        budgetAlert: {
+          alert_type?: string;
+          current_spend_usd?: number;
+          budget_limit_usd?: number;
+          percent_used?: number;
+        } | null;
+      }>('analytics.getBudget', {});
+    },
+  });
+
+  // Set budget mutation
+  const setBudgetMutation = useMutation({
+    mutationFn: async (limitUsd: number) => {
+      return window.electronAPI.backendRequest('analytics.setBudget', {
+        limit_usd: limitUsd,
+        period_days: 30,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budget-status'] });
+      setShowBudgetForm(false);
     },
   });
 
@@ -507,19 +550,96 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
             <ProviderUsageTable data={providerUsage || []} />
           </div>
 
-          {/* Budget warning (placeholder) */}
-          {costStats && costStats.total_cost_usd > 100 && (
-            <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-yellow-400">High Usage Alert</p>
-                <p className="text-sm text-surface-400 mt-1">
-                  Your generation costs have exceeded $100 in this period.
-                  Consider setting up budget alerts in Settings.
-                </p>
+          {/* Budget Management */}
+          <div className="card">
+            <h3 className="text-sm font-medium text-surface-400 mb-4 flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              Budget Management
+              <button
+                onClick={() => setShowBudgetForm(!showBudgetForm)}
+                className="ml-auto p-1 hover:bg-surface-700 rounded transition-colors"
+                title="Configure budget"
+              >
+                <Settings className="w-3.5 h-3.5 text-surface-400" />
+              </button>
+            </h3>
+
+            {budgetStatus?.budget?.has_budget ? (
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-surface-400">Spent / Limit</span>
+                  <span className="font-medium">
+                    {formatCurrency(budgetStatus.currentSpend)} / {formatCurrency(budgetStatus.budget.limit_usd ?? 0)}
+                  </span>
+                </div>
+                <div className="h-2.5 bg-surface-700 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all',
+                      (budgetStatus.budget.percent_used ?? 0) >= 100
+                        ? 'bg-red-500'
+                        : (budgetStatus.budget.percent_used ?? 0) >= 80
+                          ? 'bg-yellow-500'
+                          : 'bg-green-500'
+                    )}
+                    style={{ width: `${Math.min(100, budgetStatus.budget.percent_used ?? 0)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-surface-500">
+                  <span>{Math.round(budgetStatus.budget.percent_used ?? 0)}% used</span>
+                  <span>{formatCurrency(budgetStatus.budget.remaining_usd ?? 0)} remaining</span>
+                </div>
+
+                {budgetStatus.budgetAlert && (
+                  <div className={cn(
+                    'p-3 rounded-lg flex items-start gap-2 text-sm mt-2',
+                    budgetStatus.budgetAlert.alert_type === 'budget_exceeded'
+                      ? 'bg-red-500/10 border border-red-500/30 text-red-400'
+                      : 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-400'
+                  )}>
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>
+                      {budgetStatus.budgetAlert.alert_type === 'budget_exceeded'
+                        ? 'Budget exceeded! Generation will be blocked until limit is raised.'
+                        : `Warning: ${Math.round(budgetStatus.budgetAlert.percent_used ?? 0)}% of budget used.`}
+                    </span>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-4 text-surface-400 text-sm">
+                <Shield className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                No budget limit configured
+              </div>
+            )}
+
+            {showBudgetForm && (
+              <div className="mt-4 pt-4 border-t border-surface-700">
+                <label className="text-xs text-surface-400 mb-1 block">30-day budget limit (USD)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    value={budgetInput}
+                    onChange={(e) => setBudgetInput(e.target.value)}
+                    placeholder="$ limit"
+                    className="flex-1 px-3 py-1.5 bg-surface-700 border border-surface-600 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    min="1"
+                  />
+                  <button
+                    onClick={() => setBudgetMutation.mutate(parseFloat(budgetInput))}
+                    disabled={setBudgetMutation.isPending || !budgetInput}
+                    className="btn-primary text-xs px-4"
+                  >
+                    {setBudgetMutation.isPending ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      'Set Budget'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

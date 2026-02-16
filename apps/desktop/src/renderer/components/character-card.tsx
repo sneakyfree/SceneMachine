@@ -23,9 +23,13 @@ import {
   Volume2,
   Edit3,
   X,
+  Wand2,
+  ScanFace,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { VoiceSelector } from './voice-selector';
+import { FaceSimilarityPanel } from './face-similarity-panel';
 import {
   PhysicalDescriptionForm,
   type PhysicalDescription,
@@ -79,6 +83,8 @@ interface CharacterCardProps {
   onGenerateDescription: (characterId: string) => void;
   onUpdatePhysicalDescription?: (characterId: string, data: PhysicalDescription) => void;
   onVoiceChange?: (characterId: string, voiceId: string, provider: string, voiceName: string) => void;
+  onSuggestVoice?: (characterId: string) => void;
+  onCheckConsistency?: (characterId: string) => void;
   isExpanded?: boolean;
   disabled?: boolean;
 }
@@ -93,11 +99,16 @@ export function CharacterCard({
   onGenerateDescription,
   onUpdatePhysicalDescription,
   onVoiceChange,
+  onSuggestVoice,
+  onCheckConsistency,
   isExpanded: defaultExpanded = false,
   disabled = false,
 }: CharacterCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [isEditingPhysical, setIsEditingPhysical] = useState(false);
+  const [consistencyScore, setConsistencyScore] = useState<number | null>(null);
+  const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
+  const [isSuggestingVoice, setIsSuggestingVoice] = useState(false);
   const { getTerm } = useExperienceStore();
 
   const getLockStateColor = (state: string) => {
@@ -475,6 +486,13 @@ export function CharacterCard({
             </div>
           )}
 
+          {/* Face Similarity Panel */}
+          <FaceSimilarityPanel
+            characterId={character.id}
+            characterName={character.name}
+            isLocked={character.isLocked}
+          />
+
           {/* Actions */}
           <div className="flex flex-wrap gap-2 pt-2">
             {!character.isLocked && (
@@ -506,6 +524,60 @@ export function CharacterCard({
                   AI Describe
                 </button>
 
+                {/* FEAT-062: Suggest Voice */}
+                {character.dialogueCount > 0 && !character.voiceId && onSuggestVoice && (
+                  <button
+                    onClick={async () => {
+                      setIsSuggestingVoice(true);
+                      try {
+                        await onSuggestVoice(character.id);
+                      } finally {
+                        setIsSuggestingVoice(false);
+                      }
+                    }}
+                    disabled={disabled || isSuggestingVoice}
+                    className="btn-secondary text-sm"
+                    title="AI will suggest a voice based on character description"
+                  >
+                    {isSuggestingVoice ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <Wand2 className="w-4 h-4 mr-1" />
+                    )}
+                    Suggest Voice
+                  </button>
+                )}
+
+                {/* FEAT-027: Check Consistency */}
+                {character.isLocked && (character.referenceAssets?.length ?? 0) > 0 && onCheckConsistency && (
+                  <button
+                    onClick={async () => {
+                      setIsCheckingConsistency(true);
+                      try {
+                        const result = await window.electronAPI.backendRequest<{ score: number }>(
+                          'characters.checkConsistency',
+                          { character_id: character.id }
+                        );
+                        setConsistencyScore(result.score);
+                      } catch {
+                        setConsistencyScore(null);
+                      } finally {
+                        setIsCheckingConsistency(false);
+                      }
+                    }}
+                    disabled={disabled || isCheckingConsistency}
+                    className="btn-secondary text-sm"
+                    title="Compare reference images with generated shots"
+                  >
+                    {isCheckingConsistency ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    ) : (
+                      <ScanFace className="w-4 h-4 mr-1" />
+                    )}
+                    Check Consistency
+                  </button>
+                )}
+
                 <button
                   onClick={() => onLock(character.id)}
                   disabled={disabled || !character.physicalDescription}
@@ -519,14 +591,33 @@ export function CharacterCard({
             )}
 
             {character.isLocked && (
-              <button
-                onClick={() => onUnlock(character.id)}
-                disabled={disabled}
-                className="btn-secondary text-sm"
-              >
-                <Unlock className="w-4 h-4 mr-1" />
-                {getTerm('unlock', 'characters')}
-              </button>
+              <>
+                <button
+                  onClick={() => onUnlock(character.id)}
+                  disabled={disabled}
+                  className="btn-secondary text-sm"
+                >
+                  <Unlock className="w-4 h-4 mr-1" />
+                  {getTerm('unlock', 'characters')}
+                </button>
+
+                {/* FEAT-027: Consistency score display */}
+                {consistencyScore !== null && (
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium',
+                      consistencyScore >= 80
+                        ? 'bg-green-500/20 text-green-400'
+                        : consistencyScore >= 60
+                          ? 'bg-yellow-500/20 text-yellow-400'
+                          : 'bg-red-500/20 text-red-400'
+                    )}
+                  >
+                    <ScanFace className="w-4 h-4" />
+                    Consistency: {consistencyScore}%
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

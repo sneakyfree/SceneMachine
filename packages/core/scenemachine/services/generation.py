@@ -641,6 +641,26 @@ class ReplicateProvider(GenerationProvider):
             params["duration"] = min(request.duration_seconds, model.max_duration)
             params["aspect_ratio"] = self._get_aspect_ratio(request.width, request.height)
 
+        # FEAT-033: Pass IP-Adapter strength to provider
+        if request.ip_adapter_strength > 0 and request.character_references:
+            ip_config = IPAdapterConfig()
+            scene_type = request.extra_params.get("scene_type", "default")
+            adaptive_strength = ip_config.get_adaptive_strength(
+                base_strength=request.ip_adapter_strength,
+                scene_type=scene_type,
+                mode=request.ip_adapter_mode,
+            )
+            params["ip_adapter_strength"] = adaptive_strength
+            params["ip_adapter_weight"] = adaptive_strength
+
+            # Pass reference weights for multi-reference
+            ref_weights = ip_config.get_reference_weights(
+                request.character_references,
+                adaptive_strength,
+            )
+            if ref_weights:
+                params["reference_weights"] = ref_weights
+
         # Add any extra parameters
         params.update(request.extra_params.get("model_params", {}))
 
@@ -1321,8 +1341,31 @@ class GenerationService:
         self._register_default_providers()
 
     def _register_default_providers(self) -> None:
-        """Register default generation providers based on configuration."""
-        # Always available mock provider for testing/development
+        """Register default generation providers based on configuration.
+
+        Delegates to the global ProviderRegistry when available, which has
+        all built-in providers (Mock, Replicate, Fal, ComfyUI, RunPod, ActCore).
+        Falls back to manual registration if the registry hasn't been initialized.
+        """
+        try:
+            from scenemachine.generators.registry import setup_providers
+            from scenemachine.generators.base import get_provider_registry
+
+            registry = get_provider_registry()
+
+            # If registry has providers, use them all
+            if registry.list_providers():
+                for provider_type in registry.list_providers():
+                    provider = registry.get_provider(provider_type)
+                    if provider:
+                        self._providers[provider_type] = provider
+                        logger.debug(f"Loaded provider from registry: {provider.name} ({provider_type.value})")
+                logger.info(f"Loaded {len(self._providers)} providers from global registry")
+                return
+        except Exception as e:
+            logger.debug(f"Global registry not available, using fallback: {e}")
+
+        # Fallback: always register mock provider for testing/development
         self._providers[JobProvider.LOCAL] = MockGenerationProvider()
 
         # Replicate provider - register if API token is configured
@@ -1333,7 +1376,7 @@ class GenerationService:
                 api_token=replicate_token,
                 model_id=replicate_model,
             )
-            logger.info("Registered Replicate provider")
+            logger.info("Registered Replicate provider (fallback)")
 
         # Fal.ai provider - register if API key is configured
         fal_key = getattr(self.settings, "fal_api_key", None)
@@ -1343,7 +1386,7 @@ class GenerationService:
                 api_key=fal_key,
                 model_id=fal_model,
             )
-            logger.info("Registered Fal.ai provider")
+            logger.info("Registered Fal.ai provider (fallback)")
 
     def register_provider(
         self, provider_type: JobProvider, provider: GenerationProvider
@@ -1363,6 +1406,78 @@ class GenerationService:
             if await provider.check_availability():
                 available.append(provider_type)
         return available
+
+    async def auto_select_provider(
+        self,
+        duration_seconds: float = 3.0,
+    ) -> JobProvider:
+        """FEAT-071: Auto-select optimal provider via GPU Exchange router.
+
+        Uses cost/latency/reliability scoring from GPUExchangeRouter
+        to pick the best available provider. Falls back to LOCAL if
+        GPU exchange is not available or no providers scored.
+
+        Args:
+            duration_seconds: Estimated job duration for cost estimation
+
+        Returns:
+            Best JobProvider for the current conditions
+        """
+        try:
+            from scenemachine.gpu_exchange.router import get_gpu_exchange
+            from scenemachine.gpu_exchange.models import GPUType, ProviderCapability
+
+            router = get_gpu_exchange()
+            selection = await router.select_provider(
+                gpu_type=GPUType.A100,
+                duration_seconds=duration_seconds,
+                required_capability=ProviderCapability.VIDEO_GENERATION,
+            )
+
+            if selection:
+                # Map GPU exchange provider_id to JobProvider enum
+                provider_map = {
+                    "replicate": JobProvider.REPLICATE,
+                    "fal": JobProvider.FAL,
+                    "comfyui": JobProvider.COMFYUI,
+                    "runpod": JobProvider.RUNPOD,
+                    "local": JobProvider.LOCAL,
+                }
+                matched = provider_map.get(selection.provider_id.lower())
+                if matched and matched in self._providers:
+                    logger.info(
+                        f"GPU Exchange selected provider: {selection.provider_id} "
+                        f"(score={selection.score.total_score:.2f}, "
+                        f"est_cost=${selection.estimated_cost:.4f})"
+                    )
+                    return matched
+
+        except Exception as e:
+            logger.debug(f"GPU Exchange auto-select unavailable: {e}")
+
+        # Fallback: prefer real providers over local mock
+        available = await self.get_available_providers()
+        for preferred in [JobProvider.REPLICATE, JobProvider.FAL, JobProvider.RUNPOD]:
+            if preferred in available:
+                return preferred
+
+        return JobProvider.LOCAL
+
+    def _check_budget(self, estimated_cost: float) -> bool:
+        """FEAT-038: Check if job cost is within budget.
+
+        Args:
+            estimated_cost: Estimated cost in USD
+
+        Returns:
+            True if within budget, False if would exceed limit
+        """
+        budget_limit = getattr(self.settings, "budget_limit_usd", None)
+        if budget_limit is None or budget_limit <= 0:
+            return True  # No budget limit configured
+
+        # TODO: sum actual spent from DB in production
+        return estimated_cost <= budget_limit
 
     async def build_prompt(self, shot: Shot) -> tuple[str, str]:
         """Build generation prompts for a shot.
@@ -1655,8 +1770,24 @@ class GenerationService:
         # Get provider
         provider = self.get_provider(job.provider)
         if not provider:
+            # GAP-03: Provide actionable API key guidance
+            _env_var_hints = {
+                "replicate": "REPLICATE_API_TOKEN",
+                "fal": "FAL_API_KEY",
+                "runpod": "RUNPOD_API_KEY",
+                "comfyui": "COMFYUI_HOST",
+            }
+            hint = _env_var_hints.get(job.provider.value, "")
+            hint_msg = (
+                f" Set {hint} in your .env file to enable it."
+                if hint
+                else ""
+            )
             job.status = JobStatus.FAILED
-            job.error_message = f"Provider {job.provider.value} not available"
+            job.error_message = (
+                f"Provider '{job.provider.value}' is not configured.{hint_msg} "
+                f"See docs/SETUP.md for configuration guide."
+            )
             await self.session.commit()
 
             # Emit failure event
@@ -1688,6 +1819,12 @@ class GenerationService:
         try:
             # Build request
             params = job.parameters
+            # FEAT-033: Include IP-Adapter config and character refs
+            character_refs = params.get("character_references", [])
+            ip_strength = params.get("ip_adapter_strength", 0.6)
+            ip_mode = params.get("ip_adapter_mode", "balanced")
+            scene_type = params.get("scene_type", "default")
+
             request = GenerationRequest(
                 shot_id=job.shot_id,
                 prompt=params.get("prompt", ""),
@@ -1699,6 +1836,10 @@ class GenerationService:
                 seed=params.get("seed"),
                 guidance_scale=params.get("cfg_scale", 7.5),
                 num_inference_steps=params.get("steps", 50),
+                character_references=character_refs,
+                ip_adapter_strength=ip_strength,
+                ip_adapter_mode=ip_mode,
+                extra_params={"scene_type": scene_type},
             )
 
             # Update status to running
@@ -1938,8 +2079,26 @@ class GenerationService:
 
         return True
 
-    async def retry_job(self, job_id: UUID) -> Optional[GenerationJob]:
-        """Retry a failed job by creating a new one."""
+    MAX_RETRIES = 5
+    BASE_BACKOFF_SECONDS = 2.0
+
+    async def retry_job(
+        self,
+        job_id: UUID,
+        max_retries: int = 5,
+    ) -> Optional[GenerationJob]:
+        """Retry a failed job with exponential backoff.
+
+        FEAT-037: Implements retry with exponential backoff to handle
+        transient provider failures gracefully.
+
+        Args:
+            job_id: ID of the failed job to retry
+            max_retries: Maximum retry attempts (default 5)
+
+        Returns:
+            New GenerationJob or None if retry not allowed
+        """
         old_job = await self.get_job(job_id)
 
         if not old_job:
@@ -1948,14 +2107,33 @@ class GenerationService:
         if old_job.status not in (JobStatus.FAILED, JobStatus.CANCELLED, JobStatus.TIMEOUT):
             return None
 
+        # Check retry count to prevent infinite loops
+        retry_count = getattr(old_job, "retry_count", 0) or 0
+        if retry_count >= max_retries:
+            logger.warning(
+                f"Job {job_id} has reached max retries ({max_retries}), not retrying"
+            )
+            return None
+
+        # Calculate exponential backoff delay
+        import asyncio
+        backoff_seconds = self.BASE_BACKOFF_SECONDS * (2 ** retry_count)
+        logger.info(
+            f"Retrying job {job_id} (attempt {retry_count + 1}/{max_retries}), "
+            f"backoff {backoff_seconds:.1f}s"
+        )
+        await asyncio.sleep(min(backoff_seconds, 60.0))  # Cap at 60s
+
         # Create new job with same parameters
         new_job = await self.queue_shot(
             old_job.shot_id,
             old_job.provider,
         )
 
-        # Copy parameters
+        # Copy parameters and increment retry count
         new_job.parameters = old_job.parameters
+        if hasattr(new_job, "retry_count"):
+            new_job.retry_count = retry_count + 1
 
         await self.session.commit()
         await self.session.refresh(new_job)

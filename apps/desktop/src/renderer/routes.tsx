@@ -18,6 +18,7 @@ import { ArchivePage } from './pages/archive';
 import { AdminPage } from './pages/admin';
 import { ActForgePage } from './pages/actforge';
 import { DnaStrandDemoPage } from './pages/dna-strand-demo';
+import { ExplainabilityPage } from './pages/explainability';
 
 export const routes: RouteObject[] = [
   {
@@ -83,6 +84,14 @@ export const routes: RouteObject[] = [
       {
         path: 'dna-strand-demo',
         element: <DnaStrandDemoPage />,
+      },
+      {
+        path: 'explainability',
+        element: <ExplainabilityPage />,
+      },
+      {
+        path: 'project/:projectId/explainability',
+        element: <ExplainabilityPage />,
       },
     ],
   },

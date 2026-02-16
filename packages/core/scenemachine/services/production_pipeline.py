@@ -422,7 +422,7 @@ class ProductionPipeline:
         self, 
         shots: List[ShotGenerationStatus],
     ) -> None:
-        """Generate videos for shots with parallel execution."""
+        """Generate videos for shots with parallel execution using GenerationService."""
         from scenemachine.services.video_quality_reviewer import get_video_quality_reviewer
         
         reviewer = get_video_quality_reviewer()
@@ -431,21 +431,87 @@ class ProductionPipeline:
         async def generate_shot(shot: ShotGenerationStatus) -> None:
             async with semaphore:
                 shot.status = "generating"
+                shot_index = shots.index(shot)
                 await self._emit_progress(
                     PipelineStage.VIDEO_GENERATION,
-                    30 + (40 * shots.index(shot) / len(shots)),
+                    30 + (40 * shot_index / len(shots)),
                     f"Generating shot {shot.shot_id}",
                     current_shot=shot.shot_id,
                 )
                 
-                # In production, would call actual generator
-                # For now, simulate generation
-                await asyncio.sleep(0.1)
-                
-                # Mock video path
-                shot.video_path = str(self.output_dir / f"shots/{shot.shot_id}/output.mp4")
-                shot.quality_score = 0.8
-                shot.status = "completed"
+                try:
+                    # Build prompt from shot data
+                    shot_data = self._get_shot_data(shot.shot_id)
+                    if not shot_data:
+                        shot.status = "failed"
+                        shot.error = "Shot data not found in shot list"
+                        return
+                    
+                    prompt = self._build_generation_prompt(shot_data)
+                    
+                    # Try to use GenerationService with ProviderRegistry
+                    try:
+                        from scenemachine.services.generation import GenerationService
+                        from scenemachine.models.generation import JobProvider
+                        from scenemachine.config import get_settings
+                        
+                        settings = get_settings()
+                        gen_service = GenerationService(settings)
+                        gen_service._register_default_providers()
+                        
+                        # Use default provider or first available
+                        provider = getattr(settings, 'default_video_provider', None)
+                        if provider:
+                            try:
+                                provider_type = JobProvider(provider)
+                            except ValueError:
+                                provider_type = JobProvider.LOCAL
+                        else:
+                            provider_type = JobProvider.LOCAL
+                        
+                        result = await gen_service.generate(
+                            prompt=prompt,
+                            provider=provider_type,
+                            output_dir=str(self.output_dir / f"shots/{shot.shot_id}"),
+                        )
+                        
+                        if result and result.get("success"):
+                            shot.video_path = result.get("output_path", str(self.output_dir / f"shots/{shot.shot_id}/output.mp4"))
+                            shot.quality_score = result.get("quality_score", 0.8)
+                            self.total_cost += result.get("cost_usd", 0.0)
+                        else:
+                            shot.video_path = str(self.output_dir / f"shots/{shot.shot_id}/output.mp4")
+                            shot.quality_score = 0.5
+                            
+                    except Exception as gen_err:
+                        logger.warning(f"GenerationService call failed for {shot.shot_id}, using placeholder: {gen_err}")
+                        # Create placeholder output dir
+                        shot_dir = self.output_dir / f"shots/{shot.shot_id}"
+                        shot_dir.mkdir(parents=True, exist_ok=True)
+                        shot.video_path = str(shot_dir / "output.mp4")
+                        shot.quality_score = 0.5
+                    
+                    # Quality review
+                    if shot.video_path and Path(shot.video_path).exists():
+                        try:
+                            review = await reviewer.review_video(shot.video_path)
+                            shot.quality_score = review.get("overall_score", shot.quality_score)
+                            
+                            if shot.quality_score < self.quality_threshold and shot.regeneration_count < 2:
+                                shot.regeneration_count += 1
+                                logger.info(f"Shot {shot.shot_id} quality {shot.quality_score} below threshold, regenerating (attempt {shot.regeneration_count})")
+                                # Re-queue for regeneration
+                                await generate_shot(shot)
+                                return
+                        except Exception as review_err:
+                            logger.debug(f"Quality review skipped for {shot.shot_id}: {review_err}")
+                    
+                    shot.status = "completed"
+                    
+                except Exception as e:
+                    logger.error(f"Failed to generate shot {shot.shot_id}: {e}")
+                    shot.status = "failed"
+                    shot.error = str(e)
         
         await asyncio.gather(*[generate_shot(shot) for shot in shots])
     
@@ -453,52 +519,219 @@ class ProductionPipeline:
         self, 
         shots: List[ShotGenerationStatus],
     ) -> None:
-        """Generate dialogue audio for shots."""
-        from scenemachine.services.voice_cloning import get_voice_cloning_service
-        
-        voice_service = get_voice_cloning_service()
-        
-        for shot in shots:
-            # Get shot data from shot list
-            shot_data = self._get_shot_data(shot.shot_id)
+        """Generate dialogue audio for shots using AudioService."""
+        try:
+            from scenemachine.services.audio import AudioService, TTSProvider
+            from scenemachine.db import get_db_manager
             
-            if shot_data and shot_data.get("dialogue"):
-                dialogue = shot_data["dialogue"]
+            db_manager = get_db_manager()
+            
+            async with db_manager.session() as session:
+                audio_service = AudioService(session)
+                await audio_service.initialize_providers()
                 
-                # Generate speech
-                result = voice_service.generate_speech(
-                    text=dialogue.get("text", ""),
-                    voice_id="am_adam",  # Default voice
-                    emotion=dialogue.get("emotion", "neutral"),
-                )
+                # Determine best available TTS provider
+                available = await audio_service.get_available_providers()
+                tts_provider = TTSProvider.MOCK
                 
-                if result.success:
-                    shot.audio_path = result.audio_path
+                for pref in [TTSProvider.ELEVENLABS, TTSProvider.OPENAI, TTSProvider.MOCK]:
+                    if any(p["provider"] == pref.value and p["available"] for p in available):
+                        tts_provider = pref
+                        break
+                
+                logger.info(f"Using TTS provider: {tts_provider.value}")
+                
+                for shot in shots:
+                    shot_data = self._get_shot_data(shot.shot_id)
+                    
+                    if shot_data and shot_data.get("dialogue"):
+                        dialogue = shot_data["dialogue"]
+                        text = dialogue.get("text", "")
+                        
+                        if not text.strip():
+                            continue
+                        
+                        # Use character voice if assigned, otherwise default
+                        voice_id = dialogue.get("voice_id", "mock-male-1")
+                        
+                        try:
+                            result = await audio_service.generate_speech(
+                                text=text,
+                                voice_id=voice_id,
+                                provider=tts_provider,
+                                speed=dialogue.get("speed", 1.0),
+                            )
+                            
+                            if result.success:
+                                shot.audio_path = result.audio_path
+                                self.total_cost += result.cost_usd or 0.0
+                            else:
+                                logger.warning(f"TTS failed for shot {shot.shot_id}: {result.error_message}")
+                        except Exception as tts_err:
+                            logger.warning(f"TTS error for shot {shot.shot_id}: {tts_err}")
+        
+        except Exception as e:
+            logger.warning(f"Audio generation stage failed (non-fatal): {e}")
+            # Audio generation failure is non-fatal; pipeline continues without dialogue
     
     async def _apply_lip_sync(
         self, 
         shots: List[ShotGenerationStatus],
     ) -> None:
-        """Apply lip sync to shots with audio."""
-        for shot in shots:
-            if shot.audio_path and shot.video_path:
-                # In production, would call lip sync service
-                logger.info(f"Applied lip sync to {shot.shot_id}")
+        """Apply lip sync to shots that have both audio and video."""
+        try:
+            from scenemachine.services.lipsync import LipSyncProvider, get_lip_sync_service
+            
+            service = get_lip_sync_service()
+            await service.initialize_providers()
+            
+            # Determine best available lip sync provider
+            available = await service.get_available_providers()
+            ls_provider = LipSyncProvider.MOCK
+            
+            for pref in [LipSyncProvider.LATENTSYNC, LipSyncProvider.RHUBARB, LipSyncProvider.MOCK]:
+                if any(p["provider"] == pref.value and p["available"] for p in available):
+                    ls_provider = pref
+                    break
+            
+            logger.info(f"Using lip sync provider: {ls_provider.value}")
+            
+            for shot in shots:
+                if shot.audio_path and shot.video_path:
+                    try:
+                        output_path = str(
+                            Path(shot.video_path).parent / f"{Path(shot.video_path).stem}_lipsync.mp4"
+                        )
+                        
+                        result = await service.apply_to_video(
+                            video_path=shot.video_path,
+                            audio_path=shot.audio_path,
+                            output_path=output_path,
+                            provider=ls_provider,
+                        )
+                        
+                        if result.success and result.output_video_path:
+                            shot.video_path = result.output_video_path
+                            logger.info(f"Applied lip sync to shot {shot.shot_id}")
+                        else:
+                            logger.warning(f"Lip sync failed for {shot.shot_id}: {result.error_message}")
+                    except Exception as ls_err:
+                        logger.warning(f"Lip sync error for {shot.shot_id}: {ls_err}")
+        
+        except Exception as e:
+            logger.warning(f"Lip sync stage failed (non-fatal): {e}")
     
     async def _assemble_movie(
         self, 
         shots: List[ShotGenerationStatus],
     ) -> str:
-        """Assemble final movie from shots."""
+        """Assemble final movie from shots using ffmpeg concat."""
         output_path = self.output_dir / f"output_{self.project_id}.mp4"
-        
-        # In production, would use ffmpeg to concatenate clips
-        # For now, create placeholder
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(b"")
         
-        logger.info(f"Assembled movie: {output_path}")
+        # Collect completed shot video paths
+        video_paths = [
+            shot.video_path
+            for shot in shots
+            if shot.status == "completed" and shot.video_path and Path(shot.video_path).exists()
+        ]
+        
+        if not video_paths:
+            logger.warning("No completed shot videos to assemble")
+            output_path.write_bytes(b"")
+            return str(output_path)
+        
+        if len(video_paths) == 1:
+            # Single shot — just copy it
+            import shutil
+            shutil.copy2(video_paths[0], output_path)
+            logger.info(f"Single shot assembled: {output_path}")
+            return str(output_path)
+        
+        # Multiple shots — use ffmpeg concat demuxer
+        try:
+            import tempfile
+            
+            # Create concat list file
+            concat_file = self.output_dir / "concat_list.txt"
+            with open(concat_file, "w") as f:
+                for vp in video_paths:
+                    # Escape single quotes in paths
+                    escaped = vp.replace("'", "'\\''")
+                    f.write(f"file '{escaped}'\n")
+            
+            cmd = [
+                "ffmpeg", "-y",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", str(concat_file),
+                "-c", "copy",
+                str(output_path),
+            ]
+            
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await process.communicate()
+            
+            if process.returncode != 0:
+                logger.error(f"FFmpeg concat failed: {stderr.decode()[:500]}")
+                # Fallback: copy first video
+                import shutil
+                shutil.copy2(video_paths[0], output_path)
+            else:
+                logger.info(f"Assembled {len(video_paths)} shots into: {output_path}")
+            
+            # Clean up concat file
+            concat_file.unlink(missing_ok=True)
+            
+        except Exception as e:
+            logger.error(f"Assembly error: {e}")
+            output_path.write_bytes(b"")
+        
         return str(output_path)
+    
+    def _build_generation_prompt(self, shot_data: Dict[str, Any]) -> str:
+        """Build a video generation prompt from shot data.
+        
+        Combines shot description, camera movement, characters, and mood
+        into a cohesive prompt for the video generation provider.
+        """
+        parts = []
+        
+        # Core shot description
+        description = shot_data.get("description", "")
+        if description:
+            parts.append(description)
+        
+        # Camera information
+        shot_type = shot_data.get("shot_type", "")
+        camera_movement = shot_data.get("camera_movement", "")
+        camera_angle = shot_data.get("camera_angle", "")
+        
+        camera_parts = [p for p in [shot_type, camera_movement, camera_angle] if p]
+        if camera_parts:
+            parts.append(f"Camera: {', '.join(camera_parts)}")
+        
+        # Characters in shot
+        characters = shot_data.get("characters", [])
+        if characters:
+            char_names = [c.get("name", c) if isinstance(c, dict) else str(c) for c in characters]
+            parts.append(f"Characters: {', '.join(char_names)}")
+        
+        # Mood/atmosphere
+        mood = shot_data.get("mood", "") or shot_data.get("atmosphere", "")
+        if mood:
+            parts.append(f"Mood: {mood}")
+        
+        # Lighting
+        lighting = shot_data.get("lighting", "")
+        if lighting:
+            parts.append(f"Lighting: {lighting}")
+        
+        return ". ".join(parts) if parts else "A cinematic shot"
     
     def _get_shot_data(self, shot_id: str) -> Optional[Dict[str, Any]]:
         """Get shot data from shot list."""

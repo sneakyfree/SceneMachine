@@ -284,3 +284,82 @@ async def estimate_generation_cost(
         "estimatedCostUsd": round(estimate.estimated_cost_usd, 4),
         "costPerSecond": round(estimate.cost_per_second, 4),
     }
+
+
+@router.post("/budget")
+async def set_budget(
+    limit_usd: float = Query(..., gt=0, description="Budget limit in USD"),
+    period_days: int = Query(30, ge=1, le=365, description="Budget period in days"),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """FEAT-038: Set a budget limit for cost tracking alerts.
+
+    When spending reaches 80% of the limit, a warning is surfaced.
+    When spending exceeds the limit, generation requests are blocked.
+    """
+    cost_service = CostTrackingService(db)
+    cost_service.set_budget_limit(limit_usd, period_days)
+
+    # Check current status against the new limit
+    alert = await cost_service.check_budget_alert()
+
+    return {
+        "limitUsd": limit_usd,
+        "periodDays": period_days,
+        "budgetAlert": alert,
+        "message": f"Budget set to ${limit_usd:.2f} over {period_days} days",
+    }
+
+
+@router.get("/budget")
+async def get_budget(
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """FEAT-038: Get current budget status.
+
+    Returns the current budget limit, spending, remaining balance,
+    and alert status.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    cost_service = CostTrackingService(db)
+
+    # Get current period costs
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=cost_service._budget_period_days)
+    stats = await cost_service.get_period_costs(start_date, end_date)
+
+    budget_status = cost_service._get_budget_status(stats.total_cost_usd)
+    alert = await cost_service.check_budget_alert()
+
+    return {
+        "budget": budget_status,
+        "currentSpend": round(stats.total_cost_usd, 4),
+        "periodStart": start_date.isoformat(),
+        "periodEnd": end_date.isoformat(),
+        "totalJobs": stats.total_jobs,
+        "budgetAlert": alert,
+    }
+
+
+@router.get("/provider-comparison")
+async def get_provider_comparison(
+    project_id: Optional[UUID] = None,
+    days: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """FEAT-038: Compare cost efficiency across providers.
+
+    Shows cost, speed, and reliability metrics per provider to help
+    users optimize their generation budget.
+    """
+    cost_service = CostTrackingService(db)
+    comparison = await cost_service.get_provider_comparison(
+        project_id=project_id, days=days
+    )
+
+    return {
+        "periodDays": days,
+        "projectId": str(project_id) if project_id else None,
+        "providers": comparison,
+    }

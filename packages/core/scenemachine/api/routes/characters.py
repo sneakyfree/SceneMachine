@@ -426,3 +426,259 @@ async def get_character_prompt(
         style_prompt=prompt.style_prompt,
         consistency_tokens=prompt.consistency_tokens,
     )
+
+
+# ---- FEAT-023: AI Reference Image Generation ----
+
+
+class GenerateImageRequest(BaseModel):
+    """Request to generate an AI reference image."""
+
+    style: str = "realistic"
+    num_images: int = 1
+    enhance_for: str = "consistency"
+
+
+class GenerateImageResponse(BaseModel):
+    """Response from image generation."""
+
+    images: List[Dict[str, Any]]
+    character_id: str
+    style: str
+
+
+@router.post(
+    "/{character_id}/generate-image",
+    response_model=GenerateImageResponse,
+)
+async def generate_character_image(
+    character_id: UUID,
+    request: GenerateImageRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> GenerateImageResponse:
+    """Generate an AI reference image for a character.
+
+    Uses the character's description and physical attributes to generate
+    a reference image via the configured image generation provider.
+    """
+    service = CharacterService(session)
+    character = await service.get_character(character_id)
+
+    if not character:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Character {character_id} not found",
+        )
+
+    try:
+        from scenemachine.services.character_image_generator import (
+            CharacterImageGenerator,
+        )
+
+        generator = CharacterImageGenerator()
+        images = await generator.generate_reference_images(
+            character_description=character.description or character.name,
+            physical_description=character.physical_description or {},
+            style=request.style,
+            num_images=request.num_images,
+            enhance_for=request.enhance_for,
+        )
+
+        return GenerateImageResponse(
+            images=images,
+            character_id=str(character_id),
+            style=request.style,
+        )
+
+    except Exception as e:
+        logger.error(f"Image generation failed for character {character_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Image generation failed: {str(e)}",
+        ) from e
+
+
+# ---- FEAT-027: Character Consistency Check ----
+
+
+class ConsistencyCheckResponse(BaseModel):
+    """Response from consistency check."""
+
+    character_id: str
+    overall_score: float
+    tier: str
+    frame_scores: List[float]
+    suggestions: List[str]
+
+
+@router.post(
+    "/{character_id}/check-consistency",
+    response_model=ConsistencyCheckResponse,
+)
+async def check_character_consistency(
+    character_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    video_path: Optional[str] = None,
+) -> ConsistencyCheckResponse:
+    """Check character visual consistency across generated shots.
+
+    Compares the character's reference images with frames extracted
+    from generated video to verify face/appearance consistency.
+    """
+    service = CharacterService(session)
+    character = await service.get_character(character_id, include_references=True)
+
+    if not character:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Character {character_id} not found",
+        )
+
+    try:
+        result = await service.check_character_consistency(
+            character=character,
+            video_path=video_path,
+        )
+
+        return ConsistencyCheckResponse(
+            character_id=str(character_id),
+            overall_score=result.get("overall_score", 0.0),
+            tier=result.get("tier", "unknown"),
+            frame_scores=result.get("frame_scores", []),
+            suggestions=result.get("suggestions", []),
+        )
+
+    except Exception as e:
+        logger.error(f"Consistency check failed for {character_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Consistency check failed: {str(e)}",
+        ) from e
+
+
+# ---- FEAT-030: Face Similarity Comparison ----
+
+
+class FaceSimilarityComparisonItem(BaseModel):
+    """Similarity comparison for a single shot."""
+
+    shot_id: str
+    similarity_score: float
+    is_same_person: bool
+    thumbnail_url: Optional[str] = None
+
+
+class FaceSimilarityResponse(BaseModel):
+    """Face similarity comparison results for a character."""
+
+    character_id: str
+    character_name: str
+    comparisons: List[FaceSimilarityComparisonItem]
+    average_similarity: float
+
+
+@router.post(
+    "/{character_id}/face-similarity",
+    response_model=FaceSimilarityResponse,
+)
+async def compare_face_similarity(
+    character_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> FaceSimilarityResponse:
+    """Compare a character's face embedding against generated shots.
+
+    Uses the FaceEmbeddingService to compute cosine similarity between
+    the character's reference images and frames from generated shots.
+
+    Args:
+        character_id: Character UUID
+
+    Returns:
+        Per-shot similarity scores and overall average
+    """
+    service = CharacterService(session)
+    character = await service.get_character(character_id, include_references=True)
+
+    if not character:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Character {character_id} not found",
+        )
+
+    try:
+        from scenemachine.services.face_embedding import get_face_embedding_service
+
+        face_service = get_face_embedding_service()
+
+        # Get reference image paths
+        ref_paths = []
+        if hasattr(character, "reference_assets") and character.reference_assets:
+            ref_paths = [a.file_path for a in character.reference_assets]
+
+        if not ref_paths:
+            return FaceSimilarityResponse(
+                character_id=str(character_id),
+                character_name=character.name,
+                comparisons=[],
+                average_similarity=0.0,
+            )
+
+        # Get generated shots for this character's scenes
+        from sqlalchemy import select
+        from scenemachine.models import Shot
+
+        shot_stmt = select(Shot).where(
+            Shot.state.in_(["generated", "approved", "completed"])
+        ).limit(20)
+        shot_result = await session.execute(shot_stmt)
+        shots = shot_result.scalars().all()
+
+        comparisons = []
+        total_score = 0.0
+
+        for shot in shots:
+            output_path = getattr(shot, "output_path", None) or getattr(shot, "thumbnail_path", None)
+            if not output_path:
+                continue
+
+            # Compute similarity between reference and shot frame
+            try:
+                similarity = await face_service.compute_similarity(
+                    ref_paths[0], output_path
+                )
+                score = similarity if isinstance(similarity, float) else similarity.get("score", 0.0)
+            except Exception:
+                score = 0.0
+
+            comparisons.append(FaceSimilarityComparisonItem(
+                shot_id=str(shot.id),
+                similarity_score=round(score, 3),
+                is_same_person=score >= 0.7,
+                thumbnail_url=getattr(shot, "thumbnail_path", None),
+            ))
+            total_score += score
+
+        avg = total_score / len(comparisons) if comparisons else 0.0
+
+        return FaceSimilarityResponse(
+            character_id=str(character_id),
+            character_name=character.name,
+            comparisons=comparisons,
+            average_similarity=round(avg, 3),
+        )
+
+    except ImportError:
+        # FaceEmbeddingService not available
+        return FaceSimilarityResponse(
+            character_id=str(character_id),
+            character_name=character.name,
+            comparisons=[],
+            average_similarity=0.0,
+        )
+    except Exception as e:
+        logger.error(f"Face similarity comparison failed for {character_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Face similarity comparison failed: {str(e)}",
+        ) from e
+

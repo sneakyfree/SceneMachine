@@ -145,6 +145,36 @@ class Settings(BaseSettings):
         )
 
 
+_INSECURE_SECRET_DEFAULTS = frozenset({
+    "change-me-in-production-use-strong-random-key",
+    "jwt-secret-change-me-in-production",
+    "dev-jwt-secret-do-not-use-in-production",
+    "scenemachine-dev-secret-key-not-for-production-32ch",
+    "scenemachine-dev-jwt-key-not-for-production-32ch",
+})
+
+
+def validate_secrets_for_production(settings: Settings) -> None:
+    """Raise if production is using default secrets.
+
+    Called during app startup to prevent launching with insecure defaults.
+    Only enforced when environment == 'production'.
+    """
+    if settings.environment != "production":
+        return
+
+    if settings.secret_key in _INSECURE_SECRET_DEFAULTS:
+        raise ValueError(
+            "FATAL: SECRET_KEY is using a default value in production. "
+            "Set SECRET_KEY to a strong random string (>= 32 chars)."
+        )
+    if settings.jwt_secret_key in _INSECURE_SECRET_DEFAULTS:
+        raise ValueError(
+            "FATAL: JWT_SECRET_KEY is using a default value in production. "
+            "Set JWT_SECRET_KEY to a strong random string (>= 32 chars)."
+        )
+
+
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance.

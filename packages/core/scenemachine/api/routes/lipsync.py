@@ -427,6 +427,110 @@ async def get_providers() -> Dict[str, List[Dict[str, Any]]]:
     return {"providers": providers}
 
 
+# ---------------------------------------------------------------------------
+# FEAT-069: Phoneme Visualization Data
+# ---------------------------------------------------------------------------
+
+@router.get("/jobs/{job_id}/phonemes")
+async def get_phoneme_data(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """Get phoneme timing data for a completed lip sync job.
+
+    Returns Preston Blair mouth shapes with timing for visualization.
+    The frontend can use this to render a phoneme timeline or
+    mouth shape animation preview.
+
+    Response includes:
+    - phonemes: List of {phoneme, mouth_shape, start, end, confidence}
+    - metadata: Job info, duration, phoneme count
+    - mouth_shapes: Reference of Preston Blair shape descriptions
+    """
+    try:
+        job_uuid = UUID(job_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid job ID format")
+
+    result = await db.execute(
+        select(LipsyncJob).where(LipsyncJob.id == job_uuid)
+    )
+    job = result.scalar_one_or_none()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status != LipsyncJobStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Phoneme data only available for completed jobs (current: {job.status.value})",
+        )
+
+    # Get lip sync service and analyze audio for phonemes
+    service = get_lip_sync_service()
+
+    try:
+        # Fetch the audio asset path
+        audio_result = await db.execute(
+            select(Asset).where(Asset.id == job.audio_asset_id)
+        )
+        audio_asset = audio_result.scalar_one_or_none()
+
+        if not audio_asset or not os.path.exists(audio_asset.file_path):
+            raise HTTPException(
+                status_code=404,
+                detail="Audio file no longer available"
+            )
+
+        # Analyze audio for phoneme data
+        analysis = await service.analyze_audio(audio_asset.file_path)
+
+        # Build phoneme visualization data
+        from scenemachine.services.lipsync import Phoneme
+
+        # Preston Blair mouth shape descriptions for frontend rendering
+        mouth_shapes = {
+            "A": {"description": "Wide open mouth (AH, AA)", "svg_hint": "wide_open"},
+            "B": {"description": "Closed mouth (M, B, P)", "svg_hint": "closed"},
+            "C": {"description": "Open mouth, teeth showing (EH, AE)", "svg_hint": "open_teeth"},
+            "D": {"description": "Wide mouth, teeth together (D, T, N, L)", "svg_hint": "wide_teeth"},
+            "E": {"description": "Rounded mouth (OH, OO)", "svg_hint": "rounded"},
+            "F": {"description": "Bottom lip under teeth (F, V)", "svg_hint": "lip_bite"},
+            "G": {"description": "Open mouth, tongue visible (K, G, NG)", "svg_hint": "open_tongue"},
+            "H": {"description": "Wide smile (EE, IY)", "svg_hint": "smile"},
+            "X": {"description": "Silence / rest position", "svg_hint": "rest"},
+        }
+
+        phonemes = []
+        if analysis and hasattr(analysis, "phonemes"):
+            for pe in analysis.phonemes:
+                phonemes.append({
+                    "phoneme": pe.phoneme.value if isinstance(pe.phoneme, Phoneme) else str(pe.phoneme),
+                    "mouth_shape": pe.phoneme.value[0] if isinstance(pe.phoneme, Phoneme) else "X",
+                    "start": pe.start_time,
+                    "end": pe.end_time,
+                    "confidence": getattr(pe, "confidence", 0.9),
+                })
+
+        return {
+            "job_id": job_id,
+            "phoneme_count": len(phonemes),
+            "duration_seconds": analysis.duration if analysis else 0,
+            "phonemes": phonemes,
+            "mouth_shapes": mouth_shapes,
+            "provider": job.provider,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Failed to extract phoneme data for job {job_id}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Phoneme extraction failed: {str(e)}"
+        )
+
+
 @router.websocket("/ws/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
     """WebSocket endpoint for real-time job progress updates."""

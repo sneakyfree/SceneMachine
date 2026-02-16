@@ -123,3 +123,30 @@ export type { Asset } from './asset-store';
 // Timeline store (wired to backend)
 export { useTimelineStore } from './timeline-store';
 export type { Track, Clip } from './timeline-store';
+
+// Agentic Crew store
+export { useCrewStore } from './crew-store';
+export type {
+  AgentInfo,
+  PipelineStatus,
+  ActionLog,
+  ApprovalItem,
+} from './crew-store';
+
+// Lip Sync store
+export {
+  useLipSyncStore,
+  selectLipSyncJobs,
+  selectActiveJob,
+  selectProcessingJobs,
+  selectCompletedJobs,
+  selectAvailableProviders,
+} from './lipsync-store';
+
+// Collaboration store
+export {
+  useCollaborationStore,
+  CURSOR_COLORS,
+  selectCollaborators,
+  selectOnlineCount,
+} from './collaboration-store';

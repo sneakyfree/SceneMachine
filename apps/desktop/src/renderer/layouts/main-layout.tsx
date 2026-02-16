@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Film, FolderOpen, Settings, Keyboard, X, HelpCircle, BarChart3, Archive, Search, Server } from 'lucide-react';
+import { Film, FolderOpen, Settings, Keyboard, X, HelpCircle, BarChart3, Archive, Search, Server, Eye } from 'lucide-react';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
 import {
@@ -140,6 +140,17 @@ export function MainLayout() {
           >
             <BarChart3 className="w-5 h-5 flex-shrink-0" />
             {!sidebarCollapsed && <span>Analytics</span>}
+          </Link>
+
+          <Link
+            to="/explainability"
+            className={cn(
+              'sidebar-item',
+              location.pathname === '/explainability' && 'sidebar-item-active'
+            )}
+          >
+            <Eye className="w-5 h-5 flex-shrink-0" />
+            {!sidebarCollapsed && <span>Explainability</span>}
           </Link>
 
           <Link

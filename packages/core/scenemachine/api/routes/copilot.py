@@ -259,12 +259,57 @@ async def chat_with_steven(
 
     last_message = user_messages[-1].content
 
-    # Build project context for LLM
+    # Build project context for LLM — FEAT-086: enrich with real data
     project_context = {
         "project_id": request.project_id,
         "scene_id": request.scene_id,
         "context_type": request.context_type,
     }
+
+    # Inject real project data for context-aware responses
+    if request.project_id:
+        try:
+            from scenemachine.models import Project, Character
+
+            project = await session.get(Project, request.project_id)
+            if project:
+                project_context["project_name"] = project.title
+                project_context["project_description"] = project.description or ""
+
+                # Fetch characters for this project
+                from sqlalchemy import select
+
+                char_result = await session.execute(
+                    select(Character).where(
+                        Character.project_id == project.id
+                    ).limit(20)
+                )
+                characters = char_result.scalars().all()
+                if characters:
+                    project_context["characters"] = [
+                        {"name": c.name, "role": getattr(c, "role", ""), "id": str(c.id)}
+                        for c in characters
+                    ]
+
+                # Fetch scenes
+                scene_result = await session.execute(
+                    select(Scene).where(
+                        Scene.project_id == project.id
+                    ).limit(50)
+                )
+                scenes = scene_result.scalars().all()
+                if scenes:
+                    project_context["scene_count"] = len(scenes)
+                    project_context["scenes"] = [
+                        {
+                            "id": str(s.id),
+                            "title": getattr(s, "title", f"Scene {i+1}"),
+                            "shot_count": getattr(s, "shot_count", 0),
+                        }
+                        for i, s in enumerate(scenes[:10])
+                    ]
+        except Exception as ctx_err:
+            logger.debug(f"Could not enrich project context: {ctx_err}")
 
     # Convert chat history for LLM service
     conversation_history = [

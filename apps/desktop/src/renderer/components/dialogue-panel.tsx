@@ -13,10 +13,8 @@ import {
   VolumeX,
   Loader2,
   RefreshCw,
-  Download,
   Trash2,
   Clock,
-  User,
   ChevronDown,
   ChevronUp,
   AlertCircle,
@@ -25,6 +23,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useToast } from './toast';
+
+type EmotionType = 'neutral' | 'happy' | 'sad' | 'angry' | 'whisper';
 
 interface DialogueLine {
   id: string;
@@ -37,6 +37,8 @@ interface DialogueLine {
   audioDuration?: number;
   generationStatus: 'pending' | 'generating' | 'completed' | 'failed';
   syncOffset?: number; // milliseconds offset for sync
+  emotion?: EmotionType;
+  speed?: number;
 }
 
 interface DialoguePanelProps {
@@ -54,6 +56,14 @@ function formatDuration(seconds: number): string {
   return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}.${ms}` : `${secs}.${ms}s`;
 }
 
+const EMOTION_OPTIONS: { value: EmotionType; label: string; emoji: string }[] = [
+  { value: 'neutral', label: 'Neutral', emoji: '😐' },
+  { value: 'happy', label: 'Happy', emoji: '😊' },
+  { value: 'sad', label: 'Sad', emoji: '😢' },
+  { value: 'angry', label: 'Angry', emoji: '😠' },
+  { value: 'whisper', label: 'Whisper', emoji: '🤫' },
+];
+
 function DialogueLineItem({
   line,
   onGenerate,
@@ -61,6 +71,10 @@ function DialogueLineItem({
   onDelete,
   isPlaying,
   isGenerating,
+  emotion,
+  speed,
+  onEmotionChange,
+  onSpeedChange,
 }: {
   line: DialogueLine;
   onGenerate: () => void;
@@ -68,6 +82,10 @@ function DialogueLineItem({
   onDelete: () => void;
   isPlaying: boolean;
   isGenerating: boolean;
+  emotion: EmotionType;
+  speed: number;
+  onEmotionChange: (emotion: EmotionType) => void;
+  onSpeedChange: (speed: number) => void;
 }) {
   const getStatusIcon = () => {
     switch (line.generationStatus) {
@@ -95,9 +113,39 @@ function DialogueLineItem({
       </div>
 
       {/* Dialogue text */}
-      <p className="text-sm text-surface-300 mb-3 leading-relaxed">
+      <p className="text-sm text-surface-300 mb-2 leading-relaxed">
         "{line.text}"
       </p>
+
+      {/* Emotion & Speed controls */}
+      <div className="flex items-center gap-3 mb-3">
+        <select
+          value={emotion}
+          onChange={(e) => onEmotionChange(e.target.value as EmotionType)}
+          className="bg-surface-700 border border-surface-600 rounded-lg px-2 py-1 text-xs text-surface-200 focus:ring-1 focus:ring-brand-500 outline-none"
+          title="Emotion style"
+        >
+          {EMOTION_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.emoji} {opt.label}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-surface-500">Speed</span>
+          <input
+            type="range"
+            min="0.5"
+            max="2.0"
+            step="0.1"
+            value={speed}
+            onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
+            className="w-16 accent-brand-500"
+            title={`${speed.toFixed(1)}x`}
+          />
+          <span className="text-xs text-surface-400 w-8">{speed.toFixed(1)}x</span>
+        </div>
+      </div>
 
       {/* Audio controls */}
       <div className="flex items-center gap-2">
@@ -175,6 +223,8 @@ export function DialoguePanel({
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [emotionMap, setEmotionMap] = useState<Record<string, EmotionType>>({});
+  const [speedMap, setSpeedMap] = useState<Record<string, number>>({});
 
   // Fetch dialogue lines
   const { data: dialogueLines, isLoading } = useQuery({
@@ -202,6 +252,8 @@ export function DialoguePanel({
         duration: number;
       }>('audio.generateDialogue', {
         dialogue_id: dialogueId,
+        emotion: emotionMap[dialogueId] || 'neutral',
+        speed: speedMap[dialogueId] || 1.0,
       });
 
       return { dialogueId, ...result };
@@ -394,6 +446,10 @@ export function DialoguePanel({
                   onDelete={() => deleteMutation.mutate(line.id)}
                   isPlaying={playingId === line.id}
                   isGenerating={generatingIds.has(line.id)}
+                  emotion={emotionMap[line.id] || line.emotion || 'neutral'}
+                  speed={speedMap[line.id] || line.speed || 1.0}
+                  onEmotionChange={(em) => setEmotionMap((prev) => ({ ...prev, [line.id]: em }))}
+                  onSpeedChange={(sp) => setSpeedMap((prev) => ({ ...prev, [line.id]: sp }))}
                 />
               ))}
             </div>

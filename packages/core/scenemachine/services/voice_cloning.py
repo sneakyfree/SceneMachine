@@ -243,44 +243,150 @@ class VoiceCloningService:
         voice_id: Optional[str] = None,
     ) -> Optional[VoiceProfile]:
         """Clone a voice from an audio sample.
-        
+
+        FEAT-026: Attempts ElevenLabs API cloning first, then falls
+        back to local Kokoro reference, then to voice matching via
+        suggest_voice() if cloning is unavailable.
+
         Args:
             sample_path: Path to audio sample (3-10 seconds recommended)
             voice_name: Name for the cloned voice
             voice_id: Optional custom voice ID
-            
+
         Returns:
             Created VoiceProfile or None on failure
         """
         sample_path = Path(sample_path)
-        
+
         if not sample_path.exists():
             logger.error(f"Voice sample not found: {sample_path}")
             return None
-        
+
         voice_id = voice_id or f"cloned_{voice_name.lower().replace(' ', '_')}"
-        
+
+        # FEAT-026: Attempt ElevenLabs voice cloning first
+        profile = self._clone_via_elevenlabs(sample_path, voice_name, voice_id)
+        if profile:
+            return profile
+
+        # Fallback: Local Kokoro reference-based cloning
+        profile = self._clone_via_kokoro(sample_path, voice_name, voice_id)
+        if profile:
+            return profile
+
+        # Final fallback: Suggest closest matching voice
+        logger.warning(
+            f"Voice cloning unavailable, falling back to voice matching for '{voice_name}'"
+        )
+        suggestions = self.suggest_voice(
+            character_name=voice_name,
+            gender=VoiceGender.NEUTRAL,
+        )
+        if suggestions:
+            best_match = suggestions[0]
+            # Create a cloned profile pointing to the matched voice
+            profile = VoiceProfile(
+                voice_id=voice_id,
+                name=f"{voice_name} (matched: {best_match.name})",
+                provider=best_match.provider,
+                gender=best_match.gender,
+                description=f"Voice-matched from {best_match.name} (cloning unavailable)",
+                is_cloned=False,
+                metadata={"matched_voice_id": best_match.voice_id},
+            )
+            self._cloned_voices[voice_id] = profile
+            logger.info(
+                f"Voice matched for '{voice_name}' → {best_match.name}"
+            )
+            return profile
+
+        logger.error(f"All voice cloning methods failed for '{voice_name}'")
+        return None
+
+    def _clone_via_elevenlabs(
+        self,
+        sample_path: Path,
+        voice_name: str,
+        voice_id: str,
+    ) -> Optional[VoiceProfile]:
+        """Attempt voice cloning via ElevenLabs API.
+
+        Requires ELEVENLABS_API_KEY env var and Professional Plan.
+        """
         try:
-            # For Kokoro, we just store the reference to the sample
-            # The model uses it during inference
-            
+            import os
+            api_key = os.environ.get("ELEVENLABS_API_KEY")
+            if not api_key:
+                logger.debug("ElevenLabs API key not set, skipping API clone")
+                return None
+
+            import httpx
+
+            # Upload voice sample to ElevenLabs
+            with open(sample_path, "rb") as f:
+                response = httpx.post(
+                    "https://api.elevenlabs.io/v1/voices/add",
+                    headers={"xi-api-key": api_key},
+                    data={"name": voice_name},
+                    files={"files": (sample_path.name, f, "audio/wav")},
+                    timeout=30.0,
+                )
+
+            if response.status_code == 200:
+                data = response.json()
+                el_voice_id = data.get("voice_id", voice_id)
+
+                profile = VoiceProfile(
+                    voice_id=voice_id,
+                    name=voice_name,
+                    provider=TTSProvider.ELEVENLABS,
+                    gender=VoiceGender.NEUTRAL,
+                    description=f"ElevenLabs cloned voice from {sample_path.name}",
+                    is_cloned=True,
+                    clone_sample_path=str(sample_path),
+                    metadata={"elevenlabs_voice_id": el_voice_id},
+                )
+                self._cloned_voices[voice_id] = profile
+                logger.info(
+                    f"ElevenLabs voice clone created: {voice_name} → {el_voice_id}"
+                )
+                return profile
+            else:
+                logger.warning(
+                    f"ElevenLabs clone failed ({response.status_code}): "
+                    f"{response.text[:200]}"
+                )
+                return None
+
+        except ImportError:
+            logger.debug("httpx not available for ElevenLabs cloning")
+            return None
+        except Exception as e:
+            logger.debug(f"ElevenLabs clone unavailable: {e}")
+            return None
+
+    def _clone_via_kokoro(
+        self,
+        sample_path: Path,
+        voice_name: str,
+        voice_id: str,
+    ) -> Optional[VoiceProfile]:
+        """Clone via local Kokoro reference (stores sample for inference)."""
+        try:
             profile = VoiceProfile(
                 voice_id=voice_id,
                 name=voice_name,
                 provider=TTSProvider.KOKORO,
-                gender=VoiceGender.NEUTRAL,  # Would need analysis to determine
-                description=f"Cloned voice from {sample_path.name}",
+                gender=VoiceGender.NEUTRAL,
+                description=f"Kokoro cloned voice from {sample_path.name}",
                 is_cloned=True,
                 clone_sample_path=str(sample_path),
             )
-            
             self._cloned_voices[voice_id] = profile
-            logger.info(f"Cloned voice created: {voice_name} ({voice_id})")
-            
+            logger.info(f"Kokoro voice clone created: {voice_name} ({voice_id})")
             return profile
-            
         except Exception as e:
-            logger.exception(f"Failed to clone voice: {e}")
+            logger.debug(f"Kokoro clone failed: {e}")
             return None
     
     def generate_speech(
