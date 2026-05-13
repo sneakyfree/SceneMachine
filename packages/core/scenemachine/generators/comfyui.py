@@ -1151,17 +1151,26 @@ class ComfyUIProvider(GenerationProvider):
         weight. Keep this builder structurally independent of the I2V
         builder so changes there don't silently break Animate.
 
-        Known incomplete: Wan Animate's sampler expects different
-        conditioning shape than ``WanVideoImageClipEncode`` produces — at
-        runtime the sampler currently crashes inside
-        ``wanvideo/modules/model.py`` with ``Given normalized_shape=[1280],
-        expected ...`` (LayerNorm mismatch). This reproduces with or
-        without the speed LoRA, so it's an architecture-level issue: Wan
-        Animate likely needs Kijai's Animate-specific embed nodes (e.g.
-        ``WanVideoAnimateEmbeds`` if exposed) rather than the I2V
-        ``WanVideoImageClipEncode`` we share here. Tracked separately —
-        the load/offload chain in this builder is validated end-to-end
-        through the sampler boundary.
+        Conditioning chain: Animate's sampler expects a
+        ``WANVIDIMAGE_EMBEDS`` value that came from
+        ``WanVideoAnimateEmbeds``, NOT from the I2V
+        ``WanVideoImageClipEncode``. The Animate compound embed bundles
+        VAE-encoded ref/pose/face/bg/mask alongside the CLIP-vision
+        embedding so the transformer's first-block LayerNorm sees the
+        shape it was trained on. Reading ``WanVideoImageClipEncode``'s
+        output into Animate's sampler crashes inside
+        ``wanvideo/modules/model.py`` with ``Given
+        normalized_shape=[1280], expected ...``. Source-of-truth for the
+        graph: Kijai's
+        ``ComfyUI-WanVideoWrapper/example_workflows/wanvideo_WanAnimate_example_01.json``.
+
+        Minimal-conditioning use case (text + ref → video, no source
+        motion video): pass only ``ref_images`` to
+        ``WanVideoAnimateEmbeds``; pose_images, face_images, bg_images
+        and mask are all genuinely optional in
+        ``WanVideoAnimateEmbeds.process()`` (None-checked), and the
+        background latent is auto-filled with zeros when bg_images is
+        None.
 
         Raises:
             ValueError: when no reference image is supplied via any source.
@@ -1279,21 +1288,40 @@ class ComfyUIProvider(GenerationProvider):
                 "inputs": {"clip_name": params["clip_vision_file"]},
             },
             "7": {
-                "class_type": "WanVideoImageClipEncode",
+                "class_type": "WanVideoClipVisionEncode",
                 "inputs": {
                     "clip_vision": ["6", 0],
-                    "image": ["5", 0],
+                    "image_1": ["5", 0],
+                    "strength_1": 1.0,
+                    "strength_2": 1.0,
+                    "crop": "center",
+                    "combine_embeds": "average",
+                    "force_offload": True,
+                },
+            },
+            "14": {
+                "class_type": "WanVideoAnimateEmbeds",
+                "inputs": {
                     "vae": ["4", 0],
-                    "generation_width": request.width,
-                    "generation_height": request.height,
+                    "clip_embeds": ["7", 0],
+                    "ref_images": ["5", 0],
+                    "width": request.width,
+                    "height": request.height,
                     "num_frames": num_frames,
+                    "force_offload": True,
+                    "frame_window_size": int(
+                        self._p(request, model, "frame_window_size", 77)
+                    ),
+                    "colormatch": "disabled",
+                    "pose_strength": 1.0,
+                    "face_strength": 1.0,
                 },
             },
             "8": {
                 "class_type": "WanVideoSampler",
                 "inputs": {
                     "model": ["1", 0],
-                    "image_embeds": ["7", 0],
+                    "image_embeds": ["14", 0],
                     "text_embeds": ["3", 0],
                     "steps": sampler_steps,
                     "cfg": sampler_cfg,

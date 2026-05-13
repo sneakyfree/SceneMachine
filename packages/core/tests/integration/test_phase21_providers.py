@@ -644,10 +644,18 @@ class TestComfyUIProvider:
         )
         assert loader["inputs"]["model"] == bf16
 
-    def test_comfyui_wan_animate_passes_num_frames_to_image_clip_encode(self):
-        """Regression test: WanVideoImageClipEncode requires num_frames as
-        of WanVideoWrapper recent versions. The Animate builder must pass it
-        so submission doesn't fail with 'Required input is missing: num_frames'."""
+    def test_comfyui_wan_animate_uses_animate_embeds_not_image_clip_encode(self):
+        """The Animate workflow MUST feed the sampler from
+        ``WanVideoAnimateEmbeds`` (Animate-shaped WANVIDIMAGE_EMBEDS),
+        NOT from ``WanVideoImageClipEncode`` (I2V-shaped). Using the I2V
+        path crashes Animate's transformer at the first attention
+        LayerNorm with ``Given normalized_shape=[1280], expected ...``.
+        Validated 2026-05-13.
+
+        Also: num_frames goes to WanVideoAnimateEmbeds (it owns the
+        latent shape calculation for Animate). 3s * 24fps = 72 raw
+        frames → dispatcher rounds via ((n-1)//4)*4+1 → 69.
+        """
         from scenemachine.generators.comfyui import ComfyUIProvider
 
         provider = ComfyUIProvider()
@@ -655,14 +663,29 @@ class TestComfyUIProvider:
         request = self._make_request(input_image_path="ref.png", duration_seconds=3.0, fps=24)
 
         wf = provider._build_workflow(request, model)
-        ice = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoImageClipEncode"
+        class_types = [n["class_type"] for n in wf.values()]
+        assert "WanVideoAnimateEmbeds" in class_types
+        # The I2V encode node must NOT appear in the Animate workflow.
+        assert "WanVideoImageClipEncode" not in class_types
+
+        # The clip-vision step uses the lower-level encode that feeds
+        # AnimateEmbeds (outputs WANVIDIMAGE_CLIPEMBEDS, not the bundled
+        # I2V WANVIDIMAGE_EMBEDS).
+        assert "WanVideoClipVisionEncode" in class_types
+
+        ae = next(n for n in wf.values() if n["class_type"] == "WanVideoAnimateEmbeds")
+        assert ae["inputs"]["num_frames"] == 69
+        assert ae["inputs"]["width"] == request.width
+        assert ae["inputs"]["height"] == request.height
+        # Reference image must be wired into ref_images (LoadImage at "5").
+        assert ae["inputs"]["ref_images"] == ["5", 0]
+
+        # The sampler must consume AnimateEmbeds, not ClipVisionEncode.
+        sampler = next(n for n in wf.values() if n["class_type"] == "WanVideoSampler")
+        ae_node_id = next(
+            nid for nid, n in wf.items() if n["class_type"] == "WanVideoAnimateEmbeds"
         )
-        # 3s * 24fps = 72 raw frames → dispatcher rounds via ((n-1)//4)*4+1
-        # to fit Wan's 4-frame latent group, so 72 → 69 (the largest 4k+1 ≤ 72)
-        assert ice["inputs"]["num_frames"] == 69
-        assert "generation_width" in ice["inputs"]
-        assert "generation_height" in ice["inputs"]
+        assert sampler["inputs"]["image_embeds"] == [ae_node_id, 0]
 
     def test_comfyui_wan_animate_infers_quantization_from_filename(self):
         """The WanVideoModelLoader's quantization param must match the
