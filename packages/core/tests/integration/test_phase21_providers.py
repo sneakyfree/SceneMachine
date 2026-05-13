@@ -701,6 +701,160 @@ class TestComfyUIProvider:
         assert loader2["inputs"]["quantization"] == "fp8_e4m3fn_scaled"
         assert loader2["inputs"]["model"] == synth_fp8
 
+    def test_comfyui_wan_animate_speed_lora_off_by_default(self):
+        """Without explicit opt-in, the Animate builder must NOT inject a
+        Lightx2v LoRA — runs at the registry's default 30 steps / cfg=6.
+
+        Why this matters: silently turning on a 4-step distillation LoRA
+        changes the output character of every shot. The opt-in keeps the
+        model's documented defaults faithful until we've validated quality.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        # Make sure the test runs even if a future patch flips the default.
+        assert model.extra_params.get("speed_lora_enabled_by_default") is False
+
+        request = self._make_request(input_image_path="ref.png")
+        wf = provider._build_workflow(request, model)
+
+        class_types = [n["class_type"] for n in wf.values()]
+        assert "WanVideoLoraSelect" not in class_types
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        assert "lora" not in loader["inputs"]
+        sampler = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
+        )
+        assert sampler["inputs"]["steps"] == model.default_steps
+        assert sampler["inputs"]["cfg"] == model.default_cfg_scale
+
+    def test_comfyui_wan_animate_speed_lora_via_request_extra_params(self):
+        """Setting request.extra_params['speed_lora'] = True attaches a
+        WanVideoLoraSelect node, wires its WANVIDLORA output into the
+        WanVideoModelLoader's optional `lora` input, and switches the
+        sampler to Lightx2v's calibrated 4 steps / cfg=1.0.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        # Pretend ComfyUI sees the first candidate so the resolver picks it.
+        candidates = model.extra_params["speed_lora_candidates"]
+        assert candidates, "registry must list at least one LoRA candidate"
+        provider._available_models_cache = {
+            "WanVideoLoraSelect": {candidates[0]},
+        }
+
+        # 0 here means "use the workflow's defaults" — same convention the
+        # T2V/I2V builders use (request.num_inference_steps or model.default_steps).
+        # Under speed_lora=True, "default" becomes the LoRA-calibrated 4 / 1.0.
+        request = self._make_request(
+            input_image_path="ref.png",
+            extra_params={"speed_lora": True},
+            num_inference_steps=0,
+            guidance_scale=0,
+        )
+        wf = provider._build_workflow(request, model)
+
+        # LoRA node present and wired
+        lora_node = next(
+            (n for n in wf.values() if n["class_type"] == "WanVideoLoraSelect"),
+            None,
+        )
+        assert lora_node is not None, "speed_lora=True must add WanVideoLoraSelect"
+        assert lora_node["inputs"]["lora"] == candidates[0]
+        assert lora_node["inputs"]["strength"] == 1.0
+
+        # ModelLoader pulls WANVIDLORA from the LoRA node
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        # Find the node id of the LoRA node so we can compare reference
+        lora_node_id = next(
+            nid for nid, n in wf.items() if n["class_type"] == "WanVideoLoraSelect"
+        )
+        assert loader["inputs"]["lora"] == [lora_node_id, 0]
+
+        # Sampler runs at Lightx2v-calibrated settings
+        sampler = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
+        )
+        assert sampler["inputs"]["steps"] == 4
+        assert sampler["inputs"]["cfg"] == 1.0
+
+    def test_comfyui_wan_animate_speed_lora_resolves_first_available(self):
+        """When multiple LoRA candidates are registered, the builder picks
+        the first one that ComfyUI actually has on disk. Mirrors the same
+        pattern as the FP8/BF16 weight resolver.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        candidates = model.extra_params["speed_lora_candidates"]
+        assert len(candidates) >= 2, "test requires at least 2 LoRA candidates"
+
+        # Pretend ComfyUI has ONLY the second candidate — the resolver
+        # should skip the first and select #2.
+        provider._available_models_cache = {
+            "WanVideoLoraSelect": {candidates[1]},
+        }
+        request = self._make_request(
+            input_image_path="ref.png",
+            extra_params={"speed_lora": True},
+        )
+        wf = provider._build_workflow(request, model)
+        lora_node = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoLoraSelect"
+        )
+        assert lora_node["inputs"]["lora"] == candidates[1]
+
+    def test_comfyui_wan_animate_speed_lora_file_override(self):
+        """A caller can supply request.extra_params['speed_lora_file'] to
+        force a specific LoRA file, bypassing the registry's candidate list.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            input_image_path="ref.png",
+            extra_params={
+                "speed_lora": True,
+                "speed_lora_file": "custom_lightx2v_variant.safetensors",
+            },
+        )
+        wf = provider._build_workflow(request, model)
+        lora_node = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoLoraSelect"
+        )
+        assert lora_node["inputs"]["lora"] == "custom_lightx2v_variant.safetensors"
+
+    def test_comfyui_wan_animate_speed_lora_request_steps_cfg_still_win(self):
+        """Even with the speed LoRA active, an explicit num_inference_steps
+        or guidance_scale on the request still wins. The LoRA flag changes
+        the defaults; it doesn't override caller intent.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            input_image_path="ref.png",
+            extra_params={"speed_lora": True},
+            num_inference_steps=8,
+            guidance_scale=2.5,
+        )
+        wf = provider._build_workflow(request, model)
+        sampler = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
+        )
+        assert sampler["inputs"]["steps"] == 8
+        assert sampler["inputs"]["cfg"] == 2.5
+
     def test_comfyui_ltx2_workflow_uses_gemma_encoder(self):
         """LTX-2 workflow loads the Lightricks Gemma CLIP model and uses
         EmptyLTXVLatentVideo + LTXVConditioning, not the Wan node graph."""
