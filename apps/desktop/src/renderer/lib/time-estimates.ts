@@ -63,6 +63,99 @@ const BASE_ESTIMATES: Record<string, TimeEstimate> = {
 // Estimation Functions
 // ============================================================================
 
+// ============================================================================
+// Queue-level estimation helpers
+// Used by components/queue-manager.tsx
+// ============================================================================
+
+type ExperienceModeName = 'story' | 'creator' | 'pro';
+
+/**
+ * Estimate total queue completion time given current pending/running counts.
+ *
+ * Rough heuristic: items processed in parallel groups of `concurrency`,
+ * with per-item averages depending on the provider (local providers are
+ * slower because they share one GPU; remote providers like Replicate/Fal
+ * are faster on aggregate because they parallelize externally).
+ */
+export function estimateQueueTime(
+    pendingCount: number,
+    runningCount: number,
+    provider: string,
+    concurrency: number,
+): TimeEstimate {
+    const isLocal = provider === 'local' || provider === 'custom' || provider === 'comfyui';
+    const perItem = isLocal ? 90 : 30;
+    const total = Math.max(pendingCount, 0) + Math.max(runningCount, 0);
+    const groups = Math.max(1, Math.ceil(total / Math.max(concurrency, 1)));
+    const avg = groups * perItem;
+    return {
+        minSeconds: Math.round(avg * 0.6),
+        maxSeconds: Math.round(avg * 1.6),
+        averageSeconds: avg,
+        confidence: total <= concurrency * 2 ? 'high' : total <= concurrency * 5 ? 'medium' : 'low',
+    };
+}
+
+/**
+ * Format a TimeEstimate as a clock-time ETA, phrased for the experience mode.
+ */
+export function formatCompletionTime(
+    estimate: TimeEstimate,
+    mode: ExperienceModeName = 'creator',
+): string {
+    if (estimate.averageSeconds <= 0) return mode === 'story' ? 'Right about now' : 'Now';
+    const eta = new Date(Date.now() + estimate.averageSeconds * 1000);
+    const time = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (mode === 'story') return `Done around ${time}`;
+    if (mode === 'creator') return `ETA ${time}`;
+    return `Completion: ${time}`;
+}
+
+/**
+ * Format a queue position. `position` is zero-indexed; 0 means "currently
+ * first unprocessed item" or "actively running".
+ */
+export function formatQueuePosition(
+    position: number,
+    mode: ExperienceModeName = 'creator',
+): string {
+    if (position <= 0) return mode === 'pro' ? 'Active' : 'Up next';
+    if (mode === 'story') return position === 1 ? 'One ahead' : `${position} ahead of you`;
+    return `#${position + 1} in queue`;
+}
+
+/**
+ * Format the elapsed time since a job started, phrased for the experience mode.
+ */
+export function formatElapsedTime(
+    startedAt: number | string | Date,
+    mode: ExperienceModeName = 'creator',
+): string {
+    const startMs =
+        startedAt instanceof Date
+            ? startedAt.getTime()
+            : typeof startedAt === 'number'
+              ? startedAt
+              : new Date(startedAt).getTime();
+    if (Number.isNaN(startMs)) return '';
+    const elapsedSec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+    if (mode === 'story') {
+        if (elapsedSec < 30) return 'Just now';
+        if (elapsedSec < 60) return 'Under a minute';
+        return `${Math.floor(elapsedSec / 60)} min`;
+    }
+    if (elapsedSec < 60) return `${elapsedSec}s`;
+    if (elapsedSec < 3600) return `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s`;
+    const h = Math.floor(elapsedSec / 3600);
+    const m = Math.floor((elapsedSec % 3600) / 60);
+    return `${h}h ${m}m`;
+}
+
+// ============================================================================
+// Estimation Functions
+// ============================================================================
+
 /**
  * Get time estimate for a generation task
  */
