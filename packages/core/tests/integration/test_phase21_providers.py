@@ -821,24 +821,66 @@ class TestComfyUIProvider:
         )
         assert block_swap["inputs"]["blocks_to_swap"] == 32
 
-    def test_comfyui_wan_animate_speed_lora_off_by_default(self):
-        """Without explicit opt-in, the Animate builder must NOT inject a
-        Lightx2v LoRA — runs at the registry's default 30 steps / cfg=6.
+    def test_comfyui_wan_animate_speed_lora_on_by_default(self):
+        """Animate uses Lightx2v 4-step LoRA by default.
 
-        Why this matters: silently turning on a 4-step distillation LoRA
-        changes the output character of every shot. The opt-in keeps the
-        model's documented defaults faithful until we've validated quality.
+        Validated 2026-05-13: with the LoRA on, a shot takes ~101s vs
+        ~844s without (8.3× speedup) at equivalent quality. The default
+        flipped to True after the underlying conditioning bug was fixed
+        in PR #38 — earlier "speed_lora incompatible with Animate"
+        failures were the conditioning shape, not the LoRA.
+
+        Callers who want the 30-step baseline can opt out by passing
+        request.extra_params['speed_lora'] = False.
         """
         from scenemachine.generators.comfyui import ComfyUIProvider
 
         provider = ComfyUIProvider()
         model = provider.get_model("wan22-animate-14b")
-        # Make sure the test runs even if a future patch flips the default.
-        assert model.extra_params.get("speed_lora_enabled_by_default") is False
+        # Guard against an unintentional flip back to False.
+        assert model.extra_params.get("speed_lora_enabled_by_default") is True
 
-        request = self._make_request(input_image_path="ref.png")
+        # 0 sentinels → fall back to the model defaults, which under
+        # speed_lora=True resolve to the LoRA-calibrated 4 steps / cfg=1.0.
+        # (Explicit caller values still win — see opt_out test below.)
+        request = self._make_request(
+            input_image_path="ref.png",
+            num_inference_steps=0,
+            guidance_scale=0,
+        )
         wf = provider._build_workflow(request, model)
 
+        class_types = [n["class_type"] for n in wf.values()]
+        assert "WanVideoLoraSelect" in class_types
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        # ModelLoader pulls WANVIDLORA from the LoRA node
+        lora_node_id = next(
+            nid for nid, n in wf.items() if n["class_type"] == "WanVideoLoraSelect"
+        )
+        assert loader["inputs"]["lora"] == [lora_node_id, 0]
+        sampler = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
+        )
+        # Lightx2v-calibrated 4 steps / cfg=1.0 (vs registry defaults of 30 / 6.0)
+        assert sampler["inputs"]["steps"] == 4
+        assert sampler["inputs"]["cfg"] == 1.0
+
+    def test_comfyui_wan_animate_speed_lora_opt_out(self):
+        """Callers can opt out of the speed LoRA via extra_params['speed_lora']=False.
+        This restores the slower 30-step / cfg=6.0 baseline (useful when
+        validating quality regressions or comparing output character).
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            input_image_path="ref.png",
+            extra_params={"speed_lora": False},
+        )
+        wf = provider._build_workflow(request, model)
         class_types = [n["class_type"] for n in wf.values()]
         assert "WanVideoLoraSelect" not in class_types
         loader = next(
