@@ -701,6 +701,82 @@ class TestComfyUIProvider:
         assert loader2["inputs"]["quantization"] == "fp8_e4m3fn_scaled"
         assert loader2["inputs"]["model"] == synth_fp8
 
+    def test_comfyui_wan_animate_block_swap_on_by_default(self):
+        """Wan Animate BF16 (32 GB weight) cannot load on a 32 GB-VRAM
+        card without block-swap. The registry must default
+        ``blocks_to_swap`` > 0 so the production code path attaches a
+        WanVideoBlockSwap node wired into the ModelLoader.
+
+        Validated 2026-05-13 — without block_swap the loader OOMs at
+        ``nodes_model_loading.py:921 load_weights`` after allocating
+        ~29.4 GiB of the 32 GB weight.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        # Registry must declare a non-zero blocks_to_swap for the BF16 path
+        assert model.extra_params.get("blocks_to_swap", 0) > 0
+
+        request = self._make_request(input_image_path="ref.png")
+        wf = provider._build_workflow(request, model)
+
+        block_swap = next(
+            (n for n in wf.values() if n["class_type"] == "WanVideoBlockSwap"),
+            None,
+        )
+        assert block_swap is not None, "Animate BF16 must attach WanVideoBlockSwap"
+        assert block_swap["inputs"]["blocks_to_swap"] == model.extra_params["blocks_to_swap"]
+        # And the ModelLoader must pull block_swap_args from that node
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        bs_node_id = next(
+            nid for nid, n in wf.items() if n["class_type"] == "WanVideoBlockSwap"
+        )
+        assert loader["inputs"]["block_swap_args"] == [bs_node_id, 0]
+
+    def test_comfyui_wan_animate_block_swap_disabled_via_request(self):
+        """A caller can opt out of block-swap by setting blocks_to_swap=0
+        (only safe on cards with enough VRAM to hold the full BF16 weight).
+        When disabled, no WanVideoBlockSwap node is attached and the
+        ModelLoader has no ``block_swap_args`` input.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            input_image_path="ref.png",
+            extra_params={"blocks_to_swap": 0},
+        )
+        wf = provider._build_workflow(request, model)
+        class_types = [n["class_type"] for n in wf.values()]
+        assert "WanVideoBlockSwap" not in class_types
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        assert "block_swap_args" not in loader["inputs"]
+
+    def test_comfyui_wan_animate_block_swap_request_override(self):
+        """Per-shot tuning: a request can override blocks_to_swap to use
+        more or fewer than the registry default (e.g. higher for a 24 GB
+        card, lower for a 48 GB card).
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            input_image_path="ref.png",
+            extra_params={"blocks_to_swap": 32},
+        )
+        wf = provider._build_workflow(request, model)
+        block_swap = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoBlockSwap"
+        )
+        assert block_swap["inputs"]["blocks_to_swap"] == 32
+
     def test_comfyui_wan_animate_speed_lora_off_by_default(self):
         """Without explicit opt-in, the Animate builder must NOT inject a
         Lightx2v LoRA — runs at the registry's default 30 steps / cfg=6.

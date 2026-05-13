@@ -82,6 +82,10 @@ class ComfyUIProvider(GenerationProvider):
                            (~7× speedup for the sampling phase)
         * speed_lora_file: str, override the LoRA filename (else picked from
                            the model's ``speed_lora_candidates`` list)
+        * blocks_to_swap : int, Wan-Animate only — number of transformer
+                           blocks to swap to CPU (14B has 40). Required > 0
+                           for the BF16 weight on a 32 GB-VRAM card or it
+                           OOMs at load. Set to 0 to disable.
 
     Example:
         provider = ComfyUIProvider(comfyui_url="http://127.0.0.1:8188")
@@ -195,6 +199,17 @@ class ComfyUIProvider(GenerationProvider):
                 "expected_vram_gb": 32,
                 "expected_timeout_seconds": 1800,  # 30 min — CPU-offload is slow
                 "requires_character_reference": True,
+                # Block-swap is MANDATORY for the Animate BF16 weight on a
+                # 32 GB-VRAM card: the model is 32 GB and the device usable
+                # limit is ~31.4 GB, so the weight cannot load without
+                # offloading half its transformer blocks to CPU. 14B has 40
+                # blocks; swapping 20 keeps ~16 GB resident and frees the
+                # rest for activations / LoRA / VAE / etc. Validated empty
+                # OOM at load step on 2026-05-13 with blocks_to_swap=0.
+                # Override via request.extra_params['blocks_to_swap'].
+                "blocks_to_swap": 20,
+                "offload_img_emb": False,
+                "offload_txt_emb": False,
                 # Lightx2v 4-step distillation LoRA. The 4-step lora was
                 # trained on Wan 2.2 I2V, which Wan-Animate is a derivative
                 # of, so it transfers. We list candidate files in preference
@@ -1170,6 +1185,17 @@ class ComfyUIProvider(GenerationProvider):
             # WanVideoLoraSelect → ModelLoader.lora (a WANVIDLORA link).
             model_loader_inputs["lora"] = ["11", 0]
 
+        # Block-swap is required for Animate BF16 to load on a 32 GB card.
+        # When blocks_to_swap > 0, attach a WanVideoBlockSwap node and wire
+        # its BLOCKSWAPARGS into ModelLoader.block_swap_args. The model can
+        # then load with ~half its transformer blocks resident on CPU.
+        # Set blocks_to_swap=0 to disable (only safe for FP8 weights or
+        # larger-VRAM cards).
+        blocks_to_swap = int(self._p(request, model, "blocks_to_swap", 0))
+        block_swap_active = blocks_to_swap > 0
+        if block_swap_active:
+            model_loader_inputs["block_swap_args"] = ["12", 0]
+
         # When the speed LoRA is active, replace the model's documented
         # defaults with Lightx2v's calibrated 4 steps / cfg≈1.0. Anything
         # else (e.g. cfg=6) will silently produce mush — Lightx2v expects
@@ -1288,6 +1314,20 @@ class ComfyUIProvider(GenerationProvider):
                     "lora": speed_lora_file,
                     "strength": float(
                         self._p(request, model, "speed_lora_strength", 1.0)
+                    ),
+                },
+            }
+
+        if block_swap_active:
+            workflow["12"] = {
+                "class_type": "WanVideoBlockSwap",
+                "inputs": {
+                    "blocks_to_swap": blocks_to_swap,
+                    "offload_img_emb": bool(
+                        self._p(request, model, "offload_img_emb", False)
+                    ),
+                    "offload_txt_emb": bool(
+                        self._p(request, model, "offload_txt_emb", False)
                     ),
                 },
             }
