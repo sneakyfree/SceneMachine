@@ -193,7 +193,12 @@ class ComfyUIProvider(GenerationProvider):
                 "model_file_fp8": None,
                 "vae_file": "wan_2.1_vae.safetensors",
                 "text_encoder_file": "umt5_xxl_bf16_from_pth.safetensors",
-                "clip_vision_file": "sigclip_vision_patch14_384.safetensors",
+                # Wan Animate REQUIRES CLIP-ViT-H (1280-dim output) for its
+                # face_adapter conditioning. SigLIP (1152-dim) produces
+                # ``Given normalized_shape=[1280]`` LayerNorm crashes inside
+                # the attention block. The T2V/I2V paths still use SigLIP;
+                # Animate is the outlier. Validated 2026-05-13.
+                "clip_vision_file": "clip_vision_h.safetensors",
                 "scheduler": "unipc",
                 "shift": 5.0,
                 "expected_vram_gb": 32,
