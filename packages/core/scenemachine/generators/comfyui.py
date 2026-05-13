@@ -82,6 +82,10 @@ class ComfyUIProvider(GenerationProvider):
                            (~7× speedup for the sampling phase)
         * speed_lora_file: str, override the LoRA filename (else picked from
                            the model's ``speed_lora_candidates`` list)
+        * blocks_to_swap : int, Wan-Animate only — number of transformer
+                           blocks to swap to CPU (14B has 40). Required > 0
+                           for the BF16 weight on a 32 GB-VRAM card or it
+                           OOMs at load. Set to 0 to disable.
 
     Example:
         provider = ComfyUIProvider(comfyui_url="http://127.0.0.1:8188")
@@ -195,12 +199,34 @@ class ComfyUIProvider(GenerationProvider):
                 "expected_vram_gb": 32,
                 "expected_timeout_seconds": 1800,  # 30 min — CPU-offload is slow
                 "requires_character_reference": True,
-                # Lightx2v 4-step distillation LoRA. The 4-step lora was
-                # trained on Wan 2.2 I2V, which Wan-Animate is a derivative
-                # of, so it transfers. We list candidate files in preference
-                # order and pick the first one ComfyUI actually has on disk.
-                # When active: steps drops from 30 → 4 and cfg → 1.0 (the
-                # values Lightx2v was calibrated for; higher cfg hurts).
+                # load_device + block_swap together make Wan Animate BF16
+                # work on a 32 GB-VRAM card. The model weight is 32 GB and
+                # the device usable limit is ~31.4 GB, so:
+                #
+                #   1. load_device="offload_device" tells Kijai's loader to
+                #      stage weights into RAM (we have 256 GB) instead of
+                #      copying them straight to GPU. Without this, the
+                #      loader OOMs at nodes_model_loading.py:921 on
+                #      set_module_tensor_to_device after allocating
+                #      ~29.4 GiB. Validated 2026-05-13.
+                #
+                #   2. blocks_to_swap=20 (14B has 40 blocks) keeps half the
+                #      transformer blocks on CPU during inference and pages
+                #      them in as needed. Without this, peak inference
+                #      memory exceeds VRAM.
+                #
+                # Override either via request.extra_params for power-users
+                # on different-VRAM hardware.
+                "load_device": "offload_device",
+                "blocks_to_swap": 20,
+                "offload_img_emb": False,
+                "offload_txt_emb": False,
+                # Lightx2v 4-step distillation LoRA candidates. Wiring is
+                # validated; **end-to-end runtime use on Animate is blocked
+                # by a separate sampler-side shape mismatch** (see
+                # _build_wan_animate_workflow note re: Animate-specific
+                # conditioning). Once the sampler path is fixed these are
+                # ready to attach.
                 "speed_lora_candidates": [
                     "wan2.2_lightx2v_4step_rank64_HIGH_fp16.safetensors",
                     "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
@@ -208,8 +234,6 @@ class ComfyUIProvider(GenerationProvider):
                 "speed_lora_strength": 1.0,
                 "speed_lora_steps": 4,
                 "speed_lora_cfg": 1.0,
-                # Opt-in for now. Flip this to True once we've validated
-                # a full end-to-end Animate shot with the LoRA.
                 "speed_lora_enabled_by_default": False,
             },
         ),
@@ -1127,6 +1151,18 @@ class ComfyUIProvider(GenerationProvider):
         weight. Keep this builder structurally independent of the I2V
         builder so changes there don't silently break Animate.
 
+        Known incomplete: Wan Animate's sampler expects different
+        conditioning shape than ``WanVideoImageClipEncode`` produces — at
+        runtime the sampler currently crashes inside
+        ``wanvideo/modules/model.py`` with ``Given normalized_shape=[1280],
+        expected ...`` (LayerNorm mismatch). This reproduces with or
+        without the speed LoRA, so it's an architecture-level issue: Wan
+        Animate likely needs Kijai's Animate-specific embed nodes (e.g.
+        ``WanVideoAnimateEmbeds`` if exposed) rather than the I2V
+        ``WanVideoImageClipEncode`` we share here. Tracked separately —
+        the load/offload chain in this builder is validated end-to-end
+        through the sampler boundary.
+
         Raises:
             ValueError: when no reference image is supplied via any source.
         """
@@ -1164,11 +1200,24 @@ class ComfyUIProvider(GenerationProvider):
             "model": animate_weight,
             "base_precision": "fp16",
             "quantization": self._infer_wan_quantization(animate_weight),
-            "load_device": "main_device",
+            "load_device": self._p(
+                request, model, "load_device", "main_device"
+            ),
         }
         if speed_lora_active:
             # WanVideoLoraSelect → ModelLoader.lora (a WANVIDLORA link).
             model_loader_inputs["lora"] = ["11", 0]
+
+        # Block-swap is required for Animate BF16 to load on a 32 GB card.
+        # When blocks_to_swap > 0, attach a WanVideoBlockSwap node and wire
+        # its BLOCKSWAPARGS into ModelLoader.block_swap_args. The model can
+        # then load with ~half its transformer blocks resident on CPU.
+        # Set blocks_to_swap=0 to disable (only safe for FP8 weights or
+        # larger-VRAM cards).
+        blocks_to_swap = int(self._p(request, model, "blocks_to_swap", 0))
+        block_swap_active = blocks_to_swap > 0
+        if block_swap_active:
+            model_loader_inputs["block_swap_args"] = ["12", 0]
 
         # When the speed LoRA is active, replace the model's documented
         # defaults with Lightx2v's calibrated 4 steps / cfg≈1.0. Anything
@@ -1288,6 +1337,39 @@ class ComfyUIProvider(GenerationProvider):
                     "lora": speed_lora_file,
                     "strength": float(
                         self._p(request, model, "speed_lora_strength", 1.0)
+                    ),
+                },
+            }
+
+        if block_swap_active:
+            # We pass ALL the WanVideoBlockSwap inputs explicitly — including
+            # the "optional" ones — because Kijai's loader does not always
+            # propagate ComfyUI defaults: leaving vace_blocks_to_swap unset
+            # crashes the sampler at wanvideo/modules/model.py:2068 with
+            # ``'>' not supported between instances of 'NoneType' and 'int'``.
+            # Validated 2026-05-13. Pass zeros for the VACE/prefetch knobs
+            # so the comparison sees real ints.
+            workflow["12"] = {
+                "class_type": "WanVideoBlockSwap",
+                "inputs": {
+                    "blocks_to_swap": blocks_to_swap,
+                    "offload_img_emb": bool(
+                        self._p(request, model, "offload_img_emb", False)
+                    ),
+                    "offload_txt_emb": bool(
+                        self._p(request, model, "offload_txt_emb", False)
+                    ),
+                    "use_non_blocking": bool(
+                        self._p(request, model, "use_non_blocking", False)
+                    ),
+                    "vace_blocks_to_swap": int(
+                        self._p(request, model, "vace_blocks_to_swap", 0)
+                    ),
+                    "prefetch_blocks": int(
+                        self._p(request, model, "prefetch_blocks", 0)
+                    ),
+                    "block_swap_debug": bool(
+                        self._p(request, model, "block_swap_debug", False)
                     ),
                 },
             }
