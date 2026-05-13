@@ -33,13 +33,50 @@ logger = logging.getLogger(__name__)
 class ComfyUIProvider(GenerationProvider):
     """Local ComfyUI provider for video generation.
 
-    Connects to a running ComfyUI instance via its REST API.
-    Supports AnimateDiff, Stable Video Diffusion, and other
-    video generation workflows.
+    Submits API-format workflows to a running ComfyUI instance over its
+    REST API, polls until completion, downloads the output, and emits a
+    thumbnail.
 
-    Requirements:
-        - ComfyUI running locally (default: http://127.0.0.1:8188)
-        - Video generation nodes installed (AnimateDiff, SVD, etc.)
+    Default URL: http://127.0.0.1:8188.
+
+    Supported models (registered in ``MODELS``):
+        * wan22-t2v-14b-fp8  — primary cinematic text-to-video
+        * wan22-i2v-14b-fp8  — image-to-video for shot continuity
+        * wan22-animate-14b  — character-ID-preserving (uses
+          ``request.character_references`` or ``request.input_image_path``)
+        * ltx2-19b-dev-fp8   — alternate cinematic via Lightricks Gemma encoder
+        * animatediff-v3, svd-xt — legacy stubs kept for phase-21 tests
+
+    Model-file prerequisites — the running ComfyUI instance MUST have these
+    files reachable via its model-path config:
+
+        Wan 2.2 family
+            models/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors
+            models/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors
+            models/diffusion_models/wan2.2_animate_14B_bf16.safetensors
+                (preferred: wan2.2_animate_14B_fp8_e4m3fn_scaled_KJ.safetensors)
+            models/text_encoders/umt5_xxl_bf16_from_pth.safetensors
+            models/vae/wan_2.1_vae.safetensors
+            models/clip_vision/sigclip_vision_patch14_384.safetensors
+
+        LTX-2
+            models/checkpoints/ltx-2-19b-dev-fp8.safetensors
+            models/text_encoders/gemma/model-00001-of-00005.safetensors
+
+    Required custom nodes (the running ComfyUI must have these installed):
+        * ComfyUI-WanVideoWrapper (Kijai)
+        * ComfyUI-LTXVideo (Lightricks)
+        * ComfyUI-VideoHelperSuite (for VHS_VideoCombine)
+
+    Per-shot overrides — beyond the documented GenerationRequest fields,
+    callers may pass these in ``request.extra_params`` to tune the workflow:
+        * model_id       : override the provider's default model
+        * shift          : float, Wan flow-matching shift (default 5.0)
+        * scheduler      : str, Wan sampler scheduler (default "unipc")
+        * tile_x, tile_y : int, VAE tile dims (default 272)
+        * tile_stride_x  : int, VAE tile stride x (default 144)
+        * tile_stride_y  : int, VAE tile stride y (default 128)
+        * sampler_name   : str, KSampler sampler name for LTX-2 (default "euler")
 
     Example:
         provider = ComfyUIProvider(comfyui_url="http://127.0.0.1:8188")
@@ -635,6 +672,39 @@ class ComfyUIProvider(GenerationProvider):
             },
         }
 
+    @staticmethod
+    def _p(
+        request: GenerationRequest,
+        model: VideoModel,
+        key: str,
+        default: Any,
+    ) -> Any:
+        """Resolve a workflow parameter with this priority:
+            request.extra_params[key]  >>  model.extra_params[key]  >>  default
+        """
+        if key in request.extra_params:
+            return request.extra_params[key]
+        if key in model.extra_params:
+            return model.extra_params[key]
+        return default
+
+    @staticmethod
+    def _extract_reference_image(request: GenerationRequest) -> Optional[str]:
+        """Get the first usable character-reference image path from a request.
+
+        Looks in this order:
+          1. request.character_references[*]['reference_image_path']
+          2. request.character_references[*]['image_path']
+          3. request.input_image_path
+        Returns None if nothing is found.
+        """
+        for ref in request.character_references or []:
+            if isinstance(ref, dict):
+                p = ref.get("reference_image_path") or ref.get("image_path")
+                if p:
+                    return p
+        return request.input_image_path
+
     # ============================================================
     # WAN 2.2 T2V — primary text-to-video stack (FP8, 14B)
     # Validated 2026-05-13 against local ComfyUI; produces real mp4.
@@ -711,10 +781,10 @@ class ComfyUIProvider(GenerationProvider):
                     "text_embeds": ["3", 0],
                     "steps": request.num_inference_steps or model.default_steps,
                     "cfg": request.guidance_scale or model.default_cfg_scale,
-                    "shift": params.get("shift", 5.0),
+                    "shift": self._p(request, model, "shift", 5.0),
                     "seed": seed,
                     "force_offload": True,
-                    "scheduler": params.get("scheduler", "unipc"),
+                    "scheduler": self._p(request, model, "scheduler", "unipc"),
                     "riflex_freq_index": 0,
                 },
             },
@@ -724,10 +794,10 @@ class ComfyUIProvider(GenerationProvider):
                     "vae": ["4", 0],
                     "samples": ["6", 0],
                     "enable_vae_tiling": True,
-                    "tile_x": 272,
-                    "tile_y": 272,
-                    "tile_stride_x": 144,
-                    "tile_stride_y": 128,
+                    "tile_x": self._p(request, model, "tile_x", 272),
+                    "tile_y": self._p(request, model, "tile_y", 272),
+                    "tile_stride_x": self._p(request, model, "tile_stride_x", 144),
+                    "tile_stride_y": self._p(request, model, "tile_stride_y", 128),
                 },
             },
             "8": {
@@ -830,10 +900,10 @@ class ComfyUIProvider(GenerationProvider):
                     "text_embeds": ["3", 0],
                     "steps": request.num_inference_steps or model.default_steps,
                     "cfg": request.guidance_scale or model.default_cfg_scale,
-                    "shift": params.get("shift", 5.0),
+                    "shift": self._p(request, model, "shift", 5.0),
                     "seed": seed,
                     "force_offload": True,
-                    "scheduler": params.get("scheduler", "unipc"),
+                    "scheduler": self._p(request, model, "scheduler", "unipc"),
                     "riflex_freq_index": 0,
                 },
             },
@@ -843,10 +913,10 @@ class ComfyUIProvider(GenerationProvider):
                     "vae": ["4", 0],
                     "samples": ["8", 0],
                     "enable_vae_tiling": True,
-                    "tile_x": 272,
-                    "tile_y": 272,
-                    "tile_stride_x": 144,
-                    "tile_stride_y": 128,
+                    "tile_x": self._p(request, model, "tile_x", 272),
+                    "tile_y": self._p(request, model, "tile_y", 272),
+                    "tile_stride_x": self._p(request, model, "tile_stride_x", 144),
+                    "tile_stride_y": self._p(request, model, "tile_stride_y", 128),
                 },
             },
             "10": {
@@ -876,38 +946,131 @@ class ComfyUIProvider(GenerationProvider):
     ) -> Dict[str, Any]:
         """Build Wan 2.2 Animate workflow for ID-preserving generation.
 
-        Reference image source priority:
-          1. request.character_references[0]['reference_image_path']
-          2. request.input_image_path
-        """
-        seed = request.seed if request.seed is not None else 42
-        params = model.extra_params
+        Reference image is required. Priority order:
+          1. request.character_references[*]['reference_image_path']
+          2. request.character_references[*]['image_path']
+          3. request.input_image_path
 
-        ref_image = None
-        if request.character_references:
-            first = request.character_references[0]
-            if isinstance(first, dict):
-                ref_image = first.get("reference_image_path") or first.get("image_path")
-        if not ref_image:
-            ref_image = request.input_image_path
+        Prefers the FP8 model weight if ``model_file_fp8`` is registered
+        in the model's extra_params, falling back to the (larger) BF16
+        weight. Keep this builder structurally independent of the I2V
+        builder so changes there don't silently break Animate.
+
+        Raises:
+            ValueError: when no reference image is supplied via any source.
+        """
+        ref_image = self._extract_reference_image(request)
         if not ref_image:
             raise ValueError(
-                "Wan Animate requires a reference image. Provide "
+                "Wan Animate requires a character reference image. Provide "
                 "request.character_references[0]['reference_image_path'] or "
                 "request.input_image_path."
             )
 
-        # The Wan Animate workflow is identical to I2V except for the model file
-        # — we substitute it in.
-        i2v = self._build_wan22_i2v_workflow(request, model, num_frames)
-        # Override the model_file with the Animate weight:
-        animate_model = params.get("model_file_fp8") or params["model_file"]
-        i2v["1"]["inputs"]["model"] = animate_model
-        # Override the input image:
-        i2v["5"]["inputs"]["image"] = ref_image
-        # Override the seed (Wan Animate is more sensitive to seed for ID lock):
-        i2v["8"]["inputs"]["seed"] = seed
-        return i2v
+        seed = request.seed if request.seed is not None else 42
+        params = model.extra_params
+        # Prefer the Kijai FP8 quant when registered; the BF16 weight is
+        # 32 GB and tight on a 32 GB-VRAM card.
+        animate_weight = params.get("model_file_fp8") or params["model_file"]
+
+        return {
+            "1": {
+                "class_type": "WanVideoModelLoader",
+                "inputs": {
+                    "model": animate_weight,
+                    "base_precision": "fp16",
+                    "quantization": "fp8_e4m3fn_scaled",
+                    "load_device": "main_device",
+                },
+            },
+            "2": {
+                "class_type": "LoadWanVideoT5TextEncoder",
+                "inputs": {
+                    "model_name": params["text_encoder_file"],
+                    "precision": "bf16",
+                    "load_device": "offload_device",
+                    "quantization": "disabled",
+                },
+            },
+            "3": {
+                "class_type": "WanVideoTextEncode",
+                "inputs": {
+                    "positive_prompt": request.prompt,
+                    "negative_prompt": (
+                        request.negative_prompt
+                        or "ugly, blurry, low quality, watermark, text, distorted"
+                    ),
+                    "t5": ["2", 0],
+                    "force_offload": True,
+                    "use_disk_cache": False,
+                    "device": "gpu",
+                },
+            },
+            "4": {
+                "class_type": "WanVideoVAELoader",
+                "inputs": {
+                    "model_name": params["vae_file"],
+                    "precision": "bf16",
+                },
+            },
+            "5": {
+                "class_type": "LoadImage",
+                "inputs": {"image": ref_image},
+            },
+            "6": {
+                "class_type": "CLIPVisionLoader",
+                "inputs": {"clip_name": params["clip_vision_file"]},
+            },
+            "7": {
+                "class_type": "WanVideoImageClipEncode",
+                "inputs": {
+                    "clip_vision": ["6", 0],
+                    "image": ["5", 0],
+                    "vae": ["4", 0],
+                    "generation_width": request.width,
+                    "generation_height": request.height,
+                },
+            },
+            "8": {
+                "class_type": "WanVideoSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "image_embeds": ["7", 0],
+                    "text_embeds": ["3", 0],
+                    "steps": request.num_inference_steps or model.default_steps,
+                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                    "shift": self._p(request, model, "shift", 5.0),
+                    "seed": seed,
+                    "force_offload": True,
+                    "scheduler": self._p(request, model, "scheduler", "unipc"),
+                    "riflex_freq_index": 0,
+                },
+            },
+            "9": {
+                "class_type": "WanVideoDecode",
+                "inputs": {
+                    "vae": ["4", 0],
+                    "samples": ["8", 0],
+                    "enable_vae_tiling": True,
+                    "tile_x": self._p(request, model, "tile_x", 272),
+                    "tile_y": self._p(request, model, "tile_y", 272),
+                    "tile_stride_x": self._p(request, model, "tile_stride_x", 144),
+                    "tile_stride_y": self._p(request, model, "tile_stride_y", 128),
+                },
+            },
+            "10": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["9", 0],
+                    "frame_rate": float(request.fps),
+                    "loop_count": 0,
+                    "filename_prefix": f"shot_{request.shot_id}",
+                    "format": "video/nvenc_av1-mp4",
+                    "pingpong": False,
+                    "save_output": True,
+                },
+            },
+        }
 
     # ============================================================
     # LTX-2 19B Dev (FP8) — alternate cinematic. Slower first-load on
