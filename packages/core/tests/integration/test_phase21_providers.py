@@ -736,6 +736,27 @@ class TestComfyUIProvider:
         )
         assert loader["inputs"]["block_swap_args"] == [bs_node_id, 0]
 
+    def test_comfyui_wan_animate_load_device_is_offload_by_default(self):
+        """Wan Animate BF16 must load_device=offload_device on the 32 GB
+        card: Kijai's loader copies weights to GPU directly when set to
+        main_device, OOMing before block_swap can offload any blocks.
+        Validated 2026-05-13 — with main_device the loader allocates
+        ~29.4 GiB before hitting the device limit even with
+        block_swap_args attached.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        assert model.extra_params.get("load_device") == "offload_device"
+
+        request = self._make_request(input_image_path="ref.png")
+        wf = provider._build_workflow(request, model)
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        assert loader["inputs"]["load_device"] == "offload_device"
+
     def test_comfyui_wan_animate_block_swap_disabled_via_request(self):
         """A caller can opt out of block-swap by setting blocks_to_swap=0
         (only safe on cards with enough VRAM to hold the full BF16 weight).
