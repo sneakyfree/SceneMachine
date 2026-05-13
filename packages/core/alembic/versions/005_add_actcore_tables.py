@@ -147,12 +147,12 @@ def upgrade() -> None:
         sa.Column("revenue_split_percent", sa.Float(), nullable=False, server_default="50.0"),
 
         # Motion capabilities and pricing (JSON)
-        sa.Column("motion_capabilities", postgresql.JSONB(), nullable=True),
-        sa.Column("pricing", postgresql.JSONB(), nullable=True),
+        sa.Column("motion_capabilities", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
+        sa.Column("pricing", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
 
         # Banking and legal (encrypted at rest)
-        sa.Column("banking_info", postgresql.JSONB(), nullable=True),
-        sa.Column("consent_documents", postgresql.JSONB(), nullable=True),
+        sa.Column("banking_info", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
+        sa.Column("consent_documents", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
 
         # Activity
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
@@ -198,10 +198,10 @@ def upgrade() -> None:
         sa.Column("scene_context", sa.Text(), nullable=True),
 
         # Motion data paths (JSON)
-        sa.Column("motion_profile", postgresql.JSONB(), nullable=True),
+        sa.Column("motion_profile", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
 
         # Quality metrics (JSON)
-        sa.Column("quality_metrics", postgresql.JSONB(), nullable=True),
+        sa.Column("quality_metrics", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
 
         # Status
         sa.Column("status", take_status_enum, nullable=False, server_default="processing"),
@@ -260,7 +260,7 @@ def upgrade() -> None:
         sa.Column("duration_requested_seconds", sa.Float(), nullable=False),
         sa.Column("duration_delivered_seconds", sa.Float(), nullable=True),
         sa.Column("emotion_requirements", postgresql.ARRAY(sa.String), nullable=True),
-        sa.Column("motion_requirements", postgresql.JSONB(), nullable=True),
+        sa.Column("motion_requirements", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
         sa.Column("special_instructions", sa.Text(), nullable=True),
         sa.Column("character_context", sa.Text(), nullable=True),
         sa.Column("scene_description", sa.Text(), nullable=True),
@@ -346,7 +346,7 @@ def upgrade() -> None:
         sa.Column("status", auction_status_enum, nullable=False, server_default="draft"),
 
         # Requirements (JSON)
-        sa.Column("requirements", postgresql.JSONB(), nullable=True),
+        sa.Column("requirements", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
 
         # Qualification requirements
         sa.Column("min_aci_score", sa.Float(), nullable=False, server_default="0.0"),

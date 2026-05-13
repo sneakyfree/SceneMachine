@@ -54,8 +54,8 @@ def upgrade() -> None:
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("error_code", sa.String(50), nullable=True),
         # Additional metadata as JSON
-        sa.Column("export_settings", postgresql.JSONB(), nullable=True),
-        sa.Column("verification_result", postgresql.JSONB(), nullable=True),
+        sa.Column("export_settings", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
+        sa.Column("verification_result", postgresql.JSONB().with_variant(sa.JSON(), "sqlite"), nullable=True),
         # Feature flags
         sa.Column("include_subtitles", sa.Boolean(), nullable=False, server_default="false"),
         sa.Column("include_audio", sa.Boolean(), nullable=False, server_default="true"),
