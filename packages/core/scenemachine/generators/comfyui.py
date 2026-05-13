@@ -33,33 +33,178 @@ logger = logging.getLogger(__name__)
 class ComfyUIProvider(GenerationProvider):
     """Local ComfyUI provider for video generation.
 
-    Connects to a running ComfyUI instance via its REST API.
-    Supports AnimateDiff, Stable Video Diffusion, and other
-    video generation workflows.
+    Submits API-format workflows to a running ComfyUI instance over its
+    REST API, polls until completion, downloads the output, and emits a
+    thumbnail.
 
-    Requirements:
-        - ComfyUI running locally (default: http://127.0.0.1:8188)
-        - Video generation nodes installed (AnimateDiff, SVD, etc.)
+    Default URL: http://127.0.0.1:8188.
+
+    Supported models (registered in ``MODELS``):
+        * wan22-t2v-14b-fp8  — primary cinematic text-to-video
+        * wan22-i2v-14b-fp8  — image-to-video for shot continuity
+        * wan22-animate-14b  — character-ID-preserving (uses
+          ``request.character_references`` or ``request.input_image_path``)
+        * ltx2-19b-dev-fp8   — alternate cinematic via Lightricks Gemma encoder
+        * animatediff-v3, svd-xt — legacy stubs kept for phase-21 tests
+
+    Model-file prerequisites — the running ComfyUI instance MUST have these
+    files reachable via its model-path config:
+
+        Wan 2.2 family
+            models/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors
+            models/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors
+            models/diffusion_models/wan2.2_animate_14B_bf16.safetensors
+                (preferred: wan2.2_animate_14B_fp8_e4m3fn_scaled_KJ.safetensors)
+            models/text_encoders/umt5_xxl_bf16_from_pth.safetensors
+            models/vae/wan_2.1_vae.safetensors
+            models/clip_vision/sigclip_vision_patch14_384.safetensors
+
+        LTX-2
+            models/checkpoints/ltx-2-19b-dev-fp8.safetensors
+            models/text_encoders/gemma/model-00001-of-00005.safetensors
+
+    Required custom nodes (the running ComfyUI must have these installed):
+        * ComfyUI-WanVideoWrapper (Kijai)
+        * ComfyUI-LTXVideo (Lightricks)
+        * ComfyUI-VideoHelperSuite (for VHS_VideoCombine)
+
+    Per-shot overrides — beyond the documented GenerationRequest fields,
+    callers may pass these in ``request.extra_params`` to tune the workflow:
+        * model_id       : override the provider's default model
+        * shift          : float, Wan flow-matching shift (default 5.0)
+        * scheduler      : str, Wan sampler scheduler (default "unipc")
+        * tile_x, tile_y : int, VAE tile dims (default 272)
+        * tile_stride_x  : int, VAE tile stride x (default 144)
+        * tile_stride_y  : int, VAE tile stride y (default 128)
+        * sampler_name   : str, KSampler sampler name for LTX-2 (default "euler")
 
     Example:
         provider = ComfyUIProvider(comfyui_url="http://127.0.0.1:8188")
         result = await provider.generate(request)
     """
 
-    # Video workflow templates
+    # Video workflow templates — maps short keys to internal builder names.
+    # Used by the desktop renderer to populate model dropdowns and by
+    # _build_workflow() for dispatch.
     WORKFLOWS = {
+        "wan22_t2v": "wan2_2_t2v_a14b_fp8",
+        "wan22_i2v": "wan2_2_i2v_a14b_fp8",
+        "wan_animate": "wan2_2_animate_14b",
+        "ltx2": "ltx_2_19b_dev",
+        # Legacy stubs (kept for backwards compat with phase-21 tests):
         "animatediff": "animatediff_v3",
         "svd": "stable_video_diffusion",
-        "wan2": "wan2_1_t2v",
-        "hunyuan": "hunyuan_video",
     }
 
     MODELS: Dict[str, VideoModel] = {
+        # ============================================================
+        # PRIMARY STACK — Wan 2.2 14B FP8 (fits 32 GB VRAM cleanly)
+        # ============================================================
+        "wan22-t2v-14b-fp8": VideoModel(
+            id="wan22-t2v-14b-fp8",
+            name="Wan 2.2 T2V 14B (FP8)",
+            version="2.2",
+            cost_per_second=0.0,  # Local = electricity only
+            supports_text_to_video=True,
+            supports_image_to_video=False,
+            max_duration=8.0,
+            default_fps=24,
+            default_steps=30,
+            default_cfg_scale=6.0,
+            extra_params={
+                "model_file": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+                "vae_file": "wan_2.1_vae.safetensors",
+                "text_encoder_file": "umt5_xxl_bf16_from_pth.safetensors",
+                "scheduler": "unipc",
+                "shift": 5.0,
+                "expected_vram_gb": 22,
+            },
+        ),
+        "wan22-i2v-14b-fp8": VideoModel(
+            id="wan22-i2v-14b-fp8",
+            name="Wan 2.2 I2V 14B (FP8)",
+            version="2.2",
+            cost_per_second=0.0,
+            supports_text_to_video=False,
+            supports_image_to_video=True,
+            max_duration=8.0,
+            default_fps=24,
+            default_steps=30,
+            default_cfg_scale=6.0,
+            extra_params={
+                "model_file": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+                "vae_file": "wan_2.1_vae.safetensors",
+                "text_encoder_file": "umt5_xxl_bf16_from_pth.safetensors",
+                "clip_vision_file": "sigclip_vision_patch14_384.safetensors",
+                "scheduler": "unipc",
+                "shift": 5.0,
+                "expected_vram_gb": 24,
+            },
+        ),
+        # ============================================================
+        # CHARACTER-CONSISTENCY STACK — Wan 2.2 Animate
+        # Takes one reference image of a character; preserves identity
+        # across the generated shot. Use this for the recurring-character
+        # case. Note: the BF16 weight is 32 GB and is tight on 32 GB VRAM;
+        # the Kijai-quantized FP8 (path: wan2.2_animate_14B_fp8_e4m3fn_scaled_KJ
+        # .safetensors) is preferred when available.
+        # ============================================================
+        "wan22-animate-14b": VideoModel(
+            id="wan22-animate-14b",
+            name="Wan 2.2 Animate (Character ID-preserving)",
+            version="2.2",
+            cost_per_second=0.0,
+            supports_text_to_video=False,
+            supports_image_to_video=True,
+            max_duration=5.0,
+            default_fps=24,
+            default_steps=30,
+            default_cfg_scale=6.0,
+            extra_params={
+                "model_file": "wan2.2_animate_14B_bf16.safetensors",
+                "model_file_fp8": "wan2.2_animate_14B_fp8_e4m3fn_scaled_KJ.safetensors",
+                "vae_file": "wan_2.1_vae.safetensors",
+                "text_encoder_file": "umt5_xxl_bf16_from_pth.safetensors",
+                "clip_vision_file": "sigclip_vision_patch14_384.safetensors",
+                "scheduler": "unipc",
+                "shift": 5.0,
+                "expected_vram_gb": 30,
+                "requires_character_reference": True,
+            },
+        ),
+        # ============================================================
+        # ALTERNATE CINEMATIC — LTX-2 19B (slower, larger, fallback)
+        # Note: tight on 32 GB VRAM; first-load involves weight staging.
+        # ============================================================
+        "ltx2-19b-dev-fp8": VideoModel(
+            id="ltx2-19b-dev-fp8",
+            name="LTX-2 19B Dev (FP8)",
+            version="2.0",
+            cost_per_second=0.0,
+            supports_text_to_video=True,
+            supports_image_to_video=False,
+            max_duration=5.0,
+            default_fps=24,
+            default_steps=30,
+            default_cfg_scale=7.0,
+            extra_params={
+                "checkpoint_file": "ltx-2-19b-dev-fp8.safetensors",
+                "gemma_file": "gemma/model-00001-of-00005.safetensors",
+                "max_token_length": 256,
+                "sampler": "euler",
+                "scheduler": "normal",
+                "expected_vram_gb": 28,
+            },
+        ),
+        # ============================================================
+        # LEGACY STUBS (kept for backwards compat; require their own
+        # weights to be installed before they will work).
+        # ============================================================
         "animatediff-v3": VideoModel(
             id="animatediff-v3",
-            name="AnimateDiff v3",
+            name="AnimateDiff v3 (legacy)",
             version="3.0",
-            cost_per_second=0.0,  # Local = free
+            cost_per_second=0.0,
             supports_text_to_video=True,
             supports_image_to_video=True,
             max_duration=4.0,
@@ -68,22 +213,9 @@ class ComfyUIProvider(GenerationProvider):
             default_cfg_scale=7.5,
             extra_params={"motion_module": "mm_sd_v15_v3"},
         ),
-        "animatediff-lightning": VideoModel(
-            id="animatediff-lightning",
-            name="AnimateDiff Lightning",
-            version="1.0",
-            cost_per_second=0.0,
-            supports_text_to_video=True,
-            supports_image_to_video=False,
-            max_duration=2.0,
-            default_fps=8,
-            default_steps=4,  # Lightning is fast
-            default_cfg_scale=1.0,
-            extra_params={"motion_module": "animatediff_lightning_4step"},
-        ),
         "svd-xt": VideoModel(
             id="svd-xt",
-            name="Stable Video Diffusion XT",
+            name="Stable Video Diffusion XT (legacy)",
             version="1.1",
             cost_per_second=0.0,
             supports_text_to_video=False,
@@ -93,33 +225,9 @@ class ComfyUIProvider(GenerationProvider):
             default_steps=25,
             default_cfg_scale=2.5,
         ),
-        "wan2-t2v": VideoModel(
-            id="wan2-t2v",
-            name="Wan2.1 Text-to-Video",
-            version="2.1",
-            cost_per_second=0.0,
-            supports_text_to_video=True,
-            supports_image_to_video=False,
-            max_duration=5.0,
-            default_fps=16,
-            default_steps=30,
-            default_cfg_scale=6.0,
-        ),
-        "hunyuan-video": VideoModel(
-            id="hunyuan-video",
-            name="HunyuanVideo",
-            version="1.0",
-            cost_per_second=0.0,
-            supports_text_to_video=True,
-            supports_image_to_video=True,
-            max_duration=5.0,
-            default_fps=24,
-            default_steps=50,
-            default_cfg_scale=6.0,
-        ),
     }
 
-    DEFAULT_MODEL = "animatediff-v3"
+    DEFAULT_MODEL = "wan22-t2v-14b-fp8"
     POLL_INTERVAL = 1.0  # seconds
     POLL_TIMEOUT = 600.0  # 10 minutes
 
@@ -156,6 +264,7 @@ class ComfyUIProvider(GenerationProvider):
             features=[
                 ProviderFeature.TEXT_TO_VIDEO,
                 ProviderFeature.IMAGE_TO_VIDEO,
+                ProviderFeature.CHARACTER_CONSISTENCY,  # via Wan Animate
                 ProviderFeature.LORA_SUPPORT,
                 ProviderFeature.CONTROLNET,
             ],
@@ -335,9 +444,7 @@ class ComfyUIProvider(GenerationProvider):
             return GenerationResult(
                 success=True,
                 output_path=f"shots/{request.shot_id}/output.{self.output_format}",
-                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg"
-                if thumbnail_path
-                else None,
+                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg" if thumbnail_path else None,
                 duration_seconds=request.duration_seconds,
                 cost_usd=0.0,  # Local = free
                 metadata={
@@ -373,24 +480,40 @@ class ComfyUIProvider(GenerationProvider):
         request: GenerationRequest,
         model: VideoModel,
     ) -> Dict[str, Any]:
-        """Build ComfyUI workflow based on model and request.
+        """Build a ComfyUI API-format workflow for the given model + request.
 
-        This creates a simplified workflow structure.
-        For production, you'd want to load predefined workflow templates.
+        Dispatches to a model-specific builder. The builders produce dicts in
+        ComfyUI's API format ({node_id: {class_type, inputs}}) ready to POST
+        to /prompt.
+
+        Notes on resolution: Wan 2.2 expects width/height divisible by 16,
+        and num_frames in (4k+1) — we round in each builder.
         """
-        # Calculate frame count
         num_frames = int(request.duration_seconds * request.fps)
+        # Wan-family wants (4k+1) frames so it can produce K full latent groups
+        if model.id.startswith("wan22") or model.id == "wan22-animate-14b":
+            num_frames = ((num_frames - 1) // 4) * 4 + 1
 
-        # Base workflow structure (AnimateDiff example)
+        if model.id == "wan22-t2v-14b-fp8":
+            return self._build_wan22_t2v_workflow(request, model, num_frames)
+        if model.id == "wan22-i2v-14b-fp8":
+            return self._build_wan22_i2v_workflow(request, model, num_frames)
+        if model.id == "wan22-animate-14b":
+            return self._build_wan_animate_workflow(request, model, num_frames)
+        if model.id == "ltx2-19b-dev-fp8":
+            return self._build_ltx2_workflow(request, model, num_frames)
+
+        # Legacy stubs:
         if model.id.startswith("animatediff"):
             return self._build_animatediff_workflow(request, model, num_frames)
-        elif model.id.startswith("svd"):
+        if model.id.startswith("svd"):
             return self._build_svd_workflow(request, model, num_frames)
-        elif model.id.startswith("wan2"):
-            return self._build_wan2_workflow(request, model, num_frames)
-        else:
-            # Default to AnimateDiff
-            return self._build_animatediff_workflow(request, model, num_frames)
+        # Unknown model — fall back to the primary stack:
+        return self._build_wan22_t2v_workflow(
+            request,
+            self.MODELS["wan22-t2v-14b-fp8"],
+            num_frames,
+        )
 
     def _build_animatediff_workflow(
         self,
@@ -432,8 +555,7 @@ class ComfyUIProvider(GenerationProvider):
                 "class_type": "CLIPTextEncode",
                 "inputs": {
                     "clip": ["1", 1],
-                    "text": request.negative_prompt
-                    or "bad quality, blurry, distorted",
+                    "text": request.negative_prompt or "bad quality, blurry, distorted",
                 },
             },
             "6": {
@@ -550,63 +672,498 @@ class ComfyUIProvider(GenerationProvider):
             },
         }
 
-    def _build_wan2_workflow(
+    @staticmethod
+    def _p(
+        request: GenerationRequest,
+        model: VideoModel,
+        key: str,
+        default: Any,
+    ) -> Any:
+        """Resolve a workflow parameter with this priority:
+            request.extra_params[key]  >>  model.extra_params[key]  >>  default
+        """
+        if key in request.extra_params:
+            return request.extra_params[key]
+        if key in model.extra_params:
+            return model.extra_params[key]
+        return default
+
+    @staticmethod
+    def _extract_reference_image(request: GenerationRequest) -> Optional[str]:
+        """Get the first usable character-reference image path from a request.
+
+        Looks in this order:
+          1. request.character_references[*]['reference_image_path']
+          2. request.character_references[*]['image_path']
+          3. request.input_image_path
+        Returns None if nothing is found.
+        """
+        for ref in request.character_references or []:
+            if isinstance(ref, dict):
+                p = ref.get("reference_image_path") or ref.get("image_path")
+                if p:
+                    return p
+        return request.input_image_path
+
+    # ============================================================
+    # WAN 2.2 T2V — primary text-to-video stack (FP8, 14B)
+    # Validated 2026-05-13 against local ComfyUI; produces real mp4.
+    # Node graph mirrors /opt/ai/workflows/api/wan22_t2v.json.
+    # ============================================================
+    def _build_wan22_t2v_workflow(
         self,
         request: GenerationRequest,
         model: VideoModel,
         num_frames: int,
     ) -> Dict[str, Any]:
-        """Build Wan2.1 workflow."""
-        seed = request.seed or 42
+        """Build Wan 2.2 T2V (14B FP8) workflow.
+
+        Uses the Kijai WanVideoWrapper custom nodes:
+          ModelLoader → T5TextEncoder → TextEncode → VAELoader →
+          EmptyEmbeds → Sampler → Decode → VideoCombine
+        """
+        seed = request.seed if request.seed is not None else 42
+        params = model.extra_params
 
         return {
             "1": {
                 "class_type": "WanVideoModelLoader",
-                "inputs": {"model_name": "wan2.1_t2v_1.3b_bf16.safetensors"},
+                "inputs": {
+                    "model": params["model_file"],
+                    "base_precision": "fp16",
+                    "quantization": "fp8_e4m3fn_scaled",
+                    "load_device": "main_device",
+                },
             },
             "2": {
-                "class_type": "WanVideoTextEncode",
+                "class_type": "LoadWanVideoT5TextEncoder",
                 "inputs": {
-                    "text_encoder": ["1", 1],
-                    "prompt": request.prompt,
+                    "model_name": params["text_encoder_file"],
+                    "precision": "bf16",
+                    "load_device": "offload_device",
+                    "quantization": "disabled",
                 },
             },
             "3": {
                 "class_type": "WanVideoTextEncode",
                 "inputs": {
-                    "text_encoder": ["1", 1],
-                    "prompt": request.negative_prompt or "",
+                    "positive_prompt": request.prompt,
+                    "negative_prompt": (
+                        request.negative_prompt
+                        or "ugly, blurry, low quality, watermark, text, distorted"
+                    ),
+                    "t5": ["2", 0],
+                    "force_offload": True,
+                    "use_disk_cache": False,
+                    "device": "gpu",
                 },
             },
             "4": {
-                "class_type": "WanVideoSampler",
+                "class_type": "WanVideoVAELoader",
                 "inputs": {
-                    "model": ["1", 0],
-                    "positive": ["2", 0],
-                    "negative": ["3", 0],
-                    "width": request.width,
-                    "height": request.height,
-                    "num_frames": num_frames,
-                    "seed": seed,
-                    "steps": request.num_inference_steps or model.default_steps,
-                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                    "model_name": params["vae_file"],
+                    "precision": "bf16",
                 },
             },
             "5": {
-                "class_type": "WanVideoDecode",
+                "class_type": "WanVideoEmptyEmbeds",
                 "inputs": {
-                    "vae": ["1", 2],
-                    "latents": ["4", 0],
+                    "width": request.width,
+                    "height": request.height,
+                    "num_frames": num_frames,
                 },
             },
             "6": {
+                "class_type": "WanVideoSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "image_embeds": ["5", 0],
+                    "text_embeds": ["3", 0],
+                    "steps": request.num_inference_steps or model.default_steps,
+                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                    "shift": self._p(request, model, "shift", 5.0),
+                    "seed": seed,
+                    "force_offload": True,
+                    "scheduler": self._p(request, model, "scheduler", "unipc"),
+                    "riflex_freq_index": 0,
+                },
+            },
+            "7": {
+                "class_type": "WanVideoDecode",
+                "inputs": {
+                    "vae": ["4", 0],
+                    "samples": ["6", 0],
+                    "enable_vae_tiling": True,
+                    "tile_x": self._p(request, model, "tile_x", 272),
+                    "tile_y": self._p(request, model, "tile_y", 272),
+                    "tile_stride_x": self._p(request, model, "tile_stride_x", 144),
+                    "tile_stride_y": self._p(request, model, "tile_stride_y", 128),
+                },
+            },
+            "8": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
-                    "images": ["5", 0],
-                    "frame_rate": request.fps,
+                    "images": ["7", 0],
+                    "frame_rate": float(request.fps),
                     "loop_count": 0,
                     "filename_prefix": f"shot_{request.shot_id}",
-                    "format": "video/h264-mp4",
+                    "format": "video/nvenc_av1-mp4",
+                    "pingpong": False,
+                    "save_output": True,
+                },
+            },
+        }
+
+    # ============================================================
+    # WAN 2.2 I2V — image-to-video (FP8, 14B). Needs a starter image.
+    # ============================================================
+    def _build_wan22_i2v_workflow(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+        num_frames: int,
+    ) -> Dict[str, Any]:
+        """Build Wan 2.2 I2V workflow.
+
+        Uses CLIP-Vision to encode the input image, then I2V sampling.
+        Requires `request.input_image_path` to be a filename already in
+        ComfyUI's input directory (the provider's caller is expected to
+        upload via /upload/image first if working from an arbitrary path).
+        """
+        seed = request.seed if request.seed is not None else 42
+        params = model.extra_params
+        image_name = request.input_image_path or "input.png"
+
+        return {
+            "1": {
+                "class_type": "WanVideoModelLoader",
+                "inputs": {
+                    "model": params["model_file"],
+                    "base_precision": "fp16",
+                    "quantization": "fp8_e4m3fn_scaled",
+                    "load_device": "main_device",
+                },
+            },
+            "2": {
+                "class_type": "LoadWanVideoT5TextEncoder",
+                "inputs": {
+                    "model_name": params["text_encoder_file"],
+                    "precision": "bf16",
+                    "load_device": "offload_device",
+                    "quantization": "disabled",
+                },
+            },
+            "3": {
+                "class_type": "WanVideoTextEncode",
+                "inputs": {
+                    "positive_prompt": request.prompt,
+                    "negative_prompt": (
+                        request.negative_prompt
+                        or "ugly, blurry, low quality, watermark, text, distorted"
+                    ),
+                    "t5": ["2", 0],
+                    "force_offload": True,
+                    "use_disk_cache": False,
+                    "device": "gpu",
+                },
+            },
+            "4": {
+                "class_type": "WanVideoVAELoader",
+                "inputs": {
+                    "model_name": params["vae_file"],
+                    "precision": "bf16",
+                },
+            },
+            "5": {
+                "class_type": "LoadImage",
+                "inputs": {"image": image_name},
+            },
+            "6": {
+                "class_type": "CLIPVisionLoader",
+                "inputs": {"clip_name": params["clip_vision_file"]},
+            },
+            "7": {
+                "class_type": "WanVideoImageClipEncode",
+                "inputs": {
+                    "clip_vision": ["6", 0],
+                    "image": ["5", 0],
+                    "vae": ["4", 0],
+                    "generation_width": request.width,
+                    "generation_height": request.height,
+                },
+            },
+            "8": {
+                "class_type": "WanVideoSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "image_embeds": ["7", 0],
+                    "text_embeds": ["3", 0],
+                    "steps": request.num_inference_steps or model.default_steps,
+                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                    "shift": self._p(request, model, "shift", 5.0),
+                    "seed": seed,
+                    "force_offload": True,
+                    "scheduler": self._p(request, model, "scheduler", "unipc"),
+                    "riflex_freq_index": 0,
+                },
+            },
+            "9": {
+                "class_type": "WanVideoDecode",
+                "inputs": {
+                    "vae": ["4", 0],
+                    "samples": ["8", 0],
+                    "enable_vae_tiling": True,
+                    "tile_x": self._p(request, model, "tile_x", 272),
+                    "tile_y": self._p(request, model, "tile_y", 272),
+                    "tile_stride_x": self._p(request, model, "tile_stride_x", 144),
+                    "tile_stride_y": self._p(request, model, "tile_stride_y", 128),
+                },
+            },
+            "10": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["9", 0],
+                    "frame_rate": float(request.fps),
+                    "loop_count": 0,
+                    "filename_prefix": f"shot_{request.shot_id}",
+                    "format": "video/nvenc_av1-mp4",
+                    "pingpong": False,
+                    "save_output": True,
+                },
+            },
+        }
+
+    # ============================================================
+    # WAN 2.2 ANIMATE — character-consistency. Takes a reference
+    # image of the character (from request.character_references or
+    # request.input_image_path). Identity is preserved across the shot.
+    # ============================================================
+    def _build_wan_animate_workflow(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+        num_frames: int,
+    ) -> Dict[str, Any]:
+        """Build Wan 2.2 Animate workflow for ID-preserving generation.
+
+        Reference image is required. Priority order:
+          1. request.character_references[*]['reference_image_path']
+          2. request.character_references[*]['image_path']
+          3. request.input_image_path
+
+        Prefers the FP8 model weight if ``model_file_fp8`` is registered
+        in the model's extra_params, falling back to the (larger) BF16
+        weight. Keep this builder structurally independent of the I2V
+        builder so changes there don't silently break Animate.
+
+        Raises:
+            ValueError: when no reference image is supplied via any source.
+        """
+        ref_image = self._extract_reference_image(request)
+        if not ref_image:
+            raise ValueError(
+                "Wan Animate requires a character reference image. Provide "
+                "request.character_references[0]['reference_image_path'] or "
+                "request.input_image_path."
+            )
+
+        seed = request.seed if request.seed is not None else 42
+        params = model.extra_params
+        # Prefer the Kijai FP8 quant when registered; the BF16 weight is
+        # 32 GB and tight on a 32 GB-VRAM card.
+        animate_weight = params.get("model_file_fp8") or params["model_file"]
+
+        return {
+            "1": {
+                "class_type": "WanVideoModelLoader",
+                "inputs": {
+                    "model": animate_weight,
+                    "base_precision": "fp16",
+                    "quantization": "fp8_e4m3fn_scaled",
+                    "load_device": "main_device",
+                },
+            },
+            "2": {
+                "class_type": "LoadWanVideoT5TextEncoder",
+                "inputs": {
+                    "model_name": params["text_encoder_file"],
+                    "precision": "bf16",
+                    "load_device": "offload_device",
+                    "quantization": "disabled",
+                },
+            },
+            "3": {
+                "class_type": "WanVideoTextEncode",
+                "inputs": {
+                    "positive_prompt": request.prompt,
+                    "negative_prompt": (
+                        request.negative_prompt
+                        or "ugly, blurry, low quality, watermark, text, distorted"
+                    ),
+                    "t5": ["2", 0],
+                    "force_offload": True,
+                    "use_disk_cache": False,
+                    "device": "gpu",
+                },
+            },
+            "4": {
+                "class_type": "WanVideoVAELoader",
+                "inputs": {
+                    "model_name": params["vae_file"],
+                    "precision": "bf16",
+                },
+            },
+            "5": {
+                "class_type": "LoadImage",
+                "inputs": {"image": ref_image},
+            },
+            "6": {
+                "class_type": "CLIPVisionLoader",
+                "inputs": {"clip_name": params["clip_vision_file"]},
+            },
+            "7": {
+                "class_type": "WanVideoImageClipEncode",
+                "inputs": {
+                    "clip_vision": ["6", 0],
+                    "image": ["5", 0],
+                    "vae": ["4", 0],
+                    "generation_width": request.width,
+                    "generation_height": request.height,
+                },
+            },
+            "8": {
+                "class_type": "WanVideoSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "image_embeds": ["7", 0],
+                    "text_embeds": ["3", 0],
+                    "steps": request.num_inference_steps or model.default_steps,
+                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                    "shift": self._p(request, model, "shift", 5.0),
+                    "seed": seed,
+                    "force_offload": True,
+                    "scheduler": self._p(request, model, "scheduler", "unipc"),
+                    "riflex_freq_index": 0,
+                },
+            },
+            "9": {
+                "class_type": "WanVideoDecode",
+                "inputs": {
+                    "vae": ["4", 0],
+                    "samples": ["8", 0],
+                    "enable_vae_tiling": True,
+                    "tile_x": self._p(request, model, "tile_x", 272),
+                    "tile_y": self._p(request, model, "tile_y", 272),
+                    "tile_stride_x": self._p(request, model, "tile_stride_x", 144),
+                    "tile_stride_y": self._p(request, model, "tile_stride_y", 128),
+                },
+            },
+            "10": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["9", 0],
+                    "frame_rate": float(request.fps),
+                    "loop_count": 0,
+                    "filename_prefix": f"shot_{request.shot_id}",
+                    "format": "video/nvenc_av1-mp4",
+                    "pingpong": False,
+                    "save_output": True,
+                },
+            },
+        }
+
+    # ============================================================
+    # LTX-2 19B Dev (FP8) — alternate cinematic. Slower first-load on
+    # 32 GB VRAM (model is 26 GB FP8 + Gemma encoder + activations).
+    # ============================================================
+    def _build_ltx2_workflow(
+        self,
+        request: GenerationRequest,
+        model: VideoModel,
+        num_frames: int,
+    ) -> Dict[str, Any]:
+        """Build LTX-2 19B Dev workflow using Lightricks Gemma encoder."""
+        seed = request.seed if request.seed is not None else 42
+        params = model.extra_params
+
+        return {
+            "1": {
+                "class_type": "CheckpointLoaderSimple",
+                "inputs": {"ckpt_name": params["checkpoint_file"]},
+            },
+            "2": {
+                "class_type": "LTXVGemmaCLIPModelLoader",
+                "inputs": {
+                    "gemma_path": params["gemma_file"],
+                    "ltxv_path": params["checkpoint_file"],
+                    "max_length": params.get("max_token_length", 256),
+                },
+            },
+            "3": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "clip": ["2", 0],
+                    "text": request.prompt,
+                },
+            },
+            "4": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {
+                    "clip": ["2", 0],
+                    "text": (
+                        request.negative_prompt
+                        or "ugly, blurry, low quality, watermark, text, distorted"
+                    ),
+                },
+            },
+            "5": {
+                "class_type": "LTXVConditioning",
+                "inputs": {
+                    "positive": ["3", 0],
+                    "negative": ["4", 0],
+                    "frame_rate": float(request.fps),
+                },
+            },
+            "6": {
+                "class_type": "EmptyLTXVLatentVideo",
+                "inputs": {
+                    "width": request.width,
+                    "height": request.height,
+                    "length": num_frames,
+                    "batch_size": 1,
+                },
+            },
+            "7": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "model": ["1", 0],
+                    "seed": seed,
+                    "steps": request.num_inference_steps or model.default_steps,
+                    "cfg": request.guidance_scale or model.default_cfg_scale,
+                    "sampler_name": params.get("sampler", "euler"),
+                    "scheduler": params.get("scheduler", "normal"),
+                    "positive": ["5", 0],
+                    "negative": ["5", 1],
+                    "latent_image": ["6", 0],
+                    "denoise": 1.0,
+                },
+            },
+            "8": {
+                "class_type": "VAEDecode",
+                "inputs": {
+                    "samples": ["7", 0],
+                    "vae": ["1", 2],
+                },
+            },
+            "9": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["8", 0],
+                    "frame_rate": float(request.fps),
+                    "loop_count": 0,
+                    "filename_prefix": f"shot_{request.shot_id}",
+                    "format": "video/nvenc_av1-mp4",
+                    "pingpong": False,
                     "save_output": True,
                 },
             },

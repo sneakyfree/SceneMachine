@@ -451,7 +451,7 @@ class TestComfyUIProvider:
         assert available is False
 
     def test_comfyui_workflow_building(self):
-        """Test ComfyUI workflow building."""
+        """Test ComfyUI workflow building (legacy AnimateDiff stub)."""
         from scenemachine.generators.comfyui import ComfyUIProvider
         from scenemachine.generators.base import GenerationRequest
 
@@ -473,6 +473,212 @@ class TestComfyUIProvider:
         assert len(workflow) > 0
         # Check for key nodes
         assert any("KSampler" in str(v) for v in workflow.values())
+
+    # ------------------------------------------------------------------
+    # Tests for the four locally-supported model workflows added in the
+    # feat/wire-local-wan22-stack patch. These do NOT submit to ComfyUI;
+    # they only validate that the workflow-dict generation is well-formed
+    # and references the registered model files / required custom nodes.
+    # ------------------------------------------------------------------
+
+    def _make_request(self, **overrides):
+        from scenemachine.generators.base import GenerationRequest
+
+        defaults = dict(
+            shot_id=uuid4(),
+            prompt="a cinematic wide shot of a windswept desert at golden hour",
+            negative_prompt="ugly, blurry",
+            width=768,
+            height=432,
+            duration_seconds=3.0,
+            fps=24,
+            seed=42,
+            guidance_scale=6.0,
+            num_inference_steps=30,
+        )
+        defaults.update(overrides)
+        return GenerationRequest(**defaults)
+
+    def test_comfyui_wan22_t2v_workflow_structure(self):
+        """Wan 2.2 T2V workflow contains the required Wan nodes and references
+        registered model files via the WanVideoModelLoader / TextEncoder / VAE
+        chain.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-t2v-14b-fp8")
+        assert model is not None
+
+        request = self._make_request()
+        wf = provider._build_workflow(request, model)
+
+        # Workflow shape: API-format flat dict of node_id → {class_type, inputs}
+        assert isinstance(wf, dict)
+        assert len(wf) >= 8
+
+        class_types = [n["class_type"] for n in wf.values()]
+        for required in (
+            "WanVideoModelLoader",
+            "LoadWanVideoT5TextEncoder",
+            "WanVideoTextEncode",
+            "WanVideoVAELoader",
+            "WanVideoEmptyEmbeds",
+            "WanVideoSampler",
+            "WanVideoDecode",
+            "VHS_VideoCombine",
+        ):
+            assert required in class_types, f"missing required node: {required}"
+
+        # Model files are sourced from model.extra_params, not hard-coded
+        loader_inputs = next(
+            n["inputs"] for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        assert loader_inputs["model"] == model.extra_params["model_file"]
+
+    def test_comfyui_wan22_i2v_workflow_uses_clip_vision(self):
+        """Wan 2.2 I2V workflow loads an image, runs CLIP-Vision, and uses
+        WanVideoImageClipEncode (not WanVideoEmptyEmbeds)."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-i2v-14b-fp8")
+        request = self._make_request(input_image_path="some_starter_frame.png")
+
+        wf = provider._build_workflow(request, model)
+        class_types = [n["class_type"] for n in wf.values()]
+
+        assert "LoadImage" in class_types
+        assert "CLIPVisionLoader" in class_types
+        assert "WanVideoImageClipEncode" in class_types
+        # T2V's empty-embed path must NOT be present:
+        assert "WanVideoEmptyEmbeds" not in class_types
+
+        # The LoadImage node must point at the request's input image
+        load_image = next(
+            n for n in wf.values() if n["class_type"] == "LoadImage"
+        )
+        assert load_image["inputs"]["image"] == "some_starter_frame.png"
+
+    def test_comfyui_wan_animate_requires_reference_image(self):
+        """Wan Animate must raise a clear ValueError if no reference image
+        is supplied via character_references[*] OR input_image_path."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request()  # no character_references, no input_image_path
+
+        with pytest.raises(ValueError, match="character reference image"):
+            provider._build_workflow(request, model)
+
+    def test_comfyui_wan_animate_extracts_reference_from_character_references(self):
+        """Wan Animate uses request.character_references[0]['reference_image_path']
+        when present, even if input_image_path is unset."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            character_references=[
+                {"character_id": "hero", "reference_image_path": "hero_ref.png"}
+            ]
+        )
+
+        wf = provider._build_workflow(request, model)
+        load_image = next(
+            n for n in wf.values() if n["class_type"] == "LoadImage"
+        )
+        assert load_image["inputs"]["image"] == "hero_ref.png"
+
+    def test_comfyui_wan_animate_prefers_fp8_weight_when_registered(self):
+        """When model.extra_params['model_file_fp8'] is set, the Animate
+        builder should load that weight instead of the BF16 fallback."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        assert model.extra_params.get("model_file_fp8")  # precondition
+
+        request = self._make_request(input_image_path="ref.png")
+        wf = provider._build_workflow(request, model)
+
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        assert loader["inputs"]["model"] == model.extra_params["model_file_fp8"]
+
+    def test_comfyui_ltx2_workflow_uses_gemma_encoder(self):
+        """LTX-2 workflow loads the Lightricks Gemma CLIP model and uses
+        EmptyLTXVLatentVideo + LTXVConditioning, not the Wan node graph."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("ltx2-19b-dev-fp8")
+        request = self._make_request()
+
+        wf = provider._build_workflow(request, model)
+        class_types = [n["class_type"] for n in wf.values()]
+
+        for required in (
+            "CheckpointLoaderSimple",
+            "LTXVGemmaCLIPModelLoader",
+            "CLIPTextEncode",
+            "LTXVConditioning",
+            "EmptyLTXVLatentVideo",
+            "KSampler",
+            "VAEDecode",
+            "VHS_VideoCombine",
+        ):
+            assert required in class_types, f"missing required node: {required}"
+
+        # Make sure the Wan path is NOT activated:
+        for wan_only in (
+            "WanVideoModelLoader",
+            "WanVideoEmptyEmbeds",
+            "WanVideoSampler",
+        ):
+            assert wan_only not in class_types
+
+    def test_comfyui_workflow_request_extra_params_override(self):
+        """Per-shot overrides in request.extra_params take priority over the
+        model's default extra_params for Wan tunables like `shift` and
+        `scheduler`."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-t2v-14b-fp8")
+        # Sanity: model defaults to unipc / shift=5.0
+        assert model.extra_params.get("scheduler") == "unipc"
+
+        request = self._make_request(
+            extra_params={"shift": 8.0, "scheduler": "dpm++"}
+        )
+        wf = provider._build_workflow(request, model)
+        sampler = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
+        )
+        assert sampler["inputs"]["shift"] == 8.0
+        assert sampler["inputs"]["scheduler"] == "dpm++"
+
+    def test_comfyui_default_model_is_wan22_t2v(self):
+        """The provider's default model is the primary local cinematic stack,
+        not an animatediff stub. Guards against future regressions in the
+        defaults that would silently change the user's first-shot behavior."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        assert provider.model_id == "wan22-t2v-14b-fp8"
+        assert provider.DEFAULT_MODEL == "wan22-t2v-14b-fp8"
+
+    def test_comfyui_provider_advertises_character_consistency(self):
+        """Wan Animate gives us character-consistency support, so the
+        provider's capabilities must advertise the feature."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+        from scenemachine.generators.base import ProviderFeature
+
+        provider = ComfyUIProvider()
+        assert ProviderFeature.CHARACTER_CONSISTENCY in provider.capabilities.features
 
 
 # =============================================================================
