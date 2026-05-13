@@ -1796,7 +1796,43 @@ def register_handlers(server: IPCServer) -> None:
 
     @server.handler("generation.getProviderModels")
     async def handle_get_provider_models(provider_id: str) -> List[Dict[str, Any]]:
-        """Get available models for a specific provider."""
+        """Get available models for a specific provider.
+
+        Looks the provider up in the central ProviderRegistry first so
+        any registered provider (ComfyUI, ActCore, RunPod, etc.) surfaces
+        its model list to the desktop renderer's model dropdowns. Falls
+        back to the legacy hard-coded paths only if the registry can't
+        instantiate the provider (e.g. it needs an API key not yet set).
+
+        Without the registry lookup, the desktop UI was unable to show
+        ComfyUI's model list — the dropdown stayed empty even though the
+        provider was healthy on /generation.getProvidersHealth.
+        """
+        from scenemachine.generators.base import get_provider_registry
+        from scenemachine.models.generation_job import JobProvider
+
+        # The renderer sends the lowercase JobProvider enum value
+        # (e.g. "custom", "replicate"). Convert it to the enum.
+        try:
+            job_provider = JobProvider(provider_id.lower())
+        except ValueError:
+            job_provider = None
+
+        if job_provider is not None:
+            registry = get_provider_registry()
+            if registry.is_registered(job_provider):
+                try:
+                    provider = registry.get_provider(job_provider)
+                    if provider is not None:
+                        return provider.list_models()
+                except Exception as e:
+                    logger.warning(
+                        f"Provider {provider_id} registered but list_models failed "
+                        f"({e}); falling back to legacy listing."
+                    )
+
+        # Legacy fallback for cases where the registry can't instantiate
+        # the provider (e.g. provider needs config that isn't present).
         from scenemachine.services.generation import (
             ReplicateProvider,
             FalProvider,
@@ -1804,9 +1840,9 @@ def register_handlers(server: IPCServer) -> None:
 
         if provider_id == "replicate":
             return ReplicateProvider.list_models()
-        elif provider_id == "fal":
+        if provider_id == "fal":
             return FalProvider.list_models()
-        elif provider_id == "local":
+        if provider_id == "local":
             return [{
                 "id": "mock",
                 "name": "Mock Generator",
@@ -1815,8 +1851,7 @@ def register_handlers(server: IPCServer) -> None:
                 "supports_image_to_video": True,
                 "max_duration": 10.0,
             }]
-        else:
-            raise ValueError(f"Unknown provider: {provider_id}")
+        raise ValueError(f"Unknown provider: {provider_id}")
 
     @server.handler("generation.estimateCost")
     async def handle_estimate_cost(
