@@ -226,12 +226,15 @@ class ComfyUIProvider(GenerationProvider):
                 "blocks_to_swap": 20,
                 "offload_img_emb": False,
                 "offload_txt_emb": False,
-                # Lightx2v 4-step distillation LoRA candidates. Wiring is
-                # validated; **end-to-end runtime use on Animate is blocked
-                # by a separate sampler-side shape mismatch** (see
-                # _build_wan_animate_workflow note re: Animate-specific
-                # conditioning). Once the sampler path is fixed these are
-                # ready to attach.
+                # Lightx2v 4-step distillation LoRA. Validated end-to-end
+                # on 2026-05-13: with this LoRA enabled the same shot
+                # generates in 101.6s vs 844.1s without — an 8.3× wall-
+                # clock speedup. The earlier "speed_lora incompatible
+                # with Animate" hypothesis was wrong; failures pre-PR
+                # #38 were the conditioning/CLIP-shape bug, not the LoRA.
+                # Default ON — Grant's screenwriter workflow doesn't
+                # need the 14 min/shot baseline when 1.7 min/shot
+                # produces equivalent character ID + motion quality.
                 "speed_lora_candidates": [
                     "wan2.2_lightx2v_4step_rank64_HIGH_fp16.safetensors",
                     "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
@@ -239,7 +242,7 @@ class ComfyUIProvider(GenerationProvider):
                 "speed_lora_strength": 1.0,
                 "speed_lora_steps": 4,
                 "speed_lora_cfg": 1.0,
-                "speed_lora_enabled_by_default": False,
+                "speed_lora_enabled_by_default": True,
             },
         ),
         # ============================================================
