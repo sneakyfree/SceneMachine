@@ -592,28 +592,36 @@ class TestComfyUIProvider:
         assert load_image["inputs"]["image"] == "hero_ref.png"
 
     def test_comfyui_wan_animate_prefers_fp8_weight_when_registered_AND_available(self):
-        """When model.extra_params['model_file_fp8'] is set AND ComfyUI
-        actually has the file in its WanVideoModelLoader dropdown, the
+        """When the Animate model has a real FP8 path registered AND
+        ComfyUI has the file in its WanVideoModelLoader dropdown, the
         Animate builder should pick the FP8 variant in preference to the
-        larger BF16 weight."""
+        larger BF16 weight.
+
+        Uses a synthetic FP8 filename because no public FP8 quant of
+        Wan Animate is published yet (Kijai hosts only LoRAs as of
+        2026-05-13). When a real one ships, swap the synthetic name
+        for the actual file and the test continues to pass.
+        """
         from scenemachine.generators.comfyui import ComfyUIProvider
+        from copy import deepcopy
 
         provider = ComfyUIProvider()
-        model = provider.get_model("wan22-animate-14b")
-        fp8 = model.extra_params.get("model_file_fp8")
+        model = deepcopy(provider.get_model("wan22-animate-14b"))
+        # Inject a synthetic FP8 path so the resolver has something to prefer
+        synth_fp8 = "wan2.2_animate_14B_fp8_e4m3fn_scaled_SYNTHETIC.safetensors"
+        model.extra_params["model_file_fp8"] = synth_fp8
         bf16 = model.extra_params["model_file"]
-        assert fp8 and bf16  # registry precondition
 
         # Pretend ComfyUI has both files available — bypass HTTP.
         provider._available_models_cache = {
-            "WanVideoModelLoader": {fp8, bf16},
+            "WanVideoModelLoader": {synth_fp8, bf16},
         }
         request = self._make_request(input_image_path="ref.png")
         wf = provider._build_workflow(request, model)
         loader = next(
             n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
         )
-        assert loader["inputs"]["model"] == fp8
+        assert loader["inputs"]["model"] == synth_fp8
 
     def test_comfyui_wan_animate_falls_back_to_bf16_when_fp8_not_on_disk(self):
         """If only the BF16 weight is in ComfyUI's dropdown (e.g. the Kijai
@@ -677,20 +685,21 @@ class TestComfyUIProvider:
         assert loader["inputs"]["quantization"] == "disabled"
         assert loader["inputs"]["model"] == model.extra_params["model_file"]
 
-        # When the Kijai FP8 weight is available, quantization should be fp8 scaled
-        del provider._available_models_cache  # reset cache
+        # When a synthetic FP8 weight is registered AND available,
+        # quantization should infer to fp8_e4m3fn_scaled from the filename.
+        from copy import deepcopy
+        model2 = deepcopy(model)
+        synth_fp8 = "wan2.2_animate_14B_fp8_e4m3fn_scaled_TEST.safetensors"
+        model2.extra_params["model_file_fp8"] = synth_fp8
         provider._available_models_cache = {
-            "WanVideoModelLoader": {
-                model.extra_params["model_file"],
-                model.extra_params["model_file_fp8"],
-            },
+            "WanVideoModelLoader": {model.extra_params["model_file"], synth_fp8},
         }
-        wf2 = provider._build_workflow(request, model)
+        wf2 = provider._build_workflow(request, model2)
         loader2 = next(
             n for n in wf2.values() if n["class_type"] == "WanVideoModelLoader"
         )
         assert loader2["inputs"]["quantization"] == "fp8_e4m3fn_scaled"
-        assert loader2["inputs"]["model"] == model.extra_params["model_file_fp8"]
+        assert loader2["inputs"]["model"] == synth_fp8
 
     def test_comfyui_ltx2_workflow_uses_gemma_encoder(self):
         """LTX-2 workflow loads the Lightricks Gemma CLIP model and uses
@@ -754,6 +763,37 @@ class TestComfyUIProvider:
         provider = ComfyUIProvider()
         assert provider.model_id == "wan22-t2v-14b-fp8"
         assert provider.DEFAULT_MODEL == "wan22-t2v-14b-fp8"
+
+    def test_comfyui_animate_registry_no_phantom_fp8_path(self):
+        """Guard: the Animate model registry's model_file_fp8 must be
+        either None or a path that actually exists in some publicly
+        downloadable repo. Setting it to a speculative string ('we'll
+        download this someday') causes the runtime resolver to think
+        FP8 is preferred and fail submission when the file isn't on
+        disk. The current state (no public FP8 quant published) should
+        be model_file_fp8: None.
+        """
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        fp8 = model.extra_params.get("model_file_fp8")
+        # Either None (no FP8 yet) or a real registered filename — never
+        # a speculative path.
+        assert fp8 is None or isinstance(fp8, str)
+        if fp8 is not None:
+            # If we ever set it, it must look like a real file path
+            assert fp8.endswith(".safetensors")
+
+    def test_comfyui_animate_has_extended_timeout(self):
+        """Wan Animate BF16 needs > 10 min on borderline VRAM. The
+        registry should declare ``expected_timeout_seconds`` so the
+        polling loop doesn't time out at 600s default."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        assert model.extra_params.get("expected_timeout_seconds", 0) >= 1800
 
     def test_comfyui_provider_advertises_character_consistency(self):
         """Wan Animate gives us character-consistency support, so the

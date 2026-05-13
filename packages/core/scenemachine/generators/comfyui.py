@@ -145,9 +145,24 @@ class ComfyUIProvider(GenerationProvider):
         # CHARACTER-CONSISTENCY STACK — Wan 2.2 Animate
         # Takes one reference image of a character; preserves identity
         # across the generated shot. Use this for the recurring-character
-        # case. Note: the BF16 weight is 32 GB and is tight on 32 GB VRAM;
-        # the Kijai-quantized FP8 (path: wan2.2_animate_14B_fp8_e4m3fn_scaled_KJ
-        # .safetensors) is preferred when available.
+        # case.
+        #
+        # VRAM caveat: the BF16 weight is 32 GB; on a 32 GB-VRAM card this
+        # means the entire VRAM is consumed by the weight, with no headroom
+        # for activations. Practical effect: first-shot inference is slow
+        # (~10-30 min) due to aggressive CPU offload, and small batches /
+        # short clips work but anything ambitious may OOM.
+        #
+        # When a public FP8 quant of Wan-Animate is published (Kijai has
+        # only the LoRAs as of 2026-05-13; Comfy-Org's repack only ships
+        # BF16), register it as ``model_file_fp8`` and the runtime
+        # availability resolver in _resolve_first_available() will pick
+        # it up automatically.
+        #
+        # Speed alternative: pair this model with one of Kijai's Lightx2v
+        # 4-step distillation LoRAs (see Kijai/WanVideo_comfy LoRAs/
+        # Wan22_Lightx2v/) to cut sampling steps from 30 to 4. Wire via
+        # request.extra_params['lightx2v_lora'] when we add that path.
         # ============================================================
         "wan22-animate-14b": VideoModel(
             id="wan22-animate-14b",
@@ -162,13 +177,16 @@ class ComfyUIProvider(GenerationProvider):
             default_cfg_scale=6.0,
             extra_params={
                 "model_file": "wan2.2_animate_14B_bf16.safetensors",
-                "model_file_fp8": "wan2.2_animate_14B_fp8_e4m3fn_scaled_KJ.safetensors",
+                # When a public FP8 quant exists, register it here. The
+                # runtime resolver checks availability before using it.
+                "model_file_fp8": None,
                 "vae_file": "wan_2.1_vae.safetensors",
                 "text_encoder_file": "umt5_xxl_bf16_from_pth.safetensors",
                 "clip_vision_file": "sigclip_vision_patch14_384.safetensors",
                 "scheduler": "unipc",
                 "shift": 5.0,
-                "expected_vram_gb": 30,
+                "expected_vram_gb": 32,
+                "expected_timeout_seconds": 1800,  # 30 min — CPU-offload is slow
                 "requires_character_reference": True,
             },
         ),
@@ -388,11 +406,21 @@ class ComfyUIProvider(GenerationProvider):
                     )
                 )
 
-            # Poll for completion
+            # Poll for completion, with a per-model timeout. Models that run
+            # on borderline VRAM (e.g. Wan Animate BF16 on a 32 GB card)
+            # need longer than the 10-minute default because their weight-
+            # staging is slow. Override priority:
+            #   request.extra_params['expected_timeout_seconds']
+            #     > model.extra_params['expected_timeout_seconds']
+            #     > self.POLL_TIMEOUT
+            poll_timeout = self._p(
+                request, model, "expected_timeout_seconds", self.POLL_TIMEOUT
+            )
             output_files = await self._poll_completion(
                 prompt_id,
                 request.shot_id,
                 progress_callback,
+                timeout=float(poll_timeout),
             )
 
             if not output_files:
@@ -1264,15 +1292,27 @@ class ComfyUIProvider(GenerationProvider):
         prompt_id: str,
         shot_id: Any,
         progress_callback: Optional[ProgressCallback] = None,
+        timeout: Optional[float] = None,
     ) -> List[Dict[str, Any]]:
-        """Poll ComfyUI for workflow completion."""
+        """Poll ComfyUI for workflow completion.
+
+        Args:
+            prompt_id: ComfyUI's prompt UUID.
+            shot_id: SceneMachine's shot UUID, for progress callbacks.
+            progress_callback: Async callable for progress updates.
+            timeout: Hard ceiling in seconds. Defaults to ``self.POLL_TIMEOUT``
+                (10 min). Wan-Animate-style borderline-VRAM models can
+                exceed 10 min just on the weight-staging step; pass a
+                larger value (e.g. 1800) for those.
+        """
         import httpx
 
+        effective_timeout = timeout if timeout is not None else self.POLL_TIMEOUT
         elapsed = 0.0
         last_progress = 20
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            while elapsed < self.POLL_TIMEOUT:
+            while elapsed < effective_timeout:
                 # Check history for completion
                 resp = await client.get(f"{self.comfyui_url}/history/{prompt_id}")
 
@@ -1309,7 +1349,7 @@ class ComfyUIProvider(GenerationProvider):
                     for item in running:
                         if item[1] == prompt_id:
                             # Estimate progress based on time
-                            progress = min(85, 20 + int(elapsed / self.POLL_TIMEOUT * 65))
+                            progress = min(85, 20 + int(elapsed / effective_timeout * 65))
                             if progress > last_progress and progress_callback:
                                 await progress_callback(
                                     GenerationProgress(
