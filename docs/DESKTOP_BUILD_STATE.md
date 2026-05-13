@@ -1,36 +1,57 @@
-# Desktop App (apps/desktop) — Build State as of 2026-05-13
+# Desktop App (apps/desktop) — Build State
 
-## Summary
+**Status as of 2026-05-13 (post-PR #32): BUILD GREEN.**
 
 The Wan 2.2 / LTX-2 ComfyUI provider backend integration (PR #30) is
-**complete and validated** with 14 passing unit tests. The Python
-backend (`packages/core`) imports clean and registers all 6 providers.
+complete and validated with 14 passing unit tests. The Python backend
+(`packages/core`) imports clean and registers all 6 providers.
 
-However, the desktop app's **renderer (Electron + React + Vite)** is
-in a partial / WIP state, inherited from commit `c851ca9`
-("feat: integrate SceneMachine UI updates and desktop renderer
-changes", Feb 16 2026 by Kit OC1). It does **not** currently build.
-This document captures what's broken so the work can be properly
-scoped and scheduled — it is **not** something to fix in a hurry.
+The desktop renderer also now builds AND serves successfully (PR #32):
 
-## Concrete build-blocking issues
+```
+$ npm run build:renderer    # 1830 modules, ✓ built in 2.71s
+$ npm run build:main        # Electron main + preload, no errors
+$ npx vite preview --port 5191
+  curl http://127.0.0.1:5191/ → <title>SceneMachine</title>
+  curl /assets/index-*.js   → HTTP 200, 922 kB bundle served
+```
 
-### 1. Missing exports in `lib/utils.ts` (FIXED)
-- `formatDate` — imported by `home.tsx` but not exported. Fixed in
-  commit `090b117` by adding `formatDate(input)` to utils.
+**Remaining work — typecheck-only errors (do NOT block build/run):**
+There are 326 real type errors (TS2339, TS2538, TS2353, etc.) plus 202
+unused-import warnings (TS6133) reported by `tsc --noEmit`. None of
+these block `vite build` or the Electron `dev` cycle — they're tech
+debt that the renderer will tolerate at runtime. Fixing them properly
+requires API-contract decisions and is sized in `docs/UPGRADE_ROADMAP.md`.
 
-### 2. Missing exports in `lib/time-estimates.ts` (NOT FIXED)
-`components/queue-manager.tsx` imports four functions that don't exist:
-- `estimateQueueTime(pending, running, provider, concurrency)`
-- `formatCompletionTime(estimate, mode)`
-- `formatQueuePosition(position, mode)`
-- `formatElapsedTime(startedAt, mode)`
+This document captures the historical state for reference.
 
-Note: queue-manager.tsx also calls `formatTimeEstimate(estimate, mode)`
-with two arguments, but the existing export only accepts one. So the
-signatures here are out-of-sync, not just the function presence.
+## Build-blocking issues (all resolved)
 
-### 3. TypeScript errors in `stores/shot-store.ts` (NOT FIXED)
+### 1. Missing exports in `lib/utils.ts` ✅ FIXED (commit `090b117`)
+- `formatDate` — added to utils.
+
+### 2. Missing exports in `lib/time-estimates.ts` ✅ FIXED (PR #32)
+- `estimateQueueTime`, `formatCompletionTime`, `formatQueuePosition`,
+  `formatElapsedTime` — implemented with experience-mode-aware copy.
+- `formatTimeEstimate` — signature widened to accept optional mode.
+
+### 3. Missing exports in `lib/accessibility.ts` ✅ FIXED (PR #32)
+- `SkipLink` interface, `useSkipLinks`, `useFocusTrap`,
+  `usePrefersReducedMotion`, `ariaDialog` — added React hooks that
+  reuse the existing `createFocusTrap` mechanics.
+
+### 4. Missing exports in `lib/offline-cache.ts` ✅ FIXED (PR #32)
+- `offlineCache` (OfflineCacheService singleton), `CachedProject`,
+  `CachedVideo`, `SyncQueueItem` — added an in-memory + localStorage
+  shim. IndexedDB-backed implementation is in the roadmap.
+
+### 5. Missing export in `api/client.ts` ✅ FIXED (PR #32)
+- `BookingRequest` interface — added with fields matching
+  `booking-modal.tsx`'s call site.
+
+## Non-blocking issues (type-only; main has 326 of these)
+
+### TypeScript errors in `stores/shot-store.ts` (NOT FIXED — not build-blocking)
 13 errors found by `tsc --noEmit`:
 - Lines 317, 319, 352, 353, 355, 389, 390, 392: `Type 'undefined'
   cannot be used as an index type` — `shot.sceneId` is typed as
