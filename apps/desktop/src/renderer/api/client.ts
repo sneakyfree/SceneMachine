@@ -2300,6 +2300,22 @@ export type BookingStatus =
   | 'CANCELLED';
 export type PaymentStatus = 'PENDING' | 'ESCROWED' | 'RELEASED' | 'REFUNDED' | 'DISPUTED';
 
+/**
+ * Booking request payload sent to POST /api/bookings.
+ * Used by booking-modal.tsx and any other booking-creation flow.
+ */
+export interface BookingRequest {
+  performer_id: string;
+  project_id?: string;
+  mode: BookingMode;
+  duration_seconds: number;
+  prompt?: string;
+  reference_style?: string;
+  notes?: string;
+  urgency?: 'standard' | 'priority' | 'rush';
+  scheduled_for?: string;
+}
+
 export interface Performer {
   id: string;
   stage_name: string;
