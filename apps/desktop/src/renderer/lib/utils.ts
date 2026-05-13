@@ -70,6 +70,31 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 /**
+ * Format a date for display in the SceneMachine UI.
+ *
+ * Accepts an ISO 8601 string, a Date object, or a Unix timestamp (ms).
+ * Returns "Mar 15, 2026, 4:21 PM" style output. Returns the empty string
+ * if the input is falsy or unparseable so that template strings like
+ * `{formatDate(maybeNullDate)}` don't render "Invalid Date".
+ *
+ * Centralized here so all pages render dates consistently. (Some legacy
+ * pages still define their own local formatDate — those should migrate
+ * to this one over time.)
+ */
+export function formatDate(input: string | number | Date | null | undefined): string {
+    if (!input) return '';
+    const d = input instanceof Date ? input : new Date(input);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+/**
  * Format duration in seconds to human readable
  */
 export function formatDuration(seconds: number): string {
