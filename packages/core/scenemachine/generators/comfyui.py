@@ -688,6 +688,89 @@ class ComfyUIProvider(GenerationProvider):
             return model.extra_params[key]
         return default
 
+    def _fetch_available_models(self) -> Dict[str, set]:
+        """Query the live ComfyUI for which model files are actually loadable.
+
+        Returns a dict keyed by ComfyUI node type (e.g. "WanVideoModelLoader",
+        "CheckpointLoaderSimple") whose values are the set of filenames that
+        that node's dropdown would show.
+
+        Cached on the provider instance for the lifetime of the process. If
+        ComfyUI is unreachable, returns an empty cache and we fall back to
+        whatever the registry says — letting ComfyUI itself reject invalid
+        names with a clear error, instead of us silently misrouting.
+
+        Why this exists: at registration time we may want to promise a
+        preferred quantization (e.g. Kijai's FP8 Wan-Animate) before the
+        file has actually been downloaded. This method lets us pick whichever
+        candidate is genuinely on disk right now.
+        """
+        if hasattr(self, "_available_models_cache"):
+            return self._available_models_cache
+        try:
+            import httpx
+
+            with httpx.Client(timeout=5.0) as client:
+                resp = client.get(f"{self.comfyui_url}/api/object_info")
+                if resp.status_code != 200:
+                    return {}
+                oi = resp.json()
+        except Exception as e:
+            logger.warning(f"Could not fetch ComfyUI object_info: {e}")
+            return {}
+
+        out: Dict[str, set] = {}
+        # Each loader's first-arg dropdown is the canonical "what files exist"
+        for node_name, spec in oi.items():
+            inputs = (spec.get("input") or {}).get("required") or {}
+            for input_name, input_spec in inputs.items():
+                if not isinstance(input_spec, list) or not input_spec:
+                    continue
+                choices = input_spec[0]
+                if isinstance(choices, list) and choices and all(isinstance(c, str) for c in choices):
+                    # This is an enum/dropdown — record its options.
+                    out.setdefault(node_name, set()).update(choices)
+        self._available_models_cache = out
+        return out
+
+    @staticmethod
+    def _infer_wan_quantization(filename: str) -> str:
+        """Pick the right WanVideoModelLoader `quantization` enum value for
+        a given model filename. The loader will refuse mismatched combos
+        (e.g. fp8_e4m3fn_scaled on a BF16 weight raises ValueError).
+
+        Conservative defaults: anything we can't classify reads as
+        ``disabled``, which works for BF16/FP16 weights.
+        """
+        f = filename.lower()
+        if "fp8_e4m3fn_scaled" in f or "fp8_scaled" in f:
+            return "fp8_e4m3fn_scaled"
+        if "fp8_e5m2_scaled" in f:
+            return "fp8_e5m2_scaled"
+        if "fp8_e4m3fn" in f:
+            return "fp8_e4m3fn"
+        if "fp8_e5m2" in f:
+            return "fp8_e5m2"
+        # bf16 / fp16 / unquantized
+        return "disabled"
+
+    def _resolve_first_available(self, node_type: str, candidates: List[str]) -> Optional[str]:
+        """Return the first candidate filename that ComfyUI's node loader of
+        type ``node_type`` actually has. If ComfyUI is unreachable or none of
+        the candidates are present, falls back to the FIRST candidate (so
+        ComfyUI itself surfaces the missing-file error cleanly).
+        """
+        available = self._fetch_available_models().get(node_type, set())
+        for candidate in candidates:
+            if candidate and candidate in available:
+                return candidate
+        # Last resort: return the first non-falsy candidate so the error
+        # surfaces with a real filename instead of None.
+        for candidate in candidates:
+            if candidate:
+                return candidate
+        return None
+
     @staticmethod
     def _extract_reference_image(request: GenerationRequest) -> Optional[str]:
         """Get the first usable character-reference image path from a request.
@@ -731,7 +814,7 @@ class ComfyUIProvider(GenerationProvider):
                 "inputs": {
                     "model": params["model_file"],
                     "base_precision": "fp16",
-                    "quantization": "fp8_e4m3fn_scaled",
+                    "quantization": self._infer_wan_quantization(params["model_file"]),
                     "load_device": "main_device",
                 },
             },
@@ -840,7 +923,7 @@ class ComfyUIProvider(GenerationProvider):
                 "inputs": {
                     "model": params["model_file"],
                     "base_precision": "fp16",
-                    "quantization": "fp8_e4m3fn_scaled",
+                    "quantization": self._infer_wan_quantization(params["model_file"]),
                     "load_device": "main_device",
                 },
             },
@@ -890,6 +973,7 @@ class ComfyUIProvider(GenerationProvider):
                     "vae": ["4", 0],
                     "generation_width": request.width,
                     "generation_height": request.height,
+                    "num_frames": num_frames,
                 },
             },
             "8": {
@@ -969,9 +1053,14 @@ class ComfyUIProvider(GenerationProvider):
 
         seed = request.seed if request.seed is not None else 42
         params = model.extra_params
-        # Prefer the Kijai FP8 quant when registered; the BF16 weight is
-        # 32 GB and tight on a 32 GB-VRAM card.
-        animate_weight = params.get("model_file_fp8") or params["model_file"]
+        # Pick whichever Animate weight ComfyUI actually has on disk. The
+        # Kijai FP8 quant (~14 GB) is preferred when present because the BF16
+        # weight is 32 GB and tight on a 32 GB-VRAM card, but we fall back to
+        # BF16 cleanly when the FP8 hasn't been downloaded yet.
+        animate_weight = self._resolve_first_available(
+            "WanVideoModelLoader",
+            [params.get("model_file_fp8"), params["model_file"]],
+        ) or params["model_file"]
 
         return {
             "1": {
@@ -979,7 +1068,7 @@ class ComfyUIProvider(GenerationProvider):
                 "inputs": {
                     "model": animate_weight,
                     "base_precision": "fp16",
-                    "quantization": "fp8_e4m3fn_scaled",
+                    "quantization": self._infer_wan_quantization(animate_weight),
                     "load_device": "main_device",
                 },
             },
@@ -1029,6 +1118,7 @@ class ComfyUIProvider(GenerationProvider):
                     "vae": ["4", 0],
                     "generation_width": request.width,
                     "generation_height": request.height,
+                    "num_frames": num_frames,
                 },
             },
             "8": {

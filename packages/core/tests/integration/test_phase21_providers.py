@@ -591,22 +591,106 @@ class TestComfyUIProvider:
         )
         assert load_image["inputs"]["image"] == "hero_ref.png"
 
-    def test_comfyui_wan_animate_prefers_fp8_weight_when_registered(self):
-        """When model.extra_params['model_file_fp8'] is set, the Animate
-        builder should load that weight instead of the BF16 fallback."""
+    def test_comfyui_wan_animate_prefers_fp8_weight_when_registered_AND_available(self):
+        """When model.extra_params['model_file_fp8'] is set AND ComfyUI
+        actually has the file in its WanVideoModelLoader dropdown, the
+        Animate builder should pick the FP8 variant in preference to the
+        larger BF16 weight."""
         from scenemachine.generators.comfyui import ComfyUIProvider
 
         provider = ComfyUIProvider()
         model = provider.get_model("wan22-animate-14b")
-        assert model.extra_params.get("model_file_fp8")  # precondition
+        fp8 = model.extra_params.get("model_file_fp8")
+        bf16 = model.extra_params["model_file"]
+        assert fp8 and bf16  # registry precondition
 
+        # Pretend ComfyUI has both files available — bypass HTTP.
+        provider._available_models_cache = {
+            "WanVideoModelLoader": {fp8, bf16},
+        }
         request = self._make_request(input_image_path="ref.png")
         wf = provider._build_workflow(request, model)
-
         loader = next(
             n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
         )
-        assert loader["inputs"]["model"] == model.extra_params["model_file_fp8"]
+        assert loader["inputs"]["model"] == fp8
+
+    def test_comfyui_wan_animate_falls_back_to_bf16_when_fp8_not_on_disk(self):
+        """If only the BF16 weight is in ComfyUI's dropdown (e.g. the Kijai
+        FP8 quant hasn't been downloaded yet), the Animate builder picks
+        the BF16 instead of failing loudly at submission time."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        bf16 = model.extra_params["model_file"]
+
+        # Pretend ComfyUI has ONLY the BF16 — bypass HTTP.
+        provider._available_models_cache = {
+            "WanVideoModelLoader": {bf16},
+        }
+        request = self._make_request(input_image_path="ref.png")
+        wf = provider._build_workflow(request, model)
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        assert loader["inputs"]["model"] == bf16
+
+    def test_comfyui_wan_animate_passes_num_frames_to_image_clip_encode(self):
+        """Regression test: WanVideoImageClipEncode requires num_frames as
+        of WanVideoWrapper recent versions. The Animate builder must pass it
+        so submission doesn't fail with 'Required input is missing: num_frames'."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(input_image_path="ref.png", duration_seconds=3.0, fps=24)
+
+        wf = provider._build_workflow(request, model)
+        ice = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoImageClipEncode"
+        )
+        # 3s * 24fps = 72 raw frames → dispatcher rounds via ((n-1)//4)*4+1
+        # to fit Wan's 4-frame latent group, so 72 → 69 (the largest 4k+1 ≤ 72)
+        assert ice["inputs"]["num_frames"] == 69
+        assert "generation_width" in ice["inputs"]
+        assert "generation_height" in ice["inputs"]
+
+    def test_comfyui_wan_animate_infers_quantization_from_filename(self):
+        """The WanVideoModelLoader's quantization param must match the
+        actual model weight type — using fp8_e4m3fn_scaled on a BF16
+        weight raises 'The model is not a scaled fp8 model'. Verify the
+        builder picks the right quantization for each filename pattern."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        # When only BF16 is available, quantization should be "disabled"
+        model = provider.get_model("wan22-animate-14b")
+        provider._available_models_cache = {
+            "WanVideoModelLoader": {model.extra_params["model_file"]},  # only BF16
+        }
+        request = self._make_request(input_image_path="ref.png")
+        wf = provider._build_workflow(request, model)
+        loader = next(
+            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        assert loader["inputs"]["quantization"] == "disabled"
+        assert loader["inputs"]["model"] == model.extra_params["model_file"]
+
+        # When the Kijai FP8 weight is available, quantization should be fp8 scaled
+        del provider._available_models_cache  # reset cache
+        provider._available_models_cache = {
+            "WanVideoModelLoader": {
+                model.extra_params["model_file"],
+                model.extra_params["model_file_fp8"],
+            },
+        }
+        wf2 = provider._build_workflow(request, model)
+        loader2 = next(
+            n for n in wf2.values() if n["class_type"] == "WanVideoModelLoader"
+        )
+        assert loader2["inputs"]["quantization"] == "fp8_e4m3fn_scaled"
+        assert loader2["inputs"]["model"] == model.extra_params["model_file_fp8"]
 
     def test_comfyui_ltx2_workflow_uses_gemma_encoder(self):
         """LTX-2 workflow loads the Lightricks Gemma CLIP model and uses
