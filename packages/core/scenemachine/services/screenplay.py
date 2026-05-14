@@ -70,8 +70,14 @@ class ScreenplayService:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        # Check if project already has a screenplay
-        if project.screenplay:
+        # Check if project already has a screenplay. Use an explicit query
+        # rather than ``project.screenplay``: the relationship is lazy by
+        # default and async lazy loads raise ``MissingGreenlet`` when the
+        # session was opened from an IPC handler (no greenlet context).
+        existing_q = await self.session.execute(
+            select(Screenplay).where(Screenplay.project_id == project_id)
+        )
+        if existing_q.scalar_one_or_none() is not None:
             raise ValueError("Project already has a screenplay. Delete it first.")
 
         # Detect format
