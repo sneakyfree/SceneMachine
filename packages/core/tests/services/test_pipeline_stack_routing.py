@@ -191,6 +191,158 @@ async def test_provider_failure_propagates_to_shot_status(
 
 
 @pytest.mark.asyncio
+async def test_i2v_continuity_routes_second_shot(tmp_path, stub_registry, stub_reviewer, monkeypatch):
+    """Two shots in the same scene, no characters: first shot routes to T2V
+    (no prior frame), then its last frame is extracted and seeded into the
+    second shot's request — second shot must route to I2V via continuity.
+    """
+    from scenemachine.services.production_pipeline import ShotGenerationStatus
+
+    pipeline, _ = _make_pipeline(tmp_path)
+    scene_id = "scene-1"
+    sid1, sid2 = str(uuid4()), str(uuid4())
+    pipeline.shot_list = {"scenes": [{"scene_number": scene_id, "shots": [
+        {"shot_id": sid1, "description": "establishing wide", "character_ids": [], "duration_seconds": 3.0},
+        {"shot_id": sid2, "description": "medium follow", "character_ids": [], "duration_seconds": 3.0},
+    ]}]}
+    pipeline.characters = []
+
+    # Stub the ffmpeg last-frame extractor: pretend it always succeeds and
+    # returns a synthetic filename. The pipeline's stack_router will then
+    # see it and route the SECOND shot to I2V.
+    from scenemachine.utils import ffmpeg as ffmpeg_module
+    class _StubFfmpeg:
+        async def extract_frame(self, video_path, output_path, timestamp=1.0, quality=2):
+            from pathlib import Path
+            Path(str(output_path)).write_bytes(b"\xff\xd8\xff\xd9")  # tiny valid JPEG
+            return Path(str(output_path))
+    monkeypatch.setattr(ffmpeg_module, "get_ffmpeg", lambda: _StubFfmpeg())
+
+    # Make the stub provider write a 1-byte mp4 so Path(video_path).exists() is True
+    from scenemachine.generators.base import GenerationResult
+    real_outputs = tmp_path / "shots"
+    real_outputs.mkdir(exist_ok=True)
+    def _make_real_result(req):
+        out_dir = real_outputs / str(req.shot_id)
+        out_dir.mkdir(exist_ok=True)
+        mp4 = out_dir / "output.mp4"
+        mp4.write_bytes(b"\x00" * 1024)
+        return GenerationResult(
+            success=True,
+            output_path=f"shots/{req.shot_id}/output.mp4",
+            duration_seconds=req.duration_seconds,
+            cost_usd=0.0,
+            metadata={"quality_score": 1.0},
+        )
+    async def _gen(req, progress_callback=None):
+        stub_registry.calls.append({
+            "shot_id": str(req.shot_id),
+            "model_id": (req.extra_params or {}).get("model_id"),
+            "input_image_path": req.input_image_path,
+        })
+        return _make_real_result(req)
+    stub_registry.generate = _gen
+
+    # Point pipeline.output_dir at the same tree the stub writes to so the
+    # generated mp4 paths actually exist on disk for last-frame extraction.
+    pipeline.output_dir = tmp_path
+    # And settings.output_dir is used by the pipeline for path resolution.
+    from scenemachine.config import get_settings
+    monkeypatch.setattr(get_settings(), "output_dir", tmp_path)
+
+    s1 = ShotGenerationStatus(shot_id=sid1, scene_id=scene_id, status="queued")
+    s2 = ShotGenerationStatus(shot_id=sid2, scene_id=scene_id, status="queued")
+    await pipeline._generate_videos([s1, s2])
+
+    # 2 generations executed, in sequence
+    assert len(stub_registry.calls) == 2
+    first, second = stub_registry.calls
+    # First shot: no prior frame → T2V
+    assert first["model_id"] == "wan22-t2v-14b-fp8"
+    assert first["input_image_path"] is None
+    # Second shot: SHOULD have a prev_shot frame, routing to I2V
+    assert second["model_id"] == "wan22-i2v-14b-fp8", (
+        f"second shot should route I2V but got {second['model_id']} — "
+        f"continuity wiring is broken"
+    )
+    assert second["input_image_path"] is not None
+    assert second["input_image_path"].startswith("continuity_")
+
+
+@pytest.mark.asyncio
+async def test_continuity_does_not_cross_scene_boundary(tmp_path, stub_registry, stub_reviewer, monkeypatch):
+    """Two scenes, each with one shot, no characters: both shots route to
+    T2V (no continuity carries from scene 1 → scene 2). Each scene runs
+    its own sequential loop so prev_frame is scoped per scene.
+    """
+    from scenemachine.services.production_pipeline import ShotGenerationStatus
+
+    pipeline, _ = _make_pipeline(tmp_path)
+    sid1, sid2 = str(uuid4()), str(uuid4())
+    pipeline.shot_list = {"scenes": [
+        {"scene_number": "scene-a", "shots": [{"shot_id": sid1, "description": "a", "character_ids": [], "duration_seconds": 3.0}]},
+        {"scene_number": "scene-b", "shots": [{"shot_id": sid2, "description": "b", "character_ids": [], "duration_seconds": 3.0}]},
+    ]}
+    pipeline.characters = []
+
+    from scenemachine.utils import ffmpeg as ffmpeg_module
+    class _StubFfmpeg:
+        async def extract_frame(self, video_path, output_path, timestamp=1.0, quality=2):
+            from pathlib import Path as P
+            P(str(output_path)).write_bytes(b"\xff\xd8\xff\xd9")
+            return P(str(output_path))
+    monkeypatch.setattr(ffmpeg_module, "get_ffmpeg", lambda: _StubFfmpeg())
+
+    s1 = ShotGenerationStatus(shot_id=sid1, scene_id="scene-a", status="queued")
+    s2 = ShotGenerationStatus(shot_id=sid2, scene_id="scene-b", status="queued")
+    await pipeline._generate_videos([s1, s2])
+
+    assert len(stub_registry.calls) == 2
+    # Both should be T2V — no continuity ever crossed
+    for call in stub_registry.calls:
+        assert call["model_id"] == "wan22-t2v-14b-fp8", (
+            f"continuity leaked across scenes: shot in own scene got {call['model_id']}"
+        )
+        assert call["input_image_path"] is None
+
+
+@pytest.mark.asyncio
+async def test_animate_still_wins_over_continuity_when_character_ref_present(
+    tmp_path, stub_registry, stub_reviewer, monkeypatch
+):
+    """Even with a prev-shot frame available, a shot with a character_id +
+    ref image must route to Animate (identity preservation outranks
+    continuity). This is the rule the StackRouter enforces; this test
+    verifies the pipeline upholds it."""
+    from scenemachine.services.production_pipeline import ShotGenerationStatus
+
+    pipeline, _ = _make_pipeline(tmp_path)
+    sid1, sid2 = str(uuid4()), str(uuid4())
+    hero = str(uuid4())
+    pipeline.shot_list = {"scenes": [{"scene_number": "s1", "shots": [
+        {"shot_id": sid1, "description": "wide", "character_ids": [], "duration_seconds": 3.0},
+        {"shot_id": sid2, "description": "close-up of hero", "character_ids": [hero], "duration_seconds": 3.0},
+    ]}]}
+    pipeline.characters = [{"id": hero, "reference_image_path": "hero.png"}]
+
+    from scenemachine.utils import ffmpeg as ffmpeg_module
+    class _StubFfmpeg:
+        async def extract_frame(self, video_path, output_path, timestamp=1.0, quality=2):
+            from pathlib import Path as P
+            P(str(output_path)).write_bytes(b"\xff\xd8\xff\xd9")
+            return P(str(output_path))
+    monkeypatch.setattr(ffmpeg_module, "get_ffmpeg", lambda: _StubFfmpeg())
+
+    s1 = ShotGenerationStatus(shot_id=sid1, scene_id="s1", status="queued")
+    s2 = ShotGenerationStatus(shot_id=sid2, scene_id="s1", status="queued")
+    await pipeline._generate_videos([s1, s2])
+
+    assert len(stub_registry.calls) == 2
+    # Shot 2 has a character ref AND a prev frame — Animate wins.
+    assert stub_registry.calls[1]["model_id"] == "wan22-animate-14b"
+
+
+@pytest.mark.asyncio
 async def test_no_provider_registered_fails_all_shots_loudly(
     tmp_path, monkeypatch, stub_reviewer
 ):
