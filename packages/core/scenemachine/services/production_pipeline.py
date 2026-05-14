@@ -574,6 +574,20 @@ class ProductionPipeline:
                 extra_params = {"model_id": decision.model_id}
                 extra_params.update(decision.extra_params or {})
 
+                # Plumb num_inference_steps + guidance_scale from shot_data
+                # when present. Previously these always took the dataclass
+                # defaults (50 steps, 7.5 cfg) which silently overrode any
+                # per-shot or per-model preference. Found during 2026-05-14
+                # overnight RADAR_LOVE_2 run when a launcher-level step
+                # reduction wasn't reaching the workflow.
+                _steps = shot_data.get("num_inference_steps")
+                _cfg = shot_data.get("guidance_scale")
+                _req_kwargs = {}
+                if _steps is not None:
+                    _req_kwargs["num_inference_steps"] = int(_steps)
+                if _cfg is not None:
+                    _req_kwargs["guidance_scale"] = float(_cfg)
+
                 request = GenerationRequest(
                     shot_id=shot_uuid,
                     prompt=prompt,
@@ -586,6 +600,7 @@ class ProductionPipeline:
                     input_image_path=decision.input_image_path,
                     character_references=decision.character_references,
                     extra_params=extra_params,
+                    **_req_kwargs,
                 )
 
                 logger.info(
