@@ -299,36 +299,180 @@ class VideoQualityReviewer:
             },
         )
     
-    async def _check_visual_fidelity(self, video_path: Path) -> QualityScore:
-        """Check overall visual quality."""
-        # In production, would use image quality metrics (BRISQUE, NIQE, etc.)
-        # For now, use mock scoring based on file analysis
-        
+    # Laplacian-variance thresholds calibrated against the 2026-05-14 V0
+    # corpus (94 Wan 2.2 T2V FP8 shots, n=10 sample): median 758, mean
+    # 1015, min 265, max 2016, stdev 672. Wan 2.2 generates rich textures
+    # (fireflies, leaves, fabric) which produce high edge content even
+    # when the SCENE is incoherent — meaning sharpness ≠ "watchability."
+    # Grant graded V0 a 1/5 ("slop") despite the corpus being sharp by
+    # this metric. The slop-driver is temporal/coherence, not spatial
+    # sharpness; that will be measured by _check_temporal_stability in
+    # a follow-up. For now this dimension correctly distinguishes
+    # genuinely BLURRY output (< 30 variance — flat regions or heavy
+    # motion blur) from sharp output, regardless of semantic quality.
+    #
+    # Cap calibrated so V0 median (~758) maps to ~0.76, giving headroom
+    # both up (V2_720p should push higher with more detail) and down
+    # (a real blur regression should be obvious).
+    SHARPNESS_SCORE_CAP: float = 1000.0
+    BLURRY_LAPLACIAN_THRESHOLD: float = 30.0
+
+    @staticmethod
+    def _sample_frame_paths(video_path: Path, n: int = 5) -> List[Path]:
+        """Extract ``n`` evenly-spaced frames from a video into /tmp and
+        return their paths. Caller is responsible for unlinking.
+
+        Uses ffmpeg ``-vf select`` (output seek) so it handles av1 GOP
+        edge cases that pre-PR-47 broke. Frames are PNG so we don't
+        introduce JPEG re-compression artifacts into the sharpness
+        measurement (which is itself sensitive to compression).
+        """
+        import subprocess
+        import tempfile
+
+        # Probe duration once
         try:
-            file_size = video_path.stat().st_size
-            
-            # Heuristic: larger files often have better quality
-            if file_size > 10_000_000:  # > 10MB
-                score = 0.9
-            elif file_size > 5_000_000:  # > 5MB
-                score = 0.8
-            elif file_size > 1_000_000:  # > 1MB
-                score = 0.7
-            else:
-                score = 0.6
-            
-            issues = []
-            if score < 0.7:
-                issues.append(QualityIssue.LOW_RESOLUTION)
-            
+            dur = float(subprocess.check_output(
+                ["ffprobe", "-v", "error", "-show_entries",
+                 "format=duration", "-of", "csv=p=0", str(video_path)],
+                text=True,
+            ).strip())
+        except Exception as e:
+            logger.warning("ffprobe failed for %s: %s", video_path, e)
+            return []
+
+        if dur <= 0.1:
+            return []
+
+        # Evenly-spaced timestamps; avoid the very first and last frames
+        # because they often have decoder artifacts.
+        timestamps = [dur * (i + 1) / (n + 1) for i in range(n)]
+        tmpdir = Path(tempfile.mkdtemp(prefix="sharpness_"))
+        out_paths: List[Path] = []
+        for idx, ts in enumerate(timestamps):
+            out = tmpdir / f"f{idx:02d}.png"
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-loglevel", "error",
+                     "-ss", f"{ts:.3f}", "-i", str(video_path),
+                     "-update", "1", "-frames:v", "1", str(out)],
+                    check=True, timeout=15,
+                )
+                if out.exists() and out.stat().st_size > 0:
+                    out_paths.append(out)
+            except Exception as e:
+                logger.debug("frame extract @ %.3fs failed: %s", ts, e)
+        return out_paths
+
+    @staticmethod
+    def _laplacian_variance(image_path: Path) -> float:
+        """Compute the variance of a 4-neighbour discrete Laplacian on the
+        grayscale image at ``image_path``. Higher = sharper. A flat image
+        scores near 0; a sharp photo scores in the hundreds.
+
+        Pure numpy + PIL — no opencv dependency.
+        """
+        import numpy as np
+        from PIL import Image
+
+        with Image.open(image_path) as img:
+            arr = np.array(img.convert("L"), dtype=np.float64)
+
+        if arr.shape[0] < 3 or arr.shape[1] < 3:
+            return 0.0
+
+        # 3x3 discrete Laplacian kernel [[0,1,0],[1,-4,1],[0,1,0]] applied
+        # via slicing (vectorised, no scipy dependency).
+        lap = (
+            -4.0 * arr[1:-1, 1:-1]
+            + arr[:-2, 1:-1] + arr[2:, 1:-1]
+            + arr[1:-1, :-2] + arr[1:-1, 2:]
+        )
+        return float(lap.var())
+
+    async def _check_visual_fidelity(self, video_path: Path) -> QualityScore:
+        """Real sharpness measurement via Laplacian variance.
+
+        Replaces the file-size heuristic that was returning made-up scores
+        in the 0.6–0.9 band based on bytes-on-disk — caught by the
+        2026-05-14 DNA-strand audit as exec-summary item #3.7 stub.
+
+        Strategy: sample 5 evenly-spaced frames, compute the variance of
+        a 4-neighbour discrete Laplacian on each (a standard sharpness
+        metric — higher variance = more edge content = sharper), average,
+        and linearly map to a 0..1 score capped at
+        :attr:`SHARPNESS_SCORE_CAP`. Flags ``BLURRY_FRAMES`` when the
+        averaged Laplacian variance falls below
+        :attr:`BLURRY_LAPLACIAN_THRESHOLD`.
+
+        Confidence reflects how many of the 5 sample frames decoded
+        successfully — a video where only 1/5 frames decoded gets a
+        low-confidence score the caller can choose to ignore.
+        """
+        import shutil
+
+        try:
+            frame_paths = await asyncio.get_event_loop().run_in_executor(
+                None, self._sample_frame_paths, video_path, 5,
+            )
+
+            if not frame_paths:
+                # Fall back to a low-confidence score so callers can
+                # distinguish "no data" from "real low score" — per the
+                # feedback_no_silent_fallbacks rule.
+                return QualityScore(
+                    dimension=QualityDimension.VISUAL_FIDELITY,
+                    score=0.5,
+                    confidence=0.1,
+                    notes="Could not extract any sample frames",
+                )
+
+            variances = []
+            for p in frame_paths:
+                try:
+                    variances.append(
+                        await asyncio.get_event_loop().run_in_executor(
+                            None, self._laplacian_variance, p,
+                        )
+                    )
+                except Exception as e:
+                    logger.debug("Laplacian failed for %s: %s", p, e)
+
+            # Best-effort cleanup of /tmp frames
+            try:
+                shutil.rmtree(frame_paths[0].parent, ignore_errors=True)
+            except Exception:
+                pass
+
+            if not variances:
+                return QualityScore(
+                    dimension=QualityDimension.VISUAL_FIDELITY,
+                    score=0.5,
+                    confidence=0.1,
+                    notes="Frames decoded but Laplacian computation failed",
+                )
+
+            mean_var = sum(variances) / len(variances)
+            score = max(0.0, min(1.0, mean_var / self.SHARPNESS_SCORE_CAP))
+            confidence = min(1.0, 0.5 + 0.1 * len(variances))  # 0.6..1.0 by sample count
+
+            issues: List[QualityIssue] = []
+            if mean_var < self.BLURRY_LAPLACIAN_THRESHOLD:
+                issues.append(QualityIssue.BLURRY_FRAMES)
+
             return QualityScore(
                 dimension=QualityDimension.VISUAL_FIDELITY,
                 score=score,
-                confidence=0.6,
+                confidence=confidence,
                 issues=issues,
+                notes=(
+                    f"mean_laplacian_variance={mean_var:.1f} "
+                    f"(threshold={self.BLURRY_LAPLACIAN_THRESHOLD}, "
+                    f"cap={self.SHARPNESS_SCORE_CAP}, n_samples={len(variances)})"
+                ),
             )
         except Exception as e:
-            logger.warning(f"Visual fidelity check failed: {e}")
+            logger.warning("Visual fidelity check failed: %s", e)
             return QualityScore(
                 dimension=QualityDimension.VISUAL_FIDELITY,
                 score=0.5,
