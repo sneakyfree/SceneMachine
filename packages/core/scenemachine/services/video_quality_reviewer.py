@@ -35,6 +35,7 @@ class QualityIssue(str, Enum):
     LOW_RESOLUTION = "low_resolution"
     BLURRY_FRAMES = "blurry_frames"
     FACE_DISTORTION = "face_distortion"
+    CHARACTER_DRIFT = "character_drift"
     TEMPORAL_FLICKERING = "temporal_flickering"
     UNNATURAL_MOTION = "unnatural_motion"
     PHYSICS_VIOLATION = "physics_violation"
@@ -490,33 +491,235 @@ class VideoQualityReviewer:
             notes="Motion analysis not implemented yet",
         )
     
+    # Character consistency thresholds. Metric is the MEAN COSINE SIMILARITY
+    # of largest face embeddings across consecutive sampled frames (within-
+    # video drift) — high similarity = same person throughout the shot.
+    #
+    # Cosine sim is mapped to [0, 1] via (sim+1)/2 by face_embedding.py's
+    # compute_similarity helper. InsightFace empirics in the mapped space:
+    #
+    # - Identical face / same person:   sim 0.85-1.00
+    # - Same person, different angle:   sim 0.70-0.85
+    # - Borderline same-person:         sim 0.60-0.70
+    # - Uncorrelated / different person: sim 0.45-0.55  (raw cos sim ~0)
+    # - Anti-correlated (true morph):    sim 0.00-0.40
+    #
+    # Threshold 0.55 sits just above the "uncorrelated different people"
+    # band — catches clearly-drifted shots (a shot that lands a different
+    # person each frame, or a morphing subject) while letting borderline
+    # same-person variation through. Empirically the V0 smoke test showed
+    # a same-person shot scoring 0.91 and a borderline shot scoring 0.66,
+    # both well above 0.55.
+    #
+    # The V0 finding: 104/105 V0 shots PASS sharpness + temporal CoV, yet
+    # Grant graded them 1/5. The slop driver is semantic identity drift
+    # (subjects morphing smoothly between frames). This metric is the one
+    # designed to catch exactly that.
+    CHARACTER_DRIFT_THRESHOLD: float = 0.55   # below this → flag CHARACTER_DRIFT
+    CHARACTER_FRAME_SAMPLES: int = 8           # frames to sample per video
+    # Minimum frames-with-faces required to compute drift. With fewer than
+    # this many face-bearing frames we report a low-confidence "insufficient
+    # data" result rather than scoring noisy.
+    MIN_FACE_FRAMES: int = 2
+
     async def _check_character_consistency(
-        self, 
-        video_path: Path, 
-        reference_paths: List[str],
+        self,
+        video_path: Path,
+        reference_paths: Optional[List[str]] = None,
     ) -> QualityScore:
-        """Check character face consistency."""
-        # Would use face detection + embedding comparison
-        from scenemachine.services.face_embedding import get_face_embedding_service
-        
+        """Real character-consistency check via InsightFace face embeddings.
+
+        Replaces the hardcoded 0.75 stub flagged by the 2026-05-14 DNA-strand
+        audit. The V0 corpus measurement (PR #58) showed that sharpness and
+        temporal-delta CoV pass 104/105 V0 shots Grant graded as slop —
+        identity drift is the actual slop driver and requires semantic
+        tracking. This is that tracker.
+
+        Strategy:
+          1. Sample :attr:`CHARACTER_FRAME_SAMPLES` evenly-spaced frames.
+          2. For each frame, run InsightFace `buffalo_l` detection +
+             embedding extraction; keep the LARGEST face per frame.
+          3. Compute mean cosine similarity across CONSECUTIVE face-
+             bearing frames (within-video drift score). High mean
+             similarity = consistent identity. Low = morphing.
+          4. If ``reference_paths`` provided, also compute mean similarity
+             of each frame face to its best-matching reference. Blend
+             with drift score (50/50).
+          5. Frames with NO detected face are skipped — non-character
+             shots (landscapes, props) correctly score high-confidence
+             "not applicable" rather than being penalized for legitimately
+             having no face.
+
+        Returns CHARACTER_DRIFT issue when mean within-video similarity
+        falls below :attr:`CHARACTER_DRIFT_THRESHOLD`.
+
+        Runs on CPU. The buffalo_l model is ~280MB on disk at
+        ~/.insightface/models/buffalo_l/. First call performs lazy init
+        (~3-5s). Per-frame extraction takes ~50-200ms on CPU.
+        """
+        import shutil
+
         try:
-            service = get_face_embedding_service()
-            
-            # In production, would extract frames and compare embeddings
-            # For now, return mock score
-            
+            from scenemachine.services.face_embedding import get_face_embedding_service
+        except Exception as e:
+            logger.warning("face_embedding service import failed: %s", e)
             return QualityScore(
                 dimension=QualityDimension.CHARACTER_CONSISTENCY,
-                score=0.75,
-                confidence=0.6,
-                notes=f"Compared against {len(reference_paths)} references",
+                score=0.5,
+                confidence=0.2,
+                notes=f"face_embedding import failed: {e}",
+            )
+
+        try:
+            frame_paths = await asyncio.get_event_loop().run_in_executor(
+                None, self._sample_frame_paths, video_path, self.CHARACTER_FRAME_SAMPLES,
+            )
+            if not frame_paths:
+                return QualityScore(
+                    dimension=QualityDimension.CHARACTER_CONSISTENCY,
+                    score=0.5,
+                    confidence=0.1,
+                    notes="Could not extract any sample frames",
+                )
+
+            # Force CPU — main GPU is typically occupied by the generation
+            # pipeline; CPU is fast enough for the per-shot scoring (a few
+            # frames * a few hundred ms each).
+            svc = get_face_embedding_service()
+            if svc.gpu_id != -1:
+                # Re-instantiate the singleton on CPU. get_face_embedding_service
+                # caches; for our purposes we want a CPU instance.
+                from scenemachine.services.face_embedding import FaceEmbeddingService
+                svc = FaceEmbeddingService(gpu_id=-1)
+
+            def _extract_all() -> List[Any]:
+                results = []
+                for p in frame_paths:
+                    try:
+                        results.append(svc.extract_embedding(p, select_largest=True))
+                    except Exception as e:
+                        logger.debug("face extract failed for %s: %s", p, e)
+                        results.append(None)
+                return results
+
+            extraction_results = await asyncio.get_event_loop().run_in_executor(
+                None, _extract_all,
+            )
+
+            # Best-effort tmp cleanup
+            try:
+                shutil.rmtree(frame_paths[0].parent, ignore_errors=True)
+            except Exception:
+                pass
+
+            face_embeddings = []
+            for r in extraction_results:
+                if r is None:
+                    continue
+                if r.success and r.primary_embedding is not None:
+                    face_embeddings.append(r.primary_embedding)
+
+            n_total = len(frame_paths)
+            n_faces = len(face_embeddings)
+
+            # Case 1: zero faces — legitimately no characters (landscape,
+            # establishing shot, props). High score, low confidence.
+            if n_faces == 0:
+                return QualityScore(
+                    dimension=QualityDimension.CHARACTER_CONSISTENCY,
+                    score=0.95,
+                    confidence=0.3,
+                    notes=f"no faces detected in {n_total} sampled frames (non-character shot)",
+                )
+
+            # Case 2: too few face frames to compute drift, no refs
+            if n_faces < self.MIN_FACE_FRAMES and not reference_paths:
+                return QualityScore(
+                    dimension=QualityDimension.CHARACTER_CONSISTENCY,
+                    score=0.7,
+                    confidence=0.3,
+                    notes=f"only {n_faces}/{n_total} frames had faces and no refs given",
+                )
+
+            within_video_sim = None
+            if n_faces >= 2:
+                consecutive_sims = []
+                for i in range(len(face_embeddings) - 1):
+                    s = svc.compute_similarity(face_embeddings[i], face_embeddings[i + 1])
+                    consecutive_sims.append(s)
+                within_video_sim = sum(consecutive_sims) / len(consecutive_sims)
+
+            # Reference comparison if provided
+            reference_sim = None
+            n_refs_used = 0
+            if reference_paths:
+                def _extract_refs() -> List[Any]:
+                    refs = []
+                    for r in reference_paths:
+                        try:
+                            res = svc.extract_embedding(r, select_largest=True)
+                            if res.success and res.primary_embedding is not None:
+                                refs.append(res.primary_embedding)
+                        except Exception as e:
+                            logger.debug("ref extract failed for %s: %s", r, e)
+                    return refs
+
+                ref_embeddings = await asyncio.get_event_loop().run_in_executor(
+                    None, _extract_refs,
+                )
+                n_refs_used = len(ref_embeddings)
+                if ref_embeddings:
+                    per_frame_best = []
+                    for fe in face_embeddings:
+                        sims = [svc.compute_similarity(fe, r) for r in ref_embeddings]
+                        if sims:
+                            per_frame_best.append(max(sims))
+                    if per_frame_best:
+                        reference_sim = sum(per_frame_best) / len(per_frame_best)
+
+            # Compose final score
+            if within_video_sim is not None and reference_sim is not None:
+                score = 0.5 * within_video_sim + 0.5 * reference_sim
+                source = f"drift={within_video_sim:.3f} refmatch={reference_sim:.3f}"
+            elif within_video_sim is not None:
+                score = within_video_sim
+                source = f"drift={within_video_sim:.3f}"
+            elif reference_sim is not None:
+                score = reference_sim
+                source = f"refmatch={reference_sim:.3f}"
+            else:
+                return QualityScore(
+                    dimension=QualityDimension.CHARACTER_CONSISTENCY,
+                    score=0.5,
+                    confidence=0.2,
+                    notes=f"insufficient signal: n_faces={n_faces} n_refs={n_refs_used}",
+                )
+
+            score = max(0.0, min(1.0, score))
+            # Confidence rises with frames-with-faces and reference count
+            confidence = min(1.0, 0.4 + 0.08 * n_faces + 0.05 * n_refs_used)
+
+            issues: List[QualityIssue] = []
+            # Only flag drift when we actually measured drift (need ≥2 face frames)
+            if within_video_sim is not None and within_video_sim < self.CHARACTER_DRIFT_THRESHOLD:
+                issues.append(QualityIssue.CHARACTER_DRIFT)
+
+            return QualityScore(
+                dimension=QualityDimension.CHARACTER_CONSISTENCY,
+                score=score,
+                confidence=confidence,
+                issues=issues,
+                notes=(
+                    f"{source} (face_frames={n_faces}/{n_total} "
+                    f"n_refs={n_refs_used} threshold={self.CHARACTER_DRIFT_THRESHOLD})"
+                ),
             )
         except Exception as e:
             logger.warning(f"Character consistency check failed: {e}")
             return QualityScore(
                 dimension=QualityDimension.CHARACTER_CONSISTENCY,
-                score=0.6,
-                confidence=0.3,
+                score=0.5,
+                confidence=0.2,
                 notes=str(e),
             )
     
