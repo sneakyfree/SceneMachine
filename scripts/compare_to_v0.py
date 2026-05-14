@@ -41,31 +41,41 @@ sys.path.insert(0, "/home/user1-gpu/Desktop/grants_folder/SceneMachine/packages/
 logging.basicConfig(level=logging.WARNING)
 
 
-V0_LOCAL_PATH = Path("/tmp/scenemachine_loop/V0_per_shot_quality_baseline.json")
+V0_LOCAL_PATHS = [
+    Path("/tmp/scenemachine_loop/V0_per_shot_quality_baseline_v2.json"),  # enriched w/ character_consistency
+    Path("/tmp/scenemachine_loop/V0_per_shot_quality_baseline.json"),
+]
 V0_HF_REPO = "SceneMachine/operations-log"
-V0_HF_PATH = "benchmarks/V0_2026-05-14/per_shot_quality_baseline.json"
+V0_HF_PATHS = [
+    "benchmarks/V0_2026-05-14/per_shot_quality_baseline_v2.json",
+    "benchmarks/V0_2026-05-14/per_shot_quality_baseline.json",
+]
 
 
 def load_v0_baseline() -> Dict[str, Any]:
-    """Return the V0 baseline JSON. Tries local then HF."""
-    if V0_LOCAL_PATH.exists():
-        print(f"loaded V0 baseline from {V0_LOCAL_PATH}")
-        return json.loads(V0_LOCAL_PATH.read_text())
+    """Return the V0 baseline JSON. Prefers v2 (with character_consistency)."""
+    for p in V0_LOCAL_PATHS:
+        if p.exists():
+            print(f"loaded V0 baseline from {p}")
+            return json.loads(p.read_text())
 
-    try:
-        from huggingface_hub import hf_hub_download
-        local = hf_hub_download(
-            repo_id=V0_HF_REPO,
-            filename=V0_HF_PATH,
-            repo_type="model",
-        )
-        print(f"downloaded V0 baseline from HF: {local}")
-        return json.loads(Path(local).read_text())
-    except Exception as e:
-        raise RuntimeError(
-            f"V0 baseline not at {V0_LOCAL_PATH} and HF fetch failed: {e}. "
-            "Cannot compare to a phantom V0 — refusing."
-        )
+    from huggingface_hub import hf_hub_download
+    for hf_path in V0_HF_PATHS:
+        try:
+            local = hf_hub_download(
+                repo_id=V0_HF_REPO,
+                filename=hf_path,
+                repo_type="model",
+            )
+            print(f"downloaded V0 baseline from HF: {hf_path}")
+            return json.loads(Path(local).read_text())
+        except Exception:
+            continue
+
+    raise RuntimeError(
+        f"V0 baseline not at any of {V0_LOCAL_PATHS} and HF fetch failed. "
+        "Cannot compare to a phantom V0 — refusing."
+    )
 
 
 def find_vn_shot_mp4s(version_tag: str, screenplay: Optional[str]) -> List[Path]:
@@ -106,6 +116,7 @@ async def measure_shots(mp4_paths: List[Path]) -> List[Dict[str, Any]]:
         shot_id = mp4.parent.name
         vis = await rev._check_visual_fidelity(mp4)
         tmp = await rev._check_temporal_stability(mp4)
+        chr_ = await rev._check_character_consistency(mp4, None)
 
         sharp_var = None
         try:
@@ -115,6 +126,18 @@ async def measure_shots(mp4_paths: List[Path]) -> List[Dict[str, Any]]:
         cov_val = None
         try:
             cov_val = float(tmp.notes.split("frame_delta_CoV=")[1].split(" ")[0])
+        except Exception:
+            pass
+        drift_val = None
+        try:
+            if "drift=" in chr_.notes:
+                drift_val = float(chr_.notes.split("drift=")[1].split(" ")[0])
+        except Exception:
+            pass
+        face_frames = None
+        try:
+            if "face_frames=" in chr_.notes:
+                face_frames = int(chr_.notes.split("face_frames=")[1].split("/")[0])
         except Exception:
             pass
 
@@ -133,6 +156,13 @@ async def measure_shots(mp4_paths: List[Path]) -> List[Dict[str, Any]]:
                 "confidence": tmp.confidence,
                 "frame_delta_cov": cov_val,
                 "issues": [issue.value for issue in tmp.issues],
+            },
+            "character_consistency": {
+                "score": chr_.score,
+                "confidence": chr_.confidence,
+                "drift_similarity": drift_val,
+                "face_frames": face_frames,
+                "issues": [issue.value for issue in chr_.issues],
             },
         })
 
@@ -171,8 +201,10 @@ def build_comparison(
     unmatched_vn: List[str] = []
     sharp_deltas: List[float] = []
     cov_deltas: List[float] = []
+    char_deltas: List[float] = []
     sharp_wins = sharp_losses = sharp_ties = 0
     cov_wins = cov_losses = cov_ties = 0
+    char_wins = char_losses = char_ties = 0
 
     for vn in vn_rows:
         v0_row = v0_by_id.get(vn["shot_id"])
@@ -199,16 +231,29 @@ def build_comparison(
             elif cd > 0.02: cov_losses += 1
             else: cov_ties += 1
 
+        # character_consistency only present in v2 baseline; gracefully skip
+        # for shots where V0 had no face frames either (no signal to compare)
+        v0_char = (v0_row.get("character_consistency") or {}).get("drift_similarity")
+        vn_char = vn["character_consistency"]["drift_similarity"]
+        chd = (vn_char - v0_char) if (v0_char is not None and vn_char is not None) else None
+        if chd is not None:
+            char_deltas.append(chd)
+            if chd > 0.02: char_wins += 1
+            elif chd < -0.02: char_losses += 1
+            else: char_ties += 1
+
         paired.append({
             "shot_id": vn["shot_id"],
             "sharpness": {"v0": v0_sharp, "vn": vn_sharp, "delta": sd},
             "temporal_cov": {"v0": v0_cov, "vn": vn_cov, "delta": cd},
+            "character_drift_sim": {"v0": v0_char, "vn": vn_char, "delta": chd},
         })
 
     unmatched_v0 = sorted(set(v0_by_id) - {r["shot_id"] for r in vn_rows})
 
     vn_sharp_values = [r["sharpness"]["laplacian_variance"] for r in vn_rows if r["sharpness"]["laplacian_variance"] is not None]
     vn_cov_values = [r["temporal_stability"]["frame_delta_cov"] for r in vn_rows if r["temporal_stability"]["frame_delta_cov"] is not None]
+    vn_char_values = [r["character_consistency"]["drift_similarity"] for r in vn_rows if r["character_consistency"]["drift_similarity"] is not None]
 
     return {
         "version_tag": version_tag,
@@ -221,18 +266,22 @@ def build_comparison(
         "vn_distribution": {
             "sharpness": _stats(vn_sharp_values),
             "temporal_cov": _stats(vn_cov_values),
+            "character_drift_sim": _stats(vn_char_values),
         },
         "v0_distribution": {
             "sharpness": v0.get("sharpness_laplacian_variance"),
             "temporal_cov": v0.get("temporal_stability_frame_delta_cov"),
+            "character_drift_sim": v0.get("character_consistency_drift_similarity"),
         },
         "paired_delta_distribution": {
             "sharpness": _stats(sharp_deltas),
             "temporal_cov": _stats(cov_deltas),
+            "character_drift_sim": _stats(char_deltas),
         },
         "win_loss": {
-            "sharpness": {"vn_wins": sharp_wins, "vn_losses": sharp_losses, "ties": sharp_ties},
+            "sharpness_higher_better": {"vn_wins": sharp_wins, "vn_losses": sharp_losses, "ties": sharp_ties},
             "temporal_cov_lower_better": {"vn_wins": cov_wins, "vn_losses": cov_losses, "ties": cov_ties},
+            "character_drift_sim_higher_better": {"vn_wins": char_wins, "vn_losses": char_losses, "ties": char_ties},
         },
         "paired_shots": paired,
         "unmatched_vn_shot_ids": unmatched_vn,
@@ -273,11 +322,24 @@ def print_summary(report: Dict[str, Any]) -> None:
     print(f"    paired Δ: {vt} wins={wl['vn_wins']}  losses={wl['vn_losses']}  ties={wl['ties']}")
     print()
 
+    print("  Character drift similarity (HIGHER better — same person throughout shot):")
+    vc0 = report["v0_distribution"]["character_drift_sim"] or {}
+    vcn = report["vn_distribution"]["character_drift_sim"]
+    if vc0.get("median") is not None:
+        print(f"    V0      median={vc0.get('median', 0):>7.3f}  mean={vc0.get('mean', 0):>7.3f}  min={vc0.get('min', 0):>7.3f}")
+    else:
+        print("    V0      no character_consistency data in baseline (v1 baseline)")
+    if vcn["median"] is not None:
+        print(f"    {vt:<7} median={vcn['median']:>7.3f}  mean={vcn['mean']:>7.3f}  min={vcn['min']:>7.3f}")
+    wl = report["win_loss"]["character_drift_sim_higher_better"]
+    print(f"    paired Δ: {vt} wins={wl['vn_wins']}  losses={wl['vn_losses']}  ties={wl['ties']}")
+    print()
+
     print("  Honesty reminder:")
-    print("    These two metrics did NOT distinguish V0 (graded 1/5 slop)")
+    print("    Sharpness and temporal CoV did NOT distinguish V0 (graded 1/5 slop)")
     print("    from a hypothetical 5/5 version on the 2026-05-14 baseline.")
-    print("    Treat the verdict as 'no regression on spatial/temporal pixel stats'")
-    print("    until character_consistency + prompt_adherence land.")
+    print("    Character drift similarity (PR #60) IS the metric for identity drift.")
+    print("    A version that beats V0 on character_drift_sim is the breakthrough signal.")
     print("=" * 72)
 
 
