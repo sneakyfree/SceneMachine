@@ -419,15 +419,64 @@ class ProductionPipeline:
         logger.info(f"Prepared {len(self.characters)} characters")
     
     async def _generate_videos(
-        self, 
+        self,
         shots: List[ShotGenerationStatus],
     ) -> None:
-        """Generate videos for shots with parallel execution using GenerationService."""
+        """Generate videos for shots with parallel execution.
+
+        Each shot is routed through ``services.stack_router.route_shot`` to
+        pick the right Wan stack (T2V / I2V / Animate) based on its
+        metadata, then dispatched to the registry-resolved provider.
+
+        Continuity (I2V) routing is wired but a no-op until we plumb the
+        previous-shot's last frame through the pipeline; for now,
+        ``prev_shot_last_frame=None`` means only T2V and Animate are
+        selected, never I2V from continuity. Tracked as a follow-up.
+        """
         from scenemachine.services.video_quality_reviewer import get_video_quality_reviewer
-        
+        from scenemachine.services.stack_router import route_shot
+        from scenemachine.generators.base import (
+            GenerationRequest,
+            get_provider_registry,
+        )
+        from scenemachine.models.generation_job import JobProvider
+        from scenemachine.config import get_settings
+        from uuid import UUID, uuid4
+
         reviewer = get_video_quality_reviewer()
         semaphore = asyncio.Semaphore(self.max_parallel)
-        
+
+        # Resolve provider ONCE from the global registry (no per-shot import
+        # churn). Loud failure here is correct — the silent placeholder
+        # fallback the previous implementation had was the root cause of
+        # ~every prior "the pipeline ran but the videos are empty" report.
+        provider_type = JobProvider.LOCAL
+        registry = get_provider_registry()
+        provider_impl = registry.get_provider(provider_type)
+        if provider_impl is None:
+            available = sorted(p.value for p in registry.list_providers())
+            err = (
+                f"No {provider_type.value} provider registered. "
+                f"Available: {available or '(none)'}. "
+                "Ensure ProviderRegistry was set up at startup."
+            )
+            logger.error(err)
+            for shot in shots:
+                shot.status = "failed"
+                shot.error = err
+            return
+
+        # Build a stable character_id -> reference_image_path map from
+        # whatever the earlier pipeline stage prepared.
+        character_ref_paths: Dict[str, str] = {}
+        for c in (self.characters or []):
+            cid = c.get("id") or c.get("character_id")
+            ref = c.get("reference_image_path") or c.get("ref_image")
+            if cid and ref:
+                character_ref_paths[str(cid)] = str(ref)
+
+        settings = get_settings()
+
         async def generate_shot(shot: ShotGenerationStatus) -> None:
             async with semaphore:
                 shot.status = "generating"
@@ -438,81 +487,111 @@ class ProductionPipeline:
                     f"Generating shot {shot.shot_id}",
                     current_shot=shot.shot_id,
                 )
-                
+
                 try:
-                    # Build prompt from shot data
                     shot_data = self._get_shot_data(shot.shot_id)
                     if not shot_data:
                         shot.status = "failed"
                         shot.error = "Shot data not found in shot list"
                         return
-                    
+
                     prompt = self._build_generation_prompt(shot_data)
-                    
-                    # Try to use GenerationService with ProviderRegistry
+
+                    # Pick the right stack for this shot.
+                    decision = route_shot(
+                        shot_data,
+                        prev_shot_last_frame=None,  # TODO: wire continuity from prior shot
+                        character_ref_paths=character_ref_paths,
+                    )
+                    logger.info(
+                        "shot %s -> %s (%s)",
+                        shot.shot_id, decision.model_id, decision.reason,
+                    )
+
+                    # Build the provider-facing request.
                     try:
-                        from scenemachine.services.generation import GenerationService
-                        from scenemachine.models.generation import JobProvider
-                        from scenemachine.config import get_settings
-                        
-                        settings = get_settings()
-                        gen_service = GenerationService(settings)
-                        gen_service._register_default_providers()
-                        
-                        # Use default provider or first available
-                        provider = getattr(settings, 'default_video_provider', None)
-                        if provider:
-                            try:
-                                provider_type = JobProvider(provider)
-                            except ValueError:
-                                provider_type = JobProvider.LOCAL
-                        else:
-                            provider_type = JobProvider.LOCAL
-                        
-                        result = await gen_service.generate(
-                            prompt=prompt,
-                            provider=provider_type,
-                            output_dir=str(self.output_dir / f"shots/{shot.shot_id}"),
+                        shot_uuid = UUID(str(shot.shot_id))
+                    except (ValueError, AttributeError):
+                        shot_uuid = uuid4()
+
+                    extra_params = {"model_id": decision.model_id}
+                    extra_params.update(decision.extra_params or {})
+
+                    request = GenerationRequest(
+                        shot_id=shot_uuid,
+                        prompt=prompt,
+                        negative_prompt=shot_data.get("negative_prompt", "") or "",
+                        width=int(shot_data.get("width", 768)),
+                        height=int(shot_data.get("height", 432)),
+                        fps=int(shot_data.get("fps", 24)),
+                        duration_seconds=float(shot_data.get("duration_seconds", 3.0)),
+                        seed=shot_data.get("seed"),
+                        input_image_path=decision.input_image_path,
+                        character_references=decision.character_references,
+                        extra_params=extra_params,
+                    )
+
+                    # Real provider call — no silent fallback. If the provider
+                    # fails, the failure surfaces on the shot.
+                    result = await provider_impl.generate(request)
+
+                    if not result.success:
+                        shot.status = "failed"
+                        shot.error = result.error_message or (
+                            f"provider returned success=False "
+                            f"(code={result.error_code})"
                         )
-                        
-                        if result and result.get("success"):
-                            shot.video_path = result.get("output_path", str(self.output_dir / f"shots/{shot.shot_id}/output.mp4"))
-                            shot.quality_score = result.get("quality_score", 0.8)
-                            self.total_cost += result.get("cost_usd", 0.0)
-                        else:
-                            shot.video_path = str(self.output_dir / f"shots/{shot.shot_id}/output.mp4")
-                            shot.quality_score = 0.5
-                            
-                    except Exception as gen_err:
-                        logger.warning(f"GenerationService call failed for {shot.shot_id}, using placeholder: {gen_err}")
-                        # Create placeholder output dir
-                        shot_dir = self.output_dir / f"shots/{shot.shot_id}"
-                        shot_dir.mkdir(parents=True, exist_ok=True)
-                        shot.video_path = str(shot_dir / "output.mp4")
-                        shot.quality_score = 0.5
-                    
-                    # Quality review
+                        logger.warning(
+                            "shot %s generation failed: %s",
+                            shot.shot_id, shot.error,
+                        )
+                        return
+
+                    # Provider returns settings-dir-relative output_path
+                    # (e.g. "shots/<uuid>/output.mp4"). Resolve to absolute.
+                    if result.output_path:
+                        abs_path = settings.output_dir / result.output_path
+                        shot.video_path = str(abs_path)
+                    self.total_cost += float(result.cost_usd or 0.0)
+                    # Seed quality score from provider metadata if it
+                    # provided one — reviewer below may override it.
+                    shot.quality_score = (
+                        (result.metadata or {}).get("quality_score", 0.8)
+                    )
+
+                    # Quality review (unchanged from prior implementation)
                     if shot.video_path and Path(shot.video_path).exists():
                         try:
                             review = await reviewer.review_video(shot.video_path)
-                            shot.quality_score = review.get("overall_score", shot.quality_score)
-                            
-                            if shot.quality_score < self.quality_threshold and shot.regeneration_count < 2:
+                            shot.quality_score = review.get(
+                                "overall_score", shot.quality_score
+                            )
+                            if (
+                                shot.quality_score < self.quality_threshold
+                                and shot.regeneration_count < 2
+                            ):
                                 shot.regeneration_count += 1
-                                logger.info(f"Shot {shot.shot_id} quality {shot.quality_score} below threshold, regenerating (attempt {shot.regeneration_count})")
-                                # Re-queue for regeneration
+                                logger.info(
+                                    "shot %s quality %s below threshold, "
+                                    "regenerating (attempt %s)",
+                                    shot.shot_id, shot.quality_score,
+                                    shot.regeneration_count,
+                                )
                                 await generate_shot(shot)
                                 return
                         except Exception as review_err:
-                            logger.debug(f"Quality review skipped for {shot.shot_id}: {review_err}")
-                    
+                            logger.debug(
+                                "quality review skipped for %s: %s",
+                                shot.shot_id, review_err,
+                            )
+
                     shot.status = "completed"
-                    
+
                 except Exception as e:
-                    logger.error(f"Failed to generate shot {shot.shot_id}: {e}")
+                    logger.exception("failed to generate shot %s", shot.shot_id)
                     shot.status = "failed"
                     shot.error = str(e)
-        
+
         await asyncio.gather(*[generate_shot(shot) for shot in shots])
     
     async def _generate_audio(
