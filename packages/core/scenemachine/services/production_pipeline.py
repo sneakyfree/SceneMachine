@@ -788,45 +788,58 @@ class ProductionPipeline:
             logger.warning(f"Lip sync stage failed (non-fatal): {e}")
     
     async def _assemble_movie(
-        self, 
+        self,
         shots: List[ShotGenerationStatus],
     ) -> str:
-        """Assemble final movie from shots using ffmpeg concat."""
+        """Assemble final movie from shots using ffmpeg concat.
+
+        Tries two strategies in order:
+          1. concat demuxer with ``-c copy`` (fast, lossless, ~2000× realtime)
+          2. concat filter with libx264 re-encode (slow but tolerant of
+             stream-level inconsistencies that break the demuxer)
+
+        On both failures, returns an empty mp4 with a loud error rather than
+        the previous silent "fallback to first shot" behavior, which was
+        misleading: a 47-shot run that 'finished' with a 3-second mp4
+        masquerading as the final movie.
+
+        Found 2026-05-14 overnight: the demuxer path returned non-zero from
+        ``asyncio.create_subprocess_exec`` in production while the literally
+        identical command succeeded from a shell. Manual concat after the
+        fact recovered the real movie. The re-encode filter fallback below
+        means future runs degrade to slow-but-correct instead of fast-but-
+        wrong, and the full stderr is logged so the next operator can see
+        what ffmpeg actually complained about.
+        """
         output_path = self.output_dir / f"output_{self.project_id}.mp4"
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Collect completed shot video paths
+
         video_paths = [
             shot.video_path
             for shot in shots
             if shot.status == "completed" and shot.video_path and Path(shot.video_path).exists()
         ]
-        
+
         if not video_paths:
             logger.warning("No completed shot videos to assemble")
             output_path.write_bytes(b"")
             return str(output_path)
-        
+
         if len(video_paths) == 1:
-            # Single shot — just copy it
             import shutil
             shutil.copy2(video_paths[0], output_path)
             logger.info(f"Single shot assembled: {output_path}")
             return str(output_path)
-        
-        # Multiple shots — use ffmpeg concat demuxer
+
+        # Strategy 1: concat demuxer with stream copy (fast path)
+        concat_file = self.output_dir / "concat_list.txt"
         try:
-            import tempfile
-            
-            # Create concat list file
-            concat_file = self.output_dir / "concat_list.txt"
             with open(concat_file, "w") as f:
                 for vp in video_paths:
-                    # Escape single quotes in paths
                     escaped = vp.replace("'", "'\\''")
                     f.write(f"file '{escaped}'\n")
-            
-            cmd = [
+
+            demuxer_cmd = [
                 "ffmpeg", "-y",
                 "-f", "concat",
                 "-safe", "0",
@@ -834,29 +847,84 @@ class ProductionPipeline:
                 "-c", "copy",
                 str(output_path),
             ]
-            
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
+            logger.info(
+                "assembling %d shots via concat demuxer (-c copy) -> %s",
+                len(video_paths), output_path,
+            )
+            proc = await asyncio.create_subprocess_exec(
+                *demuxer_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _, stderr = await process.communicate()
-            
-            if process.returncode != 0:
-                logger.error(f"FFmpeg concat failed: {stderr.decode()[:500]}")
-                # Fallback: copy first video
-                import shutil
-                shutil.copy2(video_paths[0], output_path)
-            else:
-                logger.info(f"Assembled {len(video_paths)} shots into: {output_path}")
-            
-            # Clean up concat file
-            concat_file.unlink(missing_ok=True)
-            
-        except Exception as e:
-            logger.error(f"Assembly error: {e}")
+            _, stderr = await proc.communicate()
+
+            if proc.returncode == 0:
+                logger.info(
+                    "assembled %d shots into %s (concat demuxer)",
+                    len(video_paths), output_path,
+                )
+                return str(output_path)
+
+            stderr_text = stderr.decode(errors="replace")
+            logger.error(
+                "concat demuxer FAILED (rc=%s); full stderr (last 4 KB):\n%s",
+                proc.returncode, stderr_text[-4096:],
+            )
+
+            # Strategy 2: concat FILTER with libx264 re-encode (slow but
+            # tolerant). Builds an inline filter graph instead of an external
+            # listing — no concat_list.txt path quoting concerns. CPU encode
+            # so it doesn't fight the GPU pipeline for VRAM.
+            n = len(video_paths)
+            input_args: List[str] = []
+            for vp in video_paths:
+                input_args.extend(["-i", vp])
+            stream_specs = "".join(f"[{i}:v:0]" for i in range(n))
+            filter_complex = f"{stream_specs}concat=n={n}:v=1:a=0[outv]"
+            filter_cmd = [
+                "ffmpeg", "-y",
+                *input_args,
+                "-filter_complex", filter_complex,
+                "-map", "[outv]",
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                str(output_path),
+            ]
+            logger.info(
+                "retrying assembly via concat filter + libx264 re-encode "
+                "(slow but tolerant of stream-level mismatches)",
+            )
+            proc2 = await asyncio.create_subprocess_exec(
+                *filter_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr2 = await proc2.communicate()
+
+            if proc2.returncode == 0:
+                logger.info(
+                    "assembled %d shots into %s (concat filter re-encode)",
+                    len(video_paths), output_path,
+                )
+                return str(output_path)
+
+            logger.error(
+                "concat filter re-encode ALSO failed (rc=%s); stderr (last 4 KB):\n%s",
+                proc2.returncode, stderr2.decode(errors="replace")[-4096:],
+            )
+            # No silent first-shot fallback — write an empty placeholder so
+            # the caller sees the failure clearly instead of getting a 3-sec
+            # movie that looks like success.
             output_path.write_bytes(b"")
-        
+
+        except Exception as e:
+            logger.exception("Assembly error: %s", e)
+            output_path.write_bytes(b"")
+        finally:
+            concat_file.unlink(missing_ok=True)
+
         return str(output_path)
     
     def _build_generation_prompt(self, shot_data: Dict[str, Any]) -> str:
