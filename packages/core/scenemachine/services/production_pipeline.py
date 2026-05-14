@@ -58,6 +58,11 @@ class ShotGenerationStatus:
     video_path: Optional[str] = None
     audio_path: Optional[str] = None
     error: Optional[str] = None
+    # Full per-dimension quality review result (review_video().to_dict()).
+    # Populated when the review path runs successfully so the UI / audit
+    # view can show which dimensions failed without re-running the
+    # (CPU/disk-heavy) review.
+    quality_review: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -713,30 +718,61 @@ class ProductionPipeline:
                     (result.metadata or {}).get("quality_score", 0.8)
                 )
 
-                # Quality review (regeneration loop)
+                # Quality review (regeneration loop). Pre-2026-05-14 this
+                # path was a silent no-op: review_video returns a
+                # VideoReviewResult dataclass and the old code accessed
+                # it as if it were a dict, raising AttributeError on
+                # every call which got swallowed by the bare except.
+                # Per the feedback_no_silent_fallbacks rule earned the
+                # same day, this now correctly reads the dataclass and
+                # surfaces any review failure at WARNING level.
                 if shot.video_path and Path(shot.video_path).exists():
                     try:
-                        review = await reviewer.review_video(shot.video_path)
-                        shot.quality_score = review.get(
-                            "overall_score", shot.quality_score
+                        # Pull prompt + character references off shot_data
+                        # so the 7 review dimensions get real signal where
+                        # they can. char_refs is optional and currently
+                        # absent in V0 — the metric handles None gracefully.
+                        char_refs = shot_data.get("character_references")
+                        prompt_text = shot_data.get("prompt") or shot_data.get("description") or ""
+                        review = await reviewer.review_video(
+                            shot.video_path,
+                            prompt=prompt_text,
+                            character_references=char_refs,
+                            regeneration_count=shot.regeneration_count,
                         )
+                        shot.quality_score = review.overall_score
+                        # Cache the full per-dimension breakdown on the shot
+                        # so the UI / audit view can show what failed and
+                        # why. Avoids re-running the (expensive) review.
+                        try:
+                            shot.quality_review = review.to_dict()
+                        except Exception:
+                            pass
                         if (
                             shot.quality_score < self.quality_threshold
                             and shot.regeneration_count < 2
                         ):
                             shot.regeneration_count += 1
                             logger.info(
-                                "shot %s quality %s below threshold, "
-                                "regenerating (attempt %s)",
+                                "shot %s quality %.3f below threshold %.3f, "
+                                "regenerating (attempt %s, issues=%s)",
                                 shot.shot_id, shot.quality_score,
+                                self.quality_threshold,
                                 shot.regeneration_count,
+                                [i.get("issue") for i in (review.issues or [])][:5],
                             )
                             # Re-run with the same prev_shot_last_frame
                             return await generate_shot(shot, prev_shot_last_frame)
                     except Exception as review_err:
-                        logger.debug(
-                            "quality review skipped for %s: %s",
-                            shot.shot_id, review_err,
+                        # Was logger.debug pre-fix — silent failure. Now
+                        # WARNING so a real review crash surfaces. Pipeline
+                        # continues with the provider-reported quality
+                        # score (which lacks our 3 real measurements).
+                        logger.warning(
+                            "quality review failed for shot %s: %s; "
+                            "falling back to provider-reported score %.3f",
+                            shot.shot_id, review_err, shot.quality_score,
+                            exc_info=True,
                         )
 
                 shot.status = "completed"
