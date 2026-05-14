@@ -39,9 +39,28 @@ def register_builtin_providers(registry: Optional[ProviderRegistry] = None) -> N
     from .comfyui import ComfyUIProvider
     from .runpod import RunPodProvider
 
-    # Always register mock provider for testing/development
-    registry.register(JobProvider.LOCAL, MockGenerationProvider)
-    logger.debug("Registered MockGenerationProvider as LOCAL")
+    # Register the local ComfyUI provider FIRST as JobProvider.LOCAL —
+    # the renderer maps the "local" UI option to JobProvider.LOCAL, and
+    # users expect "local" to mean "the ComfyUI running on this machine",
+    # not a mock. The mock provider used to claim this slot, which made
+    # generation.getProviderModels('local') return only "mock" and hid
+    # the validated Wan 2.2 T2V / I2V / Animate + LTX-2 model entries.
+    # If the user has no local ComfyUI configured, the provider will
+    # still register but its check_availability() will return False —
+    # better signal than silently returning a mock.
+    comfyui_url = getattr(settings, "comfyui_url", None)
+    registry.register(
+        JobProvider.LOCAL,
+        ComfyUIProvider,
+        config={"comfyui_url": comfyui_url or "http://127.0.0.1:8188"},
+    )
+    logger.debug("Registered ComfyUIProvider as LOCAL")
+
+    # Mock provider remains available as JobProvider.CUSTOM for tests and
+    # dev environments that explicitly opt in. Importantly it is NOT the
+    # default for any production flow.
+    registry.register(JobProvider.CUSTOM, MockGenerationProvider)
+    logger.debug("Registered MockGenerationProvider as CUSTOM (test-only)")
 
     # Register Replicate provider
     registry.register(
@@ -65,16 +84,10 @@ def register_builtin_providers(registry: Optional[ProviderRegistry] = None) -> N
     )
     logger.debug("Registered FalProvider")
 
-    # Register ComfyUI provider (local)
-    comfyui_url = getattr(settings, "comfyui_url", None)
-    registry.register(
-        JobProvider.CUSTOM,  # Using CUSTOM for ComfyUI local
-        ComfyUIProvider,
-        config={
-            "comfyui_url": comfyui_url or "http://127.0.0.1:8188",
-        },
-    )
-    logger.debug("Registered ComfyUIProvider")
+    # (ComfyUI was registered as LOCAL at the top of this function so
+    # 'local' in the renderer routes correctly to the real ComfyUI
+    # provider — see comment there. The legacy CUSTOM slot now holds the
+    # MockGenerationProvider for test-only use.)
 
     # Register RunPod provider
     runpod_api_key = getattr(settings, "runpod_api_key", None)

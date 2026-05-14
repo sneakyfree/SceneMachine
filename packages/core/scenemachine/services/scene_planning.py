@@ -110,14 +110,17 @@ class ScenePlanningService:
         Returns:
             List of scenes ordered by sequence
         """
+        # Always selectinload shots — the IPC handler accesses scene.shots
+        # for the shotCount field even when include_shots=False, and
+        # async lazy loads raise MissingGreenlet from an IPC session.
+        # ``include_shots`` is kept as a parameter for callers that want
+        # to skip the full shot serialization in the response.
         stmt = (
             select(Scene)
             .where(Scene.project_id == project_id)
             .order_by(Scene.sequence_number)
+            .options(selectinload(Scene.shots))
         )
-
-        if include_shots:
-            stmt = stmt.options(selectinload(Scene.shots))
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

@@ -19,6 +19,20 @@ def register_handlers(server: IPCServer) -> None:
     Args:
         server: IPC server instance to register handlers on
     """
+    # Ensure the global ProviderRegistry is populated before any handler
+    # runs. Without this, generation.getProviderModels('local') silently
+    # falls back to the hard-coded 'mock' stub because the registry is
+    # empty until something else calls setup_providers(). This was the
+    # root cause of the desktop UI showing "Mock Provider" as the only
+    # local model option instead of the validated Wan22 / LTX-2 stacks.
+    try:
+        from scenemachine.generators.registry import setup_providers
+        setup_providers()
+        logger.info("Provider registry populated for IPC server")
+    except Exception as e:
+        # Don't refuse to start handlers if provider setup fails — non-
+        # generation handlers (projects/screenplays/scenes) still work.
+        logger.error("setup_providers() failed during IPC handler init: %s", e)
 
     @server.handler("ping")
     async def handle_ping() -> Dict[str, str]:
