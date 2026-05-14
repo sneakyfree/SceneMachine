@@ -54,15 +54,20 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
     const [isDirty, setIsDirty] = useState(false);
     const [saved, setSaved] = useState(false);
 
+    // NOTE: Until 2026-05-14 this component used fetch('/api/...') to
+    // hit a FastAPI HTTP endpoint that the Electron desktop app does
+    // NOT run — only the IPC socket. Every interaction with this panel
+    // silently fell through to the "endpoint not available, return
+    // defaults" branch, so user changes never persisted. Caught by the
+    // DNA-strand audit (Ghost feature: "IPAdapter settings via Electron").
+    // Now uses the IPC pattern that every other panel in the app uses.
     const { data: settings, isLoading } = useQuery<IPAdapterSettings>({
         queryKey: ['ip-adapter-settings'],
         queryFn: async () => {
-            const response = await fetch('/api/generation/settings/ip-adapter');
-            if (!response.ok) {
-                // Return defaults if endpoint is not available
-                return { mode: 'balanced', strength: 0.6, available_modes: ['balanced', 'strong', 'face_only'] };
-            }
-            return response.json();
+            return await window.electronAPI.backendRequest<IPAdapterSettings>(
+                'ipAdapter.getSettings',
+                {},
+            );
         },
     });
 
@@ -76,13 +81,10 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
 
     const saveMutation = useMutation({
         mutationFn: async (newSettings: { mode?: string; strength?: number }) => {
-            const response = await fetch('/api/generation/settings/ip-adapter', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newSettings),
-            });
-            if (!response.ok) throw new Error('Failed to save');
-            return response.json();
+            return await window.electronAPI.backendRequest<IPAdapterSettings>(
+                'ipAdapter.updateSettings',
+                newSettings,
+            );
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['ip-adapter-settings'] });
