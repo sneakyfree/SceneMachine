@@ -127,6 +127,13 @@ class ComfyUIProvider(GenerationProvider):
                 "scheduler": "unipc",
                 "shift": 5.0,
                 "expected_vram_gb": 22,
+                # Cold load can take 8–12 min when the FP8 weight is read
+                # off NVMe for the first time and the high/low-noise MoE
+                # pair is staged. Warm inference is ~57 s. The default
+                # POLL_TIMEOUT (600 s) was too tight for cold start and
+                # caused the first shot of an overnight RADAR_LOVE_2 run
+                # to spuriously fail (2026-05-14 02:50–03:00). Validated.
+                "expected_timeout_seconds": 1200,
             },
         ),
         "wan22-i2v-14b-fp8": VideoModel(
@@ -148,6 +155,10 @@ class ComfyUIProvider(GenerationProvider):
                 "scheduler": "unipc",
                 "shift": 5.0,
                 "expected_vram_gb": 24,
+                # See T2V note above — same cold-load budget. Per the
+                # i2v patient chart, cold-start hit 406 s on 2026-05-13;
+                # the safety margin keeps headroom for cache-cold disks.
+                "expected_timeout_seconds": 1200,
             },
         ),
         # ============================================================
@@ -267,6 +278,9 @@ class ComfyUIProvider(GenerationProvider):
                 "sampler": "euler",
                 "scheduler": "normal",
                 "expected_vram_gb": 28,
+                # LTX-2 19B + Gemma encoder is the heaviest cold load
+                # in the stack — be generous.
+                "expected_timeout_seconds": 1500,
             },
         ),
         # ============================================================
