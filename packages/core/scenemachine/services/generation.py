@@ -2226,6 +2226,58 @@ class GenerationService:
                 await self.session.commit()
                 logger.info(f"Project {project_id} generation complete")
 
+    async def generate(
+        self,
+        request,  # scenemachine.generators.base.GenerationRequest
+        *,
+        provider: Optional[JobProvider] = None,
+        progress_callback: Optional[Callable] = None,
+    ):
+        """Run a single generation request against the chosen provider.
+
+        This is the bridge between the high-level pipeline / IPC layer and
+        the per-provider .generate() implementations. The provider lookup
+        comes from ``self._providers`` (populated by
+        ``_register_default_providers`` via the global registry, which is
+        the same set of providers the IPC handlers list).
+
+        The ``request`` is a ``scenemachine.generators.base.GenerationRequest``
+        (the canonical provider-facing dataclass — has ``input_image_path``,
+        ``character_references``, ``extra_params``). The legacy service-local
+        ``GenerationRequest`` at the top of this file is a different abstraction
+        (queue ticket) and not interchangeable.
+
+        Args:
+            request: ``generators.base.GenerationRequest`` to run.
+            provider: Which provider to dispatch to. Defaults to
+                ``JobProvider.LOCAL`` (ComfyUI on this rig). Raises if the
+                provider isn't registered.
+            progress_callback: Optional progress callable forwarded to the
+                provider.
+
+        Returns:
+            ``generators.base.GenerationResult`` — success/failure plus
+            ``output_path`` / ``error_message``.
+
+        Raises:
+            ValueError: when no provider matches.
+        """
+        provider_type = provider or JobProvider.LOCAL
+        impl = self._providers.get(provider_type)
+        if impl is None:
+            available = sorted(p.value for p in self._providers.keys())
+            raise ValueError(
+                f"No generation provider registered for {provider_type.value}. "
+                f"Available: {available or '(none)'}"
+            )
+        logger.info(
+            "GenerationService.generate routing to %s (shot_id=%s, model=%s)",
+            impl.name,
+            getattr(request, "shot_id", "?"),
+            (getattr(request, "extra_params", {}) or {}).get("model_id", "default"),
+        )
+        return await impl.generate(request, progress_callback=progress_callback)
+
 
 async def get_generation_service(session: AsyncSession) -> GenerationService:
     """Factory function for GenerationService."""
