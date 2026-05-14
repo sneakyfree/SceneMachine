@@ -3012,7 +3012,7 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("pipeline.getStatus")
     async def handle_pipeline_status(project_id: str) -> Dict[str, Any]:
         """Get status of a running pipeline.
-        
+
         Note: In a production system, pipeline instances would be stored
         in a registry. For now, returns basic project info.
         """
@@ -3021,6 +3021,15 @@ def register_handlers(server: IPCServer) -> None:
             "stage": "unknown",
             "message": "Pipeline status tracking requires a running pipeline instance",
         }
+
+    # Aliases matching the names the renderer's production-dashboard.tsx
+    # actually calls. Caught by the 2026-05-14 DNA-strand audit: UI calls
+    # ``pipeline.start`` and ``pipeline.status`` but only ``pipeline.run``
+    # and ``pipeline.getStatus`` were registered, so every "Run Pipeline"
+    # button silently failed. Aliasing keeps both name pairs working;
+    # the renderer will be migrated to the canonical names in a follow-up.
+    server.handlers["pipeline.start"] = server.handlers["pipeline.run"]
+    server.handlers["pipeline.status"] = server.handlers["pipeline.getStatus"]
 
     # Crew IPC handlers — mirrors /api/crew/* REST endpoints for Electron
     @server.handler("crew.listAgents")
