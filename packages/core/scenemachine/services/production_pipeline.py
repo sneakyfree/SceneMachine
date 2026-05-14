@@ -212,28 +212,30 @@ class ProductionPipeline:
             PipelineResult with output and statistics
         """
         self.start_time = datetime.utcnow()
-        
+
         try:
             # Stage 1: Parse screenplay
             await self._emit_progress(PipelineStage.PARSING, 5, "Parsing screenplay...")
             self.stage = PipelineStage.PARSING
-            
+
             parse_result = await self._parse_screenplay(screenplay_path, file_format)
             if not parse_result:
                 return self._failure("Failed to parse screenplay")
-            
+            await self._snapshot_stage("after_parse", "Screenplay parsed and structured")
+
             # Stage 2: Generate shot breakdown
             await self._emit_progress(PipelineStage.SHOT_BREAKDOWN, 15, "Generating shot breakdown...")
             self.stage = PipelineStage.SHOT_BREAKDOWN
-            
+
             shot_result = await self._generate_shot_list()
             if not shot_result:
                 return self._failure("Failed to generate shot list")
-            
+            await self._snapshot_stage("after_shot_breakdown", "Shot list generated")
+
             # Stage 3: Check blockers
             await self._emit_progress(PipelineStage.BLOCKER_CHECK, 20, "Checking for blockers...")
             self.stage = PipelineStage.BLOCKER_CHECK
-            
+
             blockers = await self._check_blockers()
             
             # Check for critical blockers
@@ -260,38 +262,41 @@ class ProductionPipeline:
             # Stage 4: Prepare characters
             await self._emit_progress(PipelineStage.CHARACTER_PREP, 25, "Preparing characters...")
             self.stage = PipelineStage.CHARACTER_PREP
-            
+
             await self._prepare_characters()
-            
+            await self._snapshot_stage("after_character_prep", "Characters prepared")
+
             # Stage 5: Generate videos
             await self._emit_progress(PipelineStage.VIDEO_GENERATION, 30, "Generating videos...")
             self.stage = PipelineStage.VIDEO_GENERATION
-            
+
             # If preview mode, only do first scene
             shots_to_generate = list(self.shot_statuses.values())
             if mode == PipelineMode.PREVIEW:
                 shots_to_generate = shots_to_generate[:3]  # First 3 shots
-            
+
             await self._generate_videos(shots_to_generate)
-            
+            await self._snapshot_stage("after_video_generation", "Videos generated")
+
             # Stage 6: Generate audio
             await self._emit_progress(PipelineStage.AUDIO_GENERATION, 70, "Generating audio...")
             self.stage = PipelineStage.AUDIO_GENERATION
-            
+
             await self._generate_audio(shots_to_generate)
-            
+
             # Stage 7: Apply lip sync
             await self._emit_progress(PipelineStage.LIP_SYNC, 80, "Applying lip sync...")
             self.stage = PipelineStage.LIP_SYNC
-            
+
             await self._apply_lip_sync(shots_to_generate)
-            
+
             # Stage 8: Assembly
             await self._emit_progress(PipelineStage.ASSEMBLY, 90, "Assembling final video...")
             self.stage = PipelineStage.ASSEMBLY
-            
+
             output_path = await self._assemble_movie(shots_to_generate)
-            
+            await self._snapshot_stage("after_assembly", "Final movie assembled")
+
             # Complete
             self.stage = PipelineStage.COMPLETED
             await self._emit_progress(PipelineStage.COMPLETED, 100, "Complete!")
@@ -315,6 +320,74 @@ class ProductionPipeline:
             logger.exception(f"Pipeline failed: {e}")
             return self._failure(str(e))
     
+    async def _snapshot_stage(self, label: str, description: str) -> None:
+        """Persist an immutable snapshot at a stage boundary.
+
+        Each stage transition captures the in-memory project state
+        (screenplay_data, shot_list, characters, shot_statuses) so the
+        Audit view can reconstruct exactly what the pipeline knew at
+        every milestone. Best-effort — a snapshot failure must never
+        kill an in-flight pipeline. Loud log, no swallow.
+
+        Wired during the 2026-05-14 audit (exec summary item #3): the
+        Audit view in the explainability dashboard was silently empty
+        because no caller was creating snapshots. The
+        ``SnapshotService.create_snapshot`` method existed but had no
+        invocations anywhere in the codebase.
+        """
+        try:
+            from uuid import UUID as _UUID
+            from scenemachine.services.snapshots import SnapshotService
+
+            try:
+                project_uuid = _UUID(str(self.project_id))
+            except (ValueError, AttributeError):
+                # project_id isn't a UUID (e.g. test harness uses
+                # synthetic string ids). Skip snapshot rather than fake
+                # one — the audit log would be misleading.
+                logger.debug("snapshot: skipping non-UUID project_id=%s", self.project_id)
+                return
+
+            shots_data: List[Dict[str, Any]] = []
+            for s in self.shot_statuses.values():
+                shots_data.append({
+                    "shot_id": s.shot_id,
+                    "scene_id": s.scene_id,
+                    "status": s.status,
+                    "quality_score": s.quality_score,
+                    "video_path": s.video_path,
+                    "audio_path": s.audio_path,
+                    "error": s.error,
+                })
+
+            service = SnapshotService()
+            snap = await service.create_snapshot(
+                project_id=project_uuid,
+                project_data={
+                    "project_id": str(self.project_id),
+                    "stage": self.stage.value,
+                    "total_cost_usd": self.total_cost,
+                },
+                scenes_data=(self.shot_list or {}).get("scenes", []),
+                characters_data=self.characters or [],
+                shots_data=shots_data,
+                label=label,
+                description=description,
+            )
+            logger.info(
+                "snapshot %s: %s (%d shots, %d chars, %d scenes)",
+                snap.id, label, len(shots_data),
+                len(self.characters or []),
+                len((self.shot_list or {}).get("scenes", [])),
+            )
+        except Exception as e:  # pragma: no cover — defensive
+            # Best-effort. Per feedback_no_silent_fallbacks: loud log, no swallow.
+            logger.exception(
+                "snapshot creation failed at stage %s (label=%s): %s "
+                "— pipeline continues; audit history will be incomplete",
+                self.stage.value, label, e,
+            )
+
     def _failure(self, error: str) -> PipelineResult:
         """Create failure result."""
         processing_time = 0.0

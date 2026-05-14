@@ -6957,34 +6957,79 @@ def register_handlers(server: IPCServer) -> None:
     # SNAPSHOT HANDLERS
     # ==========================================================================
 
+    @server.handler("snapshots.list")
+    async def handle_snapshots_list(project_id: str) -> List[Dict[str, Any]]:
+        """List all snapshots for a project, newest first.
+
+        Caught by the 2026-05-14 DNA-strand audit: the renderer's
+        explainability.tsx Audit view has been calling this IPC method
+        for months with no registered handler, so the Audit tab was
+        silently empty for every project.
+        """
+        from scenemachine.services.snapshots import SnapshotService
+
+        service = SnapshotService()
+        snapshots = await service.list_snapshots(UUID(project_id))
+        # to_dict() emits the rich representation; trim heavy ``*_data``
+        # blobs from list responses so the audit view loads fast even
+        # with hundreds of snapshots. Callers needing the full data
+        # blob should use ``snapshots.get``.
+        out: List[Dict[str, Any]] = []
+        for snap in snapshots:
+            d = snap.to_dict()
+            for heavy in ("project_data", "scenes_data", "characters_data", "shots_data"):
+                d.pop(heavy, None)
+            out.append(d)
+        return out
+
+    @server.handler("snapshots.get")
+    async def handle_snapshots_get(
+        project_id: str, snapshot_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Load a specific snapshot's full payload (including all *_data)."""
+        from scenemachine.services.snapshots import SnapshotService
+
+        service = SnapshotService()
+        snap = await service.get_snapshot(UUID(project_id), UUID(snapshot_id))
+        return snap.to_dict() if snap else None
+
     @server.handler("snapshots.compare")
     async def handle_compare_snapshots(
+        project_id: str,
         snapshot_id_a: str,
         snapshot_id_b: str,
     ) -> Dict[str, Any]:
-        """Compare two snapshots and return delta report."""
+        """Compare two snapshots and return delta report.
+
+        Fixes a pre-existing signature bug: the prior version did not
+        accept ``project_id`` and called
+        ``service.compare_snapshots(id_a, id_b)`` — but the service
+        method actually requires ``(project_id, from_id, to_id)``.
+        Every previous call raised TypeError before reaching the
+        renderer. This is the single-PR cleanup.
+        """
         from scenemachine.services.snapshots import SnapshotService
 
-        db_manager = get_db_manager()
-        async with db_manager.session() as session:
-            service = SnapshotService(session)
-            report = await service.compare_snapshots(
-                UUID(snapshot_id_a),
-                UUID(snapshot_id_b),
-            )
-            return {
-                "snapshot_a": snapshot_id_a,
-                "snapshot_b": snapshot_id_b,
-                "total_changes": report.total_changes,
-                "changes": [
-                    {
-                        "field": c.field,
-                        "old_value": c.old_value,
-                        "new_value": c.new_value,
-                        "change_type": c.change_type,
-                    }
-                    for c in report.changes
-                ],
-            }
+        service = SnapshotService()
+        report = await service.compare_snapshots(
+            UUID(project_id),
+            UUID(snapshot_id_a),
+            UUID(snapshot_id_b),
+        )
+        return {
+            "project_id": project_id,
+            "snapshot_a": snapshot_id_a,
+            "snapshot_b": snapshot_id_b,
+            "total_changes": report.total_changes,
+            "changes": [
+                {
+                    "field": c.field,
+                    "old_value": c.old_value,
+                    "new_value": c.new_value,
+                    "change_type": c.change_type,
+                }
+                for c in report.changes
+            ],
+        }
 
     logger.info(f"Registered {len(server.handlers)} IPC handlers")
