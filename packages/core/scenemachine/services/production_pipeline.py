@@ -504,14 +504,20 @@ class ProductionPipeline:
                     return None
                 fname = f"continuity_{shot_id}.jpg"
                 out = comfyui_input_dir / fname
-                # Seek to ~100 ms before the end (clamped to 0). Using
-                # duration_s - 0.1 keeps us safely inside the clip even at
-                # 24 fps where a single frame is ~42 ms.
-                timestamp = max(0.0, float(duration_s) - 0.1)
+                # Negative timestamp = "0.1 s before EOF" — robust to the
+                # container vs frames/fps duration mismatch that bit us
+                # during the 2026-05-14 overnight RADAR_LOVE_2 +
+                # IMPOSSIBLE_FULL run: requested duration_s was 3.0 but
+                # av1_nvenc container duration was 2.875, so the prior
+                # ``duration_s - 0.1 = 2.9`` landed past EOF and produced
+                # an empty jpg. Result: every continuity extraction
+                # silently failed and the I2V routing path was dead in
+                # practice. ``-sseof -0.1`` doesn't need the actual
+                # duration; ffmpeg handles the seek-from-end math.
                 await ffmpeg.extract_frame(
                     video_path=vp,
                     output_path=out,
-                    timestamp=timestamp,
+                    timestamp=-0.1,
                     quality=2,
                 )
                 logger.info("continuity: extracted last frame -> %s", out)
