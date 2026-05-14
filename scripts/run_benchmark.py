@@ -225,6 +225,46 @@ async def run_one_screenplay(
                 "raw_content": (sc.raw_content or "")[:600],
             })
 
+    # V5_animate wire-up: when use_animate_when_chars=True, load the
+    # screenplay's character reference images from disk and tag each
+    # shot with the character_ids it features. The downstream pipeline +
+    # StackRouter route shots with non-empty character_ids through the
+    # Wan 2.2 Animate workflow (per memory comfyui-animate-vram-cache).
+    #
+    # Character ID convention: lowercase_snake_case (jack_harris). The
+    # ref filenames at character_refs/<SCREENPLAY>/<id>.png must match.
+    character_refs: List[Dict[str, Any]] = []
+    char_id_by_keyword: Dict[str, str] = {}
+    if preset.use_animate_when_chars:
+        refs_dir = Path(
+            f"/home/user1-gpu/scenemachine_movies/character_refs/{screenplay_name}"
+        )
+        if refs_dir.is_dir():
+            for png in sorted(refs_dir.glob("*.png")):
+                cid = png.stem  # e.g. "jack_harris"
+                character_refs.append({
+                    "id": cid,
+                    "character_id": cid,
+                    "name": cid.replace("_", " ").title(),
+                    "reference_image_path": str(png),
+                })
+                # Build a keyword → character_id map for shot-text
+                # matching. Each underscore-separated token becomes a
+                # match keyword (e.g. "jack_harris" → ["jack", "harris"]).
+                for tok in cid.split("_"):
+                    if len(tok) >= 3:  # skip tiny tokens
+                        char_id_by_keyword[tok.lower()] = cid
+            log.info(
+                "V5 mode: loaded %d character refs from %s",
+                len(character_refs), refs_dir,
+            )
+        else:
+            log.warning(
+                "V5 mode but no character refs at %s — falling back to "
+                "T2V routing for all shots (V5 == V1 in effect)",
+                refs_dir,
+            )
+
     # Build shots from scenes. V3 will swap this loop for an LLM-driven
     # breakdown when ``preset.use_llm_prompts`` is True (Qwen via Ollama).
     scenes_for_pipeline = []
@@ -238,6 +278,21 @@ async def run_one_screenplay(
             "Cinematic wide establishing shot. " + " — ".join(snippets)
             if snippets else "Cinematic wide establishing shot"
         )
+
+        # V5 character detection: scan the raw scene content (longer
+        # than the truncated description) for any character keyword.
+        # We match against the FULL raw scene text — screenplay format
+        # capitalizes character names on dialogue lines so the signal
+        # is strong. Order of insertion preserved; dedup later.
+        shot_character_ids: List[str] = []
+        if char_id_by_keyword:
+            haystack = (sd["raw_content"] or "").lower()
+            seen = set()
+            for kw, cid in char_id_by_keyword.items():
+                if kw in haystack and cid not in seen:
+                    shot_character_ids.append(cid)
+                    seen.add(cid)
+
         shot_id = str(uuid4())
         scenes_for_pipeline.append({
             "scene_number": sd["scene_number"],
@@ -251,7 +306,7 @@ async def run_one_screenplay(
                 "height": preset.height,
                 "fps": preset.fps,
                 "seed": 42 + sd["sequence_number"],
-                "character_ids": [],
+                "character_ids": shot_character_ids,
                 "negative_prompt": "blurry, low quality, watermark, text overlay, distorted",
                 "num_inference_steps": preset.num_inference_steps,
                 "guidance_scale": preset.guidance_scale,
@@ -260,6 +315,15 @@ async def run_one_screenplay(
         shot_statuses.append(ShotGenerationStatus(
             shot_id=shot_id, scene_id=sd["scene_number"], status="queued",
         ))
+
+    if preset.use_animate_when_chars:
+        shots_with_chars = sum(
+            1 for s in scenes_for_pipeline if s["shots"][0]["character_ids"]
+        )
+        log.info(
+            "V5 mode: %d/%d shots tagged with at least one character",
+            shots_with_chars, len(shot_statuses),
+        )
 
     log.info("built %d shots for %s", len(shot_statuses), screenplay_name)
 
@@ -271,7 +335,7 @@ async def run_one_screenplay(
     )
     pipeline.shot_list = {"scenes": scenes_for_pipeline}
     pipeline.shot_statuses = {s.shot_id: s for s in shot_statuses}
-    pipeline.characters = []
+    pipeline.characters = character_refs
 
     t0 = time.monotonic()
     await pipeline._generate_videos(shot_statuses)
