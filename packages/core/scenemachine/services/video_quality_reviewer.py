@@ -534,15 +534,156 @@ class VideoQualityReviewer:
             notes="CLIP analysis not implemented yet",
         )
     
+    # Temporal stability thresholds. The metric is the COEFFICIENT OF
+    # VARIATION (stdev/mean) of consecutive-frame mean-absolute-difference
+    # measurements. A perfectly stable shot has consistent frame-to-frame
+    # delta (locked camera + smooth motion); a hallucinatory shot has
+    # huge swings in delta as the model invents and re-invents subjects.
+    #
+    # - Locked photo-real footage:    CoV  0.0–0.2  (very stable)
+    # - Smooth narrative motion:      CoV  0.2–0.5
+    # - Wan 2.2 reasonable shot:      CoV  0.5–1.0  (target band for v1)
+    # - Hallucinatory / morphing:     CoV  1.0–2.0
+    # - Catastrophic flicker:         CoV  > 2.0
+    #
+    # Score is 1 - (CoV / TEMPORAL_COV_CAP), clamped to [0, 1]. CoV=0 → 1.0,
+    # CoV at cap → 0.0. Cap calibrated post-V0 measurement; tunable.
+    TEMPORAL_COV_CAP: float = 2.0
+    UNSTABLE_COV_THRESHOLD: float = 1.0
+
+    @staticmethod
+    def _temporal_frame_deltas(frame_paths: List[Path]) -> List[float]:
+        """Compute mean absolute pixel difference between each consecutive
+        pair of sampled frames (in grayscale). Returns one delta per
+        consecutive pair (so N samples → N-1 deltas).
+
+        Pure numpy + PIL. The metric is intentionally simple:
+        ``mean(|frame_i - frame_{i+1}|)`` on grayscale arrays. Sudden
+        morphs and identity drift produce large deltas; smooth motion
+        produces small ones.
+        """
+        import numpy as np
+        from PIL import Image
+
+        deltas: List[float] = []
+        prev_arr = None
+        for p in frame_paths:
+            try:
+                with Image.open(p) as img:
+                    arr = np.array(img.convert("L"), dtype=np.float32)
+            except Exception as e:
+                logger.debug("temporal: image read failed %s: %s", p, e)
+                continue
+            if prev_arr is not None and prev_arr.shape == arr.shape:
+                deltas.append(float(np.mean(np.abs(arr - prev_arr))))
+            prev_arr = arr
+        return deltas
+
     async def _check_temporal_stability(self, video_path: Path) -> QualityScore:
-        """Check for flickering and temporal artifacts."""
-        # Would analyze frame-to-frame differences
-        return QualityScore(
-            dimension=QualityDimension.TEMPORAL_STABILITY,
-            score=0.85,
-            confidence=0.5,
-            notes="Temporal analysis not implemented yet",
-        )
+        """Frame-delta-consistency check via coefficient of variation.
+
+        Replaces the hardcoded 0.85 stub with an actual measurement, but
+        with calibration honesty: the V0 baseline (8 random Wan 2.2 T2V
+        FP8 shots, 2026-05-14) scores well on this metric — CoV median
+        0.18, mean 0.23, max 0.60, all well below the 1.0 unstable
+        threshold. Yet Grant graded V0 mp4s a 1/5 "slop."
+
+        What this metric DOES catch:
+          * Sudden cuts and flicker
+          * Catastrophic frame-rate / temporal artifacts
+          * Big bursty deltas (some small, some huge) indicating
+            intermittent flash-of-hallucination
+
+        What this metric does NOT catch (V0 evidence):
+          * Subtle morphing where subject identity drifts smoothly
+          * Subjects re-shaping smoothly between frames
+          * Semantic incoherence (a "person" gradually becoming
+            something not-a-person)
+
+        Catching the not-caught failure modes requires semantic /
+        identity tracking — face-embedding distance across frames
+        (for character shots) and CLIP-embedding cosine distance for
+        non-character shots. Those are RIB-3.7 follow-up codons.
+
+        Why CoV and not raw mean delta: a shot with sustained smooth
+        motion has high mean delta but consistent (low stdev) — that's
+        fine. A shot with intermittent flash-of-morph has bursty
+        deltas — that this catches.
+        """
+        import shutil
+        try:
+            frame_paths = await asyncio.get_event_loop().run_in_executor(
+                None, self._sample_frame_paths, video_path, 10,
+            )
+            if len(frame_paths) < 3:
+                return QualityScore(
+                    dimension=QualityDimension.TEMPORAL_STABILITY,
+                    score=0.5,
+                    confidence=0.1,
+                    notes=f"Could not extract enough frames (got {len(frame_paths)})",
+                )
+
+            deltas = await asyncio.get_event_loop().run_in_executor(
+                None, self._temporal_frame_deltas, frame_paths,
+            )
+
+            # Best-effort tmp cleanup
+            try:
+                shutil.rmtree(frame_paths[0].parent, ignore_errors=True)
+            except Exception:
+                pass
+
+            if len(deltas) < 2:
+                return QualityScore(
+                    dimension=QualityDimension.TEMPORAL_STABILITY,
+                    score=0.5,
+                    confidence=0.1,
+                    notes="Not enough deltas to compute coefficient of variation",
+                )
+
+            mean_d = sum(deltas) / len(deltas)
+            if mean_d < 1.0:
+                # Essentially-static footage (locked camera, no motion).
+                # That's actually GOOD for stability — give a high score.
+                return QualityScore(
+                    dimension=QualityDimension.TEMPORAL_STABILITY,
+                    score=0.95,
+                    confidence=0.8,
+                    notes=f"mean_delta={mean_d:.3f} (essentially-static; trivially stable)",
+                )
+
+            # Sample stdev (Bessel correction)
+            n = len(deltas)
+            var = sum((x - mean_d) ** 2 for x in deltas) / (n - 1)
+            stdev = var ** 0.5
+            cov = stdev / mean_d
+
+            score = max(0.0, min(1.0, 1.0 - cov / self.TEMPORAL_COV_CAP))
+            confidence = min(1.0, 0.5 + 0.05 * n)
+
+            issues: List[QualityIssue] = []
+            if cov > self.UNSTABLE_COV_THRESHOLD:
+                issues.append(QualityIssue.TEMPORAL_FLICKERING)
+
+            return QualityScore(
+                dimension=QualityDimension.TEMPORAL_STABILITY,
+                score=score,
+                confidence=confidence,
+                issues=issues,
+                notes=(
+                    f"frame_delta_CoV={cov:.3f} mean={mean_d:.2f} stdev={stdev:.2f} "
+                    f"(threshold={self.UNSTABLE_COV_THRESHOLD}, cap={self.TEMPORAL_COV_CAP}, "
+                    f"n_deltas={n})"
+                ),
+            )
+        except Exception as e:
+            logger.warning("Temporal stability check failed: %s", e)
+            return QualityScore(
+                dimension=QualityDimension.TEMPORAL_STABILITY,
+                score=0.5,
+                confidence=0.3,
+                notes=str(e),
+            )
     
     async def _check_physics(self, video_path: Path) -> QualityScore:
         """Check for physics violations."""
