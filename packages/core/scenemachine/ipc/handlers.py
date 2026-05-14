@@ -3031,6 +3031,53 @@ def register_handlers(server: IPCServer) -> None:
     server.handlers["pipeline.start"] = server.handlers["pipeline.run"]
     server.handlers["pipeline.status"] = server.handlers["pipeline.getStatus"]
 
+    # IP-Adapter settings handlers — the renderer's ip-adapter-controls.tsx
+    # was using fetch('/api/generation/settings/ip-adapter') against a
+    # FastAPI HTTP endpoint that doesn't run in the Electron desktop app.
+    # Result: every interaction with the panel silently fell through to a
+    # "return defaults" branch and nothing persisted. The renderer is now
+    # migrated to these IPC handlers; per the no-silent-fallbacks rule,
+    # the persistence layer is in-memory for now (per-session) and clearly
+    # documented as such. Future codon will back it with the per-project
+    # generation_settings table.
+    _ip_adapter_state: Dict[str, Any] = {
+        "mode": "balanced",
+        "strength": 0.6,
+        "available_modes": ["balanced", "strong", "face_only"],
+    }
+
+    @server.handler("ipAdapter.getSettings")
+    async def handle_ip_adapter_get() -> Dict[str, Any]:
+        """Return current IP-Adapter settings (in-memory until persisted)."""
+        return dict(_ip_adapter_state)
+
+    @server.handler("ipAdapter.updateSettings")
+    async def handle_ip_adapter_update(
+        mode: Optional[str] = None,
+        strength: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Update IP-Adapter settings. Returns the new state.
+
+        Validates inputs against the allowed-modes list and the
+        documented [0.0, 1.0] strength range. Loud TypeError/ValueError
+        rather than silent coercion per the no-silent-fallbacks rule.
+        """
+        if mode is not None:
+            if mode not in _ip_adapter_state["available_modes"]:
+                raise ValueError(
+                    f"invalid IPAdapter mode: {mode!r}. "
+                    f"allowed: {_ip_adapter_state['available_modes']}"
+                )
+            _ip_adapter_state["mode"] = mode
+        if strength is not None:
+            f = float(strength)
+            if not (0.0 <= f <= 1.0):
+                raise ValueError(
+                    f"IPAdapter strength must be in [0.0, 1.0], got {f}"
+                )
+            _ip_adapter_state["strength"] = f
+        return dict(_ip_adapter_state)
+
     # Blockers Engine handlers — the renderer's blockers-panel.tsx has been
     # invoking these IPC methods without registered handlers since the
     # panel landed. The engine itself (`services/blockers_engine.py`)
