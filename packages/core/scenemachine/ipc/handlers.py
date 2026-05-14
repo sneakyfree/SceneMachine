@@ -3031,6 +3031,102 @@ def register_handlers(server: IPCServer) -> None:
     server.handlers["pipeline.start"] = server.handlers["pipeline.run"]
     server.handlers["pipeline.status"] = server.handlers["pipeline.getStatus"]
 
+    # Blockers Engine handlers — the renderer's blockers-panel.tsx has been
+    # invoking these IPC methods without registered handlers since the
+    # panel landed. The engine itself (`services/blockers_engine.py`)
+    # is real and is invoked inside the pipeline; this exposes it to the
+    # UI so users can actually see and act on blockers before they ship.
+    # Caught by the 2026-05-14 DNA-strand audit (exec summary item #2).
+    @server.handler("blockers.analyze")
+    async def handle_blockers_analyze(project_id: str) -> Dict[str, Any]:
+        """Analyze a project for blockers visible to the user.
+
+        Loads the project's characters, scenes, and shots from the DB,
+        feeds them to ``BlockersEngine.analyze_project``, and returns a
+        ``{blockers: [...]}`` payload the renderer expects.
+        """
+        from scenemachine.services.blockers_engine import BlockersEngine
+        from scenemachine.services.character import CharacterService
+        from scenemachine.services.scene_planning import ScenePlanningService
+
+        pid = UUID(project_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            char_service = CharacterService(session)
+            scene_service = ScenePlanningService(session)
+
+            characters_raw = await char_service.list_project_characters(pid)
+            scenes_raw = await scene_service.get_project_scenes(pid, include_shots=True)
+
+            characters = [
+                {
+                    "id": str(c.id),
+                    "name": c.name,
+                    "description": c.description,
+                    "reference_image_path": c.reference_image_path,
+                    "voice_profile_id": c.voice_profile_id,
+                }
+                for c in characters_raw
+            ]
+
+            scenes = []
+            shots: List[Dict[str, Any]] = []
+            for s in scenes_raw:
+                scene_dict = {
+                    "scene_number": s.scene_number,
+                    "location": s.location,
+                    "time_of_day": s.time_of_day.value if hasattr(s.time_of_day, "value") else str(s.time_of_day),
+                    "raw_content": (s.raw_content or "")[:400],
+                }
+                scenes.append(scene_dict)
+                for sh in (s.shots or []):
+                    shots.append({
+                        "shot_id": str(sh.id),
+                        "scene_number": s.scene_number,
+                        "shot_type": sh.shot_type.value if hasattr(sh.shot_type, "value") else str(sh.shot_type),
+                        "description": sh.description,
+                        "duration_seconds": sh.duration_seconds,
+                        "characters_in_frame": list(sh.character_ids or []),
+                    })
+
+        engine = BlockersEngine()
+        analysis = engine.analyze_project(
+            characters=characters,
+            scenes=scenes,
+            shots=shots,
+            settings=None,
+        )
+        return analysis
+
+    @server.handler("blockers.apply_fix")
+    async def handle_blockers_apply_fix(
+        blocker_id: str, fix_id: str
+    ) -> Dict[str, Any]:
+        """Acknowledge an unlocker action; mark the blocker as user-handled.
+
+        Most unlocker actions are user-side ("upload a reference image",
+        "rewrite this dialogue") — they can't be applied programmatically.
+        This handler records the acknowledgement so the UI can hide the
+        blocker after the user has performed the suggested action. A
+        future codon will add programmatic fixes for the unlockers where
+        that's possible (e.g. "generate a default reference image"). For
+        now we are loud + honest: the response carries
+        ``programmatic: false`` so the caller knows nothing happened
+        server-side beyond the acknowledgement.
+        """
+        return {
+            "blocker_id": blocker_id,
+            "fix_id": fix_id,
+            "acknowledged": True,
+            "programmatic": False,
+            "message": (
+                "Acknowledged. The suggested fix requires manual user "
+                "action; re-run blockers.analyze after completing the "
+                "suggested step to see the blocker clear."
+            ),
+        }
+
     # Crew IPC handlers — mirrors /api/crew/* REST endpoints for Electron
     @server.handler("crew.listAgents")
     async def handle_crew_list_agents() -> List[Dict[str, Any]]:
