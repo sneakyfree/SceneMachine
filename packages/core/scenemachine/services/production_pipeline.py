@@ -422,16 +422,19 @@ class ProductionPipeline:
         self,
         shots: List[ShotGenerationStatus],
     ) -> None:
-        """Generate videos for shots with parallel execution.
+        """Generate videos for shots, routing each through StackRouter.
 
-        Each shot is routed through ``services.stack_router.route_shot`` to
-        pick the right Wan stack (T2V / I2V / Animate) based on its
-        metadata, then dispatched to the registry-resolved provider.
+        Shots are grouped by scene_id and processed **sequentially within
+        a scene** so the previous shot's last frame is available to seed
+        the next shot via I2V (StackRouter routing rule #3). Scenes run
+        in parallel up to ``self.max_parallel`` concurrent scenes.
 
-        Continuity (I2V) routing is wired but a no-op until we plumb the
-        previous-shot's last frame through the pipeline; for now,
-        ``prev_shot_last_frame=None`` means only T2V and Animate are
-        selected, never I2V from continuity. Tracked as a follow-up.
+        After a shot succeeds, its last frame is extracted via ffmpeg
+        into the ComfyUI input directory and passed as
+        ``prev_shot_last_frame`` to ``route_shot`` for the next shot in
+        the same scene. The router picks I2V whenever this frame is
+        available AND the shot has no character references (which would
+        otherwise route to Animate — character ID outranks continuity).
         """
         from scenemachine.services.video_quality_reviewer import get_video_quality_reviewer
         from scenemachine.services.stack_router import route_shot
@@ -444,7 +447,10 @@ class ProductionPipeline:
         from uuid import UUID, uuid4
 
         reviewer = get_video_quality_reviewer()
-        semaphore = asyncio.Semaphore(self.max_parallel)
+
+        # Scene-level concurrency: each scene's shots run sequentially
+        # (for continuity), but multiple scenes can run concurrently.
+        scene_semaphore = asyncio.Semaphore(self.max_parallel)
 
         # Resolve provider ONCE from the global registry (no per-shot import
         # churn). Loud failure here is correct — the silent placeholder
@@ -476,123 +482,204 @@ class ProductionPipeline:
                 character_ref_paths[str(cid)] = str(ref)
 
         settings = get_settings()
+        comfyui_input_dir = Path(
+            getattr(settings, "comfyui_input_dir", None) or "/opt/ai/comfyui/input"
+        )
+        comfyui_input_dir.mkdir(parents=True, exist_ok=True)
 
-        async def generate_shot(shot: ShotGenerationStatus) -> None:
-            async with semaphore:
-                shot.status = "generating"
-                shot_index = shots.index(shot)
-                await self._emit_progress(
-                    PipelineStage.VIDEO_GENERATION,
-                    30 + (40 * shot_index / len(shots)),
-                    f"Generating shot {shot.shot_id}",
-                    current_shot=shot.shot_id,
+        async def extract_last_frame(video_path: str, shot_id: str,
+                                     duration_s: float) -> Optional[str]:
+            """Extract the last frame of the shot's mp4 into ComfyUI's input
+            dir. Returns the filename (relative to ComfyUI input dir) on
+            success, None on failure. Failure is logged but never raised —
+            continuity is best-effort; if the frame extraction fails the
+            next shot just falls back to T2V routing.
+            """
+            try:
+                from scenemachine.utils.ffmpeg import get_ffmpeg
+                ffmpeg = get_ffmpeg()
+                vp = Path(video_path)
+                if not vp.exists():
+                    logger.warning("continuity: source mp4 missing: %s", vp)
+                    return None
+                fname = f"continuity_{shot_id}.jpg"
+                out = comfyui_input_dir / fname
+                # Seek to ~100 ms before the end (clamped to 0). Using
+                # duration_s - 0.1 keeps us safely inside the clip even at
+                # 24 fps where a single frame is ~42 ms.
+                timestamp = max(0.0, float(duration_s) - 0.1)
+                await ffmpeg.extract_frame(
+                    video_path=vp,
+                    output_path=out,
+                    timestamp=timestamp,
+                    quality=2,
+                )
+                logger.info("continuity: extracted last frame -> %s", out)
+                return fname
+            except Exception as e:
+                logger.warning(
+                    "continuity frame extraction failed for shot %s: %s "
+                    "(next shot will route T2V instead of I2V)",
+                    shot_id, e,
+                )
+                return None
+
+        # Group shots by scene_id so we can process each scene's shots
+        # sequentially. Preserve the original order within each scene
+        # (the shot_list generator already sorts by sequence_number).
+        scenes_to_shots: Dict[str, List[ShotGenerationStatus]] = {}
+        for shot in shots:
+            scenes_to_shots.setdefault(shot.scene_id or "_no_scene_", []).append(shot)
+
+        async def generate_shot(
+            shot: ShotGenerationStatus,
+            prev_shot_last_frame: Optional[str],
+        ) -> Optional[str]:
+            """Generate one shot. Returns the next shot's
+            ``prev_shot_last_frame`` (None if generation failed or last-frame
+            extraction failed — both are treated as no-continuity).
+            """
+            shot.status = "generating"
+            shot_index = shots.index(shot)
+            await self._emit_progress(
+                PipelineStage.VIDEO_GENERATION,
+                30 + (40 * shot_index / len(shots)),
+                f"Generating shot {shot.shot_id}",
+                current_shot=shot.shot_id,
+            )
+
+            try:
+                shot_data = self._get_shot_data(shot.shot_id)
+                if not shot_data:
+                    shot.status = "failed"
+                    shot.error = "Shot data not found in shot list"
+                    return None
+
+                prompt = self._build_generation_prompt(shot_data)
+
+                # Pick the right stack for this shot — now WITH continuity
+                # from the previous shot's last frame when available.
+                decision = route_shot(
+                    shot_data,
+                    prev_shot_last_frame=prev_shot_last_frame,
+                    character_ref_paths=character_ref_paths,
                 )
 
+                # Build the provider-facing request.
                 try:
-                    shot_data = self._get_shot_data(shot.shot_id)
-                    if not shot_data:
-                        shot.status = "failed"
-                        shot.error = "Shot data not found in shot list"
-                        return
+                    shot_uuid = UUID(str(shot.shot_id))
+                except (ValueError, AttributeError):
+                    shot_uuid = uuid4()
 
-                    prompt = self._build_generation_prompt(shot_data)
+                extra_params = {"model_id": decision.model_id}
+                extra_params.update(decision.extra_params or {})
 
-                    # Pick the right stack for this shot.
-                    decision = route_shot(
-                        shot_data,
-                        prev_shot_last_frame=None,  # TODO: wire continuity from prior shot
-                        character_ref_paths=character_ref_paths,
-                    )
-                    logger.info(
-                        "shot %s -> %s (%s)",
-                        shot.shot_id, decision.model_id, decision.reason,
-                    )
+                request = GenerationRequest(
+                    shot_id=shot_uuid,
+                    prompt=prompt,
+                    negative_prompt=shot_data.get("negative_prompt", "") or "",
+                    width=int(shot_data.get("width", 768)),
+                    height=int(shot_data.get("height", 432)),
+                    fps=int(shot_data.get("fps", 24)),
+                    duration_seconds=float(shot_data.get("duration_seconds", 3.0)),
+                    seed=shot_data.get("seed"),
+                    input_image_path=decision.input_image_path,
+                    character_references=decision.character_references,
+                    extra_params=extra_params,
+                )
 
-                    # Build the provider-facing request.
-                    try:
-                        shot_uuid = UUID(str(shot.shot_id))
-                    except (ValueError, AttributeError):
-                        shot_uuid = uuid4()
+                logger.info(
+                    "shot %s -> %s (%s)",
+                    shot.shot_id, decision.model_id, decision.reason,
+                )
 
-                    extra_params = {"model_id": decision.model_id}
-                    extra_params.update(decision.extra_params or {})
+                # Real provider call — no silent fallback. If the provider
+                # fails, the failure surfaces on the shot.
+                result = await provider_impl.generate(request)
 
-                    request = GenerationRequest(
-                        shot_id=shot_uuid,
-                        prompt=prompt,
-                        negative_prompt=shot_data.get("negative_prompt", "") or "",
-                        width=int(shot_data.get("width", 768)),
-                        height=int(shot_data.get("height", 432)),
-                        fps=int(shot_data.get("fps", 24)),
-                        duration_seconds=float(shot_data.get("duration_seconds", 3.0)),
-                        seed=shot_data.get("seed"),
-                        input_image_path=decision.input_image_path,
-                        character_references=decision.character_references,
-                        extra_params=extra_params,
-                    )
-
-                    # Real provider call — no silent fallback. If the provider
-                    # fails, the failure surfaces on the shot.
-                    result = await provider_impl.generate(request)
-
-                    if not result.success:
-                        shot.status = "failed"
-                        shot.error = result.error_message or (
-                            f"provider returned success=False "
-                            f"(code={result.error_code})"
-                        )
-                        logger.warning(
-                            "shot %s generation failed: %s",
-                            shot.shot_id, shot.error,
-                        )
-                        return
-
-                    # Provider returns settings-dir-relative output_path
-                    # (e.g. "shots/<uuid>/output.mp4"). Resolve to absolute.
-                    if result.output_path:
-                        abs_path = settings.output_dir / result.output_path
-                        shot.video_path = str(abs_path)
-                    self.total_cost += float(result.cost_usd or 0.0)
-                    # Seed quality score from provider metadata if it
-                    # provided one — reviewer below may override it.
-                    shot.quality_score = (
-                        (result.metadata or {}).get("quality_score", 0.8)
-                    )
-
-                    # Quality review (unchanged from prior implementation)
-                    if shot.video_path and Path(shot.video_path).exists():
-                        try:
-                            review = await reviewer.review_video(shot.video_path)
-                            shot.quality_score = review.get(
-                                "overall_score", shot.quality_score
-                            )
-                            if (
-                                shot.quality_score < self.quality_threshold
-                                and shot.regeneration_count < 2
-                            ):
-                                shot.regeneration_count += 1
-                                logger.info(
-                                    "shot %s quality %s below threshold, "
-                                    "regenerating (attempt %s)",
-                                    shot.shot_id, shot.quality_score,
-                                    shot.regeneration_count,
-                                )
-                                await generate_shot(shot)
-                                return
-                        except Exception as review_err:
-                            logger.debug(
-                                "quality review skipped for %s: %s",
-                                shot.shot_id, review_err,
-                            )
-
-                    shot.status = "completed"
-
-                except Exception as e:
-                    logger.exception("failed to generate shot %s", shot.shot_id)
+                if not result.success:
                     shot.status = "failed"
-                    shot.error = str(e)
+                    shot.error = result.error_message or (
+                        f"provider returned success=False "
+                        f"(code={result.error_code})"
+                    )
+                    logger.warning(
+                        "shot %s generation failed: %s",
+                        shot.shot_id, shot.error,
+                    )
+                    return None
 
-        await asyncio.gather(*[generate_shot(shot) for shot in shots])
+                # Provider returns settings-dir-relative output_path
+                # (e.g. "shots/<uuid>/output.mp4"). Resolve to absolute.
+                if result.output_path:
+                    abs_path = settings.output_dir / result.output_path
+                    shot.video_path = str(abs_path)
+                self.total_cost += float(result.cost_usd or 0.0)
+                shot.quality_score = (
+                    (result.metadata or {}).get("quality_score", 0.8)
+                )
+
+                # Quality review (regeneration loop)
+                if shot.video_path and Path(shot.video_path).exists():
+                    try:
+                        review = await reviewer.review_video(shot.video_path)
+                        shot.quality_score = review.get(
+                            "overall_score", shot.quality_score
+                        )
+                        if (
+                            shot.quality_score < self.quality_threshold
+                            and shot.regeneration_count < 2
+                        ):
+                            shot.regeneration_count += 1
+                            logger.info(
+                                "shot %s quality %s below threshold, "
+                                "regenerating (attempt %s)",
+                                shot.shot_id, shot.quality_score,
+                                shot.regeneration_count,
+                            )
+                            # Re-run with the same prev_shot_last_frame
+                            return await generate_shot(shot, prev_shot_last_frame)
+                    except Exception as review_err:
+                        logger.debug(
+                            "quality review skipped for %s: %s",
+                            shot.shot_id, review_err,
+                        )
+
+                shot.status = "completed"
+
+                # Extract last frame for the NEXT shot's continuity. Done
+                # AFTER quality review so we don't waste extraction on a
+                # shot that's about to be regenerated.
+                if shot.video_path:
+                    return await extract_last_frame(
+                        shot.video_path,
+                        str(shot.shot_id),
+                        float(shot_data.get("duration_seconds", 3.0)),
+                    )
+                return None
+
+            except Exception as e:
+                logger.exception("failed to generate shot %s", shot.shot_id)
+                shot.status = "failed"
+                shot.error = str(e)
+                return None
+
+        async def generate_scene(
+            scene_id: str,
+            scene_shots: List[ShotGenerationStatus],
+        ) -> None:
+            """Process one scene's shots SEQUENTIALLY so each can seed the
+            next via I2V continuity. Scenes run in parallel up to
+            ``self.max_parallel`` concurrent scenes."""
+            async with scene_semaphore:
+                prev_frame: Optional[str] = None
+                for shot in scene_shots:
+                    prev_frame = await generate_shot(shot, prev_frame)
+
+        await asyncio.gather(*[
+            generate_scene(scene_id, scene_shots)
+            for scene_id, scene_shots in scenes_to_shots.items()
+        ])
     
     async def _generate_audio(
         self, 
