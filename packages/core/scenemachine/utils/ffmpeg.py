@@ -382,16 +382,38 @@ class FFmpeg:
         timestamp: float = 1.0,
         quality: int = 2,
     ) -> Path:
-        """Extract a frame from a video.
+        """Extract a single frame from a video.
+
+        ``timestamp`` accepts two conventions:
+
+        * ``timestamp >= 0``: seconds from the start of the clip (input seek
+          via ``-ss``). Fast but skips to the nearest keyframe ≤ ``timestamp``.
+        * ``timestamp < 0``: seconds *before EOF* (negative seek via
+          ``-sseof``). Use this when you want the last frame and don't want
+          to pre-probe the actual duration — clips encoded by ``av1_nvenc``
+          (and many other codecs) have a container ``duration`` that differs
+          from ``frames / fps`` by 100–200 ms due to GOP rounding. Asking for
+          ``duration_s - 0.1`` on a clip with container duration ``2.875``
+          when you assumed ``3.0`` lands past EOF and ffmpeg produces an
+          empty output (``frame=0``). ``-sseof -0.1`` is safe regardless.
+
+        Caught live during the 2026-05-14 overnight RADAR_LOVE_2 +
+        IMPOSSIBLE_FULL run: every continuity-frame extraction (153 of
+        them) silently failed for this reason, so the StackRouter's I2V
+        continuity path never fired and every shot fell back to T2V. The
+        pipeline degraded gracefully but the I2V routing was effectively
+        dead. The ``-update 1`` flag is also added so modern ffmpeg (≥6)
+        stops warning about single-image output.
 
         Args:
-            video_path: Source video path
-            output_path: Output image path
-            timestamp: Time in seconds to extract frame
-            quality: JPEG quality (2=best, 31=worst)
+            video_path: Source video path.
+            output_path: Output image path.
+            timestamp: Time in seconds. Positive = from start, negative =
+                before EOF. Default ``1.0`` (1 s from start).
+            quality: JPEG quality (2 = best, 31 = worst).
 
         Returns:
-            Path to extracted frame
+            Path to extracted frame.
         """
         await self.ensure_available()
 
@@ -400,12 +422,18 @@ class FFmpeg:
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
+        if timestamp < 0:
+            seek_args = ["-sseof", str(timestamp)]
+        else:
+            seek_args = ["-ss", str(timestamp)]
+
         cmd = [
             self._info.ffmpeg_path or "ffmpeg",
             "-y",
-            "-ss", str(timestamp),
+            *seek_args,
             "-i", str(video_path),
-            "-vframes", "1",
+            "-update", "1",
+            "-frames:v", "1",
             "-q:v", str(quality),
             str(output_path),
         ]
@@ -417,10 +445,12 @@ class FFmpeg:
         )
         _, stderr = await process.communicate()
 
-        if process.returncode != 0 or not output_path.exists():
+        if process.returncode != 0 or not output_path.exists() or output_path.stat().st_size == 0:
+            stderr_text = stderr.decode(errors="replace")
             raise FFmpegExecutionError(
-                f"Frame extraction failed: {stderr.decode()}",
-                stderr=stderr.decode(),
+                f"Frame extraction failed (rc={process.returncode}, "
+                f"output_exists={output_path.exists()}): {stderr_text[-1024:]}",
+                stderr=stderr_text,
                 returncode=process.returncode,
             )
 
