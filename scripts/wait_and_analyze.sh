@@ -70,12 +70,20 @@ mkdir -p "${OUT_BASE}"
 echo "[$(date -Iseconds)] wait_and_analyze: V_TAG=${V_TAG} short=${SHORT_TAG}"
 echo "[$(date -Iseconds)] wait_and_analyze: polling ${TARGET_MP4} every ${POLL_INTERVAL_S}s"
 
-deadline=$(( $(date +%s) + MAX_WAIT_HOURS * 3600 ))
+# Capture start time so we can require the target mp4 was written AFTER we
+# started watching. Otherwise stale outputs from previous smoke tests at
+# the same path can falsely trigger the analysis pipeline — exactly the
+# bug caught during this script's first overnight wiring on V6a.
+START_EPOCH=$(date +%s)
+deadline=$(( START_EPOCH + MAX_WAIT_HOURS * 3600 ))
+echo "[$(date -Iseconds)] requiring target mp4 mtime > ${START_EPOCH} (only accept fresh writes)"
+
 while true; do
   if [[ -f "${TARGET_MP4}" ]]; then
     size=$(stat -c%s "${TARGET_MP4}" 2>/dev/null || echo 0)
-    if (( size >= MIN_MP4_BYTES )); then
-      echo "[$(date -Iseconds)] target mp4 ready (${size} bytes)"
+    mtime=$(stat -c%Y "${TARGET_MP4}" 2>/dev/null || echo 0)
+    if (( size >= MIN_MP4_BYTES )) && (( mtime > START_EPOCH )); then
+      echo "[$(date -Iseconds)] target mp4 ready (${size} bytes, mtime=${mtime})"
       break
     fi
   fi
