@@ -83,6 +83,10 @@ class BenchmarkPreset:
     use_continuity: bool = False
     use_animate_when_chars: bool = False
     use_quality_gate_regen: bool = False
+    # Per-shot extra_params merged into the GenerationRequest. Used for
+    # provider-specific tuning knobs (e.g. Wan Animate's face_strength,
+    # clip_vision_strength) that don't deserve top-level preset fields.
+    shot_extra_params: Dict[str, Any] = field(default_factory=dict)
     expected_wallclock_minutes_per_47_shots: int = 110
 
 
@@ -146,6 +150,28 @@ PRESETS: Dict[str, BenchmarkPreset] = {
         use_quality_gate_regen=True,
         expected_wallclock_minutes_per_47_shots=15 * 60,
     ),
+    # V6a — attack the empirical rigidity measurement (2026-05-17, see
+    # scripts/analyze_scene_context_fidelity.py). V5_animate shots within
+    # the same character cluster were ~1.5× more visually similar to each
+    # other than V0's were. Hypothesis: reducing the reference's
+    # conditioning weight lets scene context survive without losing
+    # identity. face_strength controls the face-region attention to the
+    # ref embedding; clip_vision_strength controls the global CLIP-Vision
+    # conditioning magnitude. Both at 0.5 = balanced "use the ref as a
+    # guide, not a copy."
+    "V6a_animate_strength_05": BenchmarkPreset(
+        name="V6a_animate_strength_05",
+        description=(
+            "V5 + reduce Animate ref conditioning to 0.5 to fight rigidity"
+        ),
+        num_inference_steps=30,
+        use_animate_when_chars=True,
+        shot_extra_params={
+            "face_strength": 0.5,
+            "clip_vision_strength": 0.5,
+        },
+        expected_wallclock_minutes_per_47_shots=11 * 60,
+    ),
 }
 
 
@@ -182,6 +208,7 @@ async def run_one_screenplay(
     screenplay_name: str,
     preset: BenchmarkPreset,
     run_dir: Path,
+    limit: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Run one screenplay through the pipeline with the given preset."""
     from uuid import UUID, uuid4
@@ -214,6 +241,9 @@ async def run_one_screenplay(
         svc = ScenePlanningService(session)
         scenes = await svc.get_project_scenes(UUID(entry["project_id"]), include_shots=False)
         log.info("loaded %d scenes from DB", len(scenes))
+        if limit is not None and limit > 0:
+            scenes = scenes[:limit]
+            log.info("--limit %d applied: keeping first %d scenes", limit, len(scenes))
         scene_data = []
         for sc in scenes:
             tod = sc.time_of_day.value if hasattr(sc.time_of_day, "value") else str(sc.time_of_day)
@@ -294,23 +324,26 @@ async def run_one_screenplay(
                     seen.add(cid)
 
         shot_id = str(uuid4())
+        shot_payload: Dict[str, Any] = {
+            "shot_id": shot_id,
+            "description": description,
+            "shot_type": "wide",
+            "camera_movement": "static",
+            "duration_seconds": preset.duration_seconds,
+            "width": preset.width,
+            "height": preset.height,
+            "fps": preset.fps,
+            "seed": 42 + sd["sequence_number"],
+            "character_ids": shot_character_ids,
+            "negative_prompt": "blurry, low quality, watermark, text overlay, distorted",
+            "num_inference_steps": preset.num_inference_steps,
+            "guidance_scale": preset.guidance_scale,
+        }
+        if preset.shot_extra_params:
+            shot_payload["extra_params"] = dict(preset.shot_extra_params)
         scenes_for_pipeline.append({
             "scene_number": sd["scene_number"],
-            "shots": [{
-                "shot_id": shot_id,
-                "description": description,
-                "shot_type": "wide",
-                "camera_movement": "static",
-                "duration_seconds": preset.duration_seconds,
-                "width": preset.width,
-                "height": preset.height,
-                "fps": preset.fps,
-                "seed": 42 + sd["sequence_number"],
-                "character_ids": shot_character_ids,
-                "negative_prompt": "blurry, low quality, watermark, text overlay, distorted",
-                "num_inference_steps": preset.num_inference_steps,
-                "guidance_scale": preset.guidance_scale,
-            }],
+            "shots": [shot_payload],
         })
         shot_statuses.append(ShotGenerationStatus(
             shot_id=shot_id, scene_id=sd["scene_number"], status="queued",
@@ -374,6 +407,8 @@ async def main() -> int:
     parser.add_argument("--list-presets", action="store_true")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print the plan; do not run.")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="Only run the first N scenes (smoke test).")
     args = parser.parse_args()
 
     if args.list_presets or not args.version_tag:
@@ -416,7 +451,7 @@ async def main() -> int:
     results: List[Dict[str, Any]] = []
     for sn in screenplays:
         try:
-            r = await run_one_screenplay(sn, preset, run_dir)
+            r = await run_one_screenplay(sn, preset, run_dir, limit=args.limit)
             results.append(r)
         except Exception as e:
             log.exception("run failed for %s: %s", sn, e)
