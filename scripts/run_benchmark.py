@@ -333,19 +333,54 @@ async def run_one_screenplay(
                 refs_dir,
             )
 
-    # Build shots from scenes. V3 will swap this loop for an LLM-driven
-    # breakdown when ``preset.use_llm_prompts`` is True (Qwen via Ollama).
+    # Load LLM-enhanced prompts when the preset opts in. Fails LOUD when
+    # the expected JSON is missing or doesn't cover every requested scene —
+    # no silent fallback to template prompts, per the no-silent-fallbacks
+    # rule. To populate the JSON: run scripts/generate_llm_prompts.py.
+    llm_prompts_map: Dict[str, str] = {}
+    if preset.use_llm_prompts:
+        llm_json_path = Path(
+            f"/home/user1-gpu/scenemachine_movies/llm_prompts/"
+            f"{screenplay_name}/qwen2.5-72b.json"
+        )
+        if not llm_json_path.exists():
+            raise FileNotFoundError(
+                f"preset.use_llm_prompts=True but {llm_json_path} not found. "
+                f"Run `python scripts/generate_llm_prompts.py --screenplay "
+                f"{screenplay_name} --out {llm_json_path}` first."
+            )
+        llm_doc = json.loads(llm_json_path.read_text())
+        for sn, sc in (llm_doc.get("scenes") or {}).items():
+            prompt = (sc or {}).get("enhanced_prompt")
+            if prompt:
+                llm_prompts_map[sn] = prompt
+        # Verify coverage of every scene we're about to run. Partial JSONs
+        # (failed mid-generation) must be regenerated before benchmarking.
+        missing = [sd["scene_number"] for sd in scene_data
+                   if sd["scene_number"] not in llm_prompts_map]
+        if missing:
+            raise RuntimeError(
+                f"LLM prompts JSON at {llm_json_path} is missing prompts "
+                f"for scenes {missing}. Regenerate with --force after "
+                f"diagnosing the gap."
+            )
+        log.info("V3 mode: loaded %d LLM-enhanced prompts from %s",
+                 len(llm_prompts_map), llm_json_path)
+
     scenes_for_pipeline = []
     shot_statuses = []
     for sd in scene_data:
-        snippets = [f"{sd['location']}, {sd['time_of_day']}"] if sd["location"] else []
-        raw = sd["raw_content"].replace("\n", " ").strip()
-        if raw:
-            snippets.append(raw[:280])
-        description = (
-            "Cinematic wide establishing shot. " + " — ".join(snippets)
-            if snippets else "Cinematic wide establishing shot"
-        )
+        if llm_prompts_map:
+            description = llm_prompts_map[sd["scene_number"]]
+        else:
+            snippets = [f"{sd['location']}, {sd['time_of_day']}"] if sd["location"] else []
+            raw = sd["raw_content"].replace("\n", " ").strip()
+            if raw:
+                snippets.append(raw[:280])
+            description = (
+                "Cinematic wide establishing shot. " + " — ".join(snippets)
+                if snippets else "Cinematic wide establishing shot"
+            )
 
         # V5 character detection: scan the raw scene content (longer
         # than the truncated description) for any character keyword.
