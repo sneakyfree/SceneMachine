@@ -172,6 +172,44 @@ PRESETS: Dict[str, BenchmarkPreset] = {
         },
         expected_wallclock_minutes_per_47_shots=11 * 60,
     ),
+    # V6b — the "sweep harder" branch the v_scorecard (#69) recommends
+    # when V6a's worst-cluster rigidity is still > 0.75 AND ref_sim_best
+    # is still > 0.65 (identity preserved → there's headroom to push
+    # strengths lower). Both knobs at 0.3.
+    "V6b_animate_strength_03": BenchmarkPreset(
+        name="V6b_animate_strength_03",
+        description=(
+            "V5 + Animate ref conditioning at 0.3 — for when V6a leaves "
+            "rigidity above acceptable threshold"
+        ),
+        num_inference_steps=30,
+        use_animate_when_chars=True,
+        shot_extra_params={
+            "face_strength": 0.3,
+            "clip_vision_strength": 0.3,
+        },
+        expected_wallclock_minutes_per_47_shots=11 * 60,
+    ),
+    # V6c — the "disentangle, keep identity" branch the scorecard
+    # recommends when V6a's ref_sim_best drops < 0.65 (identity collapsed).
+    # Hypothesis: face_strength governs face-region attention (identity
+    # signal) and clip_vision_strength governs the global CLIP-Vision
+    # conditioning (rigidity driver). Keep face_strength tight at 1.0 so
+    # identity survives, only reduce clip_vision_strength.
+    "V6c_clip_only_05": BenchmarkPreset(
+        name="V6c_clip_only_05",
+        description=(
+            "V5 + only clip_vision_strength=0.5 (face_strength stays 1.0). "
+            "Disentangles which knob drives rigidity."
+        ),
+        num_inference_steps=30,
+        use_animate_when_chars=True,
+        shot_extra_params={
+            "face_strength": 1.0,
+            "clip_vision_strength": 0.5,
+        },
+        expected_wallclock_minutes_per_47_shots=11 * 60,
+    ),
 }
 
 
