@@ -1057,6 +1057,78 @@ class TestComfyUIProvider:
         model = provider.get_model("wan22-animate-14b")
         assert model.extra_params.get("expected_timeout_seconds", 0) >= 1800
 
+    def test_comfyui_animate_strength_defaults_to_1(self):
+        """Backward-compat guard: an Animate workflow built from a request
+        WITHOUT face_strength / clip_vision_strength overrides must emit
+        the historical 1.0 values on both WanVideoAnimateEmbeds and
+        WanVideoClipVisionEncode. Anything else would silently change
+        every existing V5_animate caller's output."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            character_references=[{"reference_image_path": "ref.png"}],
+        )
+        wf = provider._build_wan_animate_workflow(request, model, num_frames=69)
+        animate_embeds = next(
+            n for n in wf.values()
+            if n["class_type"] == "WanVideoAnimateEmbeds"
+        )
+        clip_encode = next(
+            n for n in wf.values()
+            if n["class_type"] == "WanVideoClipVisionEncode"
+        )
+        assert animate_embeds["inputs"]["face_strength"] == 1.0
+        assert animate_embeds["inputs"]["pose_strength"] == 1.0
+        assert clip_encode["inputs"]["strength_1"] == 1.0
+        assert clip_encode["inputs"]["strength_2"] == 1.0
+
+    def test_comfyui_animate_face_strength_override_via_extra_params(self):
+        """V6a wiring: request.extra_params['face_strength'] overrides
+        the WanVideoAnimateEmbeds face_strength input. This is the
+        knob that targets the within-character rigidity measured in
+        PR #65 (Ellie cluster 0.865 self-sim vs V0's 0.574). Without
+        this plumbing, every Animate-routed shot in V5..V7 silently
+        runs at face_strength=1.0."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            character_references=[{"reference_image_path": "ref.png"}],
+            extra_params={"face_strength": 0.5, "pose_strength": 0.3},
+        )
+        wf = provider._build_wan_animate_workflow(request, model, num_frames=69)
+        animate_embeds = next(
+            n for n in wf.values()
+            if n["class_type"] == "WanVideoAnimateEmbeds"
+        )
+        assert animate_embeds["inputs"]["face_strength"] == 0.5
+        assert animate_embeds["inputs"]["pose_strength"] == 0.3
+
+    def test_comfyui_animate_clip_vision_strength_override_via_extra_params(self):
+        """V6a wiring: request.extra_params['clip_vision_strength']
+        overrides BOTH strength_1 and strength_2 on the
+        WanVideoClipVisionEncode node. The two strengths control the
+        ref's CLIP-Vision conditioning magnitude — reducing both lets
+        scene context survive without ditching the identity signal."""
+        from scenemachine.generators.comfyui import ComfyUIProvider
+
+        provider = ComfyUIProvider()
+        model = provider.get_model("wan22-animate-14b")
+        request = self._make_request(
+            character_references=[{"reference_image_path": "ref.png"}],
+            extra_params={"clip_vision_strength": 0.5},
+        )
+        wf = provider._build_wan_animate_workflow(request, model, num_frames=69)
+        clip_encode = next(
+            n for n in wf.values()
+            if n["class_type"] == "WanVideoClipVisionEncode"
+        )
+        assert clip_encode["inputs"]["strength_1"] == 0.5
+        assert clip_encode["inputs"]["strength_2"] == 0.5
+
     def test_comfyui_provider_advertises_character_consistency(self):
         """Wan Animate gives us character-consistency support, so the
         provider's capabilities must advertise the feature."""
