@@ -75,18 +75,38 @@ os.chdir("/home/user1-gpu")
 sys.path.insert(0, "/home/user1-gpu/Desktop/grants_folder/SceneMachine/packages/core")
 
 
-def gtts_one(text: str, out_path: Path, lang: str = "en", slow: bool = False) -> None:
-    """Generate one mp3. Raises on failure (loud, per no-silent-fallbacks)."""
+def gtts_one(text: str, out_path: Path, lang: str = "en",
+             slow: bool = False, max_retries: int = 5) -> None:
+    """Generate one mp3 via gTTS, with backoff on transient network
+    failures (gTTS uses Google Translate's TTS endpoint which
+    occasionally rate-limits / 5xxs for a few seconds). Raises only
+    after exhausting retries — loud failure per no-silent-fallbacks.
+    """
+    import time
     text = text.strip()
     if not text:
         raise RuntimeError(f"empty narration for {out_path}")
-    tts = gTTS(text=text, lang=lang, slow=slow)
-    tts.save(str(out_path))
-    if not out_path.exists() or out_path.stat().st_size < 1024:
-        raise RuntimeError(
-            f"gTTS produced empty/tiny mp3 at {out_path} "
-            f"({out_path.stat().st_size if out_path.exists() else 'missing'} bytes)"
-        )
+    last_err: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            tts = gTTS(text=text, lang=lang, slow=slow)
+            tts.save(str(out_path))
+            if out_path.exists() and out_path.stat().st_size >= 1024:
+                return
+            raise RuntimeError(
+                f"gTTS produced empty/tiny mp3 at {out_path} "
+                f"({out_path.stat().st_size if out_path.exists() else 'missing'} bytes)"
+            )
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            if attempt < max_retries - 1:
+                backoff = 2 ** attempt  # 1s, 2s, 4s, 8s, 16s
+                print(f"  gTTS attempt {attempt + 1}/{max_retries} failed "
+                      f"({e!s}); retry in {backoff}s")
+                time.sleep(backoff)
+    raise RuntimeError(
+        f"gTTS exhausted {max_retries} retries for {out_path}: {last_err!r}"
+    )
 
 
 def ffprobe_duration(path: Path) -> float:
@@ -118,13 +138,23 @@ def stretch_video_segment(
 ) -> None:
     """Cut a segment of in_mp4 from start_s for segment_s seconds and
     stretch it to audio_s seconds using the setpts filter. Audio is
-    silent; will be muxed later."""
+    silent; will be muxed later.
+
+    Caution learned 2026-05-18: ``-t`` and ``-ss`` MUST appear before
+    ``-i`` so they are interpreted as INPUT-side seek + duration.
+    Putting them after ``-i`` makes them OUTPUT clamps, which silently
+    truncated the stretched output back to the original segment length
+    (47 × 2.875s segments stayed at 135s instead of expanding to
+    ~12min). The mux then ``-shortest``-truncated the 12-min audio to
+    match the too-short video, lost ~10 min of narration. The bug was
+    loud only at ffprobe-the-output time.
+    """
     speed = segment_s / audio_s  # < 1 = slower (longer)
     cmd = [
         "ffmpeg", "-y", "-loglevel", "error",
         "-ss", f"{start_s:.3f}",
-        "-i", str(in_mp4),
         "-t", f"{segment_s:.3f}",
+        "-i", str(in_mp4),
         "-an",
         "-vf", f"setpts=PTS/{speed:.6f}",
         "-c:v", "libx264", "-preset", "fast",
