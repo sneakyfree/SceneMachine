@@ -345,10 +345,22 @@ async def run_one_screenplay(
     failed = sum(1 for s in shot_statuses if s.status == "failed")
     log.info("video gen: %.1fs  completed=%d  failed=%d", gen_elapsed, completed, failed)
 
-    output_path = await pipeline._assemble_movie(shot_statuses)
+    from scenemachine.services.production_pipeline import AssemblyError
+
     final_mp4 = output_dir / "final.mp4"
-    if Path(output_path).exists() and output_path != str(final_mp4):
-        shutil.copy2(output_path, final_mp4)
+    assembly_error: Optional[str] = None
+    try:
+        output_path = await pipeline._assemble_movie(shot_statuses)
+        if Path(output_path).exists() and output_path != str(final_mp4):
+            shutil.copy2(output_path, final_mp4)
+    except AssemblyError as e:
+        # _assemble_movie now raises instead of writing a 0-byte stub.
+        # Record the failure structurally so RESULTS.json reflects what
+        # happened — final_mp4_path is None when no file landed, and the
+        # error is preserved as a string. The harness still exits 1 via
+        # the any_failed check at the bottom of main().
+        log.error("assembly failed: %s", e)
+        assembly_error = f"{type(e).__name__}: {e}"
 
     final_sha = sha256_file(final_mp4) if final_mp4.exists() else None
     return {
@@ -358,9 +370,10 @@ async def run_one_screenplay(
         "shots_completed": completed,
         "shots_failed": failed,
         "video_gen_elapsed_s": round(gen_elapsed, 1),
-        "final_mp4_path": str(final_mp4),
+        "final_mp4_path": str(final_mp4) if final_mp4.exists() else None,
         "final_mp4_bytes": final_mp4.stat().st_size if final_mp4.exists() else 0,
         "final_mp4_sha256": final_sha,
+        "assembly_error": assembly_error,
         "finished_at_utc": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -447,7 +460,12 @@ async def main() -> int:
     except Exception as e:
         log.warning("HF upload failed (non-fatal): %s", e)
 
-    any_failed = any(r.get("shots_failed", 0) > 0 or "error" in r for r in results)
+    any_failed = any(
+        r.get("shots_failed", 0) > 0
+        or "error" in r
+        or r.get("assembly_error") is not None
+        for r in results
+    )
     return 1 if any_failed else 0
 
 
