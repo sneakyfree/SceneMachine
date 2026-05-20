@@ -17,6 +17,10 @@
 #       trigger.)
 #   2. RUN qwen --resume on the freed GPU. Fails loud on non-zero exit.
 #      Verifies the resulting JSON has at least 47 scenes (no partial).
+#   3a. KILL+RESTART ComfyUI to release V8's pinned Animate VRAM before
+#       V3's T2V text encoder tries to allocate. Added 2026-05-20 after
+#       V3 fast-failed all 47 shots with torch.OutOfMemoryError on the
+#       T5 encoder load (CUDA reported 25 MiB free of 31 GiB).
 #   3. RUN V3_llm_prompts benchmark. Standard wallclock ~8h.
 #   4. WAIT for V3 final.mp4 mtime > stage-3-start time. Size guard
 #      MIN_MP4_BYTES same as wait_and_analyze.sh.
@@ -137,6 +141,51 @@ if (( scenes_count < SHOTS )); then
   exit 4
 fi
 log "STAGE 2: Qwen JSON complete (${scenes_count} scenes)"
+
+# ------------------------------------------------------------------
+# Stage 3a — Restart ComfyUI to release Animate VRAM before V3 (T2V)
+# ------------------------------------------------------------------
+# V8 (Wan Animate) leaves encoder weights pinned in VRAM that survive
+# past the benchmark's exit. When V3's first shot calls WanVideoTextEncode
+# (~1.96 GiB for T5) the device reports ~25 MiB free → OOM → all 47 shots
+# fast-fail with empty-file sha (same surface symptom as ComfyUI-down,
+# different root cause). Caught 2026-05-20 05:48 UTC. A clean ComfyUI
+# process always starts with VRAM fully released, so restart it between
+# Animate-heavy and T2V-only stages.
+log "STAGE 3a: restarting ComfyUI to drop Animate VRAM before V3"
+
+pkill -TERM -f "/opt/ai/comfyui/venv/bin/python main.py" 2>/dev/null || true
+sleep 5
+pkill -KILL -f "/opt/ai/comfyui/venv/bin/python main.py" 2>/dev/null || true
+
+# CUDA contexts release on process exit (usually <5s on this box). Bound 60s.
+vram_deadline=$(( $(date +%s) + 60 ))
+while (( $(date +%s) < vram_deadline )); do
+  used=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1 | tr -d ' ')
+  if (( used < 2000 )); then
+    log "STAGE 3a: VRAM dropped to ${used} MiB"
+    break
+  fi
+  sleep 2
+done
+
+CFY_LOG=/home/user1-gpu/scenemachine_movies/_logs/comfyui_$(date +%Y-%m-%d_post_qwen).log
+( cd /opt/ai/comfyui && \
+  nohup /opt/ai/comfyui/venv/bin/python main.py --listen 127.0.0.1 --port 8188 > "${CFY_LOG}" 2>&1 & disown )
+
+# Cold boot is 15-25s on this box; bound at 120s.
+cfy_deadline=$(( $(date +%s) + 120 ))
+while (( $(date +%s) < cfy_deadline )); do
+  if curl -sf -m 2 http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
+    log "STAGE 3a: ComfyUI restarted and responsive at $(date -Iseconds)"
+    break
+  fi
+  sleep 2
+done
+if ! curl -sf -m 2 http://127.0.0.1:8188/system_stats > /dev/null 2>&1; then
+  log "STAGE 3a FAILED: ComfyUI didn't come back within 120s; abandoning V3 launch"
+  exit 4
+fi
 
 # ------------------------------------------------------------------
 # Stage 3 — Run V3_llm_prompts
