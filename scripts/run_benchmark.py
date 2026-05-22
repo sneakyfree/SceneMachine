@@ -82,6 +82,15 @@ class BenchmarkPreset:
     use_llm_prompts: bool = False
     use_continuity: bool = False
     use_animate_when_chars: bool = False
+    # When True (and use_animate_when_chars is False), tag ONLY the first
+    # shot in scene order where each character appears. Subsequent shots
+    # of the same character have empty character_ids → route to T2V.
+    # Tests the hybrid hypothesis: establish identity via Animate on the
+    # first appearance, let T2V's text conditioning drive scene
+    # composition for the rest. From V6a's empirical finding (2026-05-18)
+    # that uniform Animate routing produces tight rigidity even at
+    # reduced strength values.
+    use_animate_first_appearance_only: bool = False
     use_quality_gate_regen: bool = False
     # Per-shot extra_params merged into the GenerationRequest. Used for
     # provider-specific tuning knobs (e.g. Wan Animate's face_strength,
@@ -249,6 +258,28 @@ PRESETS: Dict[str, BenchmarkPreset] = {
         },
         expected_wallclock_minutes_per_47_shots=11 * 60,
     ),
+    # V8 — the hybrid-routing branch the 2026-05-18 V6a result motivated.
+    # V6a empirically showed reducing Animate strength does NOT break the
+    # within-character rigidity at strengths in [0.5, 1.0]; in fact 2/4
+    # characters got tighter (Ellie 0.865 → 0.892). Hypothesis for V8:
+    # Animate locks identity tightly by design — use it ONLY on the first
+    # shot per character to establish identity, then route subsequent
+    # same-character shots through T2V where the prompt drives scene
+    # composition. Identity may drift slightly across shots but scene
+    # diversity should jump dramatically.
+    "V8_hybrid_routing": BenchmarkPreset(
+        name="V8_hybrid_routing",
+        description=(
+            "Animate only on first shot per character, T2V for the rest. "
+            "Trades small identity drift for scene-context diversity."
+        ),
+        num_inference_steps=30,
+        use_animate_first_appearance_only=True,
+        # Most shots will be T2V (~7 min) with a handful Animate (~14 min).
+        # On RADAR_LOVE_2's 7-character cast, expect ~7 Animate + 40 T2V
+        # = ~98 + 280 = ~6.3h.
+        expected_wallclock_minutes_per_47_shots=6 * 60 + 20,
+    ),
 }
 
 
@@ -342,7 +373,11 @@ async def run_one_screenplay(
     # ref filenames at character_refs/<SCREENPLAY>/<id>.png must match.
     character_refs: List[Dict[str, Any]] = []
     char_id_by_keyword: Dict[str, str] = {}
-    if preset.use_animate_when_chars:
+    needs_char_refs = (
+        preset.use_animate_when_chars
+        or preset.use_animate_first_appearance_only
+    )
+    if needs_char_refs:
         refs_dir = Path(
             f"/home/user1-gpu/scenemachine_movies/character_refs/{screenplay_name}"
         )
@@ -408,6 +443,9 @@ async def run_one_screenplay(
 
     scenes_for_pipeline = []
     shot_statuses = []
+    # Tracks first-appearance per character for V8 hybrid routing.
+    # Pre-loop scope so it persists across iterations.
+    chars_seen_globally: set[str] = set()
     for sd in scene_data:
         if llm_prompts_map:
             description = llm_prompts_map[sd["scene_number"]]
@@ -434,6 +472,17 @@ async def run_one_screenplay(
                 if kw in haystack and cid not in seen:
                     shot_character_ids.append(cid)
                     seen.add(cid)
+
+        # V8 hybrid routing: keep only character_ids that haven't been
+        # seen YET in this run. First scene mentioning Ellie → Animate
+        # routes; subsequent scenes mentioning Ellie → empty char_ids →
+        # T2V. Establishes identity once, then lets text conditioning
+        # drive scene composition for the rest.
+        if preset.use_animate_first_appearance_only and shot_character_ids:
+            kept = [cid for cid in shot_character_ids
+                    if cid not in chars_seen_globally]
+            chars_seen_globally.update(shot_character_ids)
+            shot_character_ids = kept
 
         shot_id = str(uuid4())
         shot_payload: Dict[str, Any] = {
