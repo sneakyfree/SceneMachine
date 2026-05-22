@@ -7,9 +7,9 @@ Supports multiple video models including CogVideoX, Hunyuan, LTX, and more.
 import asyncio
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from scenemachine.config import get_settings
 from scenemachine.models.generation_job import JobProvider
@@ -47,7 +47,7 @@ class FalProvider(GenerationProvider):
         result = await provider.generate(request)
     """
 
-    MODELS: Dict[str, VideoModel] = {
+    MODELS: dict[str, VideoModel] = {
         "fast-svd": VideoModel(
             id="fal-ai/fast-svd-lcm",
             name="Fast SVD LCM",
@@ -116,8 +116,8 @@ class FalProvider(GenerationProvider):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        model_id: Optional[str] = None,
+        api_key: str | None = None,
+        model_id: str | None = None,
     ) -> None:
         """Initialize Fal.ai provider.
 
@@ -127,7 +127,7 @@ class FalProvider(GenerationProvider):
         """
         self.api_key = api_key
         self.model_id = model_id or self.DEFAULT_MODEL
-        self._active_requests: Dict[str, str] = {}  # shot_id -> request_id
+        self._active_requests: dict[str, str] = {}  # shot_id -> request_id
 
     @property
     def name(self) -> str:
@@ -155,7 +155,7 @@ class FalProvider(GenerationProvider):
             supports_cost_estimation=True,
         )
 
-    def get_model(self, model_id: Optional[str] = None) -> Optional[VideoModel]:
+    def get_model(self, model_id: str | None = None) -> VideoModel | None:
         """Get model configuration."""
         mid = model_id or self.model_id
         return self.MODELS.get(mid)
@@ -163,7 +163,7 @@ class FalProvider(GenerationProvider):
     def estimate_cost(
         self,
         duration_seconds: float = 3.0,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> float:
         """Estimate generation cost in USD."""
         model = self.get_model(model_id)
@@ -174,7 +174,7 @@ class FalProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Generate video using Fal.ai API with async queue."""
         try:
@@ -196,7 +196,7 @@ class FalProvider(GenerationProvider):
         # Set API key for fal_client
         os.environ["FAL_KEY"] = self.api_key
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         model = self.get_model(request.extra_params.get("model_id", self.model_id))
         if not model:
             model = self.MODELS[self.DEFAULT_MODEL]
@@ -296,7 +296,7 @@ class FalProvider(GenerationProvider):
             )
 
             # Calculate timing and cost
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             generation_duration = (end_time - start_time).total_seconds()
             estimated_cost = self.estimate_cost(
                 duration_seconds=request.duration_seconds,
@@ -325,7 +325,7 @@ class FalProvider(GenerationProvider):
                 },
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Fal.ai generation timed out for shot {request.shot_id}")
             self._active_requests.pop(str(request.shot_id), None)
             return GenerationResult(
@@ -347,9 +347,9 @@ class FalProvider(GenerationProvider):
         self,
         request: GenerationRequest,
         model: VideoModel,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build model-specific input arguments."""
-        args: Dict[str, Any] = {}
+        args: dict[str, Any] = {}
 
         # Common parameters
         if model.supports_text_to_video:
@@ -411,8 +411,8 @@ class FalProvider(GenerationProvider):
         self,
         handler,
         shot_id: Any,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Dict[str, Any]:
+        progress_callback: ProgressCallback | None = None,
+    ) -> dict[str, Any]:
         """Poll for request completion with progress updates."""
         elapsed = 0.0
         last_progress = 15
@@ -462,9 +462,9 @@ class FalProvider(GenerationProvider):
             await asyncio.sleep(self.POLL_INTERVAL)
             elapsed += self.POLL_INTERVAL
 
-        raise asyncio.TimeoutError("Fal.ai request polling timed out")
+        raise TimeoutError("Fal.ai request polling timed out")
 
-    def _extract_video_url(self, result: Dict[str, Any]) -> Optional[str]:
+    def _extract_video_url(self, result: dict[str, Any]) -> str | None:
         """Extract video URL from Fal.ai result."""
         # Different models return video in different fields
         if "video" in result:
@@ -500,13 +500,13 @@ class FalProvider(GenerationProvider):
         self,
         video_path: Path,
         thumbnail_path: Path,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate thumbnail from video using ffmpeg."""
         if not video_path.exists():
             return None
 
         try:
-            from scenemachine.utils.ffmpeg import FFmpegNotFoundError, get_ffmpeg
+            from scenemachine.utils.ffmpeg import get_ffmpeg
 
             ffmpeg = get_ffmpeg()
             await ffmpeg.extract_frame(
@@ -545,7 +545,6 @@ class FalProvider(GenerationProvider):
             )
 
         try:
-            import fal_client
 
             os.environ["FAL_KEY"] = self.api_key
 
@@ -576,7 +575,7 @@ class FalProvider(GenerationProvider):
             logger.warning(f"Failed to cancel Fal.ai request: {e}")
             return False
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """List available video generation models."""
         return [
             {

@@ -25,25 +25,26 @@ Usage:
 import asyncio
 import json
 import logging
-import os
 import random
 import string
 import sys
 import time
 import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from enum import Enum
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select, text, delete, func
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+import contextlib
+
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,7 +61,7 @@ logger = logging.getLogger(__name__)
 # TEST RESULT TYPES
 # ============================================================================
 
-class TestStatus(str, Enum):
+class TestStatus(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -75,8 +76,8 @@ class TestResult:
     subcategory: str
     status: TestStatus
     duration_ms: float
-    error_message: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -93,19 +94,19 @@ class BenchmarkResult:
 class InvestorReport:
     """Complete investor-ready test report."""
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     database_type: str = "unknown"
     python_version: str = ""
 
     # Mock data stats
-    mock_data: Dict[str, int] = field(default_factory=dict)
+    mock_data: dict[str, int] = field(default_factory=dict)
     mock_data_duration_ms: float = 0
 
     # Test results by category
-    test_results: List[TestResult] = field(default_factory=list)
+    test_results: list[TestResult] = field(default_factory=list)
 
     # Benchmarks
-    benchmarks: List[BenchmarkResult] = field(default_factory=list)
+    benchmarks: list[BenchmarkResult] = field(default_factory=list)
 
     # Summary stats
     total_tests: int = 0
@@ -114,10 +115,10 @@ class InvestorReport:
     total_skipped: int = 0
 
     # Critical errors
-    critical_errors: List[str] = field(default_factory=list)
+    critical_errors: list[str] = field(default_factory=list)
 
     # Features demonstrated
-    features_demonstrated: List[str] = field(default_factory=list)
+    features_demonstrated: list[str] = field(default_factory=list)
 
     def add_result(self, result: TestResult):
         """Add a test result."""
@@ -137,7 +138,7 @@ class InvestorReport:
             return 0.0
         return (self.total_passed / self.total_tests) * 100
 
-    def get_category_stats(self) -> Dict[str, Dict[str, int]]:
+    def get_category_stats(self) -> dict[str, dict[str, int]]:
         """Get stats by category."""
         stats = {}
         for result in self.test_results:
@@ -358,9 +359,19 @@ class InvestorMockDataGenerator:
     async def clear_all_data(self):
         """Clear all existing data."""
         from scenemachine.models import (
-            Project, Screenplay, Character, Scene, Shot, GenerationJob,
-            Asset, ExportHistory, UserSettings, ProjectShare, ProjectComment,
-            TextOverlay, AudioAsset,
+            Asset,
+            AudioAsset,
+            Character,
+            ExportHistory,
+            GenerationJob,
+            Project,
+            ProjectComment,
+            ProjectShare,
+            Scene,
+            Screenplay,
+            Shot,
+            TextOverlay,
+            UserSettings,
         )
 
         async with self.session_factory() as session:
@@ -371,17 +382,15 @@ class InvestorMockDataGenerator:
                 Character, Screenplay, Project, UserSettings,
             ]
             for table in tables:
-                try:
+                with contextlib.suppress(Exception):
                     await session.execute(delete(table))
-                except Exception:
-                    pass
             await session.commit()
 
         logger.info("Cleared existing data")
 
     def _random_datetime(self, days_back: int = 90) -> datetime:
         """Generate random datetime within the past N days."""
-        return datetime.now(timezone.utc) - timedelta(
+        return datetime.now(UTC) - timedelta(
             days=random.randint(0, days_back),
             hours=random.randint(0, 23),
             minutes=random.randint(0, 59),
@@ -392,7 +401,7 @@ class InvestorMockDataGenerator:
         num_projects: int = 10,
         num_sfx: int = 30,
         num_music: int = 20,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """Generate all mock data."""
         logger.info("Starting investor mock data generation...")
 
@@ -403,29 +412,28 @@ class InvestorMockDataGenerator:
             # Generate in dependency order
             await self._generate_settings(session)
             projects = await self._generate_projects(session, num_projects)
-            screenplays = await self._generate_screenplays(session, projects)
+            await self._generate_screenplays(session, projects)
 
             # Characters, scenes, shots work differently based on database
             if self.is_postgres:
                 characters = await self._generate_characters_postgres(session, projects)
                 scenes = await self._generate_scenes_postgres(session, projects, characters)
                 shots, jobs = await self._generate_shots_postgres(session, scenes)
-                assets = await self._generate_assets(session, characters)
+                await self._generate_assets(session, characters)
             else:
                 # SQLite mode - use JSON serialization for ARRAY fields
                 characters = await self._generate_characters_sqlite(session, projects)
                 scenes = await self._generate_scenes_sqlite(session, projects)
                 shots, jobs = await self._generate_shots_sqlite(session, scenes)
-                assets = []  # Skip assets for SQLite
 
-            exports = await self._generate_export_history(session, projects)
+            await self._generate_export_history(session, projects)
             shares, comments = await self._generate_shares_comments(session, projects)
-            overlays = await self._generate_text_overlays(session, projects)
+            await self._generate_text_overlays(session, projects)
 
             if self.is_postgres:
-                audio = await self._generate_audio_assets_postgres(session, num_sfx, num_music)
+                await self._generate_audio_assets_postgres(session, num_sfx, num_music)
             else:
-                audio = []
+                pass
 
             await session.commit()
 
@@ -457,7 +465,7 @@ class InvestorMockDataGenerator:
         session.add(settings)
         await session.flush()
 
-    async def _generate_projects(self, session: AsyncSession, count: int) -> List:
+    async def _generate_projects(self, session: AsyncSession, count: int) -> list:
         """Generate projects in various workflow states."""
         from scenemachine.models import Project, ProjectState
 
@@ -490,7 +498,7 @@ class InvestorMockDataGenerator:
                     "aspect_ratio": random.choice(["16:9", "2.35:1"]),
                 },
                 created_at=self._random_datetime(90),
-                updated_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(UTC),
             )
             session.add(project)
             projects.append(project)
@@ -500,9 +508,9 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(projects)} projects")
         return projects
 
-    async def _generate_screenplays(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_screenplays(self, session: AsyncSession, projects: list) -> list:
         """Generate screenplays for projects."""
-        from scenemachine.models import Screenplay, ScreenplayFormat, ProjectState
+        from scenemachine.models import ProjectState, Screenplay, ScreenplayFormat
 
         screenplays = []
 
@@ -566,7 +574,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(screenplays)} screenplays")
         return screenplays
 
-    async def _generate_characters_postgres(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_characters_postgres(self, session: AsyncSession, projects: list) -> list:
         """Generate characters for PostgreSQL (with native ARRAY support)."""
         from scenemachine.models import Character, CharacterGender, CharacterLockState, ProjectState
 
@@ -624,7 +632,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(characters)} characters (PostgreSQL)")
         return characters
 
-    async def _generate_characters_sqlite(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_characters_sqlite(self, session: AsyncSession, projects: list) -> list:
         """Generate characters for SQLite - SKIPPED due to ARRAY type incompatibility.
 
         The Character model uses ARRAY(String) for personality_traits which SQLite
@@ -636,9 +644,9 @@ class InvestorMockDataGenerator:
         self.stats["characters"] = 0
         return []
 
-    async def _generate_scenes_postgres(self, session: AsyncSession, projects: List, characters: List) -> List:
+    async def _generate_scenes_postgres(self, session: AsyncSession, projects: list, characters: list) -> list:
         """Generate scenes for PostgreSQL."""
-        from scenemachine.models import Scene, SceneType, TimeOfDay, SceneState, ProjectState
+        from scenemachine.models import ProjectState, Scene, SceneState, SceneType, TimeOfDay
 
         scenes = []
 
@@ -688,7 +696,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(scenes)} scenes (PostgreSQL)")
         return scenes
 
-    async def _generate_scenes_sqlite(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_scenes_sqlite(self, session: AsyncSession, projects: list) -> list:
         """Generate scenes for SQLite - SKIPPED due to ARRAY type incompatibility.
 
         The Scene model uses ARRAY(Text) for action_lines and ARRAY(UUID) for
@@ -699,9 +707,18 @@ class InvestorMockDataGenerator:
         self.stats["scenes"] = 0
         return []
 
-    async def _generate_shots_postgres(self, session: AsyncSession, scenes: List) -> Tuple[List, List]:
+    async def _generate_shots_postgres(self, session: AsyncSession, scenes: list) -> tuple[list, list]:
         """Generate shots and jobs for PostgreSQL."""
-        from scenemachine.models import Shot, ShotType, CameraMovement, ShotState, GenerationJob, JobStatus, JobProvider, SceneState
+        from scenemachine.models import (
+            CameraMovement,
+            GenerationJob,
+            JobProvider,
+            JobStatus,
+            SceneState,
+            Shot,
+            ShotState,
+            ShotType,
+        )
 
         shots = []
         jobs = []
@@ -774,7 +791,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(shots)} shots and {len(jobs)} jobs (PostgreSQL)")
         return shots, jobs
 
-    async def _generate_shots_sqlite(self, session: AsyncSession, scenes: List) -> Tuple[List, List]:
+    async def _generate_shots_sqlite(self, session: AsyncSession, scenes: list) -> tuple[list, list]:
         """Generate shots for SQLite - SKIPPED due to ARRAY type and dependency on scenes.
 
         Shot model uses ARRAY(UUID) for character_ids, and shots depend on scenes
@@ -786,9 +803,9 @@ class InvestorMockDataGenerator:
         self.stats["generation_jobs"] = 0
         return [], []
 
-    async def _generate_assets(self, session: AsyncSession, characters: List) -> List:
+    async def _generate_assets(self, session: AsyncSession, characters: list) -> list:
         """Generate reference assets."""
-        from scenemachine.models import Asset, AssetType, AssetStatus, CharacterLockState
+        from scenemachine.models import Asset, AssetStatus, AssetType, CharacterLockState
 
         assets = []
 
@@ -820,7 +837,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(assets)} assets")
         return assets
 
-    async def _generate_export_history(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_export_history(self, session: AsyncSession, projects: list) -> list:
         """Generate export history."""
         from scenemachine.models import ExportHistory, ExportStatus, ProjectState
 
@@ -858,9 +875,9 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(exports)} export history entries")
         return exports
 
-    async def _generate_shares_comments(self, session: AsyncSession, projects: List) -> Tuple[List, List]:
+    async def _generate_shares_comments(self, session: AsyncSession, projects: list) -> tuple[list, list]:
         """Generate shares and comments."""
-        from scenemachine.models import ProjectShare, ProjectComment, SharePermission, ShareStatus
+        from scenemachine.models import ProjectComment, ProjectShare, SharePermission, ShareStatus
 
         shares = []
         comments = []
@@ -880,7 +897,7 @@ class InvestorMockDataGenerator:
                     permission=random.choice(list(SharePermission)),
                     status=random.choice([ShareStatus.PENDING, ShareStatus.ACCEPTED]),
                     message="Please review this project",
-                    expires_at=datetime.now(timezone.utc) + timedelta(days=14),
+                    expires_at=datetime.now(UTC) + timedelta(days=14),
                     access_count=random.randint(0, 10),
                     created_at=self._random_datetime(30),
                 )
@@ -913,9 +930,15 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(shares)} shares and {len(comments)} comments")
         return shares, comments
 
-    async def _generate_text_overlays(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_text_overlays(self, session: AsyncSession, projects: list) -> list:
         """Generate text overlays."""
-        from scenemachine.models import TextOverlay, TextOverlayType, TextPosition, TextAnimation, ProjectState
+        from scenemachine.models import (
+            ProjectState,
+            TextAnimation,
+            TextOverlay,
+            TextOverlayType,
+            TextPosition,
+        )
 
         overlays = []
 
@@ -963,7 +986,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(overlays)} text overlays")
         return overlays
 
-    async def _generate_audio_assets_postgres(self, session: AsyncSession, num_sfx: int, num_music: int) -> List:
+    async def _generate_audio_assets_postgres(self, session: AsyncSession, num_sfx: int, num_music: int) -> list:
         """Generate audio assets for PostgreSQL."""
         from scenemachine.models import AudioAsset, AudioAssetType
 
@@ -1038,16 +1061,17 @@ class APIEndpointTests:
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.results: List[TestResult] = []
-        self.client: Optional[AsyncClient] = None
+        self.results: list[TestResult] = []
+        self.client: AsyncClient | None = None
 
     async def setup(self):
         """Set up test client."""
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
         from scenemachine.api.app import create_app
         from scenemachine.config import Settings
         from scenemachine.database import get_db_manager, reset_db_manager
         from scenemachine.models.base import Base
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
         # Reset any existing database manager
         reset_db_manager()
@@ -1120,7 +1144,7 @@ class APIEndpointTests:
         method: str,
         path: str,
         expected_status: int = 200,
-        json_data: Optional[Dict] = None,
+        json_data: dict | None = None,
     ) -> TestResult:
         """Run a single API test."""
         start = time.time()
@@ -1170,7 +1194,7 @@ class APIEndpointTests:
                 error_message=str(e),
             )
 
-    async def run_all(self) -> List[TestResult]:
+    async def run_all(self) -> list[TestResult]:
         """Run all API tests."""
         await self.setup()
 
@@ -1268,7 +1292,7 @@ class WorkflowTests:
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.results: List[TestResult] = []
+        self.results: list[TestResult] = []
         self.is_sqlite = "sqlite" in database_url
 
     async def test_project_lifecycle(self) -> TestResult:
@@ -1279,7 +1303,8 @@ class WorkflowTests:
         errors = []
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
             from scenemachine.models import Project, ProjectState
             from scenemachine.models.base import Base
 
@@ -1375,11 +1400,22 @@ class WorkflowTests:
             )
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
             from scenemachine.models import (
-                Project, ProjectState, Scene, SceneState, SceneType, TimeOfDay,
-                Shot, ShotState, ShotType, CameraMovement,
-                GenerationJob, JobStatus, JobProvider,
+                CameraMovement,
+                GenerationJob,
+                JobProvider,
+                JobStatus,
+                Project,
+                ProjectState,
+                Scene,
+                SceneState,
+                SceneType,
+                Shot,
+                ShotState,
+                ShotType,
+                TimeOfDay,
             )
             from scenemachine.models.base import Base
 
@@ -1499,10 +1535,15 @@ class WorkflowTests:
         errors = []
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
             from scenemachine.models import (
-                Project, ProjectState, ProjectShare, ProjectComment,
-                SharePermission, ShareStatus,
+                Project,
+                ProjectComment,
+                ProjectShare,
+                ProjectState,
+                SharePermission,
+                ShareStatus,
             )
             from scenemachine.models.base import Base
 
@@ -1586,7 +1627,7 @@ class WorkflowTests:
             details={"steps_passed": steps_passed, "total_steps": total_steps},
         )
 
-    async def run_all(self) -> List[TestResult]:
+    async def run_all(self) -> list[TestResult]:
         """Run all workflow tests."""
         self.results.append(await self.test_project_lifecycle())
         self.results.append(await self.test_generation_queue_workflow())
@@ -1603,11 +1644,12 @@ class PerformanceBenchmarks:
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.results: List[BenchmarkResult] = []
+        self.results: list[BenchmarkResult] = []
 
     async def benchmark_database_query(self) -> BenchmarkResult:
         """Benchmark database query performance."""
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
         from scenemachine.models import Project
 
         engine = create_async_engine(self.database_url, echo=False)
@@ -1639,11 +1681,12 @@ class PerformanceBenchmarks:
 
     async def benchmark_api_latency(self) -> BenchmarkResult:
         """Benchmark API response time."""
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
         from scenemachine.api.app import create_app
         from scenemachine.config import Settings
         from scenemachine.database import get_db_manager, reset_db_manager
         from scenemachine.models.base import Base
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
         # Reset and set up database manager
         reset_db_manager()
@@ -1702,7 +1745,7 @@ class PerformanceBenchmarks:
         self.results.append(result)
         return result
 
-    async def run_all(self) -> List[BenchmarkResult]:
+    async def run_all(self) -> list[BenchmarkResult]:
         """Run all benchmarks."""
         await self.benchmark_database_query()
         await self.benchmark_api_latency()
@@ -1717,9 +1760,9 @@ class SmokeTests:
     """Quick smoke tests for critical functionality."""
 
     def __init__(self):
-        self.results: List[TestResult] = []
+        self.results: list[TestResult] = []
 
-    def test_imports(self) -> List[TestResult]:
+    def test_imports(self) -> list[TestResult]:
         """Test that all critical modules can be imported."""
         modules = [
             ("scenemachine.models", "Models"),
@@ -1760,7 +1803,7 @@ class SmokeTests:
 
         return self.results
 
-    def run_all(self) -> List[TestResult]:
+    def run_all(self) -> list[TestResult]:
         """Run all smoke tests."""
         self.test_imports()
         return self.results
@@ -1774,16 +1817,15 @@ class IPCHandlerTests:
     """Test IPC handlers."""
 
     def __init__(self):
-        self.results: List[TestResult] = []
+        self.results: list[TestResult] = []
 
-    async def test_handler_registration(self) -> List[TestResult]:
+    async def test_handler_registration(self) -> list[TestResult]:
         """Test that IPC handlers are properly registered."""
         start = time.time()
 
         try:
-            from scenemachine.ipc import handlers as h
-            from pathlib import Path
             import re
+            from pathlib import Path
 
             handler_file = Path(__file__).parent.parent / "scenemachine" / "ipc" / "handlers.py"
             content = handler_file.read_text()
@@ -1812,7 +1854,7 @@ class IPCHandlerTests:
 
         return self.results
 
-    async def run_all(self) -> List[TestResult]:
+    async def run_all(self) -> list[TestResult]:
         """Run all IPC tests."""
         await self.test_handler_registration()
         return self.results
@@ -1836,7 +1878,7 @@ class InvestorHardeningTestHarness:
         self.is_postgres = "postgresql" in database_url or "postgres" in database_url
 
         self.report = InvestorReport(
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
             database_type="PostgreSQL" if self.is_postgres else "SQLite",
             python_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         )
@@ -1974,7 +2016,7 @@ class InvestorHardeningTestHarness:
         await self.run_benchmarks()
 
         self._populate_features()
-        self.report.end_time = datetime.now(timezone.utc)
+        self.report.end_time = datetime.now(UTC)
 
         return self.report
 

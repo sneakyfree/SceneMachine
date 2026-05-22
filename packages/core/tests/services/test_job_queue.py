@@ -1,15 +1,11 @@
 """Tests for Job Queue service."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime, timedelta
-from uuid import uuid4
-from unittest.mock import AsyncMock, patch
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.job_queue import JobQueueService
 from scenemachine.models import Project
+from scenemachine.services.job_queue import JobQueueService
 
 
 class TestJobQueueService:
@@ -149,14 +145,14 @@ class TestJobQueueService:
     ):
         """Test job priority ordering."""
         # Enqueue jobs with different priorities
-        low_priority = await job_queue_service.enqueue(
+        await job_queue_service.enqueue(
             project_id=sample_project.id,
             job_type="video_generation",
             payload={"prompt": "Low priority"},
             priority=1,
         )
 
-        high_priority = await job_queue_service.enqueue(
+        await job_queue_service.enqueue(
             project_id=sample_project.id,
             job_type="video_generation",
             payload={"prompt": "High priority"},

@@ -4,19 +4,18 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.config import get_settings
+from scenemachine.models.generation_job import JobProvider
 from scenemachine.models.shot import Shot, ShotState
-from scenemachine.models.generation_job import GenerationJob, JobStatus, JobProvider
 from scenemachine.services.generation import (
-    GenerationService,
     GenerationRequest,
-    GenerationProgress,
+    GenerationService,
 )
 from scenemachine.workflows.base import (
     Workflow,
@@ -32,17 +31,17 @@ class GenerationWorkflowContext:
     """Context for video generation workflow."""
 
     project_id: UUID
-    session: Optional[AsyncSession] = None
-    scene_id: Optional[UUID] = None
-    shot_ids: List[UUID] = field(default_factory=list)
+    session: AsyncSession | None = None
+    scene_id: UUID | None = None
+    shot_ids: list[UUID] = field(default_factory=list)
     provider: str = "local"
     quality: str = "high"
     batch_size: int = 4
-    generated_outputs: Dict[str, str] = field(default_factory=dict)
-    failed_shots: List[str] = field(default_factory=list)
+    generated_outputs: dict[str, str] = field(default_factory=dict)
+    failed_shots: list[str] = field(default_factory=list)
 
     # Service instances (injected at runtime)
-    generation_service: Optional[GenerationService] = None
+    generation_service: GenerationService | None = None
 
 
 @WorkflowRegistry.register
@@ -53,7 +52,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
     def workflow_type(self) -> str:
         return "video_generation"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="validate_shots",
@@ -106,7 +105,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             ),
         ]
 
-    async def step_validate_shots(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_validate_shots(self, context: dict[str, Any]) -> dict[str, Any]:
         """Validate shots for generation."""
         logger.info("Validating shots...")
 
@@ -163,14 +162,14 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             "validation_count": len(validated_shots),
         }
 
-    async def step_prepare_prompts(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_prepare_prompts(self, context: dict[str, Any]) -> dict[str, Any]:
         """Prepare generation prompts using GenerationService."""
         logger.info("Preparing prompts...")
 
         validated_shots = context.get("validated_shots", [])
         quality = context.get("quality", "high")
-        session = context.get("session")
-        settings = get_settings()
+        context.get("session")
+        get_settings()
 
         prompts = []
         quality_params = {
@@ -202,7 +201,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
 
         return {"prepared_prompts": prompts}
 
-    def _build_prompt(self, shot_data: Dict[str, Any]) -> str:
+    def _build_prompt(self, shot_data: dict[str, Any]) -> str:
         """Build generation prompt from shot data."""
         parts = []
 
@@ -256,7 +255,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             "amateur, shaky, unstable, glitch"
         )
 
-    async def step_check_provider(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_check_provider(self, context: dict[str, Any]) -> dict[str, Any]:
         """Check provider availability using GenerationService."""
         logger.info("Checking provider...")
 
@@ -301,7 +300,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
 
         return {"provider_status": provider_status}
 
-    async def step_generate_videos(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_generate_videos(self, context: dict[str, Any]) -> dict[str, Any]:
         """Generate videos for shots using GenerationService."""
         logger.info("Generating videos...")
 
@@ -336,7 +335,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
                 # Wait for batch to complete
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                for prompt_data, result in zip(batch, results):
+                for prompt_data, result in zip(batch, results, strict=False):
                     shot_id = prompt_data["shot_id"]
                     if isinstance(result, Exception):
                         logger.error(f"Generation failed for shot {shot_id}: {result}")
@@ -362,9 +361,9 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
         self,
         service: GenerationService,
         shot_id: UUID,
-        prompt_data: Dict[str, Any],
+        prompt_data: dict[str, Any],
         provider_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate a single shot video."""
         try:
             # Create generation request
@@ -404,7 +403,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             logger.exception(f"Error generating shot {shot_id}")
             return {"success": False, "error": str(e)}
 
-    async def step_verify_outputs(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_verify_outputs(self, context: dict[str, Any]) -> dict[str, Any]:
         """Verify generated outputs exist and are valid."""
         logger.info("Verifying outputs...")
 
@@ -468,7 +467,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
 
         return 0.0
 
-    async def step_generate_thumbnails(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_generate_thumbnails(self, context: dict[str, Any]) -> dict[str, Any]:
         """Generate thumbnails for videos using ffmpeg."""
         logger.info("Generating thumbnails...")
 
@@ -517,7 +516,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             "thumbnail_errors": thumbnail_errors,
         }
 
-    async def step_update_database(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_update_database(self, context: dict[str, Any]) -> dict[str, Any]:
         """Update database with generated outputs."""
         logger.info("Updating database...")
 
@@ -571,7 +570,7 @@ class BatchRegenerationContext:
     """Context for batch regeneration workflow."""
 
     project_id: UUID
-    shot_ids: List[UUID] = field(default_factory=list)
+    shot_ids: list[UUID] = field(default_factory=list)
     reason: str = "quality_improvement"
     provider: str = "local"
 
@@ -584,7 +583,7 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
     def workflow_type(self) -> str:
         return "batch_regeneration"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="backup_existing",
@@ -622,7 +621,7 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
             ),
         ]
 
-    async def step_backup_existing(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_backup_existing(self, context: dict[str, Any]) -> dict[str, Any]:
         """Backup existing outputs."""
         logger.info("Backing up existing outputs...")
         shot_ids = context.get("shot_ids", [])
@@ -633,12 +632,12 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
 
         return {"backups": backups}
 
-    async def step_clear_outputs(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_clear_outputs(self, context: dict[str, Any]) -> dict[str, Any]:
         """Clear existing outputs."""
         logger.info("Clearing outputs...")
         return {"outputs_cleared": True}
 
-    async def step_enhance_prompts(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_enhance_prompts(self, context: dict[str, Any]) -> dict[str, Any]:
         """Enhance prompts based on regeneration reason."""
         logger.info("Enhancing prompts...")
 
@@ -654,7 +653,7 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
 
         return {"enhanced_prompts": enhanced}
 
-    async def step_regenerate(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_regenerate(self, context: dict[str, Any]) -> dict[str, Any]:
         """Regenerate videos."""
         logger.info("Regenerating videos...")
 
@@ -667,7 +666,7 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
 
         return {"regenerated_outputs": results}
 
-    async def step_compare_results(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_compare_results(self, context: dict[str, Any]) -> dict[str, Any]:
         """Compare regenerated results with backups."""
         logger.info("Comparing results...")
 

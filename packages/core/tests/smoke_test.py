@@ -6,18 +6,14 @@ This script performs comprehensive testing of all modules and components
 without requiring a running database, using module imports and unit tests.
 """
 
-import asyncio
-import importlib
 import inspect
-import json
 import logging
 import sys
 import time
-import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Add the parent directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -37,20 +33,20 @@ class TestResult:
     passed: bool
     duration_ms: float
     message: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class SmokeTestReport:
     """Complete smoke test report."""
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     total_tests: int = 0
     passed_tests: int = 0
     failed_tests: int = 0
     skipped_tests: int = 0
-    results: List[TestResult] = field(default_factory=list)
-    module_stats: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    results: list[TestResult] = field(default_factory=list)
+    module_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def add_result(self, result: TestResult):
         self.results.append(result)
@@ -106,7 +102,7 @@ class SmokeTestReport:
         ])
 
         # Group by category
-        categories: Dict[str, List[TestResult]] = {}
+        categories: dict[str, list[TestResult]] = {}
         for result in self.results:
             if result.category not in categories:
                 categories[result.category] = []
@@ -152,7 +148,7 @@ class SmokeTest:
     """End-to-end smoke test for SceneMachine."""
 
     def __init__(self):
-        self.report = SmokeTestReport(start_time=datetime.now(timezone.utc))
+        self.report = SmokeTestReport(start_time=datetime.now(UTC))
 
     def run_test(
         self,
@@ -275,7 +271,7 @@ class SmokeTest:
         # Collect module statistics
         self._collect_module_stats()
 
-        self.report.end_time = datetime.now(timezone.utc)
+        self.report.end_time = datetime.now(UTC)
         logger.info("Smoke tests completed.")
 
     def _collect_module_stats(self):
@@ -306,7 +302,7 @@ class SmokeTest:
     # ============ MODEL IMPORT TESTS ============
 
     def test_import_base_models(self):
-        from scenemachine.models import Base, UUIDMixin, TimestampMixin
+        from scenemachine.models import Base, TimestampMixin, UUIDMixin
         assert Base is not None
         assert UUIDMixin is not None
         assert TimestampMixin is not None
@@ -318,27 +314,27 @@ class SmokeTest:
         assert len(ProjectState) >= 5
 
     def test_import_character(self):
-        from scenemachine.models import Character, CharacterGender, CharacterLockState
+        from scenemachine.models import Character, CharacterGender
         assert hasattr(Character, '__tablename__')
         assert Character.__tablename__ == 'characters'
         assert CharacterGender.MALE is not None
         assert CharacterGender.FEMALE is not None
 
     def test_import_scene(self):
-        from scenemachine.models import Scene, SceneType, TimeOfDay, SceneState
+        from scenemachine.models import Scene, SceneType, TimeOfDay
         assert hasattr(Scene, '__tablename__')
         assert SceneType.INTERIOR is not None
         assert SceneType.EXTERIOR is not None
         assert TimeOfDay.DAY is not None
 
     def test_import_shot(self):
-        from scenemachine.models import Shot, ShotType, CameraMovement, ShotState
+        from scenemachine.models import CameraMovement, Shot, ShotType
         assert hasattr(Shot, '__tablename__')
         assert len(list(ShotType)) >= 10
         assert len(list(CameraMovement)) >= 5
 
     def test_import_generation_job(self):
-        from scenemachine.models import GenerationJob, JobStatus, JobProvider
+        from scenemachine.models import GenerationJob, JobStatus
         assert hasattr(GenerationJob, '__tablename__')
         assert JobStatus.PENDING is not None
         assert JobStatus.COMPLETED is not None
@@ -350,24 +346,20 @@ class SmokeTest:
         assert AudioAssetType.MUSIC is not None
 
     def test_import_text_overlay(self):
-        from scenemachine.models import (
-            TextOverlay, TextOverlayType, TextPosition, TextAnimation
-        )
+        from scenemachine.models import TextAnimation, TextOverlay, TextOverlayType, TextPosition
         assert hasattr(TextOverlay, '__tablename__')
         assert TextOverlayType.TITLE is not None
         assert TextPosition.CENTER is not None
         assert TextAnimation.FADE_IN is not None
 
     def test_import_share_models(self):
-        from scenemachine.models import (
-            ProjectShare, ProjectComment, SharePermission, ShareStatus
-        )
+        from scenemachine.models import ProjectShare, SharePermission
         assert hasattr(ProjectShare, '__tablename__')
         assert SharePermission.VIEW is not None
         assert SharePermission.EDIT is not None
 
     def test_import_settings(self):
-        from scenemachine.models import UserSettings, LLMProvider, VideoProvider, ThemeMode
+        from scenemachine.models import LLMProvider, UserSettings, VideoProvider
         assert hasattr(UserSettings, '__tablename__')
         assert LLMProvider.ANTHROPIC is not None
         assert VideoProvider.REPLICATE is not None
@@ -376,14 +368,17 @@ class SmokeTest:
 
     def test_import_assembly_service(self):
         from scenemachine.services.assembly import (
-            AssemblyService, ExportSettings, ExportFormat, ExportQuality
+            AssemblyService,
+            ExportFormat,
         )
         assert AssemblyService is not None
         assert ExportFormat.MP4_H264 is not None
 
     def test_import_generation_providers(self):
         from scenemachine.generators import (
-            GenerationProvider, ReplicateProvider, FalProvider, MockGenerationProvider
+            GenerationProvider,
+            MockGenerationProvider,
+            ReplicateProvider,
         )
         assert GenerationProvider is not None
         assert ReplicateProvider is not None
@@ -455,7 +450,6 @@ class SmokeTest:
 
     def test_ipc_handler_count(self):
         """Verify minimum number of IPC handlers exist."""
-        from scenemachine.ipc import handlers
         # Read the file and count handler decorators
         handler_file = Path(__file__).parent.parent / "scenemachine" / "ipc" / "handlers.py"
         content = handler_file.read_text()
@@ -472,14 +466,15 @@ class SmokeTest:
 
     def test_import_circuit_breaker(self):
         from scenemachine.utils.circuit_breaker import (
-            CircuitBreaker, CircuitBreakerRegistry, CircuitState
+            CircuitBreaker,
+            CircuitState,
         )
         assert CircuitBreaker is not None
         assert CircuitState.CLOSED is not None
         assert CircuitState.OPEN is not None
 
     def test_import_caching(self):
-        from scenemachine.utils.cache import LRUCache, FileCache, cached
+        from scenemachine.utils.cache import FileCache, LRUCache, cached
         assert LRUCache is not None
         assert FileCache is not None
         assert cached is not None
@@ -561,14 +556,14 @@ Hello, is anyone here?
         assert hasattr(result, 'scenes') or hasattr(result, 'title')
 
     def test_export_settings(self):
-        from scenemachine.services.assembly import ExportSettings, ExportFormat, ExportQuality
+        from scenemachine.services.assembly import ExportFormat, ExportQuality, ExportSettings
         settings = ExportSettings()
         assert settings.format == ExportFormat.MP4_H264
         assert settings.quality == ExportQuality.HIGH
         assert settings.resolution == "1920x1080"
         assert settings.frame_rate == 24
-        assert settings.include_audio == True
-        assert settings.include_text_overlays == True
+        assert settings.include_audio
+        assert settings.include_text_overlays
 
     def test_color_grade_settings(self):
         from scenemachine.services.assembly import ColorGradeSettings
@@ -584,7 +579,9 @@ Hello, is anyone here?
 
     def test_circuit_breaker_states(self):
         from scenemachine.utils.circuit_breaker import (
-            CircuitBreaker, CircuitState, CircuitBreakerConfig
+            CircuitBreaker,
+            CircuitBreakerConfig,
+            CircuitState,
         )
         config = CircuitBreakerConfig(
             failure_threshold=3,
@@ -611,13 +608,13 @@ Hello, is anyone here?
 
     def test_route_registration(self):
         # Test individual routers can be imported with their router attributes
-        from scenemachine.api.routes import projects, characters, scenes
+        from scenemachine.api.routes import characters, projects, scenes
         assert hasattr(projects, 'router')
         assert hasattr(characters, 'router')
         assert hasattr(scenes, 'router')
 
     def test_model_relationships(self):
-        from scenemachine.models import Project, Scene, Shot, Character
+        from scenemachine.models import Project, Scene, Shot
         # Check relationship attributes exist
         assert hasattr(Project, 'scenes')
         assert hasattr(Project, 'characters')
@@ -658,15 +655,14 @@ Hello, is anyone here?
         assert hasattr(ProviderRegistry, 'register')
 
     def test_import_rate_limiter(self):
-        from scenemachine.api.middleware.security import (
-            RateLimitMiddleware, TokenBucket
-        )
+        from scenemachine.api.middleware.security import RateLimitMiddleware, TokenBucket
         assert RateLimitMiddleware is not None
         assert TokenBucket is not None
 
     def test_import_security_middleware(self):
         from scenemachine.api.middleware.security import (
-            SecurityHeadersMiddleware, RequestValidationMiddleware
+            RequestValidationMiddleware,
+            SecurityHeadersMiddleware,
         )
         assert SecurityHeadersMiddleware is not None
         assert RequestValidationMiddleware is not None
@@ -703,7 +699,7 @@ class SmokeTestSuite:
     def __init__(self):
         self.smoke_test = SmokeTest()
 
-    def run_all(self) -> Dict[str, Dict[str, Any]]:
+    def run_all(self) -> dict[str, dict[str, Any]]:
         """
         Run all smoke tests and return results as a dictionary.
 

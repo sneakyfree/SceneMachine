@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from scenemachine.workflows.base import (
@@ -26,9 +26,9 @@ class ExportWorkflowContext:
     quality: str = "high"
     include_audio: bool = True
     include_subtitles: bool = False
-    watermark: Optional[str] = None
-    scenes_to_include: List[UUID] = field(default_factory=list)
-    audio_tracks: List[Dict] = field(default_factory=list)
+    watermark: str | None = None
+    scenes_to_include: list[UUID] = field(default_factory=list)
+    audio_tracks: list[dict] = field(default_factory=list)
 
 
 @WorkflowRegistry.register
@@ -39,7 +39,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
     def workflow_type(self) -> str:
         return "export"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="validate_assets",
@@ -105,11 +105,11 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
             ),
         ]
 
-    async def step_validate_assets(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_validate_assets(self, context: dict[str, Any]) -> dict[str, Any]:
         """Validate all assets exist."""
         logger.info("Validating assets...")
 
-        project_id = context.get("project_id")
+        context.get("project_id")
         scenes_to_include = context.get("scenes_to_include", [])
 
         # In production, would check database for shot outputs
@@ -132,7 +132,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
             "total_scenes": len(validated_assets),
         }
 
-    async def step_prepare_timeline(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_prepare_timeline(self, context: dict[str, Any]) -> dict[str, Any]:
         """Prepare timeline for assembly."""
         logger.info("Preparing timeline...")
 
@@ -159,7 +159,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
 
         return {"timeline": timeline}
 
-    async def step_assemble_video(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_assemble_video(self, context: dict[str, Any]) -> dict[str, Any]:
         """Assemble video clips."""
         logger.info("Assembling video...")
 
@@ -178,7 +178,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
 
         return {"assembly_result": assembly_result}
 
-    async def step_mix_audio(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_mix_audio(self, context: dict[str, Any]) -> dict[str, Any]:
         """Mix audio tracks."""
         logger.info("Mixing audio...")
 
@@ -199,7 +199,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
 
         return audio_result
 
-    async def step_add_subtitles(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_add_subtitles(self, context: dict[str, Any]) -> dict[str, Any]:
         """Add subtitles if requested."""
         logger.info("Processing subtitles...")
 
@@ -218,7 +218,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
 
         return subtitle_result
 
-    async def step_apply_effects(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_apply_effects(self, context: dict[str, Any]) -> dict[str, Any]:
         """Apply color grading and effects."""
         logger.info("Applying effects...")
 
@@ -241,7 +241,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
             "temp_processed_path": "/tmp/processed_temp.mp4",
         }
 
-    async def step_encode_final(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_encode_final(self, context: dict[str, Any]) -> dict[str, Any]:
         """Encode to final format."""
         logger.info("Encoding final output...")
 
@@ -270,7 +270,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
 
         return {"encoding_result": encoding_result}
 
-    async def step_verify_output(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_verify_output(self, context: dict[str, Any]) -> dict[str, Any]:
         """Verify final output."""
         logger.info("Verifying output...")
 
@@ -289,7 +289,7 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
 
         return {"verification": verification}
 
-    async def step_generate_metadata(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_generate_metadata(self, context: dict[str, Any]) -> dict[str, Any]:
         """Generate export metadata."""
         logger.info("Generating metadata...")
 
@@ -332,7 +332,7 @@ class QuickExportWorkflow(Workflow[QuickExportContext]):
     def workflow_type(self) -> str:
         return "quick_export"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="gather_clips",
@@ -356,7 +356,7 @@ class QuickExportWorkflow(Workflow[QuickExportContext]):
             ),
         ]
 
-    async def step_gather_clips(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_gather_clips(self, context: dict[str, Any]) -> dict[str, Any]:
         """Gather clips for scene."""
         scene_id = context.get("scene_id")
         logger.info(f"Gathering clips for scene {scene_id}...")
@@ -370,7 +370,7 @@ class QuickExportWorkflow(Workflow[QuickExportContext]):
 
         return {"clips": clips, "total_duration": sum(c["duration"] for c in clips)}
 
-    async def step_quick_assemble(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_quick_assemble(self, context: dict[str, Any]) -> dict[str, Any]:
         """Quickly assemble clips."""
         logger.info("Quick assembling...")
 
@@ -381,7 +381,7 @@ class QuickExportWorkflow(Workflow[QuickExportContext]):
             "clip_count": len(clips),
         }
 
-    async def step_fast_encode(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_fast_encode(self, context: dict[str, Any]) -> dict[str, Any]:
         """Fast encode for preview."""
         logger.info("Fast encoding...")
 

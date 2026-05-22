@@ -5,8 +5,8 @@ A character in the screenplay with associated likeness definition.
 This is a critical model for the Character Laboratory system.
 """
 
-from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
@@ -14,14 +14,14 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
+from scenemachine.models.base import ArrayType, Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from scenemachine.models.asset import Asset
     from scenemachine.models.project import Project
 
 
-class CharacterGender(str, Enum):
+class CharacterGender(StrEnum):
     """Character gender options."""
 
     MALE = "male"
@@ -30,7 +30,7 @@ class CharacterGender(str, Enum):
     UNSPECIFIED = "unspecified"
 
 
-class CharacterLockState(str, Enum):
+class CharacterLockState(StrEnum):
     """
     Character lock workflow states.
 
@@ -87,9 +87,9 @@ class Character(Base, UUIDMixin, TimestampMixin):
     screenplay_name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Character metadata
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    age_range_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    age_range_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    age_range_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    age_range_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     gender: Mapped[CharacterGender] = mapped_column(
         SAEnum(CharacterGender, name="character_gender"),
         default=CharacterGender.UNSPECIFIED,
@@ -97,7 +97,7 @@ class Character(Base, UUIDMixin, TimestampMixin):
     )
 
     # Physical description (structured for AI prompting)
-    physical_description: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    physical_description: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "hair_color": "brown",
@@ -121,10 +121,10 @@ class Character(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Personality and voice (for AI understanding)
-    personality_traits: Mapped[Optional[list[str]]] = mapped_column(
+    personality_traits: Mapped[list[str] | None] = mapped_column(
         ArrayType(String), nullable=True
     )
-    voice_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    voice_description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Lock state
     lock_state: Mapped[CharacterLockState] = mapped_column(
@@ -134,7 +134,7 @@ class Character(Base, UUIDMixin, TimestampMixin):
     )
 
     # Locked likeness definition (set when state becomes LOCKED)
-    locked_likeness: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    locked_likeness: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "primary_reference_asset_id": "uuid",
@@ -171,7 +171,7 @@ class Character(Base, UUIDMixin, TimestampMixin):
     is_protagonist: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Ethics and consent
-    consent_status: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    consent_status: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "likeness_type": "original",  # "original", "self", "licensed", "public_figure"
@@ -204,7 +204,7 @@ class Character(Base, UUIDMixin, TimestampMixin):
         return self.name if self.name != self.screenplay_name else self.screenplay_name
 
     @property
-    def age_display(self) -> Optional[str]:
+    def age_display(self) -> str | None:
         """Format age range for display."""
         if self.age_range_min is not None and self.age_range_max is not None:
             if self.age_range_min == self.age_range_max:

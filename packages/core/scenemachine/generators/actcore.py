@@ -11,10 +11,9 @@ Supports:
 
 import asyncio
 import logging
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from scenemachine.config import get_settings
@@ -61,7 +60,7 @@ class ActCoreProvider(GenerationProvider):
         result = await provider.generate(request)
     """
 
-    MODELS: Dict[str, VideoModel] = {
+    MODELS: dict[str, VideoModel] = {
         "liveportrait": VideoModel(
             id="liveportrait-v1",
             name="LivePortrait Face Retargeting",
@@ -125,7 +124,7 @@ class ActCoreProvider(GenerationProvider):
 
     def __init__(
         self,
-        comfyui_url: Optional[str] = None,
+        comfyui_url: str | None = None,
         local_processing: bool = True,
     ) -> None:
         """Initialize ActCore provider.
@@ -136,7 +135,7 @@ class ActCoreProvider(GenerationProvider):
         """
         self.comfyui_url = comfyui_url or "http://127.0.0.1:8188"
         self.local_processing = local_processing
-        self._active_jobs: Dict[str, Dict[str, Any]] = {}
+        self._active_jobs: dict[str, dict[str, Any]] = {}
 
     @property
     def name(self) -> str:
@@ -166,7 +165,7 @@ class ActCoreProvider(GenerationProvider):
             supports_cost_estimation=True,
         )
 
-    def get_model(self, model_id: Optional[str] = None) -> Optional[VideoModel]:
+    def get_model(self, model_id: str | None = None) -> VideoModel | None:
         """Get model configuration."""
         mid = model_id or self.DEFAULT_MODEL
         return self.MODELS.get(mid)
@@ -174,8 +173,8 @@ class ActCoreProvider(GenerationProvider):
     def estimate_cost(
         self,
         duration_seconds: float = 3.0,
-        model_id: Optional[str] = None,
-        mode: Optional[str] = None,
+        model_id: str | None = None,
+        mode: str | None = None,
     ) -> float:
         """Estimate generation cost in USD.
 
@@ -198,7 +197,7 @@ class ActCoreProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Generate video using ActCore performer motion retargeting.
 
@@ -210,7 +209,7 @@ class ActCoreProvider(GenerationProvider):
         - source_image: Path to character image for retargeting
         - motion_profile: (optional) Custom motion profile override
         """
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         mode = request.extra_params.get("mode", "BLINK")
         performer_id = request.extra_params.get("performer_id")
         booking_id = request.extra_params.get("booking_id")
@@ -362,7 +361,7 @@ class ActCoreProvider(GenerationProvider):
             )
 
             # Calculate final cost
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             generation_duration = (end_time - start_time).total_seconds()
             estimated_cost = self.estimate_cost(
                 duration_seconds=request.duration_seconds,
@@ -395,7 +394,7 @@ class ActCoreProvider(GenerationProvider):
                 },
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"ActCore generation timed out for shot {request.shot_id}")
             self._active_jobs.pop(str(request.shot_id), None)
             return GenerationResult(
@@ -415,11 +414,11 @@ class ActCoreProvider(GenerationProvider):
 
     async def _load_motion_profile(
         self,
-        performer_id: Optional[str],
-        take_id: Optional[str],
+        performer_id: str | None,
+        take_id: str | None,
         mode: str,
-        custom_profile: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        custom_profile: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Load motion profile from database or custom input.
 
         Motion profile includes:
@@ -456,10 +455,10 @@ class ActCoreProvider(GenerationProvider):
     async def _process_liveportrait(
         self,
         request: GenerationRequest,
-        motion_profile: Dict[str, Any],
+        motion_profile: dict[str, Any],
         source_image: str,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Optional[str]:
+        progress_callback: ProgressCallback | None = None,
+    ) -> str | None:
         """Process facial retargeting using LivePortrait.
 
         LivePortrait provides:
@@ -508,10 +507,10 @@ class ActCoreProvider(GenerationProvider):
     async def _process_roop_gs_anim(
         self,
         request: GenerationRequest,
-        motion_profile: Dict[str, Any],
+        motion_profile: dict[str, Any],
         source_image: str,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Optional[str]:
+        progress_callback: ProgressCallback | None = None,
+    ) -> str | None:
         """Process full-body retargeting using Roop-GS-Anim.
 
         Roop-GS-Anim provides:
@@ -560,10 +559,10 @@ class ActCoreProvider(GenerationProvider):
     async def _process_hybrid(
         self,
         request: GenerationRequest,
-        motion_profile: Dict[str, Any],
+        motion_profile: dict[str, Any],
         source_image: str,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Optional[str]:
+        progress_callback: ProgressCallback | None = None,
+    ) -> str | None:
         """Process hybrid face + body retargeting.
 
         Combines LivePortrait (face) with Roop-GS-Anim (body)
@@ -638,14 +637,14 @@ class ActCoreProvider(GenerationProvider):
     def _build_liveportrait_workflow(
         self,
         source_image: str,
-        motion_data: Optional[str],
+        motion_data: str | None,
         output_path: str,
         duration: float,
         fps: int,
         width: int,
         height: int,
         enhance_only: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build ComfyUI workflow for LivePortrait processing."""
         return {
             "client_id": "actcore_liveportrait",
@@ -690,13 +689,13 @@ class ActCoreProvider(GenerationProvider):
     def _build_roop_gs_anim_workflow(
         self,
         source_image: str,
-        motion_data: Optional[str],
+        motion_data: str | None,
         output_path: str,
         duration: float,
         fps: int,
         width: int,
         height: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build ComfyUI workflow for Roop-GS-Anim processing."""
         return {
             "client_id": "actcore_roop_gs",
@@ -740,9 +739,9 @@ class ActCoreProvider(GenerationProvider):
 
     async def _execute_comfyui_workflow(
         self,
-        workflow: Dict[str, Any],
+        workflow: dict[str, Any],
         shot_id: UUID,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
         progress_range: tuple = (30, 90),
     ) -> bool:
         """Execute workflow via ComfyUI WebSocket API."""
@@ -796,7 +795,7 @@ class ActCoreProvider(GenerationProvider):
                 await asyncio.sleep(self.POLL_INTERVAL)
                 elapsed += self.POLL_INTERVAL
 
-            raise asyncio.TimeoutError("ComfyUI workflow timed out")
+            raise TimeoutError("ComfyUI workflow timed out")
 
         except httpx.ConnectError:
             logger.error(f"Could not connect to ComfyUI at {self.comfyui_url}")
@@ -809,7 +808,7 @@ class ActCoreProvider(GenerationProvider):
         self,
         video_path: Path,
         thumbnail_path: Path,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate thumbnail from video using ffmpeg."""
         if not video_path.exists():
             return None
@@ -851,6 +850,7 @@ class ActCoreProvider(GenerationProvider):
         """Detailed health check for ActCore."""
         try:
             import time
+
             import httpx
 
             start = time.time()
@@ -905,7 +905,7 @@ class ActCoreProvider(GenerationProvider):
             logger.warning(f"Failed to cancel ActCore job: {e}")
             return False
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """List available ActCore models."""
         return [
             {
@@ -920,7 +920,7 @@ class ActCoreProvider(GenerationProvider):
             for model_id, model in self.MODELS.items()
         ]
 
-    def get_mode_info(self, mode: str) -> Optional[Dict[str, Any]]:
+    def get_mode_info(self, mode: str) -> dict[str, Any] | None:
         """Get information about a booking mode."""
         config = self.MODE_CONFIGS.get(mode)
         if not config:
@@ -935,6 +935,6 @@ class ActCoreProvider(GenerationProvider):
             "estimated_cost_per_second": self.estimate_cost(1.0, mode=mode),
         }
 
-    def list_modes(self) -> List[Dict[str, Any]]:
+    def list_modes(self) -> list[dict[str, Any]]:
         """List all available booking modes with their configurations."""
         return [self.get_mode_info(mode) for mode in self.MODE_CONFIGS]

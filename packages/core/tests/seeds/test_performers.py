@@ -4,18 +4,17 @@ Tests for performer seed data.
 Validates that the sample performer data is correct and complete.
 """
 
-import pytest
-from scenemachine.seeds.performers import (
-    SAMPLE_PERFORMERS,
-    _generate_pricing,
-    _generate_motion_capabilities,
-    _calculate_earnings,
-    _get_availability,
-)
 from scenemachine.models.performer import (
+    PerformerAvailability,
     PerformerType,
     PerformerVerification,
-    PerformerAvailability,
+)
+from scenemachine.seeds.performers import (
+    SAMPLE_PERFORMERS,
+    _calculate_earnings,
+    _generate_motion_capabilities,
+    _generate_pricing,
+    _get_availability,
 )
 
 

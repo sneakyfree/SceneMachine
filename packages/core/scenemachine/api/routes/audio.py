@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -11,11 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.api.dependencies import get_db
 from scenemachine.models.audio_asset import (
-    AudioAsset,
-    AudioAssetType,
     MUSIC_GENRES,
     MUSIC_MOODS,
     SOUND_EFFECT_CATEGORIES,
+    AudioAsset,
+    AudioAssetType,
 )
 from scenemachine.services.audio_library import AudioLibraryService
 
@@ -33,10 +33,10 @@ class SoundEffectResponse(BaseModel):
     id: str
     name: str
     category: str
-    subcategory: Optional[str] = None
+    subcategory: str | None = None
     duration: float
     audioUrl: str
-    tags: List[str]
+    tags: list[str]
     isFavorite: bool
     isCustom: bool
 
@@ -60,16 +60,16 @@ class MusicTrackResponse(BaseModel):
 
     id: str
     title: str
-    artist: Optional[str] = None
+    artist: str | None = None
     duration: float
     genre: str
-    mood: List[str]
-    bpm: Optional[int] = None
+    mood: list[str]
+    bpm: int | None = None
     audioUrl: str
-    waveformUrl: Optional[str] = None
+    waveformUrl: str | None = None
     isFavorite: bool
     isCustom: bool
-    tags: List[str]
+    tags: list[str]
 
     @classmethod
     def from_model(cls, asset: AudioAsset) -> "MusicTrackResponse":
@@ -95,7 +95,7 @@ class CategoryResponse(BaseModel):
     id: str
     name: str
     icon: str
-    subcategories: List[str]
+    subcategories: list[str]
     count: int
 
 
@@ -103,24 +103,24 @@ class UploadResponse(BaseModel):
     """Response for audio upload."""
 
     success: bool
-    id: Optional[str] = None
-    name: Optional[str] = None
-    error: Optional[str] = None
+    id: str | None = None
+    name: str | None = None
+    error: str | None = None
 
 
 # ============ Sound Effects Endpoints ============
 
 
-@router.get("/sfx", response_model=List[SoundEffectResponse])
+@router.get("/sfx", response_model=list[SoundEffectResponse])
 async def get_sound_effects(
-    category: Optional[str] = None,
-    subcategory: Optional[str] = None,
+    category: str | None = None,
+    subcategory: str | None = None,
     favorites_only: bool = False,
-    search: Optional[str] = None,
+    search: str | None = None,
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
-) -> List[SoundEffectResponse]:
+) -> list[SoundEffectResponse]:
     """Get sound effects with optional filtering."""
     service = AudioLibraryService(db)
     effects = await service.get_sound_effects(
@@ -197,7 +197,7 @@ async def toggle_sfx_favorite(
 async def upload_sound_effect(
     file: UploadFile = File(...),
     category: str = "other",
-    subcategory: Optional[str] = None,
+    subcategory: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> UploadResponse:
     """Upload a custom sound effect."""
@@ -250,17 +250,17 @@ async def delete_sound_effect(
 # ============ Music Endpoints ============
 
 
-@router.get("/music", response_model=List[MusicTrackResponse])
+@router.get("/music", response_model=list[MusicTrackResponse])
 async def get_music_tracks(
-    genre: Optional[str] = None,
-    mood: Optional[str] = None,
+    genre: str | None = None,
+    mood: str | None = None,
     favorites_only: bool = False,
     custom_only: bool = False,
-    search: Optional[str] = None,
+    search: str | None = None,
     limit: int = 100,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
-) -> List[MusicTrackResponse]:
+) -> list[MusicTrackResponse]:
     """Get music tracks with optional filtering."""
     service = AudioLibraryService(db)
     tracks = await service.get_music_tracks(
@@ -276,13 +276,13 @@ async def get_music_tracks(
 
 
 @router.get("/music/genres")
-async def get_music_genres() -> dict[str, List[str]]:
+async def get_music_genres() -> dict[str, list[str]]:
     """Get all music genres."""
     return {"genres": MUSIC_GENRES}
 
 
 @router.get("/music/moods")
-async def get_music_moods() -> dict[str, List[str]]:
+async def get_music_moods() -> dict[str, list[str]]:
     """Get all music moods."""
     return {"moods": MUSIC_MOODS}
 
@@ -320,8 +320,8 @@ async def toggle_music_favorite(
 async def upload_music_track(
     file: UploadFile = File(...),
     genre: str = "Cinematic",
-    mood: Optional[str] = None,
-    artist: Optional[str] = None,
+    mood: str | None = None,
+    artist: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> UploadResponse:
     """Upload a custom music track."""

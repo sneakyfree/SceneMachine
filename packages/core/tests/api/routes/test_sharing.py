@@ -1,10 +1,10 @@
 """Tests for sharing API routes."""
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from scenemachine.api.routes import sharing
 from scenemachine.models import Project, ProjectState
 from scenemachine.models.share import SharePermission, ShareStatus
-from scenemachine.services.sharing import ShareResult, ShareInfo
+from scenemachine.services.sharing import ShareInfo, ShareResult
 
 
 @pytest.fixture
@@ -438,7 +438,7 @@ class TestCommentsEndpoint:
         mock_comment.shot_id = None
         mock_comment.author_name = "Test User"
         mock_comment.content = "Great work!"
-        mock_comment.created_at = datetime.now(timezone.utc)
+        mock_comment.created_at = datetime.now(UTC)
 
         with patch(
             "scenemachine.api.routes.sharing.SharingService"

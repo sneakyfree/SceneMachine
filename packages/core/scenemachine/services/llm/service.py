@@ -8,15 +8,15 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from enum import StrEnum
+from typing import Any, Protocol, runtime_checkable
 
 from scenemachine.services.llm.prompts import CopilotPrompts, PromptTemplates
 
 logger = logging.getLogger(__name__)
 
 
-class LLMProvider(str, Enum):
+class LLMProvider(StrEnum):
     """Supported LLM providers."""
 
     ANTHROPIC = "anthropic"
@@ -31,10 +31,10 @@ class LLMResponse:
     content: str
     model: str
     provider: LLMProvider
-    usage: Dict[str, int] = field(default_factory=dict)
-    raw_response: Optional[Any] = None
+    usage: dict[str, int] = field(default_factory=dict)
+    raw_response: Any | None = None
 
-    def parse_json(self) -> Optional[Dict[str, Any]]:
+    def parse_json(self) -> dict[str, Any] | None:
         """Parse JSON from response content.
 
         Handles responses that may have markdown code blocks around JSON.
@@ -73,8 +73,8 @@ class LLMBackend(Protocol):
 
     async def complete(
         self,
-        messages: List[Dict[str, str]],
-        system: Optional[str] = None,
+        messages: list[dict[str, str]],
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
     ) -> LLMResponse:
@@ -89,7 +89,7 @@ class AnthropicBackend:
         self,
         api_key: str,
         model: str = "claude-sonnet-4-20250514",
-    ):
+    ) -> None:
         self.api_key = api_key
         self.model = model
         self._client = None
@@ -109,8 +109,8 @@ class AnthropicBackend:
 
     async def complete(
         self,
-        messages: List[Dict[str, str]],
-        system: Optional[str] = None,
+        messages: list[dict[str, str]],
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
     ) -> LLMResponse:
@@ -161,7 +161,7 @@ class OpenAIBackend:
         self,
         api_key: str,
         model: str = "gpt-4o",
-    ):
+    ) -> None:
         self.api_key = api_key
         self.model = model
         self._client = None
@@ -181,8 +181,8 @@ class OpenAIBackend:
 
     async def complete(
         self,
-        messages: List[Dict[str, str]],
-        system: Optional[str] = None,
+        messages: list[dict[str, str]],
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
     ) -> LLMResponse:
@@ -234,14 +234,14 @@ class OpenAIBackend:
 class MockBackend:
     """Mock backend for testing."""
 
-    def __init__(self, responses: Optional[Dict[str, str]] = None):
+    def __init__(self, responses: dict[str, str] | None = None) -> None:
         self.responses = responses or {}
-        self.call_history: List[Dict[str, Any]] = []
+        self.call_history: list[dict[str, Any]] = []
 
     async def complete(
         self,
-        messages: List[Dict[str, str]],
-        system: Optional[str] = None,
+        messages: list[dict[str, str]],
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
     ) -> LLMResponse:
@@ -409,15 +409,15 @@ class LLMService:
     def __init__(
         self,
         primary_provider: LLMProvider = LLMProvider.MOCK,
-        fallback_provider: Optional[LLMProvider] = None,
-        anthropic_api_key: Optional[str] = None,
-        openai_api_key: Optional[str] = None,
+        fallback_provider: LLMProvider | None = None,
+        anthropic_api_key: str | None = None,
+        openai_api_key: str | None = None,
         anthropic_model: str = "claude-sonnet-4-20250514",
         openai_model: str = "gpt-4o",
-    ):
+    ) -> None:
         self.primary_provider = primary_provider
         self.fallback_provider = fallback_provider
-        self._backends: Dict[LLMProvider, LLMBackend] = {}
+        self._backends: dict[LLMProvider, LLMBackend] = {}
 
         # Initialize backends based on available API keys
         if anthropic_api_key:
@@ -447,8 +447,8 @@ class LLMService:
 
     async def _complete_with_fallback(
         self,
-        messages: List[Dict[str, str]],
-        system: Optional[str] = None,
+        messages: list[dict[str, str]],
+        system: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
     ) -> LLMResponse:
@@ -486,9 +486,9 @@ class LLMService:
     async def chat(
         self,
         message: str,
-        project_context: Dict[str, Any],
-        conversation_history: Optional[List[Dict[str, str]]] = None,
-    ) -> Dict[str, Any]:
+        project_context: dict[str, Any],
+        conversation_history: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
         """Handle chat interaction with the co-pilot.
 
         Args:
@@ -533,10 +533,10 @@ class LLMService:
 
     async def analyze_project(
         self,
-        project_context: Dict[str, Any],
-        scenes: List[Dict[str, Any]],
-        characters: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        project_context: dict[str, Any],
+        scenes: list[dict[str, Any]],
+        characters: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Analyze a project comprehensively.
 
         Args:
@@ -590,10 +590,10 @@ class LLMService:
 
     async def suggest_scene(
         self,
-        scene: Dict[str, Any],
-        characters: List[Dict[str, Any]],
-        adjacent_scenes: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        scene: dict[str, Any],
+        characters: list[dict[str, Any]],
+        adjacent_scenes: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """Get suggestions for a specific scene.
 
         Args:
@@ -627,10 +627,10 @@ class LLMService:
 
     async def suggest_shot(
         self,
-        shot: Dict[str, Any],
-        scene_context: Dict[str, Any],
-        adjacent_shots: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        shot: dict[str, Any],
+        scene_context: dict[str, Any],
+        adjacent_shots: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """Get suggestions for a specific shot.
 
         Args:
@@ -664,8 +664,8 @@ class LLMService:
     async def enhance_prompt(
         self,
         original_prompt: str,
-        shot_context: Dict[str, Any],
-        style_preferences: Optional[Dict[str, Any]] = None,
+        shot_context: dict[str, Any],
+        style_preferences: dict[str, Any] | None = None,
     ) -> str:
         """Enhance a video generation prompt.
 
@@ -696,10 +696,10 @@ class LLMService:
 
     async def generate_shot_breakdown(
         self,
-        scene: Dict[str, Any],
-        characters: List[Dict[str, Any]],
-        visual_style: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        scene: dict[str, Any],
+        characters: list[dict[str, Any]],
+        visual_style: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Generate a shot breakdown for a scene.
 
         Args:
@@ -733,7 +733,7 @@ class LLMService:
 
 
 # Global instance
-_llm_service: Optional[LLMService] = None
+_llm_service: LLMService | None = None
 
 
 def get_llm_service() -> LLMService:

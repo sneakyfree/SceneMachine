@@ -4,15 +4,15 @@ Provides AI-powered analysis and generation capabilities using LLM providers.
 Supports multiple providers (Anthropic Claude, OpenAI GPT) with automatic fallback.
 """
 
+from scenemachine.services.llm.prompts import (
+    CopilotPrompts,
+    PromptTemplates,
+)
 from scenemachine.services.llm.service import (
-    LLMService,
     LLMProvider,
     LLMResponse,
+    LLMService,
     get_llm_service,
-)
-from scenemachine.services.llm.prompts import (
-    PromptTemplates,
-    CopilotPrompts,
 )
 
 __all__ = [

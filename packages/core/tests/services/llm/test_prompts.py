@@ -1,6 +1,5 @@
 """Tests for LLM prompts."""
 
-import pytest
 
 from scenemachine.services.llm.prompts import CopilotPrompts, PromptTemplates
 

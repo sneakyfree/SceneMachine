@@ -13,11 +13,12 @@ import os
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any, TypeVar
 from uuid import uuid4
 
 import httpx
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # =============================================================================
 
-class AlertChannel(str, Enum):
+class AlertChannel(StrEnum):
     """Alert notification channels."""
     SLACK = "slack"
     DISCORD = "discord"
@@ -37,7 +38,7 @@ class AlertChannel(str, Enum):
     PAGERDUTY = "pagerduty"
 
 
-class AlertSeverity(str, Enum):
+class AlertSeverity(StrEnum):
     """Alert severity levels."""
     CRITICAL = "critical"  # System down, data loss risk
     ERROR = "error"        # Significant error affecting users
@@ -48,20 +49,20 @@ class AlertSeverity(str, Enum):
 @dataclass
 class AlertConfig:
     """Configuration for alerts."""
-    slack_webhook_url: Optional[str] = None
-    discord_webhook_url: Optional[str] = None
-    pagerduty_api_key: Optional[str] = None
-    email_smtp_host: Optional[str] = None
-    enabled_channels: List[AlertChannel] = field(default_factory=list)
+    slack_webhook_url: str | None = None
+    discord_webhook_url: str | None = None
+    pagerduty_api_key: str | None = None
+    email_smtp_host: str | None = None
+    enabled_channels: list[AlertChannel] = field(default_factory=list)
     min_severity: AlertSeverity = AlertSeverity.WARNING
 
 
 @dataclass
 class MonitoringConfig:
     """Configuration for monitoring."""
-    sentry_dsn: Optional[str] = None
+    sentry_dsn: str | None = None
     environment: str = "development"
-    release: Optional[str] = None
+    release: str | None = None
     sample_rate: float = 1.0  # Transaction sampling rate
     enable_tracing: bool = True
     log_level: str = "INFO"
@@ -74,19 +75,19 @@ class MonitoringConfig:
 
 class CorrelationIdFilter(logging.Filter):
     """Add correlation ID to log records."""
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         super().__init__()
-        self._correlation_id: Optional[str] = None
-    
-    def set_correlation_id(self, correlation_id: str):
+        self._correlation_id: str | None = None
+
+    def set_correlation_id(self, correlation_id: str) -> None:
         """Set the correlation ID for current context."""
         self._correlation_id = correlation_id
-    
-    def clear_correlation_id(self):
+
+    def clear_correlation_id(self) -> None:
         """Clear the correlation ID."""
         self._correlation_id = None
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Add correlation ID to record."""
         record.correlation_id = self._correlation_id or "no-correlation"
@@ -95,16 +96,16 @@ class CorrelationIdFilter(logging.Filter):
 
 class StructuredFormatter(logging.Formatter):
     """JSON-like structured log formatter."""
-    
+
     def format(self, record: logging.LogRecord) -> str:
         log_data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
             "correlation_id": getattr(record, "correlation_id", None),
         }
-        
+
         # Add exception info if present
         if record.exc_info:
             log_data["exception"] = {
@@ -112,7 +113,7 @@ class StructuredFormatter(logging.Formatter):
                 "message": str(record.exc_info[1]) if record.exc_info[1] else None,
                 "traceback": "".join(traceback.format_exception(*record.exc_info)),
             }
-        
+
         # Add extra fields
         for key, value in record.__dict__.items():
             if key not in (
@@ -122,7 +123,7 @@ class StructuredFormatter(logging.Formatter):
                 "stack_info", "exc_info", "exc_text", "message", "correlation_id",
             ):
                 log_data[key] = value
-        
+
         import json
         return json.dumps(log_data)
 
@@ -131,20 +132,20 @@ def setup_logging(config: MonitoringConfig) -> logging.Logger:
     """Configure structured logging."""
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, config.log_level))
-    
+
     # Remove existing handlers
     root_logger.handlers.clear()
-    
+
     # Create handler with structured formatter
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(StructuredFormatter())
-    
+
     # Add correlation ID filter
     correlation_filter = CorrelationIdFilter()
     handler.addFilter(correlation_filter)
-    
+
     root_logger.addHandler(handler)
-    
+
     return root_logger
 
 
@@ -154,22 +155,22 @@ def setup_logging(config: MonitoringConfig) -> logging.Logger:
 
 class SentryIntegration:
     """Sentry error tracking integration."""
-    
-    def __init__(self, config: MonitoringConfig):
+
+    def __init__(self, config: MonitoringConfig) -> None:
         self.config = config
         self._initialized = False
-    
-    def initialize(self):
+
+    def initialize(self) -> None:
         """Initialize Sentry SDK."""
         if not self.config.sentry_dsn:
             logger.info("Sentry DSN not configured, skipping initialization")
             return
-        
+
         try:
             import sentry_sdk
-            from sentry_sdk.integrations.logging import LoggingIntegration
             from sentry_sdk.integrations.asyncio import AsyncioIntegration
-            
+            from sentry_sdk.integrations.logging import LoggingIntegration
+
             sentry_sdk.init(
                 dsn=self.config.sentry_dsn,
                 environment=self.config.environment,
@@ -184,65 +185,65 @@ class SentryIntegration:
                 ],
                 send_default_pii=False,
             )
-            
+
             self._initialized = True
             logger.info("Sentry initialized successfully")
-            
+
         except ImportError:
             logger.warning("sentry-sdk not installed, error tracking disabled")
         except Exception as e:
             logger.error(f"Failed to initialize Sentry: {e}")
-    
+
     def capture_exception(
         self,
         exception: Exception,
-        context: Optional[Dict[str, Any]] = None,
-    ):
+        context: dict[str, Any] | None = None,
+    ) -> None:
         """Capture an exception in Sentry."""
         if not self._initialized:
             return
-        
+
         try:
             import sentry_sdk
-            
+
             with sentry_sdk.push_scope() as scope:
                 if context:
                     for key, value in context.items():
                         scope.set_extra(key, value)
-                
+
                 sentry_sdk.capture_exception(exception)
-                
+
         except ImportError:
             pass
-    
+
     def capture_message(
         self,
         message: str,
         level: str = "info",
-        context: Optional[Dict[str, Any]] = None,
-    ):
+        context: dict[str, Any] | None = None,
+    ) -> None:
         """Capture a message in Sentry."""
         if not self._initialized:
             return
-        
+
         try:
             import sentry_sdk
-            
+
             with sentry_sdk.push_scope() as scope:
                 if context:
                     for key, value in context.items():
                         scope.set_extra(key, value)
-                
+
                 sentry_sdk.capture_message(message, level=level)
-                
+
         except ImportError:
             pass
-    
-    def set_user(self, user_id: str, email: Optional[str] = None):
+
+    def set_user(self, user_id: str, email: str | None = None) -> None:
         """Set user context for Sentry."""
         if not self._initialized:
             return
-        
+
         try:
             import sentry_sdk
             sentry_sdk.set_user({"id": user_id, "email": email})
@@ -263,11 +264,11 @@ class TransactionContext:
     name: str
     op: str
     start_time: float = field(default_factory=time.time)
-    end_time: Optional[float] = None
+    end_time: float | None = None
     status: str = "ok"
-    data: Dict[str, Any] = field(default_factory=dict)
-    spans: List["SpanContext"] = field(default_factory=list)
-    
+    data: dict[str, Any] = field(default_factory=dict)
+    spans: list["SpanContext"] = field(default_factory=list)
+
     @property
     def duration_ms(self) -> float:
         if self.end_time is None:
@@ -281,10 +282,10 @@ class SpanContext:
     name: str
     op: str
     start_time: float = field(default_factory=time.time)
-    end_time: Optional[float] = None
+    end_time: float | None = None
     status: str = "ok"
-    data: Dict[str, Any] = field(default_factory=dict)
-    
+    data: dict[str, Any] = field(default_factory=dict)
+
     @property
     def duration_ms(self) -> float:
         if self.end_time is None:
@@ -294,31 +295,31 @@ class SpanContext:
 
 class PerformanceTracer:
     """Performance tracing for monitoring."""
-    
-    def __init__(self, config: MonitoringConfig):
+
+    def __init__(self, config: MonitoringConfig) -> None:
         self.config = config
-        self._current_transaction: Optional[TransactionContext] = None
-    
+        self._current_transaction: TransactionContext | None = None
+
     @contextmanager
     def transaction(self, name: str, op: str = "task"):
         """Start a performance transaction."""
         transaction = TransactionContext(name=name, op=op)
         previous = self._current_transaction
         self._current_transaction = transaction
-        
+
         try:
             yield transaction
             transaction.status = "ok"
-        except Exception as e:
+        except Exception:
             transaction.status = "internal_error"
             raise
         finally:
             transaction.end_time = time.time()
             self._current_transaction = previous
-            
+
             # Log transaction metrics
             logger.info(
-                f"Transaction completed",
+                "Transaction completed",
                 extra={
                     "transaction_name": name,
                     "transaction_op": op,
@@ -327,15 +328,15 @@ class PerformanceTracer:
                     "span_count": len(transaction.spans),
                 }
             )
-    
+
     @contextmanager
     def span(self, name: str, op: str = "task"):
         """Start a performance span within current transaction."""
         span = SpanContext(name=name, op=op)
-        
+
         if self._current_transaction:
             self._current_transaction.spans.append(span)
-        
+
         try:
             yield span
             span.status = "ok"
@@ -357,50 +358,50 @@ class Alert:
     message: str
     severity: AlertSeverity
     source: str = "scenemachine"
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    context: Dict[str, Any] = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    context: dict[str, Any] = field(default_factory=dict)
     alert_id: str = field(default_factory=lambda: str(uuid4()))
 
 
 class AlertManager:
     """Manages alert notifications."""
-    
-    def __init__(self, config: AlertConfig):
+
+    def __init__(self, config: AlertConfig) -> None:
         self.config = config
         self._client = httpx.AsyncClient(timeout=10.0)
-    
-    async def send_alert(self, alert: Alert):
+
+    async def send_alert(self, alert: Alert) -> None:
         """Send alert to configured channels."""
         if alert.severity.value < self.config.min_severity.value:
             return
-        
+
         tasks = []
-        
+
         if AlertChannel.SLACK in self.config.enabled_channels:
             tasks.append(self._send_slack(alert))
-        
+
         if AlertChannel.DISCORD in self.config.enabled_channels:
             tasks.append(self._send_discord(alert))
-        
+
         if AlertChannel.PAGERDUTY in self.config.enabled_channels:
             if alert.severity in [AlertSeverity.CRITICAL, AlertSeverity.ERROR]:
                 tasks.append(self._send_pagerduty(alert))
-        
+
         import asyncio
         await asyncio.gather(*tasks, return_exceptions=True)
-    
-    async def _send_slack(self, alert: Alert):
+
+    async def _send_slack(self, alert: Alert) -> None:
         """Send alert to Slack."""
         if not self.config.slack_webhook_url:
             return
-        
+
         color_map = {
             AlertSeverity.CRITICAL: "#FF0000",
             AlertSeverity.ERROR: "#E74C3C",
             AlertSeverity.WARNING: "#F39C12",
             AlertSeverity.INFO: "#3498DB",
         }
-        
+
         payload = {
             "attachments": [{
                 "color": color_map.get(alert.severity, "#808080"),
@@ -416,7 +417,7 @@ class AlertManager:
                 "footer": f"Alert ID: {alert.alert_id}",
             }]
         }
-        
+
         try:
             response = await self._client.post(
                 self.config.slack_webhook_url,
@@ -425,19 +426,19 @@ class AlertManager:
             response.raise_for_status()
         except Exception as e:
             logger.error(f"Failed to send Slack alert: {e}")
-    
-    async def _send_discord(self, alert: Alert):
+
+    async def _send_discord(self, alert: Alert) -> None:
         """Send alert to Discord."""
         if not self.config.discord_webhook_url:
             return
-        
+
         color_map = {
             AlertSeverity.CRITICAL: 0xFF0000,
             AlertSeverity.ERROR: 0xE74C3C,
             AlertSeverity.WARNING: 0xF39C12,
             AlertSeverity.INFO: 0x3498DB,
         }
-        
+
         payload = {
             "embeds": [{
                 "title": f"[{alert.severity.value.upper()}] {alert.title}",
@@ -451,7 +452,7 @@ class AlertManager:
                 "timestamp": alert.timestamp.isoformat(),
             }]
         }
-        
+
         try:
             response = await self._client.post(
                 self.config.discord_webhook_url,
@@ -460,19 +461,19 @@ class AlertManager:
             response.raise_for_status()
         except Exception as e:
             logger.error(f"Failed to send Discord alert: {e}")
-    
-    async def _send_pagerduty(self, alert: Alert):
+
+    async def _send_pagerduty(self, alert: Alert) -> None:
         """Send alert to PagerDuty."""
         if not self.config.pagerduty_api_key:
             return
-        
+
         severity_map = {
             AlertSeverity.CRITICAL: "critical",
             AlertSeverity.ERROR: "error",
             AlertSeverity.WARNING: "warning",
             AlertSeverity.INFO: "info",
         }
-        
+
         payload = {
             "routing_key": self.config.pagerduty_api_key,
             "event_action": "trigger",
@@ -485,7 +486,7 @@ class AlertManager:
                 "custom_details": alert.context,
             },
         }
-        
+
         try:
             response = await self._client.post(
                 "https://events.pagerduty.com/v2/enqueue",
@@ -507,23 +508,23 @@ class HealthCheckResult:
     healthy: bool
     latency_ms: float
     message: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 class HealthChecker:
     """System health checker."""
-    
-    def __init__(self):
-        self._checks: Dict[str, Callable[[], HealthCheckResult]] = {}
-    
-    def register_check(self, name: str, check_fn: Callable[[], HealthCheckResult]):
+
+    def __init__(self) -> None:
+        self._checks: dict[str, Callable[[], HealthCheckResult]] = {}
+
+    def register_check(self, name: str, check_fn: Callable[[], HealthCheckResult]) -> None:
         """Register a health check function."""
         self._checks[name] = check_fn
-    
-    async def run_all_checks(self) -> Dict[str, HealthCheckResult]:
+
+    async def run_all_checks(self) -> dict[str, HealthCheckResult]:
         """Run all registered health checks."""
         results = {}
-        
+
         for name, check_fn in self._checks.items():
             start = time.time()
             try:
@@ -540,11 +541,11 @@ class HealthChecker:
                     latency_ms=(time.time() - start) * 1000,
                     message=str(e),
                 )
-            
+
             results[name] = result
-        
+
         return results
-    
+
     async def is_healthy(self) -> bool:
         """Check if all health checks pass."""
         results = await self.run_all_checks()
@@ -557,32 +558,32 @@ class HealthChecker:
 
 class MonitoringService:
     """Main monitoring service coordinating all monitoring features."""
-    
-    def __init__(self, config: Optional[MonitoringConfig] = None):
+
+    def __init__(self, config: MonitoringConfig | None = None) -> None:
         self.config = config or MonitoringConfig()
-        
+
         self.sentry = SentryIntegration(self.config)
         self.tracer = PerformanceTracer(self.config)
         self.alert_manager = AlertManager(self.config.alert_config)
         self.health_checker = HealthChecker()
-        
-        self._correlation_filter: Optional[CorrelationIdFilter] = None
-    
-    def initialize(self):
+
+        self._correlation_filter: CorrelationIdFilter | None = None
+
+    def initialize(self) -> None:
         """Initialize all monitoring components."""
         # Setup logging
         root_logger = setup_logging(self.config)
-        
+
         # Get correlation filter from handlers
         for handler in root_logger.handlers:
             for filter_ in handler.filters:
                 if isinstance(filter_, CorrelationIdFilter):
                     self._correlation_filter = filter_
                     break
-        
+
         # Initialize Sentry
         self.sentry.initialize()
-        
+
         logger.info(
             "Monitoring service initialized",
             extra={
@@ -591,28 +592,28 @@ class MonitoringService:
                 "tracing_enabled": self.config.enable_tracing,
             }
         )
-    
+
     @contextmanager
-    def request_context(self, correlation_id: Optional[str] = None):
+    def request_context(self, correlation_id: str | None = None):
         """Context manager for request-scoped monitoring."""
         correlation_id = correlation_id or str(uuid4())
-        
+
         if self._correlation_filter:
             self._correlation_filter.set_correlation_id(correlation_id)
-        
+
         try:
             yield correlation_id
         finally:
             if self._correlation_filter:
                 self._correlation_filter.clear_correlation_id()
-    
+
     async def send_alert(
         self,
         title: str,
         message: str,
         severity: AlertSeverity = AlertSeverity.WARNING,
-        context: Optional[Dict[str, Any]] = None,
-    ):
+        context: dict[str, Any] | None = None,
+    ) -> None:
         """Send an alert notification."""
         alert = Alert(
             title=title,
@@ -627,13 +628,13 @@ class MonitoringService:
 # Global Instance
 # =============================================================================
 
-_monitoring_service: Optional[MonitoringService] = None
+_monitoring_service: MonitoringService | None = None
 
 
 def get_monitoring_service() -> MonitoringService:
     """Get or create the global monitoring service."""
     global _monitoring_service
-    
+
     if _monitoring_service is None:
         config = MonitoringConfig(
             sentry_dsn=os.environ.get("SENTRY_DSN"),
@@ -647,5 +648,5 @@ def get_monitoring_service() -> MonitoringService:
         )
         _monitoring_service = MonitoringService(config)
         _monitoring_service.initialize()
-    
+
     return _monitoring_service

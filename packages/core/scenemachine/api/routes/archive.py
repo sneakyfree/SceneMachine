@@ -1,7 +1,7 @@
 """Archive API endpoints for project import/export."""
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -29,7 +29,7 @@ class ExportRequest(BaseModel):
 class ImportOptions(BaseModel):
     """Options for importing a project."""
 
-    new_name: Optional[str] = None
+    new_name: str | None = None
     import_assets: bool = True
 
 
@@ -38,7 +38,7 @@ class ImportOptions(BaseModel):
 async def export_project(
     request: ExportRequest,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export a project to a ZIP archive.
 
     Creates a .smproject archive containing project data, assets, and optionally generated videos.
@@ -114,10 +114,10 @@ async def export_and_download(
 @router.post("/import")
 async def import_project(
     file: UploadFile = File(...),
-    new_name: Optional[str] = Query(None),
+    new_name: str | None = Query(None),
     import_assets: bool = Query(True),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Import a project from a ZIP archive.
 
     Accepts a .smproject file and imports the project data.
@@ -173,7 +173,7 @@ async def import_project(
 async def get_archive_info(
     path: str = Query(..., description="Path to archive file"),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get information about an archive without importing.
 
     Reads the manifest from a .smproject file.
@@ -210,7 +210,7 @@ async def get_archive_info(
 @router.get("/list")
 async def list_exports(
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List all exported archives."""
     service = ProjectArchiveService(db)
     archives = await service.list_exports()
@@ -234,7 +234,7 @@ async def list_exports(
 @router.delete("/export")
 async def delete_export(
     path: str = Query(..., description="Path to archive file"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Delete an exported archive file."""
     archive_path = Path(path)
 

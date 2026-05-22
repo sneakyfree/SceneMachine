@@ -8,35 +8,29 @@ Tests:
 
 import asyncio
 import time
-from pathlib import Path
-from typing import Dict, Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from starlette.testclient import TestClient as StarletteTestClient
 
 from scenemachine.api.middleware import (
     RateLimitConfig,
-    RateLimitMiddleware,
     RateLimiter,
-    SecurityHeadersConfig,
-    SecurityHeadersMiddleware,
+    RateLimitMiddleware,
     RequestValidationConfig,
     RequestValidationMiddleware,
-    TokenBucket,
+    SecurityHeadersConfig,
+    SecurityHeadersMiddleware,
     SlidingWindowCounter,
-    get_client_ip,
+    TokenBucket,
 )
 from scenemachine.utils.cache import (
-    LRUCache,
-    LLMCache,
     FileCache,
+    LLMCache,
+    LRUCache,
     cached,
-    get_llm_cache,
 )
-
 
 # ============================================================================
 # Rate Limiting Tests
@@ -665,7 +659,7 @@ class TestCacheIntegration:
     async def test_combined_cache_usage(self, tmp_path):
         """Test using multiple cache types together."""
         # LRU cache for small data
-        lru = LRUCache[Dict](max_entries=100)
+        lru = LRUCache[dict](max_entries=100)
         await lru.set("metadata", {"project": "test", "version": 1})
 
         # File cache for large data

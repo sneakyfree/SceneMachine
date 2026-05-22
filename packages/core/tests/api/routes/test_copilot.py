@@ -1,12 +1,11 @@
 """Tests for Copilot API routes."""
 
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
+
 import pytest
 import pytest_asyncio
-from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock, patch
-
-from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.api.main import app

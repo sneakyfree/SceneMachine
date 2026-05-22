@@ -1,8 +1,8 @@
 """Database connection and session management."""
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Optional
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -23,7 +23,7 @@ class DatabaseManager:
     Provides async database session management with connection pooling.
     """
 
-    def __init__(self, database_url: Optional[str] = None) -> None:
+    def __init__(self, database_url: str | None = None) -> None:
         """Initialize database manager.
 
         Args:
@@ -32,8 +32,8 @@ class DatabaseManager:
         """
         settings = get_settings()
         self._database_url = database_url or settings.database_url
-        self._engine: Optional[AsyncEngine] = None
-        self._session_factory: Optional[async_sessionmaker[AsyncSession]] = None
+        self._engine: AsyncEngine | None = None
+        self._session_factory: async_sessionmaker[AsyncSession] | None = None
 
     @property
     def engine(self) -> AsyncEngine:
@@ -114,7 +114,7 @@ class DatabaseManager:
 
 
 # Global database manager instance
-_db_manager: Optional[DatabaseManager] = None
+_db_manager: DatabaseManager | None = None
 
 
 def get_db_manager() -> DatabaseManager:

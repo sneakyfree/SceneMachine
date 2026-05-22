@@ -1,6 +1,6 @@
 """Pydantic schemas for Shot API endpoints."""
 
-from typing import Any, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field
@@ -19,29 +19,29 @@ class ShotCreate(BaseSchema):
     shot_type: ShotType
     camera_movement: CameraMovement = CameraMovement.STATIC
     description: str = Field(..., min_length=1)
-    dialogue: Optional[str] = None
-    action: Optional[str] = None
-    character_ids: List[UUID] = Field(default_factory=list)
-    composition_notes: Optional[str] = None
-    lighting_notes: Optional[str] = None
+    dialogue: str | None = None
+    action: str | None = None
+    character_ids: list[UUID] = Field(default_factory=list)
+    composition_notes: str | None = None
+    lighting_notes: str | None = None
     duration_seconds: float = Field(3.0, ge=0.5, le=60.0)
 
 
 class ShotUpdate(BaseSchema):
     """Schema for updating a shot."""
 
-    shot_type: Optional[ShotType] = None
-    camera_movement: Optional[CameraMovement] = None
-    description: Optional[str] = Field(None, min_length=1)
-    dialogue: Optional[str] = None
-    action: Optional[str] = None
-    character_ids: Optional[List[UUID]] = None
-    composition_notes: Optional[str] = None
-    lighting_notes: Optional[str] = None
-    generation_prompt: Optional[str] = None
-    negative_prompt: Optional[str] = None
-    duration_seconds: Optional[float] = Field(None, ge=0.5, le=60.0)
-    user_notes: Optional[str] = None
+    shot_type: ShotType | None = None
+    camera_movement: CameraMovement | None = None
+    description: str | None = Field(None, min_length=1)
+    dialogue: str | None = None
+    action: str | None = None
+    character_ids: list[UUID] | None = None
+    composition_notes: str | None = None
+    lighting_notes: str | None = None
+    generation_prompt: str | None = None
+    negative_prompt: str | None = None
+    duration_seconds: float | None = Field(None, ge=0.5, le=60.0)
+    user_notes: str | None = None
 
 
 class ShotSummary(TimestampSchema):
@@ -69,20 +69,20 @@ class ShotDetail(TimestampSchema):
     shot_type: ShotType
     camera_movement: CameraMovement
     description: str
-    dialogue: Optional[str]
-    action: Optional[str]
-    character_ids: List[UUID]
-    composition_notes: Optional[str]
-    lighting_notes: Optional[str]
-    generation_prompt: Optional[str]
-    negative_prompt: Optional[str]
+    dialogue: str | None
+    action: str | None
+    character_ids: list[UUID]
+    composition_notes: str | None
+    lighting_notes: str | None
+    generation_prompt: str | None
+    negative_prompt: str | None
     duration_seconds: float
     state: ShotState
-    output_video_path: Optional[str]
-    output_thumbnail_path: Optional[str]
-    generation_metadata: Optional[dict[str, Any]]
-    user_notes: Optional[str]
-    rating: Optional[int]
+    output_video_path: str | None
+    output_thumbnail_path: str | None
+    generation_metadata: dict[str, Any] | None
+    user_notes: str | None
+    rating: int | None
     is_generated: bool
     is_approved: bool
     needs_regeneration: bool
@@ -92,18 +92,18 @@ class ShotDetail(TimestampSchema):
 class ShotApproval(BaseSchema):
     """Request to approve a shot."""
 
-    rating: Optional[int] = Field(None, ge=1, le=5)
-    notes: Optional[str] = Field(None, max_length=1000)
+    rating: int | None = Field(None, ge=1, le=5)
+    notes: str | None = Field(None, max_length=1000)
 
 
 class ShotRejection(BaseSchema):
     """Request to reject a shot for regeneration."""
 
     reason: str = Field(..., min_length=1, max_length=1000)
-    suggestions: Optional[str] = Field(None, max_length=1000)
+    suggestions: str | None = Field(None, max_length=1000)
 
 
 class ShotReorderRequest(BaseSchema):
     """Request to reorder shots within a scene."""
 
-    shot_ids: List[UUID] = Field(..., min_length=1)
+    shot_ids: list[UUID] = Field(..., min_length=1)

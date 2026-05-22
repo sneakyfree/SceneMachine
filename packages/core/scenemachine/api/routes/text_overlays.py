@@ -1,20 +1,20 @@
 """API routes for text overlays."""
 
-from typing import List, Optional
+import contextlib
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.database import get_session
 from scenemachine.models.text_overlay import (
+    DEFAULT_STYLES,
+    TextAnimation,
     TextOverlay,
     TextOverlayType,
     TextPosition,
-    TextAnimation,
-    DEFAULT_STYLES,
 )
 
 router = APIRouter(prefix="/text-overlays", tags=["text-overlays"])
@@ -69,33 +69,33 @@ class TextOverlayCreate(BaseModel):
     type: str = "custom"
     text: str
     position: str = "center"
-    customX: Optional[float] = None
-    customY: Optional[float] = None
-    style: Optional[TextStyleSchema] = None
-    animation: Optional[AnimationSchema] = None
-    timing: Optional[TimingSchema] = None
+    customX: float | None = None
+    customY: float | None = None
+    style: TextStyleSchema | None = None
+    animation: AnimationSchema | None = None
+    timing: TimingSchema | None = None
     isVisible: bool = True
     zIndex: int = 1
 
     # Parent reference (one of these should be set)
-    shot_id: Optional[str] = None
-    scene_id: Optional[str] = None
-    project_id: Optional[str] = None
+    shot_id: str | None = None
+    scene_id: str | None = None
+    project_id: str | None = None
 
 
 class TextOverlayUpdate(BaseModel):
     """Request body for updating a text overlay."""
 
-    type: Optional[str] = None
-    text: Optional[str] = None
-    position: Optional[str] = None
-    customX: Optional[float] = None
-    customY: Optional[float] = None
-    style: Optional[TextStyleSchema] = None
-    animation: Optional[AnimationSchema] = None
-    timing: Optional[TimingSchema] = None
-    isVisible: Optional[bool] = None
-    zIndex: Optional[int] = None
+    type: str | None = None
+    text: str | None = None
+    position: str | None = None
+    customX: float | None = None
+    customY: float | None = None
+    style: TextStyleSchema | None = None
+    animation: AnimationSchema | None = None
+    timing: TimingSchema | None = None
+    isVisible: bool | None = None
+    zIndex: int | None = None
 
 
 class TextOverlayResponse(BaseModel):
@@ -105,22 +105,22 @@ class TextOverlayResponse(BaseModel):
     type: str
     text: str
     position: str
-    customX: Optional[float] = None
-    customY: Optional[float] = None
+    customX: float | None = None
+    customY: float | None = None
     style: dict
     animation: dict
     timing: dict
     isVisible: bool
     zIndex: int
-    shot_id: Optional[str] = None
-    scene_id: Optional[str] = None
-    project_id: Optional[str] = None
+    shot_id: str | None = None
+    scene_id: str | None = None
+    project_id: str | None = None
 
 
 class TextOverlayListResponse(BaseModel):
     """Response model for list of text overlays."""
 
-    overlays: List[TextOverlayResponse]
+    overlays: list[TextOverlayResponse]
     total: int
 
 
@@ -163,7 +163,7 @@ def _overlay_to_response(overlay: TextOverlay) -> TextOverlayResponse:
 # ============================================================================
 
 
-@router.get("/presets", response_model=List[PresetResponse])
+@router.get("/presets", response_model=list[PresetResponse])
 async def get_presets():
     """Get available text overlay presets."""
     presets = [
@@ -296,14 +296,10 @@ async def create_overlay(
     anim_in_dur = 500
     anim_out_dur = 500
     if data.animation:
-        try:
+        with contextlib.suppress(ValueError):
             anim_in = TextAnimation(data.animation.in_)
-        except ValueError:
-            pass
-        try:
+        with contextlib.suppress(ValueError):
             anim_out = TextAnimation(data.animation.out)
-        except ValueError:
-            pass
         anim_in_dur = data.animation.inDuration
         anim_out_dur = data.animation.outDuration
 
@@ -360,19 +356,15 @@ async def update_overlay(
 
     # Update fields
     if data.type is not None:
-        try:
+        with contextlib.suppress(ValueError):
             overlay.overlay_type = TextOverlayType(data.type)
-        except ValueError:
-            pass
 
     if data.text is not None:
         overlay.text = data.text
 
     if data.position is not None:
-        try:
+        with contextlib.suppress(ValueError):
             overlay.position = TextPosition(data.position)
-        except ValueError:
-            pass
 
     if data.customX is not None:
         overlay.custom_x = data.customX
@@ -387,14 +379,10 @@ async def update_overlay(
         overlay.style = current_style
 
     if data.animation is not None:
-        try:
+        with contextlib.suppress(ValueError):
             overlay.animation_in = TextAnimation(data.animation.in_)
-        except ValueError:
-            pass
-        try:
+        with contextlib.suppress(ValueError):
             overlay.animation_out = TextAnimation(data.animation.out)
-        except ValueError:
-            pass
         overlay.animation_in_duration_ms = data.animation.inDuration
         overlay.animation_out_duration_ms = data.animation.outDuration
 
@@ -418,7 +406,7 @@ async def update_overlay(
 async def delete_overlay(
     overlay_id: str,
     session: AsyncSession = Depends(get_session),
-):
+) -> None:
     """Delete a text overlay."""
     stmt = delete(TextOverlay).where(TextOverlay.id == UUID(overlay_id))
     result = await session.execute(stmt)
@@ -434,7 +422,7 @@ async def delete_overlay(
 @router.post("/shot/{shot_id}/batch", response_model=TextOverlayListResponse)
 async def batch_update_shot_overlays(
     shot_id: str,
-    overlays: List[TextOverlayCreate],
+    overlays: list[TextOverlayCreate],
     session: AsyncSession = Depends(get_session),
 ):
     """Replace all text overlays for a shot with a new set.
@@ -473,14 +461,10 @@ async def batch_update_shot_overlays(
         anim_in_dur = 500
         anim_out_dur = 500
         if data.animation:
-            try:
+            with contextlib.suppress(ValueError):
                 anim_in = TextAnimation(data.animation.in_)
-            except ValueError:
-                pass
-            try:
+            with contextlib.suppress(ValueError):
                 anim_out = TextAnimation(data.animation.out)
-            except ValueError:
-                pass
             anim_in_dur = data.animation.inDuration
             anim_out_dur = data.animation.outDuration
 

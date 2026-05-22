@@ -5,8 +5,7 @@ Endpoints for managing GPU providers, pricing, and routing decisions.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -14,10 +13,8 @@ from pydantic import BaseModel, Field
 from scenemachine.gpu_exchange.base import (
     GPUType,
     ProviderCapability,
-    ProviderHealth,
 )
 from scenemachine.gpu_exchange.pricing import (
-    PricingComparison,
     PricingTier,
     get_pricing_service,
 )
@@ -49,9 +46,9 @@ class ProviderInfoResponse(BaseModel):
     id: str
     name: str
     priority: int
-    capabilities: List[str]
-    supported_gpu_types: List[str]
-    regions: List[str]
+    capabilities: list[str]
+    supported_gpu_types: list[str]
+    regions: list[str]
 
 
 class ProviderHealthResponse(BaseModel):
@@ -60,17 +57,17 @@ class ProviderHealthResponse(BaseModel):
     provider_id: str
     available: bool
     message: str
-    latency_ms: Optional[float] = None
+    latency_ms: float | None = None
     instances_available: int = 0
     queue_depth: int = 0
-    error_code: Optional[str] = None
+    error_code: str | None = None
     last_check: datetime
 
 
 class AllProvidersHealthResponse(BaseModel):
     """Health status of all providers."""
 
-    providers: Dict[str, ProviderHealthResponse]
+    providers: dict[str, ProviderHealthResponse]
     healthy_count: int
     total_count: int
 
@@ -81,8 +78,8 @@ class GPUPricingResponse(BaseModel):
     gpu_type: str
     price_per_hour: float
     price_per_second: float
-    spot_price_per_hour: Optional[float] = None
-    reserved_price_per_hour: Optional[float] = None
+    spot_price_per_hour: float | None = None
+    reserved_price_per_hour: float | None = None
     currency: str = "USD"
     region: str
     availability: int = 0
@@ -98,7 +95,7 @@ class PricingComparisonResponse(BaseModel):
     cheapest_price: float
     fastest_provider: str
     best_value_provider: str
-    all_options: List[Dict[str, Any]]
+    all_options: list[dict[str, Any]]
     generated_at: datetime
 
 
@@ -109,19 +106,19 @@ class RoutingConfigRequest(BaseModel):
         default="normal",
         description="Job priority: low, normal, high, urgent",
     )
-    max_price_usd: Optional[float] = Field(
+    max_price_usd: float | None = Field(
         default=None,
         description="Maximum budget for this job",
     )
-    preferred_providers: List[str] = Field(
+    preferred_providers: list[str] = Field(
         default_factory=list,
         description="Preferred provider IDs",
     )
-    excluded_providers: List[str] = Field(
+    excluded_providers: list[str] = Field(
         default_factory=list,
         description="Provider IDs to exclude",
     )
-    preferred_regions: List[str] = Field(
+    preferred_regions: list[str] = Field(
         default_factory=lambda: ["us-east-1"],
         description="Preferred regions",
     )
@@ -138,7 +135,7 @@ class SelectProviderRequest(BaseModel):
     duration_seconds: float = Field(
         ..., description="Estimated job duration in seconds"
     )
-    config: Optional[RoutingConfigRequest] = Field(
+    config: RoutingConfigRequest | None = Field(
         default=None,
         description="Routing configuration",
     )
@@ -156,8 +153,8 @@ class ProviderSelectionResponse(BaseModel):
     price_per_hour: float
     estimated_cost: float
     use_spot: bool
-    fallback_providers: List[str]
-    score_breakdown: Dict[str, float]
+    fallback_providers: list[str]
+    score_breakdown: dict[str, float]
 
 
 class CostEstimateRequest(BaseModel):
@@ -165,7 +162,7 @@ class CostEstimateRequest(BaseModel):
 
     gpu_type: str
     duration_seconds: float
-    provider_id: Optional[str] = None
+    provider_id: str | None = None
     use_spot: bool = False
 
 
@@ -188,9 +185,9 @@ class RoutingStatsResponse(BaseModel):
     successful: int
     success_rate: float
     failovers_used: int
-    by_provider: Dict[str, Dict[str, int]]
-    circuit_breakers: Dict[str, str]
-    reliability_scores: Dict[str, float]
+    by_provider: dict[str, dict[str, int]]
+    circuit_breakers: dict[str, str]
+    reliability_scores: dict[str, float]
 
 
 class BudgetLimitRequest(BaseModel):
@@ -212,7 +209,7 @@ class BudgetCheckResponse(BaseModel):
     """Result of budget check."""
 
     allowed: bool
-    warning: Optional[str] = None
+    warning: str | None = None
 
 
 # ============================================================================
@@ -220,8 +217,8 @@ class BudgetCheckResponse(BaseModel):
 # ============================================================================
 
 
-@router.get("/providers", response_model=List[ProviderInfoResponse])
-async def list_providers() -> List[ProviderInfoResponse]:
+@router.get("/providers", response_model=list[ProviderInfoResponse])
+async def list_providers() -> list[ProviderInfoResponse]:
     """List all registered GPU providers."""
     registry = get_provider_registry()
     providers = []
@@ -322,8 +319,8 @@ async def get_all_providers_health() -> AllProvidersHealthResponse:
     )
 
 
-@router.get("/providers/gpu/{gpu_type}", response_model=List[str])
-async def get_providers_for_gpu(gpu_type: str) -> List[str]:
+@router.get("/providers/gpu/{gpu_type}", response_model=list[str])
+async def get_providers_for_gpu(gpu_type: str) -> list[str]:
     """Get providers that support a specific GPU type."""
     try:
         gpu = GPUType(gpu_type)
@@ -408,11 +405,11 @@ async def compare_pricing(
     )
 
 
-@router.get("/pricing/all/{gpu_type}", response_model=Dict[str, GPUPricingResponse])
+@router.get("/pricing/all/{gpu_type}", response_model=dict[str, GPUPricingResponse])
 async def get_all_pricing(
     gpu_type: str,
     region: str = Query(default="us-east-1", description="Region for pricing"),
-) -> Dict[str, GPUPricingResponse]:
+) -> dict[str, GPUPricingResponse]:
     """Get pricing from all providers for a GPU type."""
     try:
         gpu = GPUType(gpu_type)
@@ -605,7 +602,7 @@ async def get_routing_stats() -> RoutingStatsResponse:
 
 
 @router.post("/budget/limit", status_code=status.HTTP_200_OK)
-async def set_budget_limit(request: BudgetLimitRequest) -> Dict[str, Any]:
+async def set_budget_limit(request: BudgetLimitRequest) -> dict[str, Any]:
     """Set a budget limit for a project."""
     pricing_service = get_pricing_service()
     pricing_service.set_budget_limit(request.project_id, request.limit_usd)
@@ -633,8 +630,8 @@ async def check_budget(request: BudgetCheckRequest) -> BudgetCheckResponse:
 # ============================================================================
 
 
-@router.get("/gpu-types", response_model=List[Dict[str, str]])
-async def list_gpu_types() -> List[Dict[str, str]]:
+@router.get("/gpu-types", response_model=list[dict[str, str]])
+async def list_gpu_types() -> list[dict[str, str]]:
     """List all supported GPU types."""
     return [
         {"id": gpu.value, "name": gpu.name.replace("_", " ")}
@@ -642,8 +639,8 @@ async def list_gpu_types() -> List[Dict[str, str]]:
     ]
 
 
-@router.get("/capabilities", response_model=List[Dict[str, str]])
-async def list_capabilities() -> List[Dict[str, str]]:
+@router.get("/capabilities", response_model=list[dict[str, str]])
+async def list_capabilities() -> list[dict[str, str]]:
     """List all provider capabilities."""
     return [
         {"id": cap.value, "name": cap.name.replace("_", " ").title()}
@@ -651,8 +648,8 @@ async def list_capabilities() -> List[Dict[str, str]]:
     ]
 
 
-@router.get("/pricing-tiers", response_model=List[Dict[str, str]])
-async def list_pricing_tiers() -> List[Dict[str, str]]:
+@router.get("/pricing-tiers", response_model=list[dict[str, str]])
+async def list_pricing_tiers() -> list[dict[str, str]]:
     """List all pricing tiers."""
     return [
         {

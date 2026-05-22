@@ -1,18 +1,15 @@
 """Audio asset model for sound effects and music tracks."""
 
-from enum import Enum
-from typing import List, Optional
-from uuid import UUID, uuid4
+from enum import StrEnum
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
+from .base import ArrayType, Base, JSONType, TimestampMixin, UUIDMixin
 
 
-class AudioAssetType(str, Enum):
+class AudioAssetType(StrEnum):
     """Types of audio assets."""
 
     SOUND_EFFECT = "sfx"
@@ -35,28 +32,28 @@ class AudioAsset(Base, UUIDMixin, TimestampMixin):
 
     # Basic metadata
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # File information
     file_path: Mapped[str] = mapped_column(String(512), nullable=False)
-    file_size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     duration_seconds: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    mime_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Waveform data for visualization (can be generated)
-    waveform_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    waveform_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # Categorization
     category: Mapped[str] = mapped_column(String(50), nullable=False, default="other")
-    subcategory: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    tags: Mapped[Optional[List[str]]] = mapped_column(ArrayType(String), nullable=True)
+    subcategory: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    tags: Mapped[list[str] | None] = mapped_column(ArrayType(String), nullable=True)
 
     # Music-specific fields
-    artist: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    genre: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    bpm: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    mood: Mapped[Optional[List[str]]] = mapped_column(ArrayType(String), nullable=True)
-    key: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # Musical key (C, Am, etc.)
+    artist: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    genre: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    bpm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mood: Mapped[list[str] | None] = mapped_column(ArrayType(String), nullable=True)
+    key: Mapped[str | None] = mapped_column(String(20), nullable=True)  # Musical key (C, Am, etc.)
 
     # User preferences
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -64,11 +61,11 @@ class AudioAsset(Base, UUIDMixin, TimestampMixin):
 
     # Ownership
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    uploaded_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    uploaded_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # License info
-    license_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    license_info: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    license_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    license_info: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
 
     @property
     def is_sound_effect(self) -> bool:
@@ -92,7 +89,7 @@ class AudioAsset(Base, UUIDMixin, TimestampMixin):
         return f"{seconds}s"
 
     @property
-    def file_size_display(self) -> Optional[str]:
+    def file_size_display(self) -> str | None:
         """Human-readable file size."""
         if self.file_size_bytes is None:
             return None

@@ -4,7 +4,7 @@ Authentication API Routes
 Endpoints for user registration, login, token refresh, and logout.
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -166,7 +166,7 @@ async def refresh_token(
 async def logout(
     current_user: CurrentActiveUser,
     service: Annotated[AuthService, Depends(get_auth_service)],
-    data: Optional[RefreshTokenRequest] = None,
+    data: RefreshTokenRequest | None = None,
 ) -> MessageResponse:
     """Logout user and revoke refresh tokens.
 

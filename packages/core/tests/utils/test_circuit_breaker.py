@@ -13,9 +13,8 @@ Tests cover:
 """
 
 import asyncio
+
 import pytest
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from scenemachine.utils.circuit_breaker import (
     CircuitBreaker,
@@ -30,7 +29,6 @@ from scenemachine.utils.circuit_breaker import (
     get_provider_circuit_breaker,
     with_fallback,
 )
-
 
 # =============================================================================
 # CircuitState Tests
@@ -873,7 +871,7 @@ class TestCircuitBreakerEdgeCases:
             raise RuntimeError()
 
         # Exactly 3 failures should open
-        for i in range(3):
+        for _i in range(3):
             with pytest.raises(RuntimeError):
                 await cb.call(fail)
 

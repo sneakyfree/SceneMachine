@@ -1,10 +1,8 @@
 """Tests for ACI (AI Character Integration) service."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime, timedelta
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.services.aci import ACIService

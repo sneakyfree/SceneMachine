@@ -2,13 +2,12 @@
 
 import asyncio
 import logging
-import os
-import tempfile
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from enum import Enum
+from collections.abc import Callable
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 import httpx
@@ -16,13 +15,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.config import get_settings
-from scenemachine.models.asset import Asset, AssetStatus, AssetType
 from scenemachine.models.character import Character
 
 logger = logging.getLogger(__name__)
 
 
-class TTSProvider(str, Enum):
+class TTSProvider(StrEnum):
     """Supported TTS providers."""
 
     MOCK = "mock"
@@ -31,7 +29,7 @@ class TTSProvider(str, Enum):
     AZURE = "azure"
 
 
-class VoiceGender(str, Enum):
+class VoiceGender(StrEnum):
     """Voice gender options."""
 
     MALE = "male"
@@ -48,9 +46,9 @@ class Voice:
     provider: TTSProvider
     gender: VoiceGender
     language: str = "en"
-    accent: Optional[str] = None
-    preview_url: Optional[str] = None
-    description: Optional[str] = None
+    accent: str | None = None
+    preview_url: str | None = None
+    description: str | None = None
 
 
 @dataclass
@@ -72,10 +70,10 @@ class TTSResult:
     """Text-to-speech generation result."""
 
     success: bool
-    audio_path: Optional[str] = None
-    duration_seconds: Optional[float] = None
-    error_message: Optional[str] = None
-    cost_usd: Optional[float] = None
+    audio_path: str | None = None
+    duration_seconds: float | None = None
+    error_message: str | None = None
+    cost_usd: float | None = None
 
 
 @dataclass
@@ -103,7 +101,7 @@ class TTSProviderBase(ABC):
         pass
 
     @abstractmethod
-    async def get_voices(self) -> List[Voice]:
+    async def get_voices(self) -> list[Voice]:
         """Get available voices."""
         pass
 
@@ -111,7 +109,7 @@ class TTSProviderBase(ABC):
     async def generate(
         self,
         request: TTSRequest,
-        progress_callback: Optional[Callable[[AudioProgress], Any]] = None,
+        progress_callback: Callable[[AudioProgress], Any] | None = None,
     ) -> TTSResult:
         """Generate speech from text."""
         pass
@@ -133,7 +131,7 @@ class MockTTSProvider(TTSProviderBase):
     def provider_type(self) -> TTSProvider:
         return TTSProvider.MOCK
 
-    async def get_voices(self) -> List[Voice]:
+    async def get_voices(self) -> list[Voice]:
         return [
             Voice(
                 id="mock-male-1",
@@ -176,7 +174,7 @@ class MockTTSProvider(TTSProviderBase):
     async def generate(
         self,
         request: TTSRequest,
-        progress_callback: Optional[Callable[[AudioProgress], Any]] = None,
+        progress_callback: Callable[[AudioProgress], Any] | None = None,
     ) -> TTSResult:
         """Generate mock audio (creates a silent file)."""
         settings = get_settings()
@@ -269,12 +267,12 @@ class ElevenLabsProvider(TTSProviderBase):
 
     DEFAULT_MODEL = "eleven_multilingual_v2"
 
-    def __init__(self, api_key: str, model_id: Optional[str] = None):
+    def __init__(self, api_key: str, model_id: str | None = None) -> None:
         self.api_key = api_key
         self.model_id = model_id or self.DEFAULT_MODEL
         self.base_url = "https://api.elevenlabs.io/v1"
-        self._voices_cache: Optional[List[Voice]] = None
-        self._cache_timestamp: Optional[float] = None
+        self._voices_cache: list[Voice] | None = None
+        self._cache_timestamp: float | None = None
         self._cache_ttl = 300  # 5 minutes
 
     @property
@@ -285,13 +283,13 @@ class ElevenLabsProvider(TTSProviderBase):
     def provider_type(self) -> TTSProvider:
         return TTSProvider.ELEVENLABS
 
-    def estimate_cost(self, text: str, model_id: Optional[str] = None) -> float:
+    def estimate_cost(self, text: str, model_id: str | None = None) -> float:
         """Estimate generation cost in USD."""
         model = model_id or self.model_id
         cost_per_char = self.MODELS.get(model, {}).get("cost_per_char", 0.0003)
         return len(text) * cost_per_char
 
-    async def get_voices(self, use_cache: bool = True) -> List[Voice]:
+    async def get_voices(self, use_cache: bool = True) -> list[Voice]:
         """Fetch available voices from ElevenLabs with caching."""
         import time
 
@@ -346,7 +344,7 @@ class ElevenLabsProvider(TTSProviderBase):
     async def generate(
         self,
         request: TTSRequest,
-        progress_callback: Optional[Callable[[AudioProgress], Any]] = None,
+        progress_callback: Callable[[AudioProgress], Any] | None = None,
     ) -> TTSResult:
         """Generate speech using ElevenLabs API."""
         settings = get_settings()
@@ -495,7 +493,7 @@ class ElevenLabsProvider(TTSProviderBase):
         except Exception:
             return 0.0
 
-    async def get_user_info(self) -> Optional[Dict[str, Any]]:
+    async def get_user_info(self) -> dict[str, Any] | None:
         """Get user subscription and usage info."""
         try:
             async with httpx.AsyncClient() as client:
@@ -525,7 +523,7 @@ class ElevenLabsProvider(TTSProviderBase):
             return False
 
     @classmethod
-    def list_models(cls) -> List[Dict[str, Any]]:
+    def list_models(cls) -> list[dict[str, Any]]:
         """List available TTS models."""
         return [
             {"id": model_id, **info}
@@ -536,7 +534,7 @@ class ElevenLabsProvider(TTSProviderBase):
 class OpenAITTSProvider(TTSProviderBase):
     """OpenAI TTS provider."""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         self.base_url = "https://api.openai.com/v1"
 
@@ -548,7 +546,7 @@ class OpenAITTSProvider(TTSProviderBase):
     def provider_type(self) -> TTSProvider:
         return TTSProvider.OPENAI
 
-    async def get_voices(self) -> List[Voice]:
+    async def get_voices(self) -> list[Voice]:
         """Get available OpenAI TTS voices."""
         # OpenAI has fixed voices
         return [
@@ -605,7 +603,7 @@ class OpenAITTSProvider(TTSProviderBase):
     async def generate(
         self,
         request: TTSRequest,
-        progress_callback: Optional[Callable[[AudioProgress], Any]] = None,
+        progress_callback: Callable[[AudioProgress], Any] | None = None,
     ) -> TTSResult:
         """Generate speech using OpenAI TTS API."""
         settings = get_settings()
@@ -699,9 +697,9 @@ class OpenAITTSProvider(TTSProviderBase):
 class AudioService:
     """Service for managing audio generation and TTS."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
-        self._providers: Dict[TTSProvider, TTSProviderBase] = {
+        self._providers: dict[TTSProvider, TTSProviderBase] = {
             TTSProvider.MOCK: MockTTSProvider(),
         }
         self._settings = get_settings()
@@ -710,7 +708,7 @@ class AudioService:
         """Register a TTS provider."""
         self._providers[provider_type] = provider
 
-    def get_provider(self, provider_type: TTSProvider) -> Optional[TTSProviderBase]:
+    def get_provider(self, provider_type: TTSProvider) -> TTSProviderBase | None:
         """Get a registered provider."""
         return self._providers.get(provider_type)
 
@@ -736,10 +734,10 @@ class AudioService:
 
     async def get_available_voices(
         self,
-        provider: Optional[TTSProvider] = None,
-        gender: Optional[VoiceGender] = None,
-        language: Optional[str] = None,
-    ) -> List[Voice]:
+        provider: TTSProvider | None = None,
+        gender: VoiceGender | None = None,
+        language: str | None = None,
+    ) -> list[Voice]:
         """Get available voices, optionally filtered."""
         voices = []
 
@@ -769,7 +767,7 @@ class AudioService:
         voice_id: str,
         provider: TTSProvider = TTSProvider.MOCK,
         speed: float = 1.0,
-        progress_callback: Optional[Callable[[AudioProgress], Any]] = None,
+        progress_callback: Callable[[AudioProgress], Any] | None = None,
     ) -> TTSResult:
         """Generate speech from text."""
         provider_instance = self._providers.get(provider)
@@ -791,7 +789,7 @@ class AudioService:
     async def generate_dialogue(
         self,
         shot_id: UUID,
-        progress_callback: Optional[Callable[[AudioProgress], Any]] = None,
+        progress_callback: Callable[[AudioProgress], Any] | None = None,
     ) -> TTSResult:
         """Generate dialogue audio for a shot."""
         from scenemachine.models.shot import Shot
@@ -852,7 +850,7 @@ class AudioService:
     async def get_character_voice(
         self,
         character_id: UUID,
-    ) -> Optional[Dict[str, str]]:
+    ) -> dict[str, str] | None:
         """Get voice assignment for a character."""
         stmt = select(Character).where(Character.id == character_id)
         result = await self._session.execute(stmt)
@@ -863,7 +861,7 @@ class AudioService:
 
         return character.generation_settings.get("voice")
 
-    async def get_available_providers(self) -> List[Dict[str, Any]]:
+    async def get_available_providers(self) -> list[dict[str, Any]]:
         """Get list of available TTS providers with status."""
         providers = []
 

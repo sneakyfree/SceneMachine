@@ -12,16 +12,15 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Any, Callable, Optional
-from uuid import UUID
+from enum import StrEnum
+from typing import Any
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """WebSocket event types."""
 
     # Connection events
@@ -86,8 +85,8 @@ class WebSocketEvent:
     type: EventType
     data: dict[str, Any]
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    project_id: Optional[str] = None
-    job_id: Optional[str] = None
+    project_id: str | None = None
+    job_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -346,7 +345,7 @@ async def emit_job_progress(
     shot_id: str,
     project_id: str,
     progress: float,
-    message: Optional[str] = None,
+    message: str | None = None,
 ) -> None:
     """Emit job progress event."""
     event = WebSocketEvent(
@@ -369,8 +368,8 @@ async def emit_job_completed(
     shot_id: str,
     project_id: str,
     output_path: str,
-    thumbnail_path: Optional[str] = None,
-    duration_seconds: Optional[float] = None,
+    thumbnail_path: str | None = None,
+    duration_seconds: float | None = None,
 ) -> None:
     """Emit job completed event."""
     event = WebSocketEvent(
@@ -394,7 +393,7 @@ async def emit_job_failed(
     shot_id: str,
     project_id: str,
     error_message: str,
-    error_code: Optional[str] = None,
+    error_code: str | None = None,
     retry_count: int = 0,
 ) -> None:
     """Emit job failed event."""
@@ -428,7 +427,7 @@ async def emit_system_notification(
     title: str,
     message: str,
     level: str = "info",
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
 ) -> None:
     """Emit system notification event."""
     event = WebSocketEvent(
@@ -451,10 +450,10 @@ async def emit_agent_action(
     agent_name: str,
     action: str,
     status: str,
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
     confidence: float = 1.0,
     cost_usd: float = 0.0,
-    details: Optional[dict] = None,
+    details: dict | None = None,
 ) -> None:
     """Emit an agent action event for the activity feed."""
     event = WebSocketEvent(
@@ -481,7 +480,7 @@ async def emit_pipeline_stage(
     stage: str,
     progress_percent: float,
     total_cost_usd: float = 0.0,
-    message: Optional[str] = None,
+    message: str | None = None,
 ) -> None:
     """Emit pipeline stage change event."""
     event = WebSocketEvent(
@@ -502,7 +501,7 @@ async def emit_approval_required(
     agent_type: str,
     action_type: str,
     description: str,
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
 ) -> None:
     """Emit approval required event for HITL queue."""
     event = WebSocketEvent(

@@ -5,25 +5,24 @@ Represents a recorded performance "take" with motion/emotion data
 that can be used for performance-driven retargeting.
 """
 
-from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, Boolean
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
-
+from scenemachine.models.base import ArrayType, Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
-    from scenemachine.models.performer import Performer
     from scenemachine.models.booking import Booking
+    from scenemachine.models.performer import Performer
 
 
-class TakeMode(str, Enum):
+class TakeMode(StrEnum):
     """Booking mode the take was created for."""
     BLINK = "blink"  # 10-second quick take
     DEEP = "deep"  # 120-second method acting
@@ -31,7 +30,7 @@ class TakeMode(str, Enum):
     DEMO = "demo"  # Demo reel take
 
 
-class TakeStatus(str, Enum):
+class TakeStatus(StrEnum):
     """Status of the performance take."""
     UPLOADING = "uploading"  # Being uploaded
     PROCESSING = "processing"  # Processing motion data
@@ -86,14 +85,14 @@ class PerformanceTake(Base, UUIDMixin, TimestampMixin):
     )
 
     # Content classification
-    emotion_tags: Mapped[Optional[list]] = mapped_column(ArrayType(String), nullable=True)
+    emotion_tags: Mapped[list | None] = mapped_column(ArrayType(String), nullable=True)
     # Example: ["grief", "anger", "subtle", "intense"]
 
-    scene_context: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    scene_context: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Brief description of the scene context for this take
 
     # Motion data paths
-    motion_profile: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    motion_profile: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "liveportrait_vectors_path": "takes/uuid/vectors.npy",
@@ -106,7 +105,7 @@ class PerformanceTake(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Quality metrics (used for ACI MotionScore)
-    quality_metrics: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    quality_metrics: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "motion_score": 85.5,  # Overall motion quality 0-100
@@ -132,21 +131,21 @@ class PerformanceTake(Base, UUIDMixin, TimestampMixin):
 
     # Usage statistics
     usage_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    last_used_at: Mapped[Optional[datetime]] = mapped_column(
+    last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
     # Storage
-    storage_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    file_size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    thumbnail_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    preview_video_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    storage_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    thumbnail_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    preview_video_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Processing info
-    processed_at: Mapped[Optional[datetime]] = mapped_column(
+    processed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    processing_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    processing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     performer: Mapped["Performer"] = relationship(
@@ -181,9 +180,9 @@ class PerformanceTake(Base, UUIDMixin, TimestampMixin):
 
     def increment_usage(self) -> None:
         """Increment usage counter."""
-        from datetime import datetime, timezone
+        from datetime import datetime
         self.usage_count += 1
-        self.last_used_at = datetime.now(timezone.utc)
+        self.last_used_at = datetime.now(UTC)
 
     def __repr__(self) -> str:
         """String representation."""

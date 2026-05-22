@@ -141,7 +141,7 @@ def setup_logging(
     # Log startup message
     logger = logging.getLogger(__name__)
     logger.info(
-        f"Logging configured",
+        "Logging configured",
         extra={
             "log_level": level,
             "json_format": json_format,

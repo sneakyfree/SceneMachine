@@ -6,9 +6,9 @@ Supports multiple video models including MiniMax, Luma, Kling, and SVD.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from scenemachine.config import get_settings
 from scenemachine.models.generation_job import JobProvider
@@ -46,7 +46,7 @@ class ReplicateProvider(GenerationProvider):
         result = await provider.generate(request)
     """
 
-    MODELS: Dict[str, VideoModel] = {
+    MODELS: dict[str, VideoModel] = {
         "svd": VideoModel(
             id="stability-ai/stable-video-diffusion",
             name="Stable Video Diffusion",
@@ -106,8 +106,8 @@ class ReplicateProvider(GenerationProvider):
 
     def __init__(
         self,
-        api_token: Optional[str] = None,
-        model_id: Optional[str] = None,
+        api_token: str | None = None,
+        model_id: str | None = None,
     ) -> None:
         """Initialize Replicate provider.
 
@@ -118,7 +118,7 @@ class ReplicateProvider(GenerationProvider):
         self.api_token = api_token
         self.model_id = model_id or self.DEFAULT_MODEL
         self._client = None
-        self._active_predictions: Dict[str, str] = {}  # shot_id -> prediction_id
+        self._active_predictions: dict[str, str] = {}  # shot_id -> prediction_id
 
     @property
     def name(self) -> str:
@@ -154,7 +154,7 @@ class ReplicateProvider(GenerationProvider):
             self._client = replicate.Client(api_token=self.api_token)
         return self._client
 
-    def get_model(self, model_id: Optional[str] = None) -> Optional[VideoModel]:
+    def get_model(self, model_id: str | None = None) -> VideoModel | None:
         """Get model configuration."""
         mid = model_id or self.model_id
         return self.MODELS.get(mid)
@@ -162,7 +162,7 @@ class ReplicateProvider(GenerationProvider):
     def estimate_cost(
         self,
         duration_seconds: float = 3.0,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> float:
         """Estimate generation cost in USD."""
         model = self.get_model(model_id)
@@ -173,11 +173,11 @@ class ReplicateProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Generate video using Replicate API with async polling."""
         try:
-            import replicate
+            import replicate  # noqa: F401 — capability-detect probe; lazy-imported again at use sites
         except ImportError:
             return GenerationResult(
                 success=False,
@@ -192,7 +192,7 @@ class ReplicateProvider(GenerationProvider):
                 error_code="MISSING_API_TOKEN",
             )
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         model = self.get_model(request.extra_params.get("model_id", self.model_id))
         if not model:
             model = self.MODELS[self.DEFAULT_MODEL]
@@ -275,7 +275,7 @@ class ReplicateProvider(GenerationProvider):
             shot_dir = settings.output_dir / "shots" / str(request.shot_id)
             shot_dir.mkdir(parents=True, exist_ok=True)
 
-            output_path = await self._download_output(
+            await self._download_output(
                 output_url, shot_dir / "output.mp4"
             )
 
@@ -296,7 +296,7 @@ class ReplicateProvider(GenerationProvider):
             )
 
             # Calculate actual duration and cost
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             generation_duration = (end_time - start_time).total_seconds()
             estimated_cost = self.estimate_cost(
                 duration_seconds=request.duration_seconds,
@@ -325,7 +325,7 @@ class ReplicateProvider(GenerationProvider):
                 },
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Replicate generation timed out for shot {request.shot_id}")
             self._active_predictions.pop(str(request.shot_id), None)
             return GenerationResult(
@@ -347,9 +347,9 @@ class ReplicateProvider(GenerationProvider):
         self,
         request: GenerationRequest,
         model: VideoModel,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build model-specific input parameters."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         # Common parameters
         if model.supports_text_to_video:
@@ -417,8 +417,8 @@ class ReplicateProvider(GenerationProvider):
         self,
         prediction_id: str,
         shot_id: Any,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Optional[str]:
+        progress_callback: ProgressCallback | None = None,
+    ) -> str | None:
         """Poll for prediction completion with progress updates."""
         client = self._get_client()
         elapsed = 0.0
@@ -478,7 +478,7 @@ class ReplicateProvider(GenerationProvider):
             await asyncio.sleep(self.POLL_INTERVAL)
             elapsed += self.POLL_INTERVAL
 
-        raise asyncio.TimeoutError("Prediction polling timed out")
+        raise TimeoutError("Prediction polling timed out")
 
     async def _download_output(self, url: str, output_path: Path) -> str:
         """Download generated video from URL."""
@@ -497,13 +497,13 @@ class ReplicateProvider(GenerationProvider):
         self,
         video_path: Path,
         thumbnail_path: Path,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate thumbnail from video using ffmpeg."""
         if not video_path.exists():
             return None
 
         try:
-            from scenemachine.utils.ffmpeg import FFmpegNotFoundError, get_ffmpeg
+            from scenemachine.utils.ffmpeg import get_ffmpeg
 
             ffmpeg = get_ffmpeg()
             await ffmpeg.extract_frame(
@@ -579,7 +579,7 @@ class ReplicateProvider(GenerationProvider):
             logger.warning(f"Failed to cancel Replicate prediction: {e}")
             return False
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """List available video generation models."""
         return [
             {

@@ -1,11 +1,10 @@
 """Tests for Storage service."""
 
-import pytest
-import pytest_asyncio
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
-from io import BytesIO
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.services.storage import StorageService

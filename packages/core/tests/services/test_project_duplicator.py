@@ -1,13 +1,12 @@
 """Tests for Project Duplicator service."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.project_duplicator import ProjectDuplicatorService
 from scenemachine.models import Project
+from scenemachine.services.project_duplicator import ProjectDuplicatorService
 
 
 class TestProjectDuplicatorService:
@@ -192,4 +191,4 @@ class TestProjectDuplicatorService:
 
             if duplicate:
                 # Check metadata was preserved
-                assert duplicate.settings is not None or True
+                assert True

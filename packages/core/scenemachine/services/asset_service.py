@@ -5,13 +5,11 @@ Business logic for asset management - CRUD, search, tagging.
 """
 
 import hashlib
-import os
 import shutil
 from pathlib import Path
-from typing import List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import or_, select, func
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.config import get_settings
@@ -21,7 +19,7 @@ from scenemachine.models.asset import Asset, AssetStatus, AssetType
 class AssetServiceError(Exception):
     """Base exception for asset service errors."""
 
-    def __init__(self, message: str, code: str = "asset_error"):
+    def __init__(self, message: str, code: str = "asset_error") -> None:
         self.message = message
         self.code = code
         super().__init__(self.message)
@@ -30,7 +28,7 @@ class AssetServiceError(Exception):
 class AssetNotFoundError(AssetServiceError):
     """Raised when asset is not found."""
 
-    def __init__(self, asset_id: UUID):
+    def __init__(self, asset_id: UUID) -> None:
         super().__init__(
             f"Asset {asset_id} not found",
             code="asset_not_found",
@@ -40,7 +38,7 @@ class AssetNotFoundError(AssetServiceError):
 class AssetService:
     """Service for asset management operations."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         """Initialize asset service.
 
         Args:
@@ -55,14 +53,14 @@ class AssetService:
         filename: str,
         file_path: str,
         asset_type: AssetType,
-        file_size_bytes: Optional[int] = None,
-        mime_type: Optional[str] = None,
-        display_name: Optional[str] = None,
-        description: Optional[str] = None,
-        character_id: Optional[UUID] = None,
-        shot_id: Optional[UUID] = None,
-        scene_id: Optional[UUID] = None,
-        metadata: Optional[dict] = None,
+        file_size_bytes: int | None = None,
+        mime_type: str | None = None,
+        display_name: str | None = None,
+        description: str | None = None,
+        character_id: UUID | None = None,
+        shot_id: UUID | None = None,
+        scene_id: UUID | None = None,
+        metadata: dict | None = None,
     ) -> Asset:
         """Create a new asset.
 
@@ -117,8 +115,8 @@ class AssetService:
     async def get_asset(
         self,
         asset_id: UUID,
-        project_id: Optional[UUID] = None,
-    ) -> Optional[Asset]:
+        project_id: UUID | None = None,
+    ) -> Asset | None:
         """Get asset by ID.
 
         Args:
@@ -138,15 +136,15 @@ class AssetService:
     async def list_assets(
         self,
         project_id: UUID,
-        asset_type: Optional[AssetType] = None,
-        status: Optional[AssetStatus] = None,
-        character_id: Optional[UUID] = None,
-        shot_id: Optional[UUID] = None,
-        scene_id: Optional[UUID] = None,
-        search_query: Optional[str] = None,
+        asset_type: AssetType | None = None,
+        status: AssetStatus | None = None,
+        character_id: UUID | None = None,
+        shot_id: UUID | None = None,
+        scene_id: UUID | None = None,
+        search_query: str | None = None,
         offset: int = 0,
         limit: int = 50,
-    ) -> Tuple[List[Asset], int]:
+    ) -> tuple[list[Asset], int]:
         """List assets with filtering.
 
         Args:
@@ -211,10 +209,10 @@ class AssetService:
         self,
         asset_id: UUID,
         project_id: UUID,
-        display_name: Optional[str] = None,
-        description: Optional[str] = None,
-        status: Optional[AssetStatus] = None,
-        metadata: Optional[dict] = None,
+        display_name: str | None = None,
+        description: str | None = None,
+        status: AssetStatus | None = None,
+        metadata: dict | None = None,
     ) -> Asset:
         """Update asset.
 
@@ -295,7 +293,7 @@ class AssetService:
 
     async def bulk_delete_assets(
         self,
-        asset_ids: List[UUID],
+        asset_ids: list[UUID],
         project_id: UUID,
         delete_files: bool = True,
     ) -> int:
@@ -323,7 +321,7 @@ class AssetService:
         self,
         asset_id: UUID,
         project_id: UUID,
-        new_name: Optional[str] = None,
+        new_name: str | None = None,
     ) -> Asset:
         """Duplicate an asset.
 
@@ -372,9 +370,9 @@ class AssetService:
         self,
         asset_id: UUID,
         project_id: UUID,
-        target_character_id: Optional[UUID] = None,
-        target_shot_id: Optional[UUID] = None,
-        target_scene_id: Optional[UUID] = None,
+        target_character_id: UUID | None = None,
+        target_shot_id: UUID | None = None,
+        target_scene_id: UUID | None = None,
     ) -> Asset:
         """Move asset to different association.
 

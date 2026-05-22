@@ -8,15 +8,15 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional
+from typing import Any, BinaryIO
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.config import get_settings
-from scenemachine.models import Asset, Character, Project, Scene, Screenplay
+from scenemachine.models import Asset, Character, Project, Screenplay
 from scenemachine.models.asset import AssetType
 from scenemachine.models.character import CharacterGender, CharacterLockState
 from scenemachine.models.project import ProjectState
@@ -35,11 +35,11 @@ class PhysicalDescription:
     skin_tone: str = ""
     height: str = ""
     build: str = ""
-    distinguishing_features: List[str] = field(default_factory=list)
+    distinguishing_features: list[str] = field(default_factory=list)
     clothing_style: str = ""
     additional_notes: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "hair_color": self.hair_color,
@@ -54,7 +54,7 @@ class PhysicalDescription:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PhysicalDescription":
+    def from_dict(cls, data: dict[str, Any]) -> "PhysicalDescription":
         """Create from dictionary."""
         return cls(
             hair_color=data.get("hair_color", ""),
@@ -76,7 +76,7 @@ class CharacterPrompt:
     positive_prompt: str
     negative_prompt: str
     style_prompt: str
-    consistency_tokens: List[str]
+    consistency_tokens: list[str]
 
 
 class CharacterService:
@@ -114,7 +114,7 @@ class CharacterService:
         self,
         project_id: UUID,
         include_references: bool = False,
-    ) -> List[Character]:
+    ) -> list[Character]:
         """Get all characters for a project.
 
         Args:
@@ -138,7 +138,7 @@ class CharacterService:
         self,
         character_id: UUID,
         include_references: bool = True,
-    ) -> Optional[Character]:
+    ) -> Character | None:
         """Get a character by ID.
 
         Args:
@@ -159,15 +159,15 @@ class CharacterService:
     async def update_character(
         self,
         character_id: UUID,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        age_range_min: Optional[int] = None,
-        age_range_max: Optional[int] = None,
-        gender: Optional[CharacterGender] = None,
-        physical_description: Optional[Dict[str, Any]] = None,
-        personality_traits: Optional[List[str]] = None,
-        voice_description: Optional[str] = None,
-        is_protagonist: Optional[bool] = None,
+        name: str | None = None,
+        description: str | None = None,
+        age_range_min: int | None = None,
+        age_range_max: int | None = None,
+        gender: CharacterGender | None = None,
+        physical_description: dict[str, Any] | None = None,
+        personality_traits: list[str] | None = None,
+        voice_description: str | None = None,
+        is_protagonist: bool | None = None,
     ) -> Character:
         """Update character details.
 
@@ -228,7 +228,7 @@ class CharacterService:
     async def generate_character_description(
         self,
         character_id: UUID,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate initial character description from screenplay context.
 
         Uses the screenplay content to infer character details.
@@ -297,8 +297,8 @@ class CharacterService:
     def _extract_character_content(
         self,
         character_name: str,
-        parsed_content: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        parsed_content: dict[str, Any],
+    ) -> dict[str, Any]:
         """Extract content related to a specific character."""
         elements = parsed_content.get("elements", [])
         scenes = parsed_content.get("scenes", [])
@@ -340,8 +340,8 @@ class CharacterService:
     def _analyze_character_from_content(
         self,
         character_name: str,
-        content: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        content: dict[str, Any],
+    ) -> dict[str, Any]:
         """Analyze character based on extracted content.
 
         This is a rule-based analysis. In production, this would
@@ -418,9 +418,9 @@ class CharacterService:
 
     def _extract_personality_traits(
         self,
-        dialogues: List[str],
-        actions: List[str],
-    ) -> List[str]:
+        dialogues: list[str],
+        actions: list[str],
+    ) -> list[str]:
         """Extract personality traits from dialogue and actions."""
         traits = []
         all_text = " ".join(dialogues + actions).lower()
@@ -465,7 +465,7 @@ class CharacterService:
                 f"with {dialogue_count} lines of dialogue."
             )
 
-    def _infer_physical_description(self, text: str) -> Dict[str, Any]:
+    def _infer_physical_description(self, text: str) -> dict[str, Any]:
         """Infer physical description from text mentions."""
         physical = PhysicalDescription()
 
@@ -595,7 +595,7 @@ class CharacterService:
     def generate_character_prompt(
         self,
         character: Character,
-        scene_context: Optional[str] = None,
+        scene_context: str | None = None,
     ) -> CharacterPrompt:
         """Generate AI prompts for character image generation.
 
@@ -685,7 +685,7 @@ class CharacterService:
     async def lock_character(
         self,
         character_id: UUID,
-        primary_reference_id: Optional[UUID] = None,
+        primary_reference_id: UUID | None = None,
     ) -> Character:
         """Lock a character's likeness.
 
@@ -837,13 +837,13 @@ class CharacterService:
                 await self.session.commit()
                 logger.info(f"All characters locked for project {project_id}")
 
-    async def _get_project(self, project_id: UUID) -> Optional[Project]:
+    async def _get_project(self, project_id: UUID) -> Project | None:
         """Get project by ID."""
         stmt = select(Project).where(Project.id == project_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _get_project_screenplay(self, project_id: UUID) -> Optional[Screenplay]:
+    async def _get_project_screenplay(self, project_id: UUID) -> Screenplay | None:
         """Get screenplay for a project."""
         stmt = select(Screenplay).where(Screenplay.project_id == project_id)
         result = await self.session.execute(stmt)
@@ -852,59 +852,59 @@ class CharacterService:
     # ============================================================
     # S-P1-03: Character Consistency Enhancement
     # ============================================================
-    
+
     # Consistency thresholds
     CONSISTENCY_HIGH = 0.75      # Strong match
     CONSISTENCY_MEDIUM = 0.55    # Acceptable match
     CONSISTENCY_LOW = 0.35       # Likely different character
-    
+
     async def check_character_consistency(
         self,
         character_id: UUID,
         video_path: str,
         sample_frames: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check if a video maintains character visual consistency.
-        
+
         Extracts frames from the video and compares face embeddings
         against the character's locked reference.
-        
+
         Args:
             character_id: Character UUID
             video_path: Path to generated video
             sample_frames: Number of frames to sample
-            
+
         Returns:
             Consistency analysis with scores and issues
         """
         from scenemachine.services.face_embedding import get_face_embedding_service
-        
+
         character = await self.get_character(character_id, include_references=True)
         if not character:
             return {"error": "Character not found", "consistent": False}
-        
+
         if not character.is_locked:
             return {"error": "Character not locked", "consistent": False, "score": 0.0}
-        
+
         # Get reference embedding
         reference_embedding = await self._get_reference_embedding(character)
         if reference_embedding is None:
             return {"error": "No reference embedding available", "consistent": False}
-        
+
         try:
-            face_service = get_face_embedding_service()
-            
+            get_face_embedding_service()
+
             # Extract frames and compare
             frame_scores = []
             issues = []
-            
+
             # Mock frame extraction (in production, use opencv/ffmpeg)
-            for i in range(sample_frames):
+            for _i in range(sample_frames):
                 # Would extract actual frame here
                 # For now, return mock result
                 frame_score = 0.8  # Mock similarity
                 frame_scores.append(frame_score)
-            
+
             # Calculate overall consistency
             if frame_scores:
                 avg_score = sum(frame_scores) / len(frame_scores)
@@ -916,7 +916,7 @@ class CharacterService:
                 min_score = 0.0
                 max_score = 0.0
                 variance = 0.0
-            
+
             # Determine consistency tier
             if avg_score >= self.CONSISTENCY_HIGH:
                 tier = "high"
@@ -932,11 +932,11 @@ class CharacterService:
                 tier = "mismatch"
                 consistent = False
                 issues.append("Character does not match reference")
-            
+
             # Check for variance (inconsistency between frames)
             if variance > 0.3:
                 issues.append("High variance between frames - character may shift appearance")
-            
+
             return {
                 "consistent": consistent,
                 "tier": tier,
@@ -952,80 +952,80 @@ class CharacterService:
                     "low": self.CONSISTENCY_LOW,
                 },
             }
-            
+
         except Exception as e:
             logger.warning(f"Consistency check failed: {e}")
             return {"error": str(e), "consistent": False, "score": 0.0}
-    
+
     async def _get_reference_embedding(
-        self, 
+        self,
         character: Character,
-    ) -> Optional[List[float]]:
+    ) -> list[float] | None:
         """Get the reference embedding for a locked character."""
         if not character.locked_likeness:
             return None
-        
+
         # Check for cached embedding in locked_likeness
         if "face_embedding" in character.locked_likeness:
             return character.locked_likeness["face_embedding"]
-        
+
         # Would generate embedding from primary reference here
         # For now, return None to indicate no cached embedding
         return None
-    
+
     async def verify_character_in_frame(
         self,
         character_id: UUID,
         frame_image_path: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Verify a character appears correctly in a single frame.
-        
+
         Args:
             character_id: Character UUID
             frame_image_path: Path to frame image
-            
+
         Returns:
             Verification result with detected faces and match scores
         """
         from scenemachine.services.face_embedding import get_face_embedding_service
-        
+
         character = await self.get_character(character_id, include_references=True)
         if not character:
             return {"verified": False, "error": "Character not found"}
-        
+
         try:
             face_service = get_face_embedding_service()
-            
+
             # Detect faces in frame
             faces = await face_service.detect_faces(frame_image_path)
-            
+
             if not faces:
                 return {
                     "verified": False,
                     "error": "No faces detected in frame",
                     "face_count": 0,
                 }
-            
+
             # Score each face against character reference
             reference_embedding = await self._get_reference_embedding(character)
-            
+
             scored_faces = []
             best_match_score = 0.0
             best_match_idx = -1
-            
+
             for i, face in enumerate(faces):
                 # Get quality score
                 quality = face_service.score_face_quality(face)
-                
+
                 # Compare to reference if available
                 if reference_embedding:
                     similarity = face_service.compare_faces(
-                        reference_embedding, 
+                        reference_embedding,
                         face.get("embedding", [])
                     )
                 else:
                     similarity = 0.5  # No reference, neutral score
-                
+
                 scored_faces.append({
                     "index": i,
                     "similarity": similarity,
@@ -1033,13 +1033,13 @@ class CharacterService:
                     "quality_tier": quality.get("tier", "unknown"),
                     "bbox": face.get("bbox"),
                 })
-                
+
                 if similarity > best_match_score:
                     best_match_score = similarity
                     best_match_idx = i
-            
+
             verified = best_match_score >= self.CONSISTENCY_MEDIUM
-            
+
             return {
                 "verified": verified,
                 "face_count": len(faces),
@@ -1048,7 +1048,7 @@ class CharacterService:
                 "scored_faces": scored_faces,
                 "threshold": self.CONSISTENCY_MEDIUM,
             }
-            
+
         except Exception as e:
             logger.warning(f"Frame verification failed: {e}")
             return {"verified": False, "error": str(e)}
@@ -1057,22 +1057,22 @@ class CharacterService:
 @dataclass
 class ConsistencyReport:
     """Report on character consistency across generated content."""
-    
+
     character_id: UUID
     character_name: str
     total_frames_checked: int = 0
     consistent_frames: int = 0
     average_score: float = 0.0
-    issues: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
-    
+    issues: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+
     @property
     def consistency_rate(self) -> float:
         if self.total_frames_checked == 0:
             return 0.0
         return self.consistent_frames / self.total_frames_checked
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "character_id": str(self.character_id),
             "character_name": self.character_name,

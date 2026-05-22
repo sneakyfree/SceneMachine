@@ -4,14 +4,14 @@ Provides optimized prompts for screenplay analysis and shot generation
 with enhanced few-shot examples, confidence scoring, and prompt caching.
 """
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional
 import hashlib
 import json
+from dataclasses import dataclass, field
+from enum import StrEnum
+from typing import Any
 
 
-class PromptCategory(str, Enum):
+class PromptCategory(StrEnum):
     """Categories of LLM prompts."""
     SHOT_GENERATION = "shot_generation"
     CHARACTER_ANALYSIS = "character_analysis"
@@ -28,7 +28,7 @@ class PromptTemplate:
     category: PromptCategory
     system_prompt: str
     user_template: str
-    few_shot_examples: List[Dict[str, str]] = field(default_factory=list)
+    few_shot_examples: list[dict[str, str]] = field(default_factory=list)
     expected_output_format: str = "json"
     max_tokens: int = 2000
     temperature: float = 0.7
@@ -298,18 +298,18 @@ Visual style: {visual_style}""",
 
 class PromptCache:
     """Cache for prompt results to avoid redundant LLM calls."""
-    
-    def __init__(self, max_size: int = 1000):
+
+    def __init__(self, max_size: int = 1000) -> None:
         self.max_size = max_size
-        self._cache: Dict[str, Dict[str, Any]] = {}
-        self._access_order: List[str] = []
-    
-    def _compute_key(self, template_name: str, inputs: Dict[str, Any]) -> str:
+        self._cache: dict[str, dict[str, Any]] = {}
+        self._access_order: list[str] = []
+
+    def _compute_key(self, template_name: str, inputs: dict[str, Any]) -> str:
         """Compute cache key from template and inputs."""
         content = f"{template_name}:{json.dumps(inputs, sort_keys=True)}"
         return hashlib.sha256(content.encode()).hexdigest()[:32]
-    
-    def get(self, template_name: str, inputs: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+    def get(self, template_name: str, inputs: dict[str, Any]) -> dict[str, Any] | None:
         """Get cached result if available."""
         key = self._compute_key(template_name, inputs)
         if key in self._cache:
@@ -318,24 +318,24 @@ class PromptCache:
             self._access_order.append(key)
             return self._cache[key]
         return None
-    
-    def set(self, template_name: str, inputs: Dict[str, Any], result: Dict[str, Any]):
+
+    def set(self, template_name: str, inputs: dict[str, Any], result: dict[str, Any]) -> None:
         """Cache a result."""
         key = self._compute_key(template_name, inputs)
-        
+
         # Evict oldest if at capacity
         if len(self._cache) >= self.max_size:
             oldest_key = self._access_order.pop(0)
             del self._cache[oldest_key]
-        
+
         self._cache[key] = result
         self._access_order.append(key)
-    
-    def clear(self):
+
+    def clear(self) -> None:
         """Clear the cache."""
         self._cache.clear()
         self._access_order.clear()
-    
+
     @property
     def size(self) -> int:
         """Current cache size."""
@@ -347,57 +347,56 @@ class PromptCache:
 # =============================================================================
 
 def compute_confidence_score(
-    output: Dict[str, Any],
-    expected_fields: List[str],
+    output: dict[str, Any],
+    expected_fields: list[str],
     min_items: int = 1,
 ) -> ConfidenceScore:
     """Compute confidence score for LLM output.
-    
+
     Args:
         output: The LLM output to evaluate
         expected_fields: Fields that should be present
         min_items: Minimum items expected in arrays
-        
+
     Returns:
         ConfidenceScore with detailed breakdown
     """
     completeness_issues = []
     consistency_issues = []
     quality_issues = []
-    
+
     # Check field completeness
     fields_present = sum(1 for f in expected_fields if f in output)
-    completeness = fields_present / len(expected_fields) if expected_fields else 1.0
-    
-    for field in expected_fields:
-        if field not in output:
-            completeness_issues.append(f"Missing field: {field}")
-    
+    fields_present / len(expected_fields) if expected_fields else 1.0
+
+    for field_name in expected_fields:
+        if field_name not in output:
+            completeness_issues.append(f"Missing field: {field_name}")
+
     # Check array sizes
     for key, value in output.items():
-        if isinstance(value, list):
-            if len(value) < min_items:
-                completeness_issues.append(f"Too few items in {key}: {len(value)}")
-    
+        if isinstance(value, list) and len(value) < min_items:
+            completeness_issues.append(f"Too few items in {key}: {len(value)}")
+
     # Check for common quality issues
     output_str = json.dumps(output)
-    
+
     if "TODO" in output_str or "PLACEHOLDER" in output_str:
         quality_issues.append("Contains placeholder text")
-    
+
     if len(output_str) < 100:
         quality_issues.append("Output seems too short")
-    
+
     # Compute scores
     completeness_score = max(0.0, 1.0 - len(completeness_issues) * 0.2)
     consistency_score = max(0.0, 1.0 - len(consistency_issues) * 0.2)
     quality_score = max(0.0, 1.0 - len(quality_issues) * 0.2)
-    
+
     overall = (completeness_score + consistency_score + quality_score) / 3
-    
+
     issues = completeness_issues + consistency_issues + quality_issues
     reasoning = "; ".join(issues) if issues else "All checks passed"
-    
+
     return ConfidenceScore(
         overall=round(overall, 3),
         completeness=round(completeness_score, 3),
@@ -413,71 +412,71 @@ def compute_confidence_score(
 
 class EnhancedPromptRegistry:
     """Registry of enhanced prompt templates."""
-    
-    _templates: Dict[str, PromptTemplate] = {
+
+    _templates: dict[str, PromptTemplate] = {
         "shot_generation": ENHANCED_SHOT_GENERATION_TEMPLATE,
         "character_analysis": ENHANCED_CHARACTER_ANALYSIS_TEMPLATE,
         "visual_description": ENHANCED_VISUAL_DESCRIPTION_TEMPLATE,
     }
-    
+
     _cache = PromptCache()
-    
+
     @classmethod
-    def get_template(cls, name: str) -> Optional[PromptTemplate]:
+    def get_template(cls, name: str) -> PromptTemplate | None:
         """Get a template by name."""
         return cls._templates.get(name)
-    
+
     @classmethod
-    def register_template(cls, template: PromptTemplate):
+    def register_template(cls, template: PromptTemplate) -> None:
         """Register a custom template."""
         cls._templates[template.name] = template
-    
+
     @classmethod
-    def list_templates(cls) -> List[str]:
+    def list_templates(cls) -> list[str]:
         """List all registered template names."""
         return list(cls._templates.keys())
-    
+
     @classmethod
     def build_prompt(
         cls,
         template_name: str,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         include_examples: bool = True,
-    ) -> Optional[Dict[str, str]]:
+    ) -> dict[str, str] | None:
         """Build a complete prompt from template.
-        
+
         Args:
             template_name: Name of the template
             inputs: Variables to fill in the template
             include_examples: Whether to include few-shot examples
-            
+
         Returns:
             Dict with 'system' and 'user' prompts, or None if template not found
         """
         template = cls.get_template(template_name)
         if not template:
             return None
-        
+
         # Build system prompt with examples
         system_prompt = template.system_prompt
-        
+
         if include_examples and template.few_shot_examples:
             examples_text = "\n\n--- EXAMPLES ---\n"
             for i, example in enumerate(template.few_shot_examples, 1):
                 examples_text += f"\nExample {i}:\nInput:\n{example['input']}\n\nOutput:\n{example['output']}\n"
             examples_text += "\n--- END EXAMPLES ---\n"
             system_prompt += examples_text
-        
+
         # Build user prompt
         user_prompt = template.user_template.format(**inputs)
-        
+
         return {
             "system": system_prompt,
             "user": user_prompt,
             "max_tokens": template.max_tokens,
             "temperature": template.temperature,
         }
-    
+
     @classmethod
     def get_cache(cls) -> PromptCache:
         """Get the prompt cache."""

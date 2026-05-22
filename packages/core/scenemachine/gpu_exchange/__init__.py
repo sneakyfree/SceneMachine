@@ -34,14 +34,14 @@ from scenemachine.gpu_exchange.base import (
     GPUType,
     ProviderCapability,
 )
-from scenemachine.gpu_exchange.registry import (
-    GPUProviderRegistry,
-    get_provider_registry,
-)
 from scenemachine.gpu_exchange.pricing import (
     PricingService,
     PricingTier,
     get_pricing_service,
+)
+from scenemachine.gpu_exchange.registry import (
+    GPUProviderRegistry,
+    get_provider_registry,
 )
 from scenemachine.gpu_exchange.router import (
     GPUExchangeRouter,

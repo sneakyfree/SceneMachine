@@ -5,8 +5,8 @@ SQLAlchemy model for user accounts with authentication support.
 """
 
 from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from scenemachine.models.project import Project
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """User role enumeration."""
 
     USER = "user"
@@ -55,15 +55,15 @@ class User(Base, UUIDMixin, TimestampMixin):
     )
 
     # Profile fields
-    full_name: Mapped[Optional[str]] = mapped_column(
+    full_name: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    avatar_url: Mapped[Optional[str]] = mapped_column(
+    avatar_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
-    bio: Mapped[Optional[str]] = mapped_column(
+    bio: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
@@ -86,11 +86,11 @@ class User(Base, UUIDMixin, TimestampMixin):
     )
 
     # Security tracking
-    last_login_at: Mapped[Optional[datetime]] = mapped_column(
+    last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    password_changed_at: Mapped[Optional[datetime]] = mapped_column(
+    password_changed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -102,7 +102,7 @@ class User(Base, UUIDMixin, TimestampMixin):
         server_default="0",
         nullable=False,
     )
-    locked_until: Mapped[Optional[datetime]] = mapped_column(
+    locked_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -162,15 +162,15 @@ class RefreshToken(Base, UUIDMixin, TimestampMixin):
         default=False,
         nullable=False,
     )
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(
+    revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    device_info: Mapped[Optional[str]] = mapped_column(
+    device_info: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
-    ip_address: Mapped[Optional[str]] = mapped_column(
+    ip_address: Mapped[str | None] = mapped_column(
         String(45),  # IPv6 max length
         nullable=True,
     )

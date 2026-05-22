@@ -1,25 +1,21 @@
 """Tests for MoviePlanService."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models import (
-    Project,
-    ProjectState,
-    Screenplay,
     Character,
+    Project,
     Scene,
+    Screenplay,
 )
 from scenemachine.models.scene import SceneType, TimeOfDay
 from scenemachine.services.movie_plan import (
-    MoviePlanService,
     MoviePlan,
-    CharacterAnalysis,
-    SceneAnalysis,
+    MoviePlanService,
 )
 
 

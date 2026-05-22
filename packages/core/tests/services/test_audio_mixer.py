@@ -1,15 +1,13 @@
 """Tests for Audio Mixer service."""
 
-import pytest
-import pytest_asyncio
 from pathlib import Path
 from uuid import uuid4
-from decimal import Decimal
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.audio_mixer import AudioMixerService
 from scenemachine.models import Project
+from scenemachine.services.audio_mixer import AudioMixerService
 
 
 class TestAudioMixerService:
@@ -68,7 +66,7 @@ class TestAudioMixerService:
         )
 
         if hasattr(audio_mixer, "remove_track"):
-            result = await audio_mixer.remove_track(
+            await audio_mixer.remove_track(
                 mix_id=mix.id if hasattr(mix, "id") else mix.get("id"),
                 track_id=uuid4(),
             )
@@ -208,7 +206,7 @@ class TestAudioMixerService:
         )
 
         if hasattr(audio_mixer, "preview"):
-            preview_url = await audio_mixer.preview(
+            await audio_mixer.preview(
                 mix_id=mix.id if hasattr(mix, "id") else mix.get("id"),
                 start_time=0,
                 duration=30,

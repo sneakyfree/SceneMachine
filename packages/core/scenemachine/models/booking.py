@@ -6,25 +6,24 @@ Tracks the full lifecycle from request to completion.
 """
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, Boolean
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
-
+from scenemachine.models.base import ArrayType, Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
-    from scenemachine.models.performer import Performer
     from scenemachine.models.performance_take import PerformanceTake
+    from scenemachine.models.performer import Performer
     from scenemachine.models.performer_rating import PerformerRating
 
 
-class BookingMode(str, Enum):
+class BookingMode(StrEnum):
     """Types of bookings in ActForge."""
     BLINK = "blink"  # 10-second auto-match
     DEEP = "deep"  # 120-second method acting
@@ -32,7 +31,7 @@ class BookingMode(str, Enum):
     AUCTION = "auction"  # Bidding on top-tier talent
 
 
-class BookingStatus(str, Enum):
+class BookingStatus(StrEnum):
     """Booking lifecycle status."""
     REQUESTED = "requested"  # Initial request created
     MATCHING = "matching"  # Auto-matching in progress (Blink mode)
@@ -47,7 +46,7 @@ class BookingStatus(str, Enum):
     EXPIRED = "expired"  # Booking expired without completion
 
 
-class PaymentStatus(str, Enum):
+class PaymentStatus(StrEnum):
     """Payment status for booking."""
     PENDING = "pending"  # Awaiting payment
     ESCROWED = "escrowed"  # Payment held in escrow
@@ -92,13 +91,13 @@ class Booking(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
-    shot_id: Mapped[Optional[UUID]] = mapped_column(
+    shot_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("shots.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    performer_id: Mapped[Optional[UUID]] = mapped_column(
+    performer_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("performers.id", ondelete="SET NULL"),
         nullable=True,  # Null during matching phase
@@ -111,7 +110,7 @@ class Booking(Base, UUIDMixin, TimestampMixin):
     )
 
     # Take reference (set on delivery)
-    take_id: Mapped[Optional[UUID]] = mapped_column(
+    take_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("performance_takes.id", ondelete="SET NULL"),
         nullable=True,
@@ -132,12 +131,12 @@ class Booking(Base, UUIDMixin, TimestampMixin):
 
     # Requirements
     duration_requested_seconds: Mapped[float] = mapped_column(Float, nullable=False)
-    duration_delivered_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    duration_delivered_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    emotion_requirements: Mapped[Optional[list]] = mapped_column(ArrayType(String), nullable=True)
+    emotion_requirements: Mapped[list | None] = mapped_column(ArrayType(String), nullable=True)
     # Example: ["grief", "subtle", "tearful"]
 
-    motion_requirements: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    motion_requirements: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "intensity": "high",
@@ -146,15 +145,15 @@ class Booking(Base, UUIDMixin, TimestampMixin):
     #     "reference_urls": ["..."]
     # }
 
-    special_instructions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    character_context: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    scene_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    special_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    character_context: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scene_description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Pricing
     price_usd: Mapped[float] = mapped_column(Float, nullable=False)
     platform_fee_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     performer_payout_usd: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    max_price_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    max_price_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Max price is used for Blink auto-matching
 
     # Payment
@@ -163,39 +162,39 @@ class Booking(Base, UUIDMixin, TimestampMixin):
         default=PaymentStatus.PENDING,
         nullable=False,
     )
-    stripe_payment_intent_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    escrowed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    released_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    escrowed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Retry handling
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_retries: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
-    retry_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    retry_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timeline
     requested_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
     )
-    matched_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    delivered_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    matched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Dispute handling
     is_disputed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    dispute_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    dispute_resolution: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    disputed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    dispute_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dispute_resolution: Mapped[str | None] = mapped_column(Text, nullable=True)
+    disputed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Notes
-    director_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    performer_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    director_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    performer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     performer: Mapped[Optional["Performer"]] = relationship(
@@ -284,7 +283,7 @@ class Booking(Base, UUIDMixin, TimestampMixin):
         )
 
     @property
-    def turnaround_seconds(self) -> Optional[float]:
+    def turnaround_seconds(self) -> float | None:
         """Calculate total turnaround time."""
         if self.requested_at and self.completed_at:
             delta = self.completed_at - self.requested_at

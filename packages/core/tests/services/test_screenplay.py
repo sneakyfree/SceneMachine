@@ -1,14 +1,11 @@
 """Tests for Screenplay service."""
 
-import pytest
-import pytest_asyncio
-from pathlib import Path
-from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from scenemachine.models import Project
 from scenemachine.services.screenplay import ScreenplayService
-from scenemachine.models import Project, ProjectState
 
 
 class TestScreenplayService:
@@ -165,7 +162,7 @@ FADE OUT.
         sample_project: Project,
     ):
         """Test getting a screenplay by project ID."""
-        result = await screenplay_service.get_screenplay(sample_project.id)
+        await screenplay_service.get_screenplay(sample_project.id)
 
         # May return None if no screenplay exists
         # Just verify no exception is raised

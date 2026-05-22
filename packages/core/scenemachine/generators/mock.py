@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from scenemachine.config import get_settings
 from scenemachine.models.generation_job import JobProvider
@@ -28,7 +28,7 @@ class MockGenerationProvider(GenerationProvider):
     and produces placeholder output files.
     """
 
-    MODELS: Dict[str, VideoModel] = {
+    MODELS: dict[str, VideoModel] = {
         "mock-fast": VideoModel(
             id="mock-fast",
             name="Mock Fast Model",
@@ -97,7 +97,7 @@ class MockGenerationProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Simulate generation with delays."""
         settings = get_settings()
@@ -181,12 +181,12 @@ class MockGenerationProvider(GenerationProvider):
     def estimate_cost(
         self,
         duration_seconds: float = 3.0,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> float:
         """Mock generation is free."""
         return 0.0
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """List available mock models."""
         return [
             {
@@ -200,6 +200,6 @@ class MockGenerationProvider(GenerationProvider):
             for model_id, model in self.MODELS.items()
         ]
 
-    def get_model(self, model_id: str) -> Optional[VideoModel]:
+    def get_model(self, model_id: str) -> VideoModel | None:
         """Get mock model by ID."""
         return self.MODELS.get(model_id)

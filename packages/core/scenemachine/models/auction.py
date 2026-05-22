@@ -5,24 +5,23 @@ Represents auctions in the ActForge marketplace where
 directors bid on top-tier talent.
 """
 
-from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING, Optional, List
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, Boolean
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
-
+from scenemachine.models.base import ArrayType, Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from scenemachine.models.performer import Performer
 
 
-class AuctionStatus(str, Enum):
+class AuctionStatus(StrEnum):
     """Auction lifecycle status."""
     DRAFT = "draft"  # Being created
     SCHEDULED = "scheduled"  # Scheduled to open
@@ -32,7 +31,7 @@ class AuctionStatus(str, Enum):
     CANCELLED = "cancelled"  # Auction cancelled
 
 
-class BidStatus(str, Enum):
+class BidStatus(StrEnum):
     """Auction bid status."""
     ACTIVE = "active"  # Currently active bid
     OUTBID = "outbid"  # Outbid by another
@@ -68,7 +67,7 @@ class Auction(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
-    shot_id: Mapped[Optional[UUID]] = mapped_column(
+    shot_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("shots.id", ondelete="SET NULL"),
         nullable=True,
@@ -81,7 +80,7 @@ class Auction(Base, UUIDMixin, TimestampMixin):
 
     # Auction details
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Status
     status: Mapped[AuctionStatus] = mapped_column(
@@ -92,7 +91,7 @@ class Auction(Base, UUIDMixin, TimestampMixin):
     )
 
     # Requirements
-    requirements: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    requirements: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "duration_seconds": 60,
@@ -106,42 +105,42 @@ class Auction(Base, UUIDMixin, TimestampMixin):
 
     # Qualification requirements
     min_aci_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    required_specialties: Mapped[Optional[list]] = mapped_column(ArrayType(String), nullable=True)
-    performer_type_required: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    required_specialties: Mapped[list | None] = mapped_column(ArrayType(String), nullable=True)
+    performer_type_required: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Bidding parameters
     min_bid_usd: Mapped[float] = mapped_column(Float, nullable=False)
-    max_bid_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    reserve_price_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    max_bid_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reserve_price_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Reserve price: auction only completes if this price is met
 
     # Timing
     duration_hours: Mapped[int] = mapped_column(Integer, default=24, nullable=False)
-    scheduled_start: Mapped[Optional[datetime]] = mapped_column(
+    scheduled_start: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    opens_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    closes_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    opens_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Winner
-    winning_bid_id: Mapped[Optional[UUID]] = mapped_column(
+    winning_bid_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("auction_bids.id", ondelete="SET NULL"),
         nullable=True,
     )
-    awarded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    awarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Cancellation
-    cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    cancellation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Statistics
     total_bids: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     unique_bidders: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    highest_bid_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    highest_bid_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Relationships
-    bids: Mapped[List["AuctionBid"]] = relationship(
+    bids: Mapped[list["AuctionBid"]] = relationship(
         "AuctionBid",
         back_populates="auction",
         cascade="all, delete-orphan",
@@ -159,11 +158,10 @@ class Auction(Base, UUIDMixin, TimestampMixin):
         return self.status == AuctionStatus.OPEN
 
     @property
-    def time_remaining_seconds(self) -> Optional[float]:
+    def time_remaining_seconds(self) -> float | None:
         """Calculate time remaining until close."""
         if self.closes_at:
-            from datetime import timezone
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             if self.closes_at > now:
                 delta = self.closes_at - now
                 return delta.total_seconds()
@@ -217,7 +215,7 @@ class AuctionBid(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
-    sample_take_id: Mapped[Optional[UUID]] = mapped_column(
+    sample_take_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("performance_takes.id", ondelete="SET NULL"),
         nullable=True,
@@ -228,7 +226,7 @@ class AuctionBid(Base, UUIDMixin, TimestampMixin):
     proposed_delivery_hours: Mapped[int] = mapped_column(Integer, default=24, nullable=False)
 
     # Pitch
-    pitch_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    pitch_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Performers can pitch why they're right for the role
 
     # Status
@@ -244,12 +242,12 @@ class AuctionBid(Base, UUIDMixin, TimestampMixin):
         DateTime(timezone=True),
         nullable=False,
     )
-    withdrawn_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Auto-bid settings (optional)
     auto_bid_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    auto_bid_max_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    auto_bid_increment_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    auto_bid_max_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    auto_bid_increment_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Relationships
     auction: Mapped["Auction"] = relationship(

@@ -7,7 +7,7 @@ for development and testing purposes.
 
 import asyncio
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -16,11 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models.performer import (
     Performer,
-    PerformerType,
     PerformerAvailability,
+    PerformerType,
     PerformerVerification,
 )
-
 
 # Sample performer data with diverse demographics
 SAMPLE_PERFORMERS: list[dict[str, Any]] = [
@@ -682,7 +681,7 @@ async def seed_performers(session: AsyncSession, force: bool = False) -> list[Pe
         print("Deleted existing performers.")
 
     created_performers = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for data in SAMPLE_PERFORMERS:
         # Calculate derived values
@@ -746,7 +745,7 @@ async def seed_performers(session: AsyncSession, force: bool = False) -> list[Pe
     return created_performers
 
 
-async def main():
+async def main() -> None:
     """Run performer seeding as standalone script."""
     from scenemachine.database import get_async_session
 

@@ -8,14 +8,13 @@ Implements the DNA strand master plan's Blockers/Unlockers system:
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class BlockerSeverity(str, Enum):
+class BlockerSeverity(StrEnum):
     """Severity levels for blockers."""
     CRITICAL = "critical"  # Blocks generation entirely
     HIGH = "high"          # Major quality risk
@@ -23,7 +22,7 @@ class BlockerSeverity(str, Enum):
     LOW = "low"            # Minor polish item
 
 
-class BlockerCategory(str, Enum):
+class BlockerCategory(StrEnum):
     """Categories of blockers."""
     CHARACTER_MISSING = "character_missing"
     CHARACTER_INCOMPLETE = "character_incomplete"
@@ -36,14 +35,14 @@ class BlockerCategory(str, Enum):
     AUDIO = "audio"
 
 
-class UnlockerPriority(str, Enum):
+class UnlockerPriority(StrEnum):
     """Priority levels for fixing blockers."""
     QUICK_WIN = "quick_win"  # < 5 minutes
     THIRTY_DAYS = "30_days"   # Moderate effort
     NINETY_DAYS = "90_days"   # Major effort
 
 
-class UnlockerEffort(str, Enum):
+class UnlockerEffort(StrEnum):
     """Effort levels for fixes."""
     LOW = "low"
     MEDIUM = "medium"
@@ -59,8 +58,8 @@ class Unlocker:
     impact_description: str
     auto_suggest: bool = False  # Can AI do this automatically?
     estimated_minutes: int = 5
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "action": self.action,
             "priority": self.priority.value,
@@ -78,13 +77,13 @@ class Blocker:
     severity: BlockerSeverity
     category: BlockerCategory
     description: str
-    affected_shots: List[str] = field(default_factory=list)
-    affected_characters: List[str] = field(default_factory=list)
-    affected_scenes: List[str] = field(default_factory=list)
-    unlocker: Optional[Unlocker] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    affected_shots: list[str] = field(default_factory=list)
+    affected_characters: list[str] = field(default_factory=list)
+    affected_scenes: list[str] = field(default_factory=list)
+    unlocker: Unlocker | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "blocker_id": self.blocker_id,
             "severity": self.severity.value,
@@ -101,16 +100,16 @@ class Blocker:
 @dataclass
 class BlockerAnalysis:
     """Complete blocker analysis for a project."""
-    project_id: Optional[str]
-    blockers: List[Blocker] = field(default_factory=list)
+    project_id: str | None
+    blockers: list[Blocker] = field(default_factory=list)
     critical_count: int = 0
     high_count: int = 0
     medium_count: int = 0
     low_count: int = 0
     can_proceed: bool = True  # False if any critical blockers
     estimated_fix_time_minutes: int = 0
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "project_id": self.project_id,
             "blockers": [b.to_dict() for b in self.blockers],
@@ -134,84 +133,84 @@ class BlockerAnalysis:
 
 class BlockersEngine:
     """Engine for detecting blockers and suggesting unlockers.
-    
+
     This implements the DNA strand master plan's requirements:
     - Identify what's blocking generation
     - Explain "why not" clearly
     - Provide prioritized "what to do next" actions
     - Support bounded agentic fixes (auto_suggest)
     """
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         """Initialize the blockers engine."""
         pass
-    
+
     def analyze_project(
         self,
-        characters: List[Dict[str, Any]],
-        scenes: List[Dict[str, Any]],
-        shots: List[Dict[str, Any]],
-        settings: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        characters: list[dict[str, Any]],
+        scenes: list[dict[str, Any]],
+        shots: list[dict[str, Any]],
+        settings: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Analyze a project for blockers.
-        
+
         Args:
             characters: List of character definitions
             scenes: List of scene breakdowns
             shots: Combined list of shots (or extracted from scenes)
             settings: Project generation settings
-            
+
         Returns:
             BlockerAnalysis as dictionary
         """
         analysis = BlockerAnalysis(project_id=None)
-        
+
         # Check character blockers
         char_blockers = self._check_character_blockers(characters, shots)
         analysis.blockers.extend(char_blockers)
-        
+
         # Check scene blockers
         scene_blockers = self._check_scene_blockers(scenes)
         analysis.blockers.extend(scene_blockers)
-        
+
         # Check shot blockers
         shot_blockers = self._check_shot_blockers(shots)
         analysis.blockers.extend(shot_blockers)
-        
+
         # Check audio/voice blockers
         audio_blockers = self._check_audio_blockers(characters, shots)
         analysis.blockers.extend(audio_blockers)
-        
+
         # Check technical blockers
         if settings:
             tech_blockers = self._check_technical_blockers(settings)
             analysis.blockers.extend(tech_blockers)
-        
+
         # Calculate counts
         analysis.critical_count = sum(1 for b in analysis.blockers if b.severity == BlockerSeverity.CRITICAL)
         analysis.high_count = sum(1 for b in analysis.blockers if b.severity == BlockerSeverity.HIGH)
         analysis.medium_count = sum(1 for b in analysis.blockers if b.severity == BlockerSeverity.MEDIUM)
         analysis.low_count = sum(1 for b in analysis.blockers if b.severity == BlockerSeverity.LOW)
-        
+
         # Determine if can proceed
         analysis.can_proceed = analysis.critical_count == 0
-        
+
         # Estimate fix time
         analysis.estimated_fix_time_minutes = sum(
             b.unlocker.estimated_minutes if b.unlocker else 10
             for b in analysis.blockers
         )
-        
+
         return analysis.to_dict()
-    
+
     def _check_character_blockers(
-        self, 
-        characters: List[Dict[str, Any]], 
-        shots: List[Dict[str, Any]]
-    ) -> List[Blocker]:
+        self,
+        characters: list[dict[str, Any]],
+        shots: list[dict[str, Any]]
+    ) -> list[Blocker]:
         """Check for character-related blockers."""
         blockers = []
-        
+
         # Get all characters referenced in shots
         shot_characters = set()
         for shot in shots:
@@ -219,10 +218,10 @@ class BlockersEngine:
                 shot_characters.add(char.upper())
             if shot.get("dialogue"):
                 shot_characters.add(shot["dialogue"].get("character", "").upper())
-        
+
         # Build character lookup
         defined_characters = {c.get("name", "").upper(): c for c in characters}
-        
+
         # Check for missing characters
         for char_name in shot_characters:
             if char_name and char_name not in defined_characters:
@@ -232,7 +231,7 @@ class BlockersEngine:
                     if char_name in [c.upper() for c in shot.get("characters_in_frame", [])]
                     or (shot.get("dialogue", {}).get("character", "").upper() == char_name)
                 ]
-                
+
                 blockers.append(Blocker(
                     blocker_id=f"char_missing_{char_name.lower()}",
                     severity=BlockerSeverity.CRITICAL,
@@ -248,7 +247,7 @@ class BlockersEngine:
                         estimated_minutes=2,
                     ),
                 ))
-        
+
         # Check for characters without reference images
         for char_name, char_data in defined_characters.items():
             if char_name in shot_characters:
@@ -257,7 +256,7 @@ class BlockersEngine:
                     char_data.get("face_embedding_path") or
                     char_data.get("appearance_locked")
                 )
-                
+
                 if not has_reference:
                     blockers.append(Blocker(
                         blocker_id=f"char_no_ref_{char_name.lower()}",
@@ -274,16 +273,16 @@ class BlockersEngine:
                             estimated_minutes=2,
                         ),
                     ))
-        
+
         return blockers
-    
-    def _check_scene_blockers(self, scenes: List[Dict[str, Any]]) -> List[Blocker]:
+
+    def _check_scene_blockers(self, scenes: list[dict[str, Any]]) -> list[Blocker]:
         """Check for scene-related blockers."""
         blockers = []
-        
+
         for scene in scenes:
             scene_id = scene.get("scene_id", "unknown")
-            
+
             # Check for missing location
             if not scene.get("location"):
                 blockers.append(Blocker(
@@ -300,7 +299,7 @@ class BlockersEngine:
                         estimated_minutes=1,
                     ),
                 ))
-            
+
             # Check for empty scenes
             shots = scene.get("shots", [])
             if not shots:
@@ -318,22 +317,22 @@ class BlockersEngine:
                         estimated_minutes=5,
                     ),
                 ))
-        
+
         return blockers
-    
-    def _check_shot_blockers(self, shots: List[Dict[str, Any]]) -> List[Blocker]:
+
+    def _check_shot_blockers(self, shots: list[dict[str, Any]]) -> list[Blocker]:
         """Check for shot-related blockers."""
         blockers = []
         low_confidence_shots = []
-        
+
         for shot in shots:
             shot_id = shot.get("shot_id", "unknown")
             confidence = shot.get("confidence", 1.0)
-            
+
             # Check for low confidence
             if confidence < 0.6:
                 low_confidence_shots.append(shot_id)
-            
+
             # Check for missing visual prompt
             if not shot.get("visual_prompt"):
                 blockers.append(Blocker(
@@ -350,7 +349,7 @@ class BlockersEngine:
                         estimated_minutes=2,
                     ),
                 ))
-            
+
             # Check for unknowns
             unknowns = shot.get("unknowns", [])
             if unknowns:
@@ -369,7 +368,7 @@ class BlockersEngine:
                         estimated_minutes=2,
                     ),
                 ))
-        
+
         # Aggregate low confidence shots
         if low_confidence_shots:
             blockers.append(Blocker(
@@ -386,31 +385,31 @@ class BlockersEngine:
                     estimated_minutes=30,
                 ),
             ))
-        
+
         return blockers
-    
+
     def _check_audio_blockers(
-        self, 
-        characters: List[Dict[str, Any]], 
-        shots: List[Dict[str, Any]]
-    ) -> List[Blocker]:
+        self,
+        characters: list[dict[str, Any]],
+        shots: list[dict[str, Any]]
+    ) -> list[Blocker]:
         """Check for audio/voice-related blockers."""
         blockers = []
-        
+
         # Get characters with dialogue
         dialogue_characters = set()
         for shot in shots:
             if shot.get("dialogue"):
                 dialogue_characters.add(shot["dialogue"].get("character", "").upper())
-        
+
         # Check for missing voice profiles
         char_lookup = {c.get("name", "").upper(): c for c in characters}
-        
+
         for char_name in dialogue_characters:
             if char_name in char_lookup:
                 char = char_lookup[char_name]
                 has_voice = char.get("voice_profile") or char.get("voice_clone_path")
-                
+
                 if not has_voice:
                     blockers.append(Blocker(
                         blocker_id=f"char_no_voice_{char_name.lower()}",
@@ -426,13 +425,13 @@ class BlockersEngine:
                             estimated_minutes=5,
                         ),
                     ))
-        
+
         return blockers
-    
-    def _check_technical_blockers(self, settings: Dict[str, Any]) -> List[Blocker]:
+
+    def _check_technical_blockers(self, settings: dict[str, Any]) -> list[Blocker]:
         """Check for technical blockers."""
         blockers = []
-        
+
         # Check compute settings
         compute_mode = settings.get("compute_mode")
         if compute_mode == "local":
@@ -451,20 +450,20 @@ class BlockersEngine:
                         estimated_minutes=0,
                     ),
                 ))
-        
+
         return blockers
-    
-    def get_prioritized_fixes(self, analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+
+    def get_prioritized_fixes(self, analysis: dict[str, Any]) -> list[dict[str, Any]]:
         """Get prioritized list of fixes from analysis.
-        
+
         Args:
             analysis: Output from analyze_project
-            
+
         Returns:
             List of fixes ordered by priority
         """
         fixes = []
-        
+
         for blocker in analysis.get("blockers", []):
             if blocker.get("unlocker"):
                 fixes.append({
@@ -474,33 +473,33 @@ class BlockersEngine:
                     "description": blocker["description"],
                     "fix": blocker["unlocker"],
                 })
-        
+
         # Sort by severity then by priority
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         priority_order = {"quick_win": 0, "30_days": 1, "90_days": 2}
-        
+
         fixes.sort(key=lambda f: (
             severity_order.get(f["severity"], 99),
             priority_order.get(f["fix"]["priority"], 99),
         ))
-        
+
         return fixes
 
 
 def analyze_blockers(
-    characters: List[Dict[str, Any]],
-    scenes: List[Dict[str, Any]],
-    shots: List[Dict[str, Any]],
-    settings: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    characters: list[dict[str, Any]],
+    scenes: list[dict[str, Any]],
+    shots: list[dict[str, Any]],
+    settings: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Convenience function to analyze blockers.
-    
+
     Args:
         characters: Character definitions
         scenes: Scene breakdowns
         shots: Shot list
         settings: Project settings
-        
+
     Returns:
         Blocker analysis
     """

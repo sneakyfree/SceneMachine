@@ -1,14 +1,13 @@
 """Tests for Assembly service."""
 
-import pytest
-import pytest_asyncio
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.assembly import AssemblyService
 from scenemachine.models import Project
+from scenemachine.services.assembly import AssemblyService
 
 
 class TestAssemblyService:

@@ -4,7 +4,6 @@ This module sets up the database manager properly for IPC handler tests,
 which use the global db_manager singleton.
 """
 
-import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 

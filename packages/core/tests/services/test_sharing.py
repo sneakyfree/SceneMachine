@@ -1,13 +1,13 @@
 """Tests for the sharing service."""
 
-import pytest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models import Project, ProjectState
-from scenemachine.models.share import ProjectShare, SharePermission, ShareStatus
+from scenemachine.models.share import SharePermission, ShareStatus
 from scenemachine.services.sharing import SharingService
 
 
@@ -83,7 +83,7 @@ class TestCreateShare:
         share = await sharing_service.get_share_by_code(result.share_code)
         assert share is not None
         assert share.expires_at is not None
-        assert share.expires_at > datetime.now(timezone.utc)
+        assert share.expires_at > datetime.now(UTC)
 
     @pytest.mark.asyncio
     async def test_create_share_public(

@@ -4,7 +4,7 @@ Asset API Routes
 REST endpoints for asset management.
 """
 
-from typing import Annotated, List, Optional
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -17,7 +17,6 @@ from scenemachine.models.asset import AssetStatus, AssetType
 from scenemachine.services.asset_service import (
     AssetNotFoundError,
     AssetService,
-    AssetServiceError,
 )
 
 router = APIRouter(prefix="/assets", tags=["assets"])
@@ -29,19 +28,19 @@ class AssetResponse(BaseModel):
 
     id: UUID
     project_id: UUID
-    character_id: Optional[UUID] = None
-    shot_id: Optional[UUID] = None
-    scene_id: Optional[UUID] = None
+    character_id: UUID | None = None
+    shot_id: UUID | None = None
+    scene_id: UUID | None = None
     asset_type: str
     status: str
     filename: str
     file_path: str
-    file_hash: Optional[str] = None
-    file_size_bytes: Optional[int] = None
-    mime_type: Optional[str] = None
-    display_name: Optional[str] = None
-    description: Optional[str] = None
-    asset_metadata: Optional[dict] = None
+    file_hash: str | None = None
+    file_size_bytes: int | None = None
+    mime_type: str | None = None
+    display_name: str | None = None
+    description: str | None = None
+    asset_metadata: dict | None = None
     created_at: str
     updated_at: str
 
@@ -52,7 +51,7 @@ class AssetResponse(BaseModel):
 class AssetListResponse(BaseModel):
     """Paginated asset list response."""
 
-    items: List[AssetResponse]
+    items: list[AssetResponse]
     total: int
     offset: int
     limit: int
@@ -64,29 +63,29 @@ class AssetCreateRequest(BaseModel):
     filename: str = Field(..., min_length=1, max_length=255)
     file_path: str = Field(..., min_length=1, max_length=512)
     asset_type: AssetType
-    file_size_bytes: Optional[int] = None
-    mime_type: Optional[str] = None
-    display_name: Optional[str] = None
-    description: Optional[str] = None
-    character_id: Optional[UUID] = None
-    shot_id: Optional[UUID] = None
-    scene_id: Optional[UUID] = None
-    metadata: Optional[dict] = None
+    file_size_bytes: int | None = None
+    mime_type: str | None = None
+    display_name: str | None = None
+    description: str | None = None
+    character_id: UUID | None = None
+    shot_id: UUID | None = None
+    scene_id: UUID | None = None
+    metadata: dict | None = None
 
 
 class AssetUpdateRequest(BaseModel):
     """Request to update an asset."""
 
-    display_name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[AssetStatus] = None
-    metadata: Optional[dict] = None
+    display_name: str | None = None
+    description: str | None = None
+    status: AssetStatus | None = None
+    metadata: dict | None = None
 
 
 class BulkDeleteRequest(BaseModel):
     """Request to delete multiple assets."""
 
-    asset_ids: List[UUID]
+    asset_ids: list[UUID]
     delete_files: bool = True
 
 
@@ -108,9 +107,9 @@ class AssetStatsResponse(BaseModel):
 class MoveAssetRequest(BaseModel):
     """Request to move an asset."""
 
-    target_character_id: Optional[UUID] = None
-    target_shot_id: Optional[UUID] = None
-    target_scene_id: Optional[UUID] = None
+    target_character_id: UUID | None = None
+    target_shot_id: UUID | None = None
+    target_scene_id: UUID | None = None
 
 
 # Dependency
@@ -131,12 +130,12 @@ async def list_assets(
     project_id: UUID,
     current_user: CurrentActiveUser,
     service: Annotated[AssetService, Depends(get_asset_service)],
-    asset_type: Optional[AssetType] = None,
-    status: Optional[AssetStatus] = None,
-    character_id: Optional[UUID] = None,
-    shot_id: Optional[UUID] = None,
-    scene_id: Optional[UUID] = None,
-    search: Optional[str] = Query(None, max_length=100),
+    asset_type: AssetType | None = None,
+    status: AssetStatus | None = None,
+    character_id: UUID | None = None,
+    shot_id: UUID | None = None,
+    scene_id: UUID | None = None,
+    search: str | None = Query(None, max_length=100),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
 ) -> AssetListResponse:
@@ -222,7 +221,7 @@ async def update_asset(
     data: AssetUpdateRequest,
     current_user: CurrentActiveUser,
     service: Annotated[AssetService, Depends(get_asset_service)],
-    project_id: Optional[UUID] = None,
+    project_id: UUID | None = None,
 ) -> AssetResponse:
     """Update asset properties."""
     try:
@@ -302,7 +301,7 @@ async def duplicate_asset(
     asset_id: UUID,
     current_user: CurrentActiveUser,
     service: Annotated[AssetService, Depends(get_asset_service)],
-    new_name: Optional[str] = None,
+    new_name: str | None = None,
 ) -> AssetResponse:
     """Create a copy of an asset."""
     try:

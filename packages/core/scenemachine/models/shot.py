@@ -4,8 +4,8 @@ Shot Model
 An individual shot within a scene.
 """
 
-from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
@@ -13,14 +13,14 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
+from scenemachine.models.base import ArrayType, Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from scenemachine.models.generation_job import GenerationJob
     from scenemachine.models.scene import Scene
 
 
-class ShotType(str, Enum):
+class ShotType(StrEnum):
     """Standard cinematography shot types."""
 
     ESTABLISHING = "establishing"  # Wide shot to establish location
@@ -42,7 +42,7 @@ class ShotType(str, Enum):
     DUTCH_ANGLE = "dutch_angle"  # Tilted frame
 
 
-class CameraMovement(str, Enum):
+class CameraMovement(StrEnum):
     """Camera movement types."""
 
     STATIC = "static"  # No movement
@@ -62,7 +62,7 @@ class CameraMovement(str, Enum):
     ORBIT = "orbit"  # Circle around subject
 
 
-class ShotState(str, Enum):
+class ShotState(StrEnum):
     """Shot generation workflow states."""
 
     PLANNED = "planned"  # Shot defined but not generated
@@ -133,8 +133,8 @@ class Shot(Base, UUIDMixin, TimestampMixin):
 
     # Content description
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    dialogue: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    action: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    dialogue: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Characters in shot (UUIDs) - stored as JSON array for SQLite compatibility
     character_ids: Mapped[list[UUID]] = mapped_column(
@@ -142,16 +142,16 @@ class Shot(Base, UUIDMixin, TimestampMixin):
     )
 
     # Visual specification
-    composition_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    lighting_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    color_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    composition_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lighting_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    color_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Generation prompts (computed/refined)
-    generation_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    negative_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    generation_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    negative_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Additional generation parameters
-    generation_params: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    generation_params: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "seed": 12345,
@@ -166,14 +166,14 @@ class Shot(Base, UUIDMixin, TimestampMixin):
 
     # Timing
     duration_seconds: Mapped[float] = mapped_column(Float, default=3.0, nullable=False)
-    actual_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    actual_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Timeline editing fields
-    timeline_order: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    timeline_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
     timeline_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     timeline_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    transition_type: Mapped[Optional[str]] = mapped_column(String(50), default="cut", nullable=True)
-    transition_duration: Mapped[Optional[float]] = mapped_column(Float, default=0.5, nullable=True)
+    transition_type: Mapped[str | None] = mapped_column(String(50), default="cut", nullable=True)
+    transition_duration: Mapped[float | None] = mapped_column(Float, default=0.5, nullable=True)
 
     # State
     state: Mapped[ShotState] = mapped_column(
@@ -183,12 +183,12 @@ class Shot(Base, UUIDMixin, TimestampMixin):
     )
 
     # Generated output paths (relative to project directory)
-    output_video_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    output_thumbnail_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    output_frames_dir: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    output_video_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    output_thumbnail_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    output_frames_dir: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # Generation metadata
-    generation_metadata: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    generation_metadata: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "model_used": "wan2.1",
@@ -208,13 +208,13 @@ class Shot(Base, UUIDMixin, TimestampMixin):
     # }
 
     # User feedback
-    user_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5
-    rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    user_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rating: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1-5
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Version tracking (for regenerations)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    previous_version_id: Mapped[Optional[UUID]] = mapped_column(
+    previous_version_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), nullable=True
     )
 
@@ -256,7 +256,7 @@ class Shot(Base, UUIDMixin, TimestampMixin):
         return f"Shot {self.shot_number} - {self.shot_type.value.replace('_', ' ').title()}"
 
     @property
-    def generation_cost(self) -> Optional[float]:
+    def generation_cost(self) -> float | None:
         """Get cost of generation if available."""
         if self.generation_metadata:
             return self.generation_metadata.get("cost_estimate_usd")

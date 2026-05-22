@@ -5,7 +5,7 @@ Tracks video/image generation jobs and their status.
 """
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
@@ -14,13 +14,13 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType
+from scenemachine.models.base import Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from scenemachine.models.shot import Shot
 
 
-class JobType(str, Enum):
+class JobType(StrEnum):
     """Types of generation jobs."""
 
     # Video generation
@@ -43,7 +43,7 @@ class JobType(str, Enum):
     AUDIO_SYNC = "audio_sync"  # Sync audio to video
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Generation job status."""
 
     PENDING = "pending"  # Job created, waiting to start
@@ -58,7 +58,7 @@ class JobStatus(str, Enum):
     TIMEOUT = "timeout"  # Timed out waiting for resources or completion
 
 
-class JobProvider(str, Enum):
+class JobProvider(StrEnum):
     """Execution providers for generation jobs."""
 
     LOCAL = "local"  # Local GPU
@@ -109,19 +109,19 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         index=True,
     )
-    shot_id: Mapped[Optional[UUID]] = mapped_column(
+    shot_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("shots.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    scene_id: Mapped[Optional[UUID]] = mapped_column(
+    scene_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("scenes.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    character_id: Mapped[Optional[UUID]] = mapped_column(
+    character_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("characters.id", ondelete="SET NULL"),
         nullable=True,
@@ -145,26 +145,26 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
         default=JobProvider.LOCAL,
         nullable=False,
     )
-    model_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    model_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Queue management
     priority: Mapped[int] = mapped_column(Integer, default=50, nullable=False)  # 0-100
-    queue_position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    queue_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
     job_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # Attempt number
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_retries: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
 
     # Progress tracking
     progress: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)  # 0-100
-    progress_message: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    current_step: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    total_steps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    current_step_num: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    progress_message: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    current_step: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    total_steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_step_num: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Input parameters
-    input_params: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    input_params: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Alias for input_params - used by generation service
-    parameters: Mapped[Optional[dict]] = mapped_column(
+    parameters: Mapped[dict | None] = mapped_column(
         "parameters", JSONType, nullable=True
     )
     # Structure varies by job_type:
@@ -198,7 +198,7 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Output information
-    output_info: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    output_info: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "output_path": "path/to/output.mp4",
@@ -211,7 +211,7 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Error information
-    error_info: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    error_info: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "error_type": "OutOfMemoryError",
@@ -223,7 +223,7 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Cost tracking
-    cost_info: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    cost_info: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "estimated_cost_usd": 0.05,
@@ -235,19 +235,19 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Timing
-    queued_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    estimated_completion: Mapped[Optional[datetime]] = mapped_column(
+    queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    estimated_completion: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
     # External tracking
-    external_job_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    worker_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    external_job_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    worker_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # User notes
-    user_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    user_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     shot: Mapped[Optional["Shot"]] = relationship("Shot", back_populates="generation_jobs")
@@ -283,7 +283,7 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
         return self.status == JobStatus.FAILED and self.retry_count < self.max_retries
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Calculate job duration in seconds."""
         if self.started_at and self.completed_at:
             delta = self.completed_at - self.started_at
@@ -291,7 +291,7 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
         return None
 
     @property
-    def wait_time_seconds(self) -> Optional[float]:
+    def wait_time_seconds(self) -> float | None:
         """Calculate queue wait time in seconds."""
         if self.queued_at and self.started_at:
             delta = self.started_at - self.queued_at
@@ -299,21 +299,21 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
         return None
 
     @property
-    def estimated_cost(self) -> Optional[float]:
+    def estimated_cost(self) -> float | None:
         """Get estimated cost in USD."""
         if self.cost_info:
             return self.cost_info.get("estimated_cost_usd")
         return None
 
     @property
-    def actual_cost(self) -> Optional[float]:
+    def actual_cost(self) -> float | None:
         """Get actual cost in USD."""
         if self.cost_info:
             return self.cost_info.get("actual_cost_usd")
         return None
 
     @property
-    def cost_usd(self) -> Optional[float]:
+    def cost_usd(self) -> float | None:
         """Alias for actual_cost - used by analytics service."""
         return self.actual_cost or self.estimated_cost or 0.0
 

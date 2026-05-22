@@ -17,15 +17,14 @@ import logging
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tests.mock_data_generator import MockDataGenerator
 from tests.e2e_test_suite import E2ETestSuite, TestStatus
+from tests.mock_data_generator import MockDataGenerator
 from tests.smoke_test import SmokeTest
 
 logging.basicConfig(
@@ -49,16 +48,16 @@ class IPCTestResult:
     handler: str
     status: TestStatus
     duration_ms: float
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class IPCHandlerTests:
     """Tests for IPC handlers."""
 
     def __init__(self):
-        self.results: List[IPCTestResult] = []
+        self.results: list[IPCTestResult] = []
 
-    async def test_handler_imports(self) -> List[IPCTestResult]:
+    async def test_handler_imports(self) -> list[IPCTestResult]:
         """Test that all IPC handlers can be imported."""
         results = []
 
@@ -118,7 +117,7 @@ class WorkflowTestResult:
     steps_passed: int
     status: TestStatus
     duration_ms: float
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 class WorkflowTests:
@@ -127,7 +126,7 @@ class WorkflowTests:
     def __init__(self, database_url: str):
         # Each workflow test uses its own database to avoid locking issues
         self.base_url = database_url
-        self.results: List[WorkflowTestResult] = []
+        self.results: list[WorkflowTestResult] = []
 
     def _get_test_db_url(self, test_name: str) -> str:
         """Get a unique database URL for each test."""
@@ -142,7 +141,8 @@ class WorkflowTests:
         db_url = self._get_test_db_url("project")
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
             from scenemachine.models import Project, ProjectState
             from scenemachine.models.base import Base
             from tests.sqlite_compat import create_all_tables_sqlite
@@ -227,9 +227,16 @@ class WorkflowTests:
         db_url = self._get_test_db_url("character")
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
             from sqlalchemy import select
-            from scenemachine.models import Project, ProjectState, Character, CharacterLockState, CharacterGender
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+            from scenemachine.models import (
+                Character,
+                CharacterGender,
+                CharacterLockState,
+                Project,
+                ProjectState,
+            )
             from scenemachine.models.base import Base
             from tests.sqlite_compat import create_all_tables_sqlite
 
@@ -341,15 +348,25 @@ class WorkflowTests:
             return result
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
             from sqlalchemy import select
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
             from scenemachine.models import (
-                Project, ProjectState, Scene, SceneState, SceneType, TimeOfDay,
-                Shot, ShotState, ShotType, CameraMovement,
-                GenerationJob, JobStatus, JobProvider,
+                CameraMovement,
+                GenerationJob,
+                JobProvider,
+                JobStatus,
+                Project,
+                ProjectState,
+                Scene,
+                SceneState,
+                SceneType,
+                Shot,
+                ShotState,
+                ShotType,
+                TimeOfDay,
             )
             from scenemachine.models.base import Base
-            from tests.sqlite_compat import create_all_tables_sqlite
 
             engine = create_async_engine(db_url, echo=False)
 
@@ -496,7 +513,7 @@ class WorkflowTests:
         self.results.append(result)
         return result
 
-    async def run_all(self) -> List[WorkflowTestResult]:
+    async def run_all(self) -> list[WorkflowTestResult]:
         """Run all workflow tests."""
         await self.test_project_creation_workflow()
         await self.test_character_workflow()
@@ -512,10 +529,10 @@ class WorkflowTests:
 class ComprehensiveReport:
     """Complete hardening test report."""
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
 
     # Mock data stats
-    mock_data_generated: Dict[str, int] = field(default_factory=dict)
+    mock_data_generated: dict[str, int] = field(default_factory=dict)
     mock_data_duration_ms: float = 0
 
     # Smoke test results
@@ -527,7 +544,7 @@ class ComprehensiveReport:
     api_tests_passed: int = 0
     api_tests_failed: int = 0
     api_tests_total: int = 0
-    api_coverage: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    api_coverage: dict[str, dict[str, int]] = field(default_factory=dict)
 
     # IPC handler results
     ipc_handlers_passed: int = 0
@@ -538,10 +555,10 @@ class ComprehensiveReport:
     workflows_passed: int = 0
     workflows_failed: int = 0
     workflows_total: int = 0
-    workflow_details: List[WorkflowTestResult] = field(default_factory=list)
+    workflow_details: list[WorkflowTestResult] = field(default_factory=list)
 
     # Errors
-    critical_errors: List[str] = field(default_factory=list)
+    critical_errors: list[str] = field(default_factory=list)
 
     def generate_report(self) -> str:
         """Generate comprehensive report."""
@@ -678,7 +695,7 @@ class HardeningTestHarness:
     ):
         self.database_url = database_url
         self.num_projects = num_projects
-        self.report = ComprehensiveReport(start_time=datetime.now(timezone.utc))
+        self.report = ComprehensiveReport(start_time=datetime.now(UTC))
 
     async def run_mock_data_generation(self):
         """Run mock data generation."""
@@ -794,7 +811,7 @@ class HardeningTestHarness:
         await self.run_ipc_tests()
         await self.run_workflow_tests()
 
-        self.report.end_time = datetime.now(timezone.utc)
+        self.report.end_time = datetime.now(UTC)
 
         return self.report
 

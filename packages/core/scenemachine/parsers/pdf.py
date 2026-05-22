@@ -9,7 +9,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class PDFPage:
 
     page_number: int
     text: str
-    lines: List[str]
+    lines: list[str]
     is_ocr: bool = False
 
 
@@ -28,12 +28,12 @@ class PDFPage:
 class PDFExtractionResult:
     """Result of PDF text extraction."""
 
-    pages: List[PDFPage]
+    pages: list[PDFPage]
     total_pages: int
     text: str
     is_scanned: bool
     extraction_method: str
-    warnings: List[str]
+    warnings: list[str]
 
 
 class PDFParser:
@@ -89,7 +89,7 @@ class PDFParser:
             logger.warning("Tesseract OCR not available. Scanned PDFs not supported.")
             return False
 
-    def parse(self, file_path: Path | str) -> Dict[str, Any]:
+    def parse(self, file_path: Path | str) -> dict[str, Any]:
         """Parse a PDF screenplay file.
 
         Args:
@@ -126,7 +126,7 @@ class PDFParser:
             **parsed,
         }
 
-    def parse_bytes(self, data: bytes, filename: str = "screenplay.pdf") -> Dict[str, Any]:
+    def parse_bytes(self, data: bytes, filename: str = "screenplay.pdf") -> dict[str, Any]:
         """Parse PDF from bytes.
 
         Args:
@@ -168,8 +168,8 @@ class PDFParser:
 
         import fitz
 
-        pages: List[PDFPage] = []
-        warnings: List[str] = []
+        pages: list[PDFPage] = []
+        warnings: list[str] = []
         is_scanned = False
 
         try:
@@ -223,7 +223,7 @@ class PDFParser:
             warnings=warnings,
         )
 
-    def _ocr_page(self, page: Any) -> Optional[str]:
+    def _ocr_page(self, page: Any) -> str | None:
         """OCR a single PDF page.
 
         Args:
@@ -233,6 +233,7 @@ class PDFParser:
             Extracted text or None
         """
         try:
+            import fitz  # PyMuPDF; needed for fitz.Matrix below
             import pytesseract
             from PIL import Image
 
@@ -255,7 +256,7 @@ class PDFParser:
         try:
             import pdfplumber
 
-            pages: List[PDFPage] = []
+            pages: list[PDFPage] = []
 
             with pdfplumber.open(io.BytesIO(data)) as pdf:
                 for i, page in enumerate(pdf.pages):
@@ -289,18 +290,18 @@ class PDFParser:
                 warnings=["No PDF library available. Install pymupdf or pdfplumber."],
             )
 
-    def _parse_text(self, text: str) -> Dict[str, Any]:
+    def _parse_text(self, text: str) -> dict[str, Any]:
         """Parse extracted text into screenplay structure.
 
         This is a heuristic-based parser that attempts to identify
         screenplay elements based on formatting patterns.
         """
         lines = text.split("\n")
-        elements: List[Dict[str, Any]] = []
+        elements: list[dict[str, Any]] = []
         characters: set[str] = set()
-        scenes: List[Dict[str, Any]] = []
+        scenes: list[dict[str, Any]] = []
 
-        current_scene: Optional[Dict[str, Any]] = None
+        current_scene: dict[str, Any] | None = None
         scene_count = 0
         line_number = 0
 
@@ -370,9 +371,8 @@ class PDFParser:
                     }
                 )
 
-                if current_scene:
-                    if char_name not in current_scene["characters"]:
-                        current_scene["characters"].append(char_name)
+                if current_scene and char_name not in current_scene["characters"]:
+                    current_scene["characters"].append(char_name)
 
                 # Look for dialogue
                 i += 1
@@ -440,7 +440,7 @@ class PDFParser:
             },
         }
 
-    def _parse_scene_heading(self, text: str) -> Dict[str, str]:
+    def _parse_scene_heading(self, text: str) -> dict[str, str]:
         """Parse scene heading into components."""
         result = {"type": "", "location": "", "time_of_day": ""}
 
@@ -466,7 +466,7 @@ class PDFParser:
         return result
 
     def _is_character_line(
-        self, line: str, all_lines: List[str], index: int
+        self, line: str, all_lines: list[str], index: int
     ) -> bool:
         """Determine if a line is a character cue."""
         stripped = line.strip()
@@ -498,7 +498,7 @@ class PDFParser:
         return 10 <= leading_spaces <= 30
 
 
-def parse_pdf(file_path: Path | str) -> Dict[str, Any]:
+def parse_pdf(file_path: Path | str) -> dict[str, Any]:
     """Convenience function to parse a PDF screenplay.
 
     Args:

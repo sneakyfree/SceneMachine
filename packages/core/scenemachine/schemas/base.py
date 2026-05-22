@@ -1,7 +1,7 @@
 """Base Pydantic schemas and common patterns."""
 
 from datetime import datetime
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
@@ -31,7 +31,7 @@ class TimestampSchema(BaseSchema):
 class PaginatedResponse(BaseSchema, Generic[T]):
     """Generic paginated response wrapper."""
 
-    items: List[T]
+    items: list[T]
     total: int
     page: int
     page_size: int
@@ -51,7 +51,7 @@ class PaginatedResponse(BaseSchema, Generic[T]):
 class ErrorDetail(BaseSchema):
     """Detailed error information."""
 
-    field: Optional[str] = None
+    field: str | None = None
     message: str
     code: str
 
@@ -60,17 +60,17 @@ class ErrorResponse(BaseSchema):
     """Standard error response format."""
 
     error: str
-    detail: Optional[str] = None
+    detail: str | None = None
     code: str
-    errors: Optional[List[ErrorDetail]] = None
-    request_id: Optional[str] = None
+    errors: list[ErrorDetail] | None = None
+    request_id: str | None = None
 
 
 class SuccessResponse(BaseSchema):
     """Standard success response for operations without specific return data."""
 
     success: bool = True
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class HealthResponse(BaseSchema):

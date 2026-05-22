@@ -1,19 +1,19 @@
 """Pytest configuration and shared fixtures."""
 
 import asyncio
+import contextlib
 import tempfile
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from scenemachine.models.base import Base
 from scenemachine.models import Project, ProjectState
+from scenemachine.models.base import Base
 from tests.sqlite_compat import create_all_tables_sqlite
 
 
@@ -42,10 +42,8 @@ async def db_engine() -> AsyncGenerator[Any, None]:
     async with engine.begin() as conn:
         tables = list(Base.metadata.tables.keys())
         for table_name in reversed(tables):
-            try:
+            with contextlib.suppress(Exception):
                 await conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
-            except Exception:
-                pass
 
     await engine.dispose()
 

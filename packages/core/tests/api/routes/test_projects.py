@@ -7,16 +7,17 @@ Tests cover:
 - Project listing and filtering
 """
 
-import pytest
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
-from typing import Dict, Any, List
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
 # Mock project data
-def create_mock_project(name: str = "Test Project", state: str = "draft") -> Dict[str, Any]:
+def create_mock_project(name: str = "Test Project", state: str = "draft") -> dict[str, Any]:
     """Create a mock project."""
     return {
         "id": str(uuid4()),
@@ -37,7 +38,7 @@ class MockProjectsRouter:
 
     def __init__(self):
         self.app = FastAPI()
-        self.projects: Dict[str, Dict] = {}
+        self.projects: dict[str, dict] = {}
         self._setup_routes()
 
     def _setup_routes(self):

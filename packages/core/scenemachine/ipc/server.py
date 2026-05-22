@@ -5,8 +5,9 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Callable, Coroutine
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -26,10 +27,10 @@ class IPCMessage:
         self,
         type: str,
         method: str,
-        params: Optional[Dict[str, Any]] = None,
-        id: Optional[str] = None,
-        result: Optional[Any] = None,
-        error: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
+        id: str | None = None,
+        result: Any | None = None,
+        error: dict[str, Any] | None = None,
     ) -> None:
         """Initialize IPC message.
 
@@ -50,7 +51,7 @@ class IPCMessage:
 
     def to_json(self) -> str:
         """Serialize message to JSON string."""
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "type": self.type,
             "method": self.method,
             "id": self.id,
@@ -100,8 +101,8 @@ class IPCServer:
         self.socket_path = socket_path
         self.host = host
         self.port = port
-        self.handlers: Dict[str, HandlerFunc] = {}
-        self.server: Optional[asyncio.Server] = None
+        self.handlers: dict[str, HandlerFunc] = {}
+        self.server: asyncio.Server | None = None
         self._running = False
         self._is_windows = sys.platform == "win32"
 
@@ -184,7 +185,7 @@ class IPCServer:
 
         logger.info("IPC server stopped")
 
-    def get_connection_info(self) -> Dict[str, Any]:
+    def get_connection_info(self) -> dict[str, Any]:
         """Get connection information for clients.
 
         Returns:
@@ -295,9 +296,9 @@ class IPCServer:
 
 
 def create_ipc_server(
-    socket_path: Optional[str] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    socket_path: str | None = None,
+    host: str | None = None,
+    port: int | None = None,
 ) -> IPCServer:
     """Create an IPC server instance.
 
@@ -344,8 +345,8 @@ class IPCClient:
         self.host = host
         self.port = port
         self._is_windows = sys.platform == "win32"
-        self.reader: Optional[asyncio.StreamReader] = None
-        self.writer: Optional[asyncio.StreamWriter] = None
+        self.reader: asyncio.StreamReader | None = None
+        self.writer: asyncio.StreamWriter | None = None
 
     async def connect(self) -> None:
         """Connect to the IPC server."""

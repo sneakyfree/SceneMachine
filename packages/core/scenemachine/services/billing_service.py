@@ -5,9 +5,7 @@ Stripe integration for subscriptions and payments.
 """
 
 import logging
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import select
@@ -19,7 +17,7 @@ from scenemachine.models.user import User
 logger = logging.getLogger(__name__)
 
 
-class SubscriptionTier(str, Enum):
+class SubscriptionTier(StrEnum):
     """Available subscription tiers."""
     FREE = "free"
     PRO = "pro"
@@ -97,7 +95,7 @@ class PlanConfig:
 
 class BillingServiceError(Exception):
     """Base exception for billing service."""
-    def __init__(self, message: str, code: str = "billing_error"):
+    def __init__(self, message: str, code: str = "billing_error") -> None:
         self.message = message
         self.code = code
         super().__init__(message)
@@ -106,7 +104,7 @@ class BillingServiceError(Exception):
 class BillingService:
     """Service for Stripe billing and subscriptions."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.settings = get_settings()
         self._stripe = None
@@ -120,7 +118,7 @@ class BillingService:
                 self._stripe = stripe
             except ImportError:
                 raise BillingServiceError(
-                    "Stripe library not installed", 
+                    "Stripe library not installed",
                     code="stripe_not_installed"
                 )
         return self._stripe
@@ -273,7 +271,7 @@ class BillingService:
             return
 
         subscription_id = data.get("subscription")
-        customer_id = data.get("customer")
+        data.get("customer")
 
         logger.info(
             f"Checkout completed for user {user_id}, "
@@ -286,7 +284,7 @@ class BillingService:
         """Handle subscription update."""
         user_id = data.get("metadata", {}).get("user_id")
         status = data.get("status")
-        current_period_end = data.get("current_period_end")
+        data.get("current_period_end")
 
         logger.info(
             f"Subscription updated for user {user_id}: {status}"
@@ -315,7 +313,7 @@ class BillingService:
     async def _handle_payment_failed(self, data: dict) -> None:
         """Handle failed payment."""
         subscription_id = data.get("subscription")
-        
+
         logger.warning(f"Payment failed for subscription {subscription_id}")
 
         # TODO: Send notification to user, potentially downgrade

@@ -11,12 +11,10 @@ Run with: pytest tests/performance/test_load.py -v
 
 import asyncio
 import time
-from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Any, List
+from typing import Any
 from uuid import uuid4
 
 import pytest
-
 
 # =============================================================================
 # Load Test Utilities
@@ -32,8 +30,8 @@ class LoadTestResult:
         self.duration = duration
         self.successful_requests = 0
         self.failed_requests = 0
-        self.response_times: List[float] = []
-        self.errors: List[str] = []
+        self.response_times: list[float] = []
+        self.errors: list[str] = []
 
     def record_success(self, response_time: float):
         """Record a successful request."""
@@ -84,7 +82,7 @@ class LoadTestResult:
         idx = int(len(sorted_times) * 0.99)
         return sorted_times[idx] if idx < len(sorted_times) else sorted_times[-1]
 
-    def report(self) -> Dict[str, Any]:
+    def report(self) -> dict[str, Any]:
         """Generate report."""
         return {
             "name": self.name,
@@ -110,7 +108,7 @@ class MockDatabase:
 
     def __init__(self, latency_ms: float = 1.0):
         self.latency_ms = latency_ms
-        self.data: Dict[str, Any] = {}
+        self.data: dict[str, Any] = {}
         self._lock = asyncio.Lock()
         self.query_count = 0
 
@@ -128,7 +126,7 @@ class MockDatabase:
             self.query_count += 1
             return self.data.get(key)
 
-    async def select_many(self, keys: List[str]) -> List[Any]:
+    async def select_many(self, keys: list[str]) -> list[Any]:
         """Select multiple with simulated latency."""
         await asyncio.sleep(self.latency_ms / 1000 * len(keys) * 0.1)  # Batched
         async with self._lock:
@@ -159,12 +157,12 @@ class MockGenerationQueue:
             self.running += 1
 
         try:
-            job_id = await asyncio.wait_for(self.queue.get(), timeout=0.1)
+            await asyncio.wait_for(self.queue.get(), timeout=0.1)
             await asyncio.sleep(0.01)  # Simulate processing
             async with self._lock:
                 self.completed += 1
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
         finally:
             async with self._lock:
@@ -177,7 +175,7 @@ class MockRateLimiter:
     def __init__(self, max_requests: int, window_seconds: float):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.requests: List[float] = []
+        self.requests: list[float] = []
         self._lock = asyncio.Lock()
 
     async def allow(self) -> bool:

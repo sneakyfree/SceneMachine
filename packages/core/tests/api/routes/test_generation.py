@@ -8,10 +8,11 @@ Tests cover:
 - Progress tracking
 """
 
-import pytest
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
-from typing import Dict, Any, List
+
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
@@ -19,7 +20,7 @@ from fastapi.testclient import TestClient
 def create_mock_job(
     shot_id: str = None,
     status: str = "pending"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a mock generation job."""
     return {
         "id": str(uuid4()),
@@ -44,7 +45,7 @@ class MockGenerationRouter:
 
     def __init__(self):
         self.app = FastAPI()
-        self.jobs: Dict[str, Dict] = {}
+        self.jobs: dict[str, dict] = {}
         self._setup_routes()
 
     def _setup_routes(self):
@@ -146,7 +147,7 @@ class MockGenerationRouter:
         async def generate_scene(project_id: str, scene_id: str, provider: str = "replicate"):
             # Mock: queue all shots in scene
             jobs = []
-            for i in range(3):  # Assume 3 shots per scene
+            for _i in range(3):  # Assume 3 shots per scene
                 job = create_mock_job()
                 job["provider"] = provider
                 self.jobs[job["id"]] = job
@@ -322,11 +323,11 @@ class TestCostEstimation:
             params={"provider": "fal", "duration": 5.0}
         )
 
-        replicate_cost = replicate_response.json()["estimated_cost_usd"]
-        fal_cost = fal_response.json()["estimated_cost_usd"]
+        replicate_response.json()["estimated_cost_usd"]
+        fal_response.json()["estimated_cost_usd"]
 
         # Different providers have different costs
-        assert replicate_cost != fal_cost or True  # May be same in mock
+        assert True  # May be same in mock
 
     def test_cost_scales_with_duration(self, client):
         """Test cost scales with duration."""

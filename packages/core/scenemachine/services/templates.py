@@ -2,15 +2,15 @@
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
 
-class TemplateCategory(str, Enum):
+class TemplateCategory(StrEnum):
     """Template categories."""
 
     FILM = "film"
@@ -29,7 +29,7 @@ class ProjectTemplate:
     name: str
     description: str
     category: TemplateCategory
-    thumbnail: Optional[str] = None  # Path or URL to thumbnail
+    thumbnail: str | None = None  # Path or URL to thumbnail
 
     # Default project settings
     default_resolution: str = "1920x1080"
@@ -38,25 +38,25 @@ class ProjectTemplate:
 
     # Visual style presets
     visual_style: str = "cinematic"
-    color_palette: List[str] = field(default_factory=list)
+    color_palette: list[str] = field(default_factory=list)
     lighting_style: str = "natural"
 
     # Generation settings
     default_provider: str = "local"
-    recommended_model: Optional[str] = None
+    recommended_model: str | None = None
 
     # Shot planning defaults
-    default_shot_types: List[str] = field(default_factory=list)
+    default_shot_types: list[str] = field(default_factory=list)
     pacing: str = "moderate"  # slow, moderate, fast
     avg_shots_per_scene: int = 8
 
     # Metadata
-    tags: List[str] = field(default_factory=list)
-    example_projects: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    example_projects: list[str] = field(default_factory=list)
 
 
 # Built-in templates
-BUILTIN_TEMPLATES: List[ProjectTemplate] = [
+BUILTIN_TEMPLATES: list[ProjectTemplate] = [
     ProjectTemplate(
         id="cinematic-drama",
         name="Cinematic Drama",
@@ -255,14 +255,14 @@ BUILTIN_TEMPLATES: List[ProjectTemplate] = [
 class TemplatesService:
     """Service for managing project templates."""
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None) -> None:
         self.session = session
         self._templates = {t.id: t for t in BUILTIN_TEMPLATES}
 
     async def get_all_templates(
         self,
-        category: Optional[TemplateCategory] = None,
-    ) -> List[ProjectTemplate]:
+        category: TemplateCategory | None = None,
+    ) -> list[ProjectTemplate]:
         """Get all available templates.
 
         Args:
@@ -275,7 +275,7 @@ class TemplatesService:
 
         return templates
 
-    async def get_template(self, template_id: str) -> Optional[ProjectTemplate]:
+    async def get_template(self, template_id: str) -> ProjectTemplate | None:
         """Get a template by ID.
 
         Args:
@@ -283,7 +283,7 @@ class TemplatesService:
         """
         return self._templates.get(template_id)
 
-    async def get_template_categories(self) -> List[Dict[str, Any]]:
+    async def get_template_categories(self) -> list[dict[str, Any]]:
         """Get available template categories with counts."""
         categories = {}
         for template in self._templates.values():
@@ -302,7 +302,7 @@ class TemplatesService:
         self,
         query: str,
         limit: int = 10,
-    ) -> List[ProjectTemplate]:
+    ) -> list[ProjectTemplate]:
         """Search templates by name, description, or tags.
 
         Args:
@@ -339,7 +339,7 @@ class TemplatesService:
     def get_template_project_settings(
         self,
         template: ProjectTemplate,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Convert template to project settings dict.
 
         Args:
@@ -359,7 +359,7 @@ class TemplatesService:
             "avg_shots_per_scene": template.avg_shots_per_scene,
         }
 
-    async def get_featured_templates(self, limit: int = 6) -> List[ProjectTemplate]:
+    async def get_featured_templates(self, limit: int = 6) -> list[ProjectTemplate]:
         """Get featured/recommended templates.
 
         Args:

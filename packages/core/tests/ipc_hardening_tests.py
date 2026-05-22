@@ -5,18 +5,18 @@ Tests all 159 IPC handlers to ensure they are properly registered,
 callable, and handle errors appropriately.
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
-from typing import Any, Dict, List
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class MockIPCServer:
     """Mock IPC server for testing handler registration."""
 
     def __init__(self):
-        self.handlers: Dict[str, Any] = {}
+        self.handlers: dict[str, Any] = {}
 
     def handler(self, name: str):
         """Decorator to register a handler."""
@@ -361,11 +361,11 @@ class TestIPCHandlerCategories:
 
         # Most handlers should have a category prefix
         categorized = [
-            name for name in mock_server.handlers.keys()
+            name for name in mock_server.handlers
             if "." in name
         ]
         standalone = [
-            name for name in mock_server.handlers.keys()
+            name for name in mock_server.handlers
             if "." not in name
         ]
 
@@ -381,7 +381,7 @@ class TestIPCHandlerCategories:
         register_handlers(mock_server)
 
         categories = set()
-        for name in mock_server.handlers.keys():
+        for name in mock_server.handlers:
             if "." in name:
                 category = name.split(".")[0]
                 categories.add(category)
@@ -421,7 +421,7 @@ class TestIPCHandlerCount:
         register_handlers(mock_server)
 
         counts = {}
-        for name in mock_server.handlers.keys():
+        for name in mock_server.handlers:
             if "." in name:
                 category = name.split(".")[0]
                 counts[category] = counts.get(category, 0) + 1

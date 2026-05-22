@@ -1,11 +1,9 @@
 """Tests for Queue Worker service."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
-from unittest.mock import AsyncMock, patch, MagicMock
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.services.queue_worker import QueueWorker

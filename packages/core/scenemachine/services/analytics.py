@@ -2,8 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -34,8 +33,8 @@ class CostStats:
     """Cost statistics."""
 
     total_cost_usd: float
-    cost_by_provider: Dict[str, float]
-    cost_by_project: Dict[str, float]
+    cost_by_provider: dict[str, float]
+    cost_by_project: dict[str, float]
     avg_cost_per_shot: float
 
 
@@ -63,12 +62,12 @@ class PerformanceStats:
 class AnalyticsService:
     """Service for gathering analytics and metrics."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    def _get_time_filter(self, time_range: str) -> Optional[datetime]:
+    def _get_time_filter(self, time_range: str) -> datetime | None:
         """Convert time range string to datetime filter."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if time_range == "24h":
             return now - timedelta(hours=24)
@@ -84,7 +83,7 @@ class AnalyticsService:
     async def get_generation_stats(
         self,
         time_range: str = "7d",
-        project_id: Optional[UUID] = None,
+        project_id: UUID | None = None,
     ) -> GenerationStats:
         """Get generation job statistics.
 
@@ -154,7 +153,7 @@ class AnalyticsService:
     async def get_cost_stats(
         self,
         time_range: str = "7d",
-        project_id: Optional[UUID] = None,
+        project_id: UUID | None = None,
     ) -> CostStats:
         """Get cost statistics.
 
@@ -181,13 +180,13 @@ class AnalyticsService:
         total_cost = sum(j.cost_usd or 0 for j in jobs)
 
         # Cost by provider
-        cost_by_provider: Dict[str, float] = {}
+        cost_by_provider: dict[str, float] = {}
         for job in jobs:
             provider_name = job.provider.value
             cost_by_provider[provider_name] = cost_by_provider.get(provider_name, 0) + (job.cost_usd or 0)
 
         # Cost by project (requires joining through shots)
-        cost_by_project: Dict[str, float] = {}
+        cost_by_project: dict[str, float] = {}
         if not project_id:
             # Get shot -> project mappings
             shot_ids = [j.shot_id for j in jobs]
@@ -227,7 +226,7 @@ class AnalyticsService:
         total_projects = total_result.scalar() or 0
 
         # Active projects (have activity in last 7 days)
-        week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+        week_ago = datetime.now(UTC) - timedelta(days=7)
         active_result = await self.session.execute(
             select(func.count(Project.id)).where(Project.updated_at >= week_ago)
         )
@@ -298,7 +297,7 @@ class AnalyticsService:
     async def _estimate_peak_concurrent(self) -> int:
         """Estimate peak concurrent jobs from history."""
         # Get running jobs from last 24 hours
-        day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+        day_ago = datetime.now(UTC) - timedelta(days=1)
 
         running_query = select(GenerationJob).where(
             GenerationJob.started_at >= day_ago,
@@ -312,7 +311,7 @@ class AnalyticsService:
             return 0
 
         # Create events list (start and end times)
-        events: List[tuple[datetime, int]] = []
+        events: list[tuple[datetime, int]] = []
         for job in jobs:
             if job.started_at:
                 events.append((job.started_at, 1))  # Job started
@@ -334,7 +333,7 @@ class AnalyticsService:
     async def get_provider_usage(
         self,
         time_range: str = "7d",
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Get usage statistics by provider.
 
         Args:
@@ -372,8 +371,8 @@ class AnalyticsService:
     async def get_daily_stats(
         self,
         days: int = 7,
-        project_id: Optional[UUID] = None,
-    ) -> List[Dict]:
+        project_id: UUID | None = None,
+    ) -> list[dict]:
         """Get daily generation statistics.
 
         Args:
@@ -381,7 +380,7 @@ class AnalyticsService:
             project_id: Optional project filter
         """
         results = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for i in range(days):
             day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)

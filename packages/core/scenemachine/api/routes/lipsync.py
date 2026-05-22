@@ -1,9 +1,9 @@
 """Lip Sync API routes."""
 
+import contextlib
 import logging
 import os
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -56,18 +56,17 @@ class LipSyncJobResponse(BaseModel):
 class AvailableProvidersResponse(BaseModel):
     """Response for available providers."""
 
-    providers: List[Dict[str, Any]]
+    providers: list[dict[str, Any]]
 
 
 @router.post("/", response_model=LipSyncJobResponse)
 async def start_lip_sync(
     request: StartLipSyncRequest,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Start a lip sync processing job."""
     global _job_counter
     _job_counter += 1
-    job_id = f"lipsync-{_job_counter}"
 
     # Validate provider
     try:
@@ -104,13 +103,13 @@ async def start_lip_sync(
         select(Asset).where(Asset.id == video_uuid)
     )
     video_asset = video_result.scalar_one_or_none()
-    
+
     if not video_asset:
         raise HTTPException(
             status_code=404,
             detail=f"Video asset with id {request.video_id} not found"
         )
-    
+
     if not video_asset.is_video:
         raise HTTPException(
             status_code=400,
@@ -130,13 +129,13 @@ async def start_lip_sync(
         select(Asset).where(Asset.id == audio_uuid)
     )
     audio_asset = audio_result.scalar_one_or_none()
-    
+
     if not audio_asset:
         raise HTTPException(
             status_code=404,
             detail=f"Audio asset with id {request.audio_id} not found"
         )
-    
+
     # Accept SHOT_AUDIO type for audio assets
     if audio_asset.asset_type != AssetType.SHOT_AUDIO:
         raise HTTPException(
@@ -186,11 +185,11 @@ async def _process_lip_sync_job(job_id: str) -> None:
             select(LipsyncJob).where(LipsyncJob.id == UUID(job_id))
         )
         job = result.scalar_one_or_none()
-        
+
         if not job:
             logger.error(f"Lip sync job {job_id} not found in database")
             return
-    
+
     # Log job start
     logger.info(
         f"Starting lip sync job {job_id} for video={job.video_asset_id}, "
@@ -234,24 +233,24 @@ async def _process_lip_sync_job(job_id: str) -> None:
                 select(Asset).where(Asset.id == job.video_asset_id)
             )
             video_asset = video_result.scalar_one_or_none()
-            
+
             audio_result = await db.execute(
                 select(Asset).where(Asset.id == job.audio_asset_id)
             )
             audio_asset = audio_result.scalar_one_or_none()
-            
+
             if not video_asset or not audio_asset:
                 raise ValueError("Video or audio asset no longer exists")
-            
+
             video_path = video_asset.file_path
             audio_path = audio_asset.file_path
-        
+
         # Validate files exist on disk
         if not os.path.exists(video_path):
             raise FileNotFoundError(
                 f"Video file not found at {video_path}. Asset may need regeneration."
             )
-        
+
         if not os.path.exists(audio_path):
             raise FileNotFoundError(
                 f"Audio file not found at {audio_path}. Asset may need regeneration."
@@ -331,12 +330,12 @@ async def _process_lip_sync_job(job_id: str) -> None:
                 await db.commit()
 
 
-@router.get("/jobs", response_model=List[LipSyncJobResponse])
-async def list_jobs(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]]:
+@router.get("/jobs", response_model=list[LipSyncJobResponse])
+async def list_jobs(db: AsyncSession = Depends(get_db)) -> list[dict[str, Any]]:
     """List all lip sync jobs."""
     result = await db.execute(select(LipsyncJob).order_by(LipsyncJob.created_at.desc()))
     jobs = result.scalars().all()
-    
+
     return [
         {
             "job_id": str(job.id),
@@ -359,21 +358,21 @@ async def list_jobs(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]]:
 async def get_job(
     job_id: str,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get lip sync job by ID."""
     try:
         job_uuid = UUID(job_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
-    
+
     result = await db.execute(
         select(LipsyncJob).where(LipsyncJob.id == job_uuid)
     )
     job = result.scalar_one_or_none()
-    
+
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     return {
         "job_id": str(job.id),
         "video_id": str(job.video_asset_id),
@@ -393,18 +392,18 @@ async def get_job(
 async def cancel_job(
     job_id: str,
     db: AsyncSession = Depends(get_db)
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Cancel a lip sync job."""
     try:
         job_uuid = UUID(job_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
-    
+
     result = await db.execute(
         select(LipsyncJob).where(LipsyncJob.id == job_uuid)
     )
     job = result.scalar_one_or_none()
-    
+
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -419,7 +418,7 @@ async def cancel_job(
 
 
 @router.get("/providers", response_model=AvailableProvidersResponse)
-async def get_providers() -> Dict[str, List[Dict[str, Any]]]:
+async def get_providers() -> dict[str, list[dict[str, Any]]]:
     """Get list of available lip sync providers."""
     service = get_lip_sync_service()
     providers = await service.get_available_providers()
@@ -435,7 +434,7 @@ async def get_providers() -> Dict[str, List[Dict[str, Any]]]:
 async def get_phoneme_data(
     job_id: str,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get phoneme timing data for a completed lip sync job.
 
     Returns Preston Blair mouth shapes with timing for visualization.
@@ -532,37 +531,66 @@ async def get_phoneme_data(
 
 
 @router.websocket("/ws/{job_id}")
-async def websocket_endpoint(websocket: WebSocket, job_id: str):
-    """WebSocket endpoint for real-time job progress updates."""
+async def websocket_endpoint(websocket: WebSocket, job_id: str) -> None:
+    """WebSocket endpoint for real-time job progress updates.
+
+    Polls the database for LipsyncJob row state and streams updates to the
+    client every 500ms until the job reaches a terminal state. Originally
+    referenced an in-memory ``_jobs`` dict that was never defined — caught
+    by ruff F821 during the 2026-05-21 CI cleanup. Rewritten to use the
+    LipsyncJob model that's the source of truth.
+    """
+    import asyncio
+
     await websocket.accept()
+    db_manager = get_db_manager()
 
     try:
-        # Send initial job state
-        job = _jobs.get(job_id)
-        if not job:
-            await websocket.send_json({"error": "Job not found"})
+        # Validate job_id UUID upfront so we don't loop on a bad input.
+        try:
+            job_uuid = UUID(job_id)
+        except ValueError:
+            await websocket.send_json({"error": f"Invalid job_id: {job_id}"})
             await websocket.close()
             return
 
-        await websocket.send_json({"type": "job_update", "data": job})
+        terminal_states = {
+            LipsyncJobStatus.COMPLETED,
+            LipsyncJobStatus.FAILED,
+            LipsyncJobStatus.CANCELLED,
+        }
 
-        # Poll for updates and send to client
-        import asyncio
         while True:
-            job = _jobs.get(job_id)
-            if not job:
+            async with db_manager.session() as session:
+                stmt = select(LipsyncJob).where(LipsyncJob.id == job_uuid)
+                result = await session.execute(stmt)
+                job = result.scalar_one_or_none()
+
+            if job is None:
+                await websocket.send_json({"error": "Job not found"})
                 break
 
-            await websocket.send_json({"type": "job_update", "data": job})
+            await websocket.send_json({
+                "type": "job_update",
+                "data": {
+                    "id": str(job.id),
+                    "status": job.status.value if hasattr(job.status, "value") else job.status,
+                    "shot_id": str(job.shot_id) if job.shot_id else None,
+                    "started_at": job.started_at.isoformat() if job.started_at else None,
+                    "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+                    "error_info": job.error_info,
+                },
+            })
 
-            # If job finished, close connection
-            if job["status"] in ["completed", "failed", "cancelled"]:
+            if job.status in terminal_states:
                 break
 
-            await asyncio.sleep(0.5)  # Poll every 500ms
+            await asyncio.sleep(0.5)
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for job {job_id}")
-    except Exception as e:
+    except Exception:
         logger.exception(f"WebSocket error for job {job_id}")
-        await websocket.close()
+    finally:
+        with contextlib.suppress(Exception):
+            await websocket.close()

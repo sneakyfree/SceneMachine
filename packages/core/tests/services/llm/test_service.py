@@ -1,6 +1,5 @@
 """Tests for LLM service."""
 
-import json
 import pytest
 
 from scenemachine.services.llm.service import (

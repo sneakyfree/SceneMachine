@@ -3,7 +3,6 @@
 import logging
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -48,7 +47,7 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str = "change-me-in-production-use-strong-random-key"
-    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # JWT Authentication
     jwt_secret_key: str = "jwt-secret-change-me-in-production"
@@ -58,8 +57,8 @@ class Settings(BaseSettings):
 
     # AI/ML Configuration
     default_llm_provider: str = "anthropic"
-    anthropic_api_key: Optional[str] = None
-    openai_api_key: Optional[str] = None
+    anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
 
     # Generation
     default_video_model: str = "local"
@@ -67,28 +66,28 @@ class Settings(BaseSettings):
     generation_timeout_seconds: int = 600
 
     # Replicate.com API (video generation)
-    replicate_api_token: Optional[str] = None
-    replicate_video_model: Optional[str] = None  # e.g., "minimax", "luma", "kling"
+    replicate_api_token: str | None = None
+    replicate_video_model: str | None = None  # e.g., "minimax", "luma", "kling"
 
     # Fal.ai API (video generation)
-    fal_api_key: Optional[str] = None
-    fal_video_model: Optional[str] = None  # e.g., "ltx", "cogvideox", "hunyuan"
+    fal_api_key: str | None = None
+    fal_video_model: str | None = None  # e.g., "ltx", "cogvideox", "hunyuan"
 
     # RunPod API (serverless GPU)
-    runpod_api_key: Optional[str] = None
-    runpod_endpoint_id: Optional[str] = None
+    runpod_api_key: str | None = None
+    runpod_endpoint_id: str | None = None
 
     # ComfyUI (local generation)
     comfyui_url: str = "http://127.0.0.1:8188"
-    comfyui_default_model: Optional[str] = None  # e.g., "animatediff-v3"
+    comfyui_default_model: str | None = None  # e.g., "animatediff-v3"
 
     # ElevenLabs API (text-to-speech)
-    elevenlabs_api_key: Optional[str] = None
-    elevenlabs_voice_id: Optional[str] = None
+    elevenlabs_api_key: str | None = None
+    elevenlabs_voice_id: str | None = None
 
     # Redis Configuration
     redis_url: str = "redis://localhost:6379/0"
-    redis_password: Optional[str] = None
+    redis_password: str | None = None
     redis_ssl: bool = False
     redis_max_connections: int = 10
     cache_default_ttl_seconds: int = 3600
@@ -109,7 +108,7 @@ class Settings(BaseSettings):
 
     @field_validator("cors_origins", mode="before")
     @classmethod
-    def parse_cors_origins(cls, v: str | List[str]) -> List[str]:
+    def parse_cors_origins(cls, v: str | list[str]) -> list[str]:
         """Parse CORS origins from comma-separated string or list."""
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]

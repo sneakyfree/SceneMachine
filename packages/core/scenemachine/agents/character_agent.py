@@ -9,16 +9,15 @@ Responsibilities:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from scenemachine.agents.base import (
-    BaseAgent,
-    AgentType,
     ActionContext,
     ActionResult,
     ActionStatus,
-    EscalationReason,
+    AgentType,
+    BaseAgent,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,24 +26,24 @@ logger = logging.getLogger(__name__)
 class CharacterAgent(BaseAgent):
     """
     Agent responsible for character consistency management.
-    
+
     Autonomous actions:
     - generate_reference: Generate reference image from description
     - extract_embedding: Extract face embedding from reference
     - select_voice: Select voice profile for character
     - check_consistency: Verify character looks consistent
-    
+
     Requires approval:
     - use_real_likeness: When using real person's likeness
     - clone_voice: When cloning a real person's voice
     """
-    
+
     @property
     def agent_type(self) -> AgentType:
         return AgentType.CHARACTER
-    
+
     @property
-    def capabilities(self) -> List[str]:
+    def capabilities(self) -> list[str]:
         return [
             "generate_reference",
             "extract_embedding",
@@ -53,11 +52,11 @@ class CharacterAgent(BaseAgent):
             "check_consistency",
             "use_real_likeness",
         ]
-    
+
     @property
-    def requires_approval(self) -> List[str]:
+    def requires_approval(self) -> list[str]:
         return ["use_real_likeness", "clone_voice"]
-    
+
     async def _execute_action(
         self,
         action_name: str,
@@ -80,7 +79,7 @@ class CharacterAgent(BaseAgent):
                 success=False,
                 error_message=f"Unknown action: {action_name}",
             )
-    
+
     async def _generate_reference(
         self,
         context: ActionContext,
@@ -93,14 +92,14 @@ class CharacterAgent(BaseAgent):
             from scenemachine.services.character_image_generator import (
                 CharacterImageGenerator,
             )
-            
+
             generator = CharacterImageGenerator()
             result = await generator.generate(
                 name=character_name,
                 description=description,
                 style=style,
             )
-            
+
             return ActionResult(
                 action_id=context.session_id,
                 status=ActionStatus.COMPLETED,
@@ -120,7 +119,7 @@ class CharacterAgent(BaseAgent):
                 success=False,
                 error_message=str(e),
             )
-    
+
     async def _extract_embedding(
         self,
         context: ActionContext,
@@ -129,10 +128,10 @@ class CharacterAgent(BaseAgent):
         """Extract face embedding from a reference image."""
         try:
             from scenemachine.services.face_embedding import FaceEmbeddingService
-            
+
             service = FaceEmbeddingService()
             embedding = await service.extract(image_path)
-            
+
             return ActionResult(
                 action_id=context.session_id,
                 status=ActionStatus.COMPLETED,
@@ -151,7 +150,7 @@ class CharacterAgent(BaseAgent):
                 success=False,
                 error_message=str(e),
             )
-    
+
     async def _select_voice(
         self,
         context: ActionContext,
@@ -160,22 +159,22 @@ class CharacterAgent(BaseAgent):
     ) -> ActionResult:
         """Select an appropriate voice profile for a character."""
         from scenemachine.services.audio import MockTTSProvider
-        
+
         provider = MockTTSProvider()
         voices = await provider.get_voices()
-        
+
         # Filter by gender
         matching = [
             v for v in voices
             if gender == "neutral" or v.gender.value == gender
         ]
-        
+
         if not matching:
             matching = voices
-        
+
         # Return first match (would use LLM for better selection in production)
         selected = matching[0] if matching else None
-        
+
         return ActionResult(
             action_id=context.session_id,
             status=ActionStatus.COMPLETED,
@@ -187,17 +186,17 @@ class CharacterAgent(BaseAgent):
             },
             confidence=0.7,  # Heuristic selection
         )
-    
+
     async def _check_consistency(
         self,
         context: ActionContext,
         character_id: UUID,
-        shot_paths: List[str],
+        shot_paths: list[str],
     ) -> ActionResult:
         """Check character consistency across multiple shots."""
         # This would use face embedding similarity in production
         # For now, return a mock result
-        
+
         consistency_scores = []
         for path in shot_paths:
             # Mock: random-ish score based on path hash
@@ -206,9 +205,9 @@ class CharacterAgent(BaseAgent):
                 "path": path,
                 "score": min(score, 1.0),
             })
-        
+
         avg_score = sum(s["score"] for s in consistency_scores) / len(consistency_scores) if consistency_scores else 0
-        
+
         return ActionResult(
             action_id=context.session_id,
             status=ActionStatus.COMPLETED,
@@ -226,39 +225,38 @@ class CharacterAgent(BaseAgent):
     # ============================================================
     # S-P2-01: Parallel Processing Enhancement
     # ============================================================
-    
+
     # Concurrency settings
     MAX_CONCURRENT_GENERATIONS = 4    # Max simultaneous image generations
     MAX_CONCURRENT_EMBEDDINGS = 8     # Max simultaneous embedding extractions
     BATCH_SIZE = 10                   # Characters per batch
-    
+
     async def process_characters_parallel(
         self,
         context: ActionContext,
-        characters: List[Dict[str, Any]],
-        actions: List[str] = None,
-    ) -> Dict[str, Any]:
+        characters: list[dict[str, Any]],
+        actions: list[str] = None,
+    ) -> dict[str, Any]:
         """Process multiple characters in parallel.
-        
+
         S-P2-01: Enables concurrent processing of characters for:
         - Faster project initialization
         - Efficient batch operations
         - Resource-aware concurrency control
-        
+
         Args:
             context: Action context
             characters: List of character dicts with name, description, etc.
             actions: Actions to perform ['generate_reference', 'extract_embedding', 'select_voice']
-            
+
         Returns:
             Aggregated results for all characters
         """
-        import asyncio
         import time
-        
+
         if actions is None:
             actions = ["generate_reference", "extract_embedding", "select_voice"]
-        
+
         start_time = time.time()
         results = {
             "total_characters": len(characters),
@@ -267,53 +265,53 @@ class CharacterAgent(BaseAgent):
             "character_results": [],
             "actions_performed": actions,
         }
-        
+
         # Process in batches to avoid overwhelming resources
         for batch_start in range(0, len(characters), self.BATCH_SIZE):
             batch = characters[batch_start:batch_start + self.BATCH_SIZE]
             batch_results = await self._process_batch(context, batch, actions)
-            
+
             for char_result in batch_results:
                 results["character_results"].append(char_result)
                 if char_result.get("success"):
                     results["successful"] += 1
                 else:
                     results["failed"] += 1
-        
+
         results["processing_time_seconds"] = time.time() - start_time
         results["characters_per_second"] = (
             len(characters) / results["processing_time_seconds"]
             if results["processing_time_seconds"] > 0
             else 0
         )
-        
+
         logger.info(
             f"Parallel processing complete: {results['successful']}/{len(characters)} "
             f"characters in {results['processing_time_seconds']:.2f}s"
         )
-        
+
         return results
-    
+
     async def _process_batch(
         self,
         context: ActionContext,
-        batch: List[Dict[str, Any]],
-        actions: List[str],
-    ) -> List[Dict[str, Any]]:
+        batch: list[dict[str, Any]],
+        actions: list[str],
+    ) -> list[dict[str, Any]]:
         """Process a batch of characters concurrently."""
         import asyncio
-        
+
         # Create semaphore for controlled concurrency
         generation_sem = asyncio.Semaphore(self.MAX_CONCURRENT_GENERATIONS)
-        
-        async def process_single_character(character: Dict[str, Any]) -> Dict[str, Any]:
+
+        async def process_single_character(character: dict[str, Any]) -> dict[str, Any]:
             """Process a single character through all requested actions."""
             char_result = {
                 "character_name": character.get("name", "Unknown"),
                 "success": True,
                 "actions": {},
             }
-            
+
             try:
                 # Generate reference image
                 if "generate_reference" in actions:
@@ -330,7 +328,7 @@ class CharacterAgent(BaseAgent):
                         }
                         if not result.success:
                             char_result["success"] = False
-                
+
                 # Extract embedding (can run with higher concurrency)
                 if "extract_embedding" in actions and char_result["actions"].get("generate_reference", {}).get("success"):
                     image_path = char_result["actions"]["generate_reference"]["output"].get("image_path")
@@ -340,7 +338,7 @@ class CharacterAgent(BaseAgent):
                             "success": result.success,
                             "has_embedding": result.output.get("embedding") is not None if result.output else False,
                         }
-                
+
                 # Select voice (lightweight, no limit needed)
                 if "select_voice" in actions:
                     result = await self._select_voice(
@@ -352,42 +350,42 @@ class CharacterAgent(BaseAgent):
                         "success": result.success,
                         "voice_id": result.output.get("voice_id") if result.output else None,
                     }
-                    
+
             except Exception as e:
                 logger.warning(f"Character processing failed: {character.get('name')}: {e}")
                 char_result["success"] = False
                 char_result["error"] = str(e)
-            
+
             return char_result
-        
+
         # Run all characters in batch concurrently
         tasks = [process_single_character(char) for char in batch]
         return await asyncio.gather(*tasks)
-    
+
     async def batch_extract_embeddings(
         self,
         context: ActionContext,
-        image_paths: List[str],
-    ) -> Dict[str, Any]:
+        image_paths: list[str],
+    ) -> dict[str, Any]:
         """Extract embeddings from multiple images in parallel.
-        
+
         Optimized for batch face embedding extraction with
         controlled concurrency to avoid GPU memory issues.
-        
+
         Args:
             context: Action context
             image_paths: List of image file paths
-            
+
         Returns:
             Batch extraction results
         """
         import asyncio
         import time
-        
+
         start_time = time.time()
         sem = asyncio.Semaphore(self.MAX_CONCURRENT_EMBEDDINGS)
-        
-        async def extract_one(path: str) -> Dict[str, Any]:
+
+        async def extract_one(path: str) -> dict[str, Any]:
             async with sem:
                 result = await self._extract_embedding(context, path)
                 return {
@@ -396,12 +394,12 @@ class CharacterAgent(BaseAgent):
                     "has_embedding": result.output.get("embedding") is not None if result.output else False,
                     "confidence": result.confidence,
                 }
-        
+
         tasks = [extract_one(path) for path in image_paths]
         extraction_results = await asyncio.gather(*tasks)
-        
+
         successful = sum(1 for r in extraction_results if r["success"])
-        
+
         return {
             "total_images": len(image_paths),
             "successful_extractions": successful,
@@ -409,47 +407,47 @@ class CharacterAgent(BaseAgent):
             "results": extraction_results,
             "processing_time_seconds": time.time() - start_time,
         }
-    
+
     async def parallel_consistency_check(
         self,
         context: ActionContext,
-        character_shot_map: Dict[UUID, List[str]],
-    ) -> Dict[str, Any]:
+        character_shot_map: dict[UUID, list[str]],
+    ) -> dict[str, Any]:
         """Check consistency for multiple characters in parallel.
-        
+
         Args:
             context: Action context
             character_shot_map: {character_id: [shot_paths]}
-            
+
         Returns:
             Parallel consistency check results
         """
         import asyncio
         import time
-        
+
         start_time = time.time()
-        
-        async def check_one(char_id: UUID, paths: List[str]) -> Dict[str, Any]:
+
+        async def check_one(char_id: UUID, paths: list[str]) -> dict[str, Any]:
             result = await self._check_consistency(context, char_id, paths)
             return {
                 "character_id": str(char_id),
                 "result": result.output,
                 "success": result.success,
             }
-        
+
         tasks = [
             check_one(char_id, paths)
             for char_id, paths in character_shot_map.items()
         ]
-        
+
         check_results = await asyncio.gather(*tasks)
-        
+
         # Aggregate stats
         consistent_count = sum(
-            1 for r in check_results 
+            1 for r in check_results
             if r.get("result", {}).get("is_consistent", False)
         )
-        
+
         return {
             "total_characters": len(character_shot_map),
             "consistent_characters": consistent_count,

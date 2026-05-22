@@ -7,16 +7,16 @@ Centralizes configuration for all external providers:
 - Voice providers (Kokoro built-in, ElevenLabs)
 """
 
-import os
 import logging
+import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
-from enum import Enum
+from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class ProviderType(str, Enum):
+class ProviderType(StrEnum):
     """Provider category types."""
     LLM = "llm"
     VIDEO = "video"
@@ -25,7 +25,7 @@ class ProviderType(str, Enum):
     LIPSYNC = "lipsync"
 
 
-class ProviderStatus(str, Enum):
+class ProviderStatus(StrEnum):
     """Provider availability status."""
     AVAILABLE = "available"
     UNAVAILABLE = "unavailable"
@@ -40,20 +40,20 @@ class ProviderConfig:
     provider_type: ProviderType
     api_key_env: str
     is_enabled: bool = True
-    default_model: Optional[str] = None
-    base_url: Optional[str] = None
-    extra_config: Dict[str, Any] = field(default_factory=dict)
-    
+    default_model: str | None = None
+    base_url: str | None = None
+    extra_config: dict[str, Any] = field(default_factory=dict)
+
     @property
-    def api_key(self) -> Optional[str]:
+    def api_key(self) -> str | None:
         """Get API key from environment."""
         return os.environ.get(self.api_key_env)
-    
+
     @property
     def is_configured(self) -> bool:
         """Check if provider is properly configured."""
         return bool(self.api_key)
-    
+
     @property
     def status(self) -> ProviderStatus:
         """Get provider status."""
@@ -67,9 +67,9 @@ class ProviderConfig:
 @dataclass
 class ProvidersRegistry:
     """Registry of all available providers."""
-    
+
     # LLM Providers
-    LLM_PROVIDERS: List[ProviderConfig] = field(default_factory=lambda: [
+    LLM_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
         ProviderConfig(
             name="anthropic",
             provider_type=ProviderType.LLM,
@@ -83,9 +83,9 @@ class ProvidersRegistry:
             default_model="gpt-4o",
         ),
     ])
-    
+
     # Video Providers
-    VIDEO_PROVIDERS: List[ProviderConfig] = field(default_factory=lambda: [
+    VIDEO_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
         ProviderConfig(
             name="fal",
             provider_type=ProviderType.VIDEO,
@@ -139,9 +139,9 @@ class ProvidersRegistry:
             }
         ),
     ])
-    
+
     # Image Providers
-    IMAGE_PROVIDERS: List[ProviderConfig] = field(default_factory=lambda: [
+    IMAGE_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
         ProviderConfig(
             name="flux_fal",
             provider_type=ProviderType.IMAGE,
@@ -162,9 +162,9 @@ class ProvidersRegistry:
             default_model="stability-ai/sdxl",
         ),
     ])
-    
+
     # Voice Providers
-    VOICE_PROVIDERS: List[ProviderConfig] = field(default_factory=lambda: [
+    VOICE_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
         ProviderConfig(
             name="kokoro",
             provider_type=ProviderType.VOICE,
@@ -185,9 +185,9 @@ class ProvidersRegistry:
             }
         ),
     ])
-    
+
     # LipSync Providers
-    LIPSYNC_PROVIDERS: List[ProviderConfig] = field(default_factory=lambda: [
+    LIPSYNC_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
         ProviderConfig(
             name="latentsync",
             provider_type=ProviderType.LIPSYNC,
@@ -199,18 +199,18 @@ class ProvidersRegistry:
             api_key_env="WAV2LIP_MODEL_PATH",  # Local model path
         ),
     ])
-    
-    def get_configured_providers(self, provider_type: ProviderType) -> List[ProviderConfig]:
+
+    def get_configured_providers(self, provider_type: ProviderType) -> list[ProviderConfig]:
         """Get all configured providers of a type."""
         providers = self._get_providers_by_type(provider_type)
         return [p for p in providers if p.is_configured or p.name == "kokoro"]
-    
-    def get_best_available(self, provider_type: ProviderType) -> Optional[ProviderConfig]:
+
+    def get_best_available(self, provider_type: ProviderType) -> ProviderConfig | None:
         """Get the first available provider of a type."""
         providers = self.get_configured_providers(provider_type)
         return providers[0] if providers else None
-    
-    def _get_providers_by_type(self, provider_type: ProviderType) -> List[ProviderConfig]:
+
+    def _get_providers_by_type(self, provider_type: ProviderType) -> list[ProviderConfig]:
         """Get provider list by type."""
         mapping = {
             ProviderType.LLM: self.LLM_PROVIDERS,
@@ -220,11 +220,11 @@ class ProvidersRegistry:
             ProviderType.LIPSYNC: self.LIPSYNC_PROVIDERS,
         }
         return mapping.get(provider_type, [])
-    
-    def get_status_report(self) -> Dict[str, Any]:
+
+    def get_status_report(self) -> dict[str, Any]:
         """Get configuration status for all providers."""
         report = {}
-        
+
         for ptype in ProviderType:
             providers = self._get_providers_by_type(ptype)
             report[ptype.value] = {
@@ -232,12 +232,12 @@ class ProvidersRegistry:
                 "available": [p.name for p in providers if p.status == ProviderStatus.AVAILABLE],
                 "not_configured": [p.name for p in providers if p.status == ProviderStatus.NOT_CONFIGURED],
             }
-        
+
         return report
 
 
 # Singleton instance
-_registry: Optional[ProvidersRegistry] = None
+_registry: ProvidersRegistry | None = None
 
 
 def get_providers_registry() -> ProvidersRegistry:
@@ -248,76 +248,76 @@ def get_providers_registry() -> ProvidersRegistry:
     return _registry
 
 
-def check_provider_status() -> Dict[str, Any]:
+def check_provider_status() -> dict[str, Any]:
     """Check status of all providers and return report."""
     registry = get_providers_registry()
     report = registry.get_status_report()
-    
+
     # Add summary
     total_configured = sum(len(v.get("configured", [])) for v in report.values())
     total_available = sum(len(v.get("available", [])) for v in report.values())
-    
+
     report["summary"] = {
         "total_configured": total_configured,
         "total_available": total_available,
         "ready_for_generation": total_available > 0,
     }
-    
+
     return report
 
 
-def get_llm_config() -> Optional[ProviderConfig]:
+def get_llm_config() -> ProviderConfig | None:
     """Get the configured LLM provider."""
     registry = get_providers_registry()
-    
+
     # Check environment for preferred provider
     preferred = os.environ.get("DEFAULT_LLM_PROVIDER", "anthropic")
-    
+
     for provider in registry.LLM_PROVIDERS:
         if provider.name == preferred and provider.is_configured:
             return provider
-    
+
     # Fall back to any configured provider
     return registry.get_best_available(ProviderType.LLM)
 
 
-def get_video_config() -> Optional[ProviderConfig]:
+def get_video_config() -> ProviderConfig | None:
     """Get the configured video provider."""
     registry = get_providers_registry()
-    
+
     # Check environment for preferred provider
     preferred = os.environ.get("DEFAULT_VIDEO_MODEL", "local")
-    
+
     if preferred == "local":
         for provider in registry.VIDEO_PROVIDERS:
             if provider.name == "comfyui":
                 # Check if ComfyUI is running
                 return provider
-    
+
     # Check cloud providers
     for preferred_name in ["fal", "replicate", "runpod"]:
         for provider in registry.VIDEO_PROVIDERS:
             if provider.name == preferred_name and provider.is_configured:
                 return provider
-    
+
     return registry.get_best_available(ProviderType.VIDEO)
 
 
-def get_image_config() -> Optional[ProviderConfig]:
+def get_image_config() -> ProviderConfig | None:
     """Get the configured image provider."""
     registry = get_providers_registry()
     return registry.get_best_available(ProviderType.IMAGE)
 
 
-def get_voice_config() -> Optional[ProviderConfig]:
+def get_voice_config() -> ProviderConfig | None:
     """Get the configured voice provider."""
     registry = get_providers_registry()
-    
+
     # Kokoro is always available as it's built-in
     for provider in registry.VOICE_PROVIDERS:
         if provider.name == "kokoro":
             return provider
-    
+
     return registry.get_best_available(ProviderType.VOICE)
 
 

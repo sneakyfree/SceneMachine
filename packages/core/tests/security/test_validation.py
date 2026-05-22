@@ -9,7 +9,6 @@ from scenemachine.security.validation import (
     sanitize_html,
     sanitize_sql_identifier,
     validate_email,
-    validate_path,
     validate_url,
 )
 

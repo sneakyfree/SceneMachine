@@ -7,36 +7,25 @@ to ensure complete coverage and identify any issues.
 """
 
 import asyncio
-import json
 import logging
 import sys
 import time
-import traceback
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from uuid import UUID, uuid4
+from typing import Any
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from scenemachine.api.app import create_app
-from scenemachine.models import (
-    Project, ProjectState,
-    Screenplay, Character, Scene, Shot, ShotState,
-    GenerationJob, JobStatus,
-    ExportHistory, UserSettings,
-    ProjectShare, ProjectComment,
-    TextOverlay, AudioAsset,
-)
-from scenemachine.models.base import Base
 from scenemachine.config import Settings
+from scenemachine.models.base import Base
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -46,7 +35,7 @@ logger = logging.getLogger(__name__)
 # TEST RESULT TYPES
 # ============================================================================
 
-class TestStatus(str, Enum):
+class TestStatus(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -61,25 +50,25 @@ class TestResult:
     subcategory: str
     status: TestStatus
     duration_ms: float
-    request_method: Optional[str] = None
-    request_path: Optional[str] = None
-    response_status: Optional[int] = None
-    error_message: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    request_method: str | None = None
+    request_path: str | None = None
+    response_status: int | None = None
+    error_message: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class TestSuiteReport:
     """Complete test suite report."""
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     total_tests: int = 0
     passed: int = 0
     failed: int = 0
     skipped: int = 0
     errors: int = 0
-    results: List[TestResult] = field(default_factory=list)
-    coverage: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    results: list[TestResult] = field(default_factory=list)
+    coverage: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def add_result(self, result: TestResult):
         self.results.append(result)
@@ -188,15 +177,15 @@ class E2ETestSuite:
     def __init__(self, database_url: str = "sqlite+aiosqlite:///./data/test_e2e.db"):
         """Initialize test suite."""
         self.database_url = database_url
-        self.report = TestSuiteReport(start_time=datetime.now(timezone.utc))
-        self.client: Optional[AsyncClient] = None
-        self.session: Optional[AsyncSession] = None
+        self.report = TestSuiteReport(start_time=datetime.now(UTC))
+        self.client: AsyncClient | None = None
+        self.session: AsyncSession | None = None
 
         # Test data references
-        self.test_project_id: Optional[str] = None
-        self.test_character_id: Optional[str] = None
-        self.test_scene_id: Optional[str] = None
-        self.test_shot_id: Optional[str] = None
+        self.test_project_id: str | None = None
+        self.test_character_id: str | None = None
+        self.test_scene_id: str | None = None
+        self.test_shot_id: str | None = None
 
     async def setup(self):
         """Set up test environment."""
@@ -330,7 +319,7 @@ class E2ETestSuite:
     # API TEST HELPERS
     # ========================================================================
 
-    async def api_get(self, path: str, expected_status: int = 200) -> Dict[str, Any]:
+    async def api_get(self, path: str, expected_status: int = 200) -> dict[str, Any]:
         """Make GET request and verify status."""
         response = await self.client.get(path)
         assert response.status_code == expected_status, \
@@ -345,9 +334,9 @@ class E2ETestSuite:
     async def api_post(
         self,
         path: str,
-        json_data: Dict = None,
+        json_data: dict = None,
         expected_status: int = 200,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make POST request and verify status."""
         response = await self.client.post(path, json=json_data)
         assert response.status_code == expected_status, \
@@ -362,9 +351,9 @@ class E2ETestSuite:
     async def api_patch(
         self,
         path: str,
-        json_data: Dict = None,
+        json_data: dict = None,
         expected_status: int = 200,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make PATCH request and verify status."""
         response = await self.client.patch(path, json=json_data)
         assert response.status_code == expected_status, \
@@ -376,7 +365,7 @@ class E2ETestSuite:
             "details": {"response": response.json() if response.content else None},
         }
 
-    async def api_delete(self, path: str, expected_status: int = 200) -> Dict[str, Any]:
+    async def api_delete(self, path: str, expected_status: int = 200) -> dict[str, Any]:
         """Make DELETE request and verify status."""
         response = await self.client.delete(path)
         assert response.status_code == expected_status, \
@@ -894,7 +883,7 @@ class E2ETestSuite:
         finally:
             await self.teardown()
 
-        self.report.end_time = datetime.now(timezone.utc)
+        self.report.end_time = datetime.now(UTC)
         logger.info("E2E Test Suite completed")
 
         return self.report

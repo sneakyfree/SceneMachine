@@ -1,25 +1,24 @@
 """Booking API routes for ActForge marketplace."""
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, and_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.database import get_session
 from scenemachine.models import (
-    Performer,
-    PerformerAvailability,
-    PerformanceTake,
     Booking,
     BookingMode,
     BookingStatus,
     PaymentStatus,
+    PerformanceTake,
+    Performer,
+    PerformerAvailability,
     PerformerRating,
 )
 from scenemachine.services.performer_payouts import get_payout_service
@@ -38,39 +37,39 @@ class BlinkBookingRequest(BaseModel):
     """Request for Blink mode (10-second auto-match)."""
 
     project_id: UUID
-    shot_id: Optional[UUID] = None
+    shot_id: UUID | None = None
     duration_seconds: float = Field(default=10.0, ge=1.0, le=30.0)
-    emotion_requirements: List[str] = Field(default_factory=list)
-    max_price_usd: Optional[float] = Field(default=None, ge=1.0)
-    special_instructions: Optional[str] = None
+    emotion_requirements: list[str] = Field(default_factory=list)
+    max_price_usd: float | None = Field(default=None, ge=1.0)
+    special_instructions: str | None = None
 
 
 class DeepBookingRequest(BaseModel):
     """Request for Deep mode (method acting)."""
 
     project_id: UUID
-    shot_id: Optional[UUID] = None
+    shot_id: UUID | None = None
     performer_id: UUID
     duration_seconds: float = Field(default=120.0, ge=30.0, le=300.0)
-    emotion_requirements: List[str] = Field(default_factory=list)
-    motion_requirements: Optional[dict] = None
-    special_instructions: Optional[str] = None
-    character_context: Optional[str] = None
-    scene_description: Optional[str] = None
+    emotion_requirements: list[str] = Field(default_factory=list)
+    motion_requirements: dict | None = None
+    special_instructions: str | None = None
+    character_context: str | None = None
+    scene_description: str | None = None
 
 
 class EpicBookingRequest(BaseModel):
     """Request for Epic mode (long-form)."""
 
     project_id: UUID
-    shot_id: Optional[UUID] = None
+    shot_id: UUID | None = None
     performer_id: UUID
     duration_seconds: float = Field(default=600.0, ge=300.0, le=1200.0)
-    emotion_requirements: List[str] = Field(default_factory=list)
-    motion_requirements: Optional[dict] = None
-    special_instructions: Optional[str] = None
-    character_context: Optional[str] = None
-    scene_description: Optional[str] = None
+    emotion_requirements: list[str] = Field(default_factory=list)
+    motion_requirements: dict | None = None
+    special_instructions: str | None = None
+    character_context: str | None = None
+    scene_description: str | None = None
 
 
 class BookingDeliveryRequest(BaseModel):
@@ -83,13 +82,13 @@ class BookingRatingRequest(BaseModel):
     """Request to rate a performer after booking completion."""
 
     overall_score: float = Field(..., ge=1.0, le=5.0)
-    motion_quality_score: Optional[float] = Field(default=None, ge=1.0, le=5.0)
-    emotion_accuracy_score: Optional[float] = Field(default=None, ge=1.0, le=5.0)
-    professionalism_score: Optional[float] = Field(default=None, ge=1.0, le=5.0)
-    timeliness_score: Optional[float] = Field(default=None, ge=1.0, le=5.0)
+    motion_quality_score: float | None = Field(default=None, ge=1.0, le=5.0)
+    emotion_accuracy_score: float | None = Field(default=None, ge=1.0, le=5.0)
+    professionalism_score: float | None = Field(default=None, ge=1.0, le=5.0)
+    timeliness_score: float | None = Field(default=None, ge=1.0, le=5.0)
     would_rehire: bool
-    review_text: Optional[str] = None
-    review_title: Optional[str] = None
+    review_text: str | None = None
+    review_title: str | None = None
     is_public: bool = True
 
 
@@ -106,7 +105,7 @@ class PerformerSummaryResponse(BaseModel):
     stage_name: str
     performer_type: str
     aci_score: float
-    profile_image_url: Optional[str]
+    profile_image_url: str | None
 
 
 class BookingResponse(BaseModel):
@@ -114,31 +113,31 @@ class BookingResponse(BaseModel):
 
     id: str
     project_id: str
-    shot_id: Optional[str]
-    performer: Optional[PerformerSummaryResponse]
+    shot_id: str | None
+    performer: PerformerSummaryResponse | None
     booking_mode: str
     status: str
     duration_requested_seconds: float
-    duration_delivered_seconds: Optional[float]
-    emotion_requirements: List[str]
+    duration_delivered_seconds: float | None
+    emotion_requirements: list[str]
     price_usd: float
     platform_fee_usd: float
     performer_payout_usd: float
     payment_status: str
     retry_count: int
     max_retries: int
-    take_id: Optional[str]
+    take_id: str | None
     requested_at: str
-    matched_at: Optional[str]
-    accepted_at: Optional[str]
-    delivered_at: Optional[str]
-    completed_at: Optional[str]
+    matched_at: str | None
+    accepted_at: str | None
+    delivered_at: str | None
+    completed_at: str | None
 
 
 class BookingListResponse(BaseModel):
     """List of bookings response."""
 
-    bookings: List[BookingResponse]
+    bookings: list[BookingResponse]
     total: int
     page: int
     page_size: int
@@ -198,10 +197,10 @@ def booking_to_response(booking: Booking) -> BookingResponse:
 
 async def find_available_performer(
     session: AsyncSession,
-    emotion_requirements: List[str],
-    max_price: Optional[float],
+    emotion_requirements: list[str],
+    max_price: float | None,
     duration_seconds: float,
-) -> Optional[Performer]:
+) -> Performer | None:
     """Find an available performer matching requirements."""
     stmt = (
         select(Performer)
@@ -245,10 +244,10 @@ async def list_bookings(
     session: AsyncSession = Depends(get_session),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    status_filter: Optional[BookingStatus] = Query(None),
-    mode_filter: Optional[BookingMode] = Query(None),
-    project_id: Optional[UUID] = Query(None),
-    performer_id: Optional[UUID] = Query(None),
+    status_filter: BookingStatus | None = Query(None),
+    mode_filter: BookingMode | None = Query(None),
+    project_id: UUID | None = Query(None),
+    performer_id: UUID | None = Query(None),
 ) -> BookingListResponse:
     """List bookings with filtering and pagination."""
     stmt = select(Booking).options(selectinload(Booking.performer))
@@ -341,7 +340,7 @@ async def create_blink_booking(
     calculation = payout_service.calculate_payout(price, performer.lifetime_earnings_usd)
 
     # Create booking
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     booking = Booking(
         project_id=request.project_id,
         shot_id=request.shot_id,
@@ -425,7 +424,7 @@ async def create_deep_booking(
     calculation = payout_service.calculate_payout(price, performer.lifetime_earnings_usd)
 
     # Create booking
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     booking = Booking(
         project_id=request.project_id,
         shot_id=request.shot_id,
@@ -498,7 +497,7 @@ async def create_epic_booking(
     calculation = payout_service.calculate_payout(price, performer.lifetime_earnings_usd)
 
     # Create booking
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     booking = Booking(
         project_id=request.project_id,
         shot_id=request.shot_id,
@@ -558,7 +557,7 @@ async def accept_booking(
         )
 
     booking.status = BookingStatus.ACCEPTED
-    booking.accepted_at = datetime.now(timezone.utc)
+    booking.accepted_at = datetime.now(UTC)
     booking.payment_status = PaymentStatus.ESCROWED
 
     await session.commit()
@@ -616,7 +615,7 @@ async def deliver_booking(
     booking.status = BookingStatus.DELIVERED
     booking.take_id = take.id
     booking.duration_delivered_seconds = take.duration_seconds
-    booking.delivered_at = datetime.now(timezone.utc)
+    booking.delivered_at = datetime.now(UTC)
 
     # Increment take usage
     take.increment_usage()
@@ -656,7 +655,7 @@ async def approve_booking(
         )
 
     booking.status = BookingStatus.APPROVED
-    booking.approved_at = datetime.now(timezone.utc)
+    booking.approved_at = datetime.now(UTC)
 
     # Process payout
     payout_service = get_payout_service(session)
@@ -700,7 +699,7 @@ async def dispute_booking(
     booking.status = BookingStatus.DISPUTED
     booking.is_disputed = True
     booking.dispute_reason = request.reason
-    booking.disputed_at = datetime.now(timezone.utc)
+    booking.disputed_at = datetime.now(UTC)
 
     await session.commit()
     await session.refresh(booking)
@@ -737,7 +736,7 @@ async def cancel_booking(
         )
 
     booking.status = BookingStatus.CANCELLED
-    booking.cancelled_at = datetime.now(timezone.utc)
+    booking.cancelled_at = datetime.now(UTC)
 
     # Refund if escrowed
     if booking.payment_status == PaymentStatus.ESCROWED:
@@ -797,7 +796,7 @@ async def rate_booking(
         review_text=request.review_text,
         review_title=request.review_title,
         is_public=request.is_public,
-        rated_at=datetime.now(timezone.utc),
+        rated_at=datetime.now(UTC),
     )
 
     session.add(rating)

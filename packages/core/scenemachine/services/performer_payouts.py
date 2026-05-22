@@ -14,19 +14,19 @@ Revenue Tiers:
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models import (
-    Performer,
     Booking,
     BookingStatus,
     PaymentStatus,
+    Performer,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,10 +55,10 @@ class PayoutCalculation:
     platform_fee_usd: Decimal
     current_tier: int
     lifetime_earnings_usd: Decimal
-    earnings_to_next_tier: Optional[Decimal]
-    next_tier_split_percent: Optional[Decimal]
+    earnings_to_next_tier: Decimal | None
+    next_tier_split_percent: Decimal | None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "booking_price_usd": float(self.booking_price_usd),
@@ -93,9 +93,9 @@ class PayoutSummary:
     pending_payout_usd: Decimal
     total_bookings: int
     completed_bookings: int
-    earnings_to_next_tier: Optional[Decimal]
+    earnings_to_next_tier: Decimal | None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "performer_id": str(self.performer_id),
@@ -122,11 +122,11 @@ class PerformerPayoutService:
     earn a higher percentage as their lifetime earnings increase.
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         """Initialize service with database session."""
         self._session = session
 
-    def get_tier_for_earnings(self, lifetime_earnings: Decimal) -> Tuple[int, Decimal]:
+    def get_tier_for_earnings(self, lifetime_earnings: Decimal) -> tuple[int, Decimal]:
         """
         Get the revenue tier for given lifetime earnings.
 
@@ -147,7 +147,7 @@ class PerformerPayoutService:
     def get_next_tier_info(
         self,
         lifetime_earnings: Decimal,
-    ) -> Tuple[Optional[Decimal], Optional[Decimal]]:
+    ) -> tuple[Decimal | None, Decimal | None]:
         """
         Get information about the next revenue tier.
 
@@ -214,7 +214,7 @@ class PerformerPayoutService:
     async def get_performer_summary(
         self,
         performer_id: UUID,
-    ) -> Optional[PayoutSummary]:
+    ) -> PayoutSummary | None:
         """
         Get payout summary for a performer.
 
@@ -263,7 +263,7 @@ class PerformerPayoutService:
     async def process_booking_payout(
         self,
         booking_id: UUID,
-    ) -> Optional[PayoutCalculation]:
+    ) -> PayoutCalculation | None:
         """
         Process payout for a completed booking.
 
@@ -307,7 +307,7 @@ class PerformerPayoutService:
         booking.platform_fee_usd = float(calculation.platform_fee_usd)
         booking.performer_payout_usd = float(calculation.performer_payout_usd)
         booking.status = BookingStatus.COMPLETED
-        booking.completed_at = datetime.now(timezone.utc)
+        booking.completed_at = datetime.now(UTC)
 
         # Update performer earnings
         performer.total_earnings_usd += float(calculation.performer_payout_usd)
@@ -330,7 +330,7 @@ class PerformerPayoutService:
     async def release_payment(
         self,
         booking_id: UUID,
-        stripe_transfer_id: Optional[str] = None,
+        stripe_transfer_id: str | None = None,
     ) -> bool:
         """
         Release escrowed payment to performer.
@@ -357,7 +357,7 @@ class PerformerPayoutService:
 
         # Update payment status
         booking.payment_status = PaymentStatus.RELEASED
-        booking.released_at = datetime.now(timezone.utc)
+        booking.released_at = datetime.now(UTC)
 
         await self._session.commit()
 
@@ -367,7 +367,7 @@ class PerformerPayoutService:
     async def get_tier_progress(
         self,
         performer_id: UUID,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get detailed tier progress information for a performer.
 

@@ -22,13 +22,11 @@ baseline that every future V_N is measured against.
 """
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import numpy as np
 import pytest
 from PIL import Image
-
 
 # ----------------------------------------------------------------------
 # Helpers
@@ -285,8 +283,8 @@ async def test_visual_fidelity_on_synthetic_blurry_video(tmp_path):
         pytest.skip("ffmpeg not available")
 
     from scenemachine.services.video_quality_reviewer import (
-        VideoQualityReviewer,
         QualityIssue,
+        VideoQualityReviewer,
     )
 
     mp4 = tmp_path / "blurry.mp4"

@@ -7,6 +7,7 @@ satisfies the generators.base.GenerationProvider interface.
 from __future__ import annotations
 
 from uuid import uuid4
+
 import pytest
 
 
@@ -44,14 +45,14 @@ class _StubProvider:
 
 def _build_request(**overrides):
     from scenemachine.generators.base import GenerationRequest
-    defaults = dict(
-        shot_id=uuid4(),
-        prompt="a hero walks through a misty forest",
-        width=768,
-        height=432,
-        duration_seconds=3.0,
-        fps=24,
-    )
+    defaults = {
+        "shot_id": uuid4(),
+        "prompt": "a hero walks through a misty forest",
+        "width": 768,
+        "height": 432,
+        "duration_seconds": 3.0,
+        "fps": 24,
+    }
     defaults.update(overrides)
     return GenerationRequest(**defaults)
 
@@ -61,8 +62,8 @@ async def test_generate_routes_to_registered_provider():
     """The service picks the provider matching the requested JobProvider
     enum value and forwards the request unchanged.
     """
-    from scenemachine.services.generation import GenerationService
     from scenemachine.models.generation_job import JobProvider
+    from scenemachine.services.generation import GenerationService
 
     # Build a service without going through DB / global registry
     svc = GenerationService.__new__(GenerationService)
@@ -86,8 +87,8 @@ async def test_generate_defaults_to_LOCAL_provider():
     """When the caller doesn't specify a provider, LOCAL (ComfyUI on this
     rig) is the default — matches the documented per-shot pipeline path.
     """
-    from scenemachine.services.generation import GenerationService
     from scenemachine.models.generation_job import JobProvider
+    from scenemachine.services.generation import GenerationService
 
     svc = GenerationService.__new__(GenerationService)
     svc._providers = {JobProvider.LOCAL: _StubProvider()}
@@ -106,8 +107,8 @@ async def test_generate_raises_when_provider_not_registered():
     real configuration bugs (this is exactly the bug we fixed in the
     pipeline: a missing method swallowed by a bare except).
     """
-    from scenemachine.services.generation import GenerationService
     from scenemachine.models.generation_job import JobProvider
+    from scenemachine.services.generation import GenerationService
 
     svc = GenerationService.__new__(GenerationService)
     svc._providers = {}  # empty registry
@@ -125,8 +126,8 @@ async def test_generate_forwards_input_image_and_character_refs():
     input_image_path (I2V) and character_references (Animate). These
     are the fields the stack_router populates per shot.
     """
-    from scenemachine.services.generation import GenerationService
     from scenemachine.models.generation_job import JobProvider
+    from scenemachine.services.generation import GenerationService
 
     svc = GenerationService.__new__(GenerationService)
     stub = _StubProvider()
@@ -157,8 +158,8 @@ async def test_generate_forwards_progress_callback():
     provider so the UI/IPC layer can stream progress events. Dropping it
     would silently break the progress bar.
     """
-    from scenemachine.services.generation import GenerationService
     from scenemachine.models.generation_job import JobProvider
+    from scenemachine.services.generation import GenerationService
 
     received_callbacks: list = []
 

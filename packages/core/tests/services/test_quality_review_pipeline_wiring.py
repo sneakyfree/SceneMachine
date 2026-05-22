@@ -23,11 +23,9 @@ test_overnight_fixes_regression.py — fast, deterministic, no GPU.
 """
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
 
 import pytest
-
 
 # Resolve the production_pipeline source path once
 _PRODUCTION_PIPELINE_SRC = (
@@ -148,6 +146,7 @@ class TestPR63NoBreakingExistingCallers:
         """If shots get serialized for IPC (snapshots, audit view), the
         new field must round-trip cleanly."""
         from dataclasses import asdict
+
         from scenemachine.services.production_pipeline import ShotGenerationStatus
         s = ShotGenerationStatus(shot_id="x", scene_id="y", status="completed")
         s.quality_review = {"overall_score": 0.5}

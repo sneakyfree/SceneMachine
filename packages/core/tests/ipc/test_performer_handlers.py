@@ -1,14 +1,16 @@
 """Tests for performer IPC handlers."""
 
-import pytest
+from datetime import UTC
 from uuid import uuid4
 
-from scenemachine.ipc.server import IPCServer
+import pytest
+
 from scenemachine.ipc.handlers import register_handlers
+from scenemachine.ipc.server import IPCServer
 from scenemachine.models import (
     Performer,
-    PerformerType,
     PerformerAvailability,
+    PerformerType,
     PerformerVerification,
 )
 
@@ -24,7 +26,7 @@ def ipc_server():
 @pytest.fixture
 async def sample_performers(db_session):
     """Create sample performers for testing."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     performers = []
 
@@ -42,7 +44,7 @@ async def sample_performers(db_session):
             "total_bookings": 150,
             "completed_bookings": 145,
             "lifetime_earnings_usd": 45000.0,
-            "joined_at": datetime.now(timezone.utc),
+            "joined_at": datetime.now(UTC),
         },
         {
             "stage_name": "Sarah Grace",
@@ -56,7 +58,7 @@ async def sample_performers(db_session):
             "total_bookings": 100,
             "completed_bookings": 98,
             "lifetime_earnings_usd": 35000.0,
-            "joined_at": datetime.now(timezone.utc),
+            "joined_at": datetime.now(UTC),
         },
         {
             "stage_name": "Mike Comedy",
@@ -70,7 +72,7 @@ async def sample_performers(db_session):
             "total_bookings": 50,
             "completed_bookings": 48,
             "lifetime_earnings_usd": 10000.0,
-            "joined_at": datetime.now(timezone.utc),
+            "joined_at": datetime.now(UTC),
         },
     ]
 

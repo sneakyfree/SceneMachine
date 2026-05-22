@@ -4,8 +4,7 @@ Track Model
 Timeline tracks for organizing clips in the video editor.
 """
 
-from enum import Enum
-from typing import TYPE_CHECKING, List, Optional
+from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String
@@ -16,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from scenemachine.models.base import Base, TimestampMixin, UUIDMixin
 
 
-class TrackType(str, Enum):
+class TrackType(StrEnum):
     """Types of timeline tracks."""
 
     VIDEO = "video"
@@ -69,7 +68,7 @@ class Track(Base, UUIDMixin, TimestampMixin):
 
     order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)  # Hex color
+    color: Mapped[str | None] = mapped_column(String(7), nullable=True)  # Hex color
 
     is_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -81,7 +80,7 @@ class Track(Base, UUIDMixin, TimestampMixin):
     pan: Mapped[float] = mapped_column(default=0.0, nullable=False)
 
     # Relationships
-    clips: Mapped[List["TimelineClip"]] = relationship(
+    clips: Mapped[list["TimelineClip"]] = relationship(
         "TimelineClip",
         back_populates="track",
         order_by="TimelineClip.start_time",
@@ -135,7 +134,7 @@ class TimelineClip(Base, UUIDMixin, TimestampMixin):
     z_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Display
-    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Audio properties (for audio clips)
     volume: Mapped[float] = mapped_column(default=1.0, nullable=False)

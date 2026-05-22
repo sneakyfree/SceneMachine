@@ -7,10 +7,10 @@ Tests cover:
 - Audio mixing
 """
 
-import pytest
 from datetime import datetime
 from uuid import uuid4
-from typing import Dict, Any
+
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
@@ -20,7 +20,7 @@ class MockAssemblyRouter:
 
     def __init__(self):
         self.app = FastAPI()
-        self.exports: Dict[str, Dict] = {}
+        self.exports: dict[str, dict] = {}
         self._setup_routes()
 
     def _setup_routes(self):

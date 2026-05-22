@@ -8,17 +8,17 @@ Implements the DNA strand master plan's Reviewer Agent capabilities:
 """
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-from uuid import UUID
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class QualityDimension(str, Enum):
+class QualityDimension(StrEnum):
     """Quality assessment dimensions."""
     VISUAL_FIDELITY = "visual_fidelity"       # Overall visual quality
     MOTION_COHERENCE = "motion_coherence"      # Natural movement
@@ -30,7 +30,7 @@ class QualityDimension(str, Enum):
     AUDIO_SYNC = "audio_sync"                   # Lip sync accuracy
 
 
-class QualityIssue(str, Enum):
+class QualityIssue(StrEnum):
     """Types of quality issues."""
     LOW_RESOLUTION = "low_resolution"
     BLURRY_FRAMES = "blurry_frames"
@@ -47,7 +47,7 @@ class QualityIssue(str, Enum):
     HAND_ARTIFACT = "hand_artifact"
 
 
-class EscalationReason(str, Enum):
+class EscalationReason(StrEnum):
     """Reasons for escalating to human review."""
     QUALITY_BELOW_THRESHOLD = "quality_below_threshold"
     MULTIPLE_REGENERATIONS = "multiple_regenerations"
@@ -62,26 +62,26 @@ class QualityScore:
     dimension: QualityDimension
     score: float  # 0.0 to 1.0
     confidence: float  # 0.0 to 1.0
-    issues: List[QualityIssue] = field(default_factory=list)
+    issues: list[QualityIssue] = field(default_factory=list)
     notes: str = ""
 
 
-@dataclass 
+@dataclass
 class VideoReviewResult:
     """Complete review result for a video."""
     video_path: str
-    shot_id: Optional[str] = None
+    shot_id: str | None = None
     overall_score: float = 0.0
-    dimension_scores: List[QualityScore] = field(default_factory=list)
-    issues: List[Dict[str, Any]] = field(default_factory=list)
+    dimension_scores: list[QualityScore] = field(default_factory=list)
+    issues: list[dict[str, Any]] = field(default_factory=list)
     passed: bool = True
     requires_escalation: bool = False
-    escalation_reason: Optional[EscalationReason] = None
-    recommendations: List[str] = field(default_factory=list)
+    escalation_reason: EscalationReason | None = None
+    recommendations: list[str] = field(default_factory=list)
     processing_time_seconds: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "video_path": self.video_path,
             "shot_id": self.shot_id,
@@ -108,19 +108,19 @@ class VideoReviewResult:
 
 class VideoQualityReviewer:
     """Service for reviewing video quality and triggering escalations.
-    
+
     Implements the DNA strand master plan's:
     - Quality gating before assembly
     - Physics check
     - Human escalation for edge cases
     - Adaptive thresholds based on context
     """
-    
+
     # Thresholds
     PASS_THRESHOLD = 0.7
     ESCALATION_THRESHOLD = 0.5
     MAX_REGENERATIONS = 3
-    
+
     # Quality tier definitions for adaptive thresholds
     QUALITY_TIERS = {
         "draft": {
@@ -148,7 +148,7 @@ class VideoQualityReviewer:
             "description": "Theatrical quality, strict standards"
         },
     }
-    
+
     # Weights for overall score calculation
     DIMENSION_WEIGHTS = {
         QualityDimension.VISUAL_FIDELITY: 0.20,
@@ -160,46 +160,46 @@ class VideoQualityReviewer:
         QualityDimension.LIGHTING_CONSISTENCY: 0.05,
         QualityDimension.AUDIO_SYNC: 0.05,
     }
-    
+
     def __init__(
         self,
         pass_threshold: float = 0.7,
         max_regenerations: int = 3,
-    ):
+    ) -> None:
         """Initialize the quality reviewer.
-        
+
         Args:
             pass_threshold: Minimum score to pass review
             max_regenerations: Max regenerations before escalation
         """
         self.pass_threshold = pass_threshold
         self.max_regenerations = max_regenerations
-    
+
     async def review_video(
         self,
-        video_path: Union[str, Path],
+        video_path: str | Path,
         prompt: str = "",
-        character_references: Optional[List[str]] = None,
-        audio_path: Optional[str] = None,
+        character_references: list[str] | None = None,
+        audio_path: str | None = None,
         regeneration_count: int = 0,
     ) -> VideoReviewResult:
         """Review a generated video for quality.
-        
+
         Args:
             video_path: Path to video file
             prompt: Original generation prompt
             character_references: Paths to character reference images
             audio_path: Optional audio file for sync checking
             regeneration_count: Number of previous regenerations
-            
+
         Returns:
             VideoReviewResult with scores and recommendations
         """
         import time
         start_time = time.time()
-        
+
         video_path = Path(video_path)
-        
+
         if not video_path.exists():
             return VideoReviewResult(
                 video_path=str(video_path),
@@ -207,21 +207,21 @@ class VideoQualityReviewer:
                 passed=False,
                 issues=[{"type": "file_not_found", "message": f"Video not found: {video_path}"}],
             )
-        
+
         # Run quality checks
         dimension_scores = []
         all_issues = []
-        
+
         # Visual fidelity check
         visual_score = await self._check_visual_fidelity(video_path)
         dimension_scores.append(visual_score)
         all_issues.extend([{"dimension": visual_score.dimension.value, "issue": i.value} for i in visual_score.issues])
-        
+
         # Motion coherence check
         motion_score = await self._check_motion_coherence(video_path)
         dimension_scores.append(motion_score)
         all_issues.extend([{"dimension": motion_score.dimension.value, "issue": i.value} for i in motion_score.issues])
-        
+
         # Character consistency check
         if character_references:
             char_score = await self._check_character_consistency(video_path, character_references)
@@ -234,22 +234,22 @@ class VideoQualityReviewer:
             )
         dimension_scores.append(char_score)
         all_issues.extend([{"dimension": char_score.dimension.value, "issue": i.value} for i in char_score.issues])
-        
+
         # Prompt adherence check
         prompt_score = await self._check_prompt_adherence(video_path, prompt)
         dimension_scores.append(prompt_score)
         all_issues.extend([{"dimension": prompt_score.dimension.value, "issue": i.value} for i in prompt_score.issues])
-        
+
         # Temporal stability check
         stability_score = await self._check_temporal_stability(video_path)
         dimension_scores.append(stability_score)
         all_issues.extend([{"dimension": stability_score.dimension.value, "issue": i.value} for i in stability_score.issues])
-        
+
         # Physics check
         physics_score = await self._check_physics(video_path)
         dimension_scores.append(physics_score)
         all_issues.extend([{"dimension": physics_score.dimension.value, "issue": i.value} for i in physics_score.issues])
-        
+
         # Audio sync check
         if audio_path:
             sync_score = await self._check_audio_sync(video_path, audio_path)
@@ -261,29 +261,29 @@ class VideoQualityReviewer:
                 notes="No audio provided",
             )
         dimension_scores.append(sync_score)
-        
+
         # Calculate overall score
         overall_score = self._calculate_overall_score(dimension_scores)
-        
+
         # Determine pass/fail
         passed = overall_score >= self.pass_threshold
-        
+
         # Check for escalation
         requires_escalation = False
         escalation_reason = None
-        
+
         if overall_score < self.ESCALATION_THRESHOLD:
             requires_escalation = True
             escalation_reason = EscalationReason.QUALITY_BELOW_THRESHOLD
         elif regeneration_count >= self.max_regenerations:
             requires_escalation = True
             escalation_reason = EscalationReason.MULTIPLE_REGENERATIONS
-        
+
         # Generate recommendations
         recommendations = self._generate_recommendations(dimension_scores, all_issues)
-        
+
         processing_time = time.time() - start_time
-        
+
         return VideoReviewResult(
             video_path=str(video_path),
             overall_score=overall_score,
@@ -299,7 +299,7 @@ class VideoQualityReviewer:
                 "regeneration_count": regeneration_count,
             },
         )
-    
+
     # Laplacian-variance thresholds calibrated against the 2026-05-14 V0
     # corpus (94 Wan 2.2 T2V FP8 shots, n=10 sample): median 758, mean
     # 1015, min 265, max 2016, stdev 672. Wan 2.2 generates rich textures
@@ -319,7 +319,7 @@ class VideoQualityReviewer:
     BLURRY_LAPLACIAN_THRESHOLD: float = 30.0
 
     @staticmethod
-    def _sample_frame_paths(video_path: Path, n: int = 5) -> List[Path]:
+    def _sample_frame_paths(video_path: Path, n: int = 5) -> list[Path]:
         """Extract ``n`` evenly-spaced frames from a video into /tmp and
         return their paths. Caller is responsible for unlinking.
 
@@ -349,7 +349,7 @@ class VideoQualityReviewer:
         # because they often have decoder artifacts.
         timestamps = [dur * (i + 1) / (n + 1) for i in range(n)]
         tmpdir = Path(tempfile.mkdtemp(prefix="sharpness_"))
-        out_paths: List[Path] = []
+        out_paths: list[Path] = []
         for idx, ts in enumerate(timestamps):
             out = tmpdir / f"f{idx:02d}.png"
             try:
@@ -440,10 +440,8 @@ class VideoQualityReviewer:
                     logger.debug("Laplacian failed for %s: %s", p, e)
 
             # Best-effort cleanup of /tmp frames
-            try:
+            with contextlib.suppress(Exception):
                 shutil.rmtree(frame_paths[0].parent, ignore_errors=True)
-            except Exception:
-                pass
 
             if not variances:
                 return QualityScore(
@@ -457,7 +455,7 @@ class VideoQualityReviewer:
             score = max(0.0, min(1.0, mean_var / self.SHARPNESS_SCORE_CAP))
             confidence = min(1.0, 0.5 + 0.1 * len(variances))  # 0.6..1.0 by sample count
 
-            issues: List[QualityIssue] = []
+            issues: list[QualityIssue] = []
             if mean_var < self.BLURRY_LAPLACIAN_THRESHOLD:
                 issues.append(QualityIssue.BLURRY_FRAMES)
 
@@ -480,7 +478,7 @@ class VideoQualityReviewer:
                 confidence=0.3,
                 notes=str(e),
             )
-    
+
     async def _check_motion_coherence(self, video_path: Path) -> QualityScore:
         """Check motion naturalness."""
         # Would use optical flow analysis or motion prediction models
@@ -490,7 +488,7 @@ class VideoQualityReviewer:
             confidence=0.5,
             notes="Motion analysis not implemented yet",
         )
-    
+
     # Character consistency thresholds. Metric is the MEAN COSINE SIMILARITY
     # of largest face embeddings across consecutive sampled frames (within-
     # video drift) — high similarity = same person throughout the shot.
@@ -525,7 +523,7 @@ class VideoQualityReviewer:
     async def _check_character_consistency(
         self,
         video_path: Path,
-        reference_paths: Optional[List[str]] = None,
+        reference_paths: list[str] | None = None,
     ) -> QualityScore:
         """Real character-consistency check via InsightFace face embeddings.
 
@@ -592,7 +590,7 @@ class VideoQualityReviewer:
                 from scenemachine.services.face_embedding import FaceEmbeddingService
                 svc = FaceEmbeddingService(gpu_id=-1)
 
-            def _extract_all() -> List[Any]:
+            def _extract_all() -> list[Any]:
                 results = []
                 for p in frame_paths:
                     try:
@@ -607,10 +605,8 @@ class VideoQualityReviewer:
             )
 
             # Best-effort tmp cleanup
-            try:
+            with contextlib.suppress(Exception):
                 shutil.rmtree(frame_paths[0].parent, ignore_errors=True)
-            except Exception:
-                pass
 
             face_embeddings = []
             for r in extraction_results:
@@ -653,7 +649,7 @@ class VideoQualityReviewer:
             reference_sim = None
             n_refs_used = 0
             if reference_paths:
-                def _extract_refs() -> List[Any]:
+                def _extract_refs() -> list[Any]:
                     refs = []
                     for r in reference_paths:
                         try:
@@ -699,7 +695,7 @@ class VideoQualityReviewer:
             # Confidence rises with frames-with-faces and reference count
             confidence = min(1.0, 0.4 + 0.08 * n_faces + 0.05 * n_refs_used)
 
-            issues: List[QualityIssue] = []
+            issues: list[QualityIssue] = []
             # Only flag drift when we actually measured drift (need ≥2 face frames)
             if within_video_sim is not None and within_video_sim < self.CHARACTER_DRIFT_THRESHOLD:
                 issues.append(QualityIssue.CHARACTER_DRIFT)
@@ -722,10 +718,10 @@ class VideoQualityReviewer:
                 confidence=0.2,
                 notes=str(e),
             )
-    
+
     async def _check_prompt_adherence(
-        self, 
-        video_path: Path, 
+        self,
+        video_path: Path,
         prompt: str,
     ) -> QualityScore:
         """Check if video matches the prompt description."""
@@ -736,7 +732,7 @@ class VideoQualityReviewer:
             confidence=0.4,
             notes="CLIP analysis not implemented yet",
         )
-    
+
     # Temporal stability thresholds. The metric is the COEFFICIENT OF
     # VARIATION (stdev/mean) of consecutive-frame mean-absolute-difference
     # measurements. A perfectly stable shot has consistent frame-to-frame
@@ -755,7 +751,7 @@ class VideoQualityReviewer:
     UNSTABLE_COV_THRESHOLD: float = 1.0
 
     @staticmethod
-    def _temporal_frame_deltas(frame_paths: List[Path]) -> List[float]:
+    def _temporal_frame_deltas(frame_paths: list[Path]) -> list[float]:
         """Compute mean absolute pixel difference between each consecutive
         pair of sampled frames (in grayscale). Returns one delta per
         consecutive pair (so N samples → N-1 deltas).
@@ -768,7 +764,7 @@ class VideoQualityReviewer:
         import numpy as np
         from PIL import Image
 
-        deltas: List[float] = []
+        deltas: list[float] = []
         prev_arr = None
         for p in frame_paths:
             try:
@@ -831,10 +827,8 @@ class VideoQualityReviewer:
             )
 
             # Best-effort tmp cleanup
-            try:
+            with contextlib.suppress(Exception):
                 shutil.rmtree(frame_paths[0].parent, ignore_errors=True)
-            except Exception:
-                pass
 
             if len(deltas) < 2:
                 return QualityScore(
@@ -864,7 +858,7 @@ class VideoQualityReviewer:
             score = max(0.0, min(1.0, 1.0 - cov / self.TEMPORAL_COV_CAP))
             confidence = min(1.0, 0.5 + 0.05 * n)
 
-            issues: List[QualityIssue] = []
+            issues: list[QualityIssue] = []
             if cov > self.UNSTABLE_COV_THRESHOLD:
                 issues.append(QualityIssue.TEMPORAL_FLICKERING)
 
@@ -887,7 +881,7 @@ class VideoQualityReviewer:
                 confidence=0.3,
                 notes=str(e),
             )
-    
+
     async def _check_physics(self, video_path: Path) -> QualityScore:
         """Check for physics violations."""
         # Would use physics-aware vision models
@@ -897,10 +891,10 @@ class VideoQualityReviewer:
             confidence=0.4,
             notes="Physics check not implemented yet",
         )
-    
+
     async def _check_audio_sync(
-        self, 
-        video_path: Path, 
+        self,
+        video_path: Path,
         audio_path: str,
     ) -> QualityScore:
         """Check audio/video synchronization."""
@@ -911,35 +905,35 @@ class VideoQualityReviewer:
             confidence=0.5,
             notes="Audio sync analysis not implemented yet",
         )
-    
-    def _calculate_overall_score(self, scores: List[QualityScore]) -> float:
+
+    def _calculate_overall_score(self, scores: list[QualityScore]) -> float:
         """Calculate weighted overall score."""
         total_weight = 0.0
         weighted_sum = 0.0
-        
+
         for score in scores:
             weight = self.DIMENSION_WEIGHTS.get(score.dimension, 0.1)
             # Weight by confidence
             effective_weight = weight * score.confidence
             weighted_sum += score.score * effective_weight
             total_weight += effective_weight
-        
+
         if total_weight == 0:
             return 0.0
-        
+
         return weighted_sum / total_weight
-    
+
     def _generate_recommendations(
-        self, 
-        scores: List[QualityScore], 
-        issues: List[Dict[str, Any]],
-    ) -> List[str]:
+        self,
+        scores: list[QualityScore],
+        issues: list[dict[str, Any]],
+    ) -> list[str]:
         """Generate recommendations based on quality issues."""
         recommendations = []
-        
+
         # Find lowest scoring dimensions
         sorted_scores = sorted(scores, key=lambda s: s.score)
-        
+
         for score in sorted_scores[:3]:
             if score.score < self.pass_threshold:
                 if score.dimension == QualityDimension.VISUAL_FIDELITY:
@@ -950,44 +944,44 @@ class VideoQualityReviewer:
                     recommendations.append("Try adjusting motion parameters or using a different motion model")
                 elif score.dimension == QualityDimension.TEMPORAL_STABILITY:
                     recommendations.append("Reduce CFG scale or use temporal smoothing LoRA")
-        
+
         # Issue-specific recommendations
         issue_types = [i.get("issue") for i in issues]
-        
+
         if QualityIssue.HAND_ARTIFACT.value in issue_types:
             recommendations.append("Use hand fix LoRA or inpaint hands post-generation")
-        
+
         if QualityIssue.FACE_DISTORTION.value in issue_types:
             recommendations.append("Apply face restoration (GFPGAN/CodeFormer) post-generation")
-        
+
         return recommendations[:5]  # Limit recommendations
-    
+
     async def batch_review(
         self,
-        video_paths: List[Union[str, Path]],
-        prompts: Optional[List[str]] = None,
-    ) -> List[VideoReviewResult]:
+        video_paths: list[str | Path],
+        prompts: list[str] | None = None,
+    ) -> list[VideoReviewResult]:
         """Review multiple videos in parallel.
-        
+
         Args:
             video_paths: List of video file paths
             prompts: Optional list of prompts (parallel with video_paths)
-            
+
         Returns:
             List of review results
         """
         prompts = prompts or [""] * len(video_paths)
-        
+
         tasks = [
             self.review_video(path, prompt)
-            for path, prompt in zip(video_paths, prompts)
+            for path, prompt in zip(video_paths, prompts, strict=False)
         ]
-        
+
         return await asyncio.gather(*tasks)
 
 
 # Singleton instance
-_reviewer: Optional[VideoQualityReviewer] = None
+_reviewer: VideoQualityReviewer | None = None
 
 
 def get_video_quality_reviewer() -> VideoQualityReviewer:

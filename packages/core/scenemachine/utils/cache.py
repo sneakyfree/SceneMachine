@@ -15,11 +15,12 @@ import logging
 import pickle
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class CacheEntry(Generic[T]):
 
     value: T
     created_at: float
-    expires_at: Optional[float]
+    expires_at: float | None
     hits: int = 0
     size_bytes: int = 0
 
@@ -55,9 +56,9 @@ class LRUCache(Generic[T]):
     def __init__(
         self,
         max_entries: int = 1000,
-        max_size_bytes: Optional[int] = None,
-        default_ttl_seconds: Optional[int] = 3600,
-    ):
+        max_size_bytes: int | None = None,
+        default_ttl_seconds: int | None = 3600,
+    ) -> None:
         """
         Initialize cache.
 
@@ -76,7 +77,7 @@ class LRUCache(Generic[T]):
         self._hits = 0
         self._misses = 0
 
-    async def get(self, key: str) -> Optional[T]:
+    async def get(self, key: str) -> T | None:
         """Get value from cache."""
         async with self._lock:
             entry = self._cache.get(key)
@@ -102,7 +103,7 @@ class LRUCache(Generic[T]):
         self,
         key: str,
         value: T,
-        ttl_seconds: Optional[int] = None,
+        ttl_seconds: int | None = None,
     ) -> None:
         """Set value in cache."""
         async with self._lock:
@@ -179,7 +180,7 @@ class LRUCache(Generic[T]):
                 key = next(iter(self._cache))
                 self._remove_entry(key)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         total_requests = self._hits + self._misses
         return {
@@ -224,8 +225,8 @@ class LLMCache:
         max_entries: int = 500,
         max_size_mb: float = 100.0,
         default_ttl_hours: float = 24.0,
-        persist_path: Optional[Path] = None,
-    ):
+        persist_path: Path | None = None,
+    ) -> None:
         """
         Initialize LLM cache.
 
@@ -235,7 +236,7 @@ class LLMCache:
             default_ttl_hours: Default TTL in hours
             persist_path: Path for cache persistence
         """
-        self._cache = LRUCache[Dict[str, Any]](
+        self._cache = LRUCache[dict[str, Any]](
             max_entries=max_entries,
             max_size_bytes=int(max_size_mb * 1024 * 1024),
             default_ttl_seconds=int(default_ttl_hours * 3600),
@@ -254,7 +255,7 @@ class LLMCache:
         model: str,
         temperature: float = 0.0,
         **kwargs: Any,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get cached LLM response.
 
@@ -280,9 +281,9 @@ class LLMCache:
         self,
         prompt: str,
         model: str,
-        response: Dict[str, Any],
+        response: dict[str, Any],
         temperature: float = 0.0,
-        ttl_hours: Optional[float] = None,
+        ttl_hours: float | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -422,7 +423,7 @@ class LLMCache:
 
         return count
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         cache_stats = self._cache.stats()
         return {
@@ -441,7 +442,7 @@ class LLMCache:
                 "cache": dict(self._cache._cache),
                 "cost_saved": self._cost_saved,
                 "tokens_saved": self._tokens_saved,
-                "saved_at": datetime.now(timezone.utc).isoformat(),
+                "saved_at": datetime.now(UTC).isoformat(),
             }
             self._persist_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self._persist_path, "wb") as f:
@@ -470,7 +471,7 @@ class LLMCache:
 
 
 # Global LLM cache instance
-_llm_cache: Optional[LLMCache] = None
+_llm_cache: LLMCache | None = None
 
 
 def get_llm_cache() -> LLMCache:
@@ -492,8 +493,8 @@ def get_llm_cache() -> LLMCache:
 
 def cached(
     ttl_seconds: int = 3600,
-    key_func: Optional[Callable[..., str]] = None,
-    cache: Optional[LRUCache] = None,
+    key_func: Callable[..., str] | None = None,
+    cache: LRUCache | None = None,
 ):
     """
     Decorator for caching async function results.
@@ -559,7 +560,7 @@ class FileCache:
         cache_dir: Path,
         max_size_gb: float = 10.0,
         default_ttl_days: int = 7,
-    ):
+    ) -> None:
         """
         Initialize file cache.
 
@@ -575,7 +576,7 @@ class FileCache:
 
         # Metadata file
         self._meta_file = cache_dir / ".cache_meta.json"
-        self._meta: Dict[str, Dict[str, Any]] = {}
+        self._meta: dict[str, dict[str, Any]] = {}
         self._load_meta()
 
     def _load_meta(self) -> None:
@@ -601,7 +602,7 @@ class FileCache:
         hashed = hashlib.sha256(key.encode()).hexdigest()
         return self.cache_dir / hashed[:2] / hashed[2:]
 
-    async def get(self, key: str) -> Optional[Path]:
+    async def get(self, key: str) -> Path | None:
         """
         Get cached file path.
 
@@ -629,7 +630,7 @@ class FileCache:
         self,
         key: str,
         source_path: Path,
-        ttl_seconds: Optional[int] = None,
+        ttl_seconds: int | None = None,
         move: bool = False,
     ) -> Path:
         """
@@ -712,7 +713,7 @@ class FileCache:
             await self.delete(oldest_key)
             total_size -= oldest_size
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         total_size = sum(m.get("size_bytes", 0) for m in self._meta.values())
         total_hits = sum(m.get("hits", 0) for m in self._meta.values())
@@ -748,7 +749,7 @@ class RedisCache(Generic[T]):
         namespace: str = "scenemachine",
         default_ttl_seconds: int = 3600,
         fallback_max_entries: int = 1000,
-    ):
+    ) -> None:
         """
         Initialize Redis cache.
 
@@ -761,7 +762,7 @@ class RedisCache(Generic[T]):
         self.default_ttl = default_ttl_seconds
 
         # Redis client (lazy initialized)
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         self._redis_available = False
         self._redis_checked = False
 
@@ -776,7 +777,7 @@ class RedisCache(Generic[T]):
         self._redis_misses = 0
         self._fallback_used = 0
 
-    async def _get_redis(self) -> Optional[Any]:
+    async def _get_redis(self) -> Any | None:
         """Get Redis client, initializing if needed."""
         if self._redis_checked:
             return self._redis
@@ -813,7 +814,7 @@ class RedisCache(Generic[T]):
         """Create namespaced key."""
         return f"{self.namespace}:{key}"
 
-    async def get(self, key: str) -> Optional[T]:
+    async def get(self, key: str) -> T | None:
         """Get value from cache."""
         redis_client = await self._get_redis()
 
@@ -836,7 +837,7 @@ class RedisCache(Generic[T]):
         self,
         key: str,
         value: T,
-        ttl_seconds: Optional[int] = None,
+        ttl_seconds: int | None = None,
     ) -> None:
         """Set value in cache."""
         ttl = ttl_seconds if ttl_seconds is not None else self.default_ttl
@@ -914,7 +915,7 @@ class RedisCache(Generic[T]):
         self,
         key: str,
         factory: Callable[[], T],
-        ttl_seconds: Optional[int] = None,
+        ttl_seconds: int | None = None,
     ) -> T:
         """Get value from cache or compute and store it."""
         value = await self.get(key)
@@ -930,17 +931,17 @@ class RedisCache(Generic[T]):
         await self.set(key, value, ttl_seconds)
         return value
 
-    async def mget(self, keys: List[str]) -> Dict[str, Optional[T]]:
+    async def mget(self, keys: list[str]) -> dict[str, T | None]:
         """Get multiple values at once."""
         redis_client = await self._get_redis()
-        results: Dict[str, Optional[T]] = {}
+        results: dict[str, T | None] = {}
 
         if redis_client:
             try:
                 full_keys = [self._make_key(k) for k in keys]
                 values = await redis_client.mget(full_keys)
 
-                for key, value in zip(keys, values):
+                for key, value in zip(keys, values, strict=False):
                     if value:
                         results[key] = pickle.loads(value)
                         self._redis_hits += 1
@@ -959,8 +960,8 @@ class RedisCache(Generic[T]):
 
     async def mset(
         self,
-        items: Dict[str, T],
-        ttl_seconds: Optional[int] = None,
+        items: dict[str, T],
+        ttl_seconds: int | None = None,
     ) -> None:
         """Set multiple values at once."""
         ttl = ttl_seconds if ttl_seconds is not None else self.default_ttl
@@ -981,7 +982,7 @@ class RedisCache(Generic[T]):
         for key, value in items.items():
             await self._fallback.set(key, value, ttl)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         fallback_stats = self._fallback.stats()
         total_redis = self._redis_hits + self._redis_misses
@@ -1004,8 +1005,8 @@ class RedisCache(Generic[T]):
 
 
 # Global Redis cache instances for different purposes
-_generation_cache: Optional[RedisCache] = None
-_api_cache: Optional[RedisCache] = None
+_generation_cache: RedisCache | None = None
+_api_cache: RedisCache | None = None
 
 
 def get_generation_cache() -> RedisCache:
@@ -1040,7 +1041,7 @@ def get_api_cache() -> RedisCache:
 def redis_cached(
     ttl_seconds: int = 3600,
     namespace: str = "scenemachine:func",
-    key_func: Optional[Callable[..., str]] = None,
+    key_func: Callable[..., str] | None = None,
 ):
     """
     Decorator for caching async function results in Redis.

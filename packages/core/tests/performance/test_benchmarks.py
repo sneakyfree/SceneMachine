@@ -12,11 +12,10 @@ Run with: pytest tests/performance/ -v --benchmark
 
 import asyncio
 import time
-from typing import Dict, Any, List
+from typing import Any
 from uuid import uuid4
 
 import pytest
-
 
 # =============================================================================
 # Benchmark Utilities
@@ -29,7 +28,7 @@ class BenchmarkResult:
     def __init__(self, name: str, iterations: int):
         self.name = name
         self.iterations = iterations
-        self.times: List[float] = []
+        self.times: list[float] = []
         self._start: float = 0
 
     def start(self):
@@ -61,7 +60,7 @@ class BenchmarkResult:
     def ops_per_second(self) -> float:
         return len(self.times) / self.total_time if self.total_time > 0 else 0
 
-    def report(self) -> Dict[str, Any]:
+    def report(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "iterations": self.iterations,
@@ -153,7 +152,7 @@ FADE OUT.
 """ * 10  # Repeat for realistic file size
 
 
-def create_test_data(count: int = 100) -> List[Dict[str, Any]]:
+def create_test_data(count: int = 100) -> list[dict[str, Any]]:
     """Create test data for benchmarks."""
     return [
         {
@@ -430,12 +429,12 @@ class TestCacheBenchmarks:
 
     def test_dict_cache_performance(self):
         """Benchmark simple dict cache."""
-        cache: Dict[str, Any] = {}
+        cache: dict[str, Any] = {}
         keys = [str(uuid4()) for _ in range(1000)]
         values = [{"data": i} for i in range(1000)]
 
         # Populate cache
-        for k, v in zip(keys, values):
+        for k, v in zip(keys, values, strict=False):
             cache[k] = v
 
         def cache_lookup():

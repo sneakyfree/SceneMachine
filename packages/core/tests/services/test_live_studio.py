@@ -1,11 +1,8 @@
 """Tests for Live Studio service (real-time collaboration)."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy.ext.asyncio import AsyncSession
+import pytest
 
 from scenemachine.services.live_studio import LiveStudioService
 
@@ -275,7 +272,7 @@ class TestLiveStudioService:
     ):
         """Test cleaning up inactive users from sessions."""
         if hasattr(live_studio_service, "cleanup_inactive"):
-            result = await live_studio_service.cleanup_inactive(
+            await live_studio_service.cleanup_inactive(
                 max_inactive_seconds=30,
             )
             # Should not raise exception

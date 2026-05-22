@@ -1,24 +1,14 @@
 """Tests for analytics API routes."""
 
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
 
+import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.api.routes import analytics
 from scenemachine.models import Project, ProjectState
-from scenemachine.services.analytics import (
-    AnalyticsService,
-    GenerationStats,
-    CostStats,
-    ProjectStats,
-    PerformanceStats,
-)
 
 
 @pytest.fixture

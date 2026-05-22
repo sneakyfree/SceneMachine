@@ -7,10 +7,11 @@ Tests cover:
 - Shot management within scenes
 """
 
-import pytest
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
-from typing import Dict, Any, List
+
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
@@ -18,7 +19,7 @@ from fastapi.testclient import TestClient
 def create_mock_scene(
     scene_number: int = 1,
     project_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a mock scene."""
     return {
         "id": str(uuid4()),
@@ -41,7 +42,7 @@ class MockScenesRouter:
 
     def __init__(self):
         self.app = FastAPI()
-        self.scenes: Dict[str, Dict] = {}
+        self.scenes: dict[str, dict] = {}
         self._setup_routes()
 
     def _setup_routes(self):
@@ -100,7 +101,7 @@ class MockScenesRouter:
             return {"status": "deleted"}
 
         @self.app.post("/api/v1/projects/{project_id}/scenes/reorder")
-        async def reorder_scenes(project_id: str, scene_ids: List[str]):
+        async def reorder_scenes(project_id: str, scene_ids: list[str]):
             for i, scene_id in enumerate(scene_ids):
                 if scene_id in self.scenes:
                     self.scenes[scene_id]["sequence_number"] = i + 1

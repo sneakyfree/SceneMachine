@@ -6,32 +6,30 @@ motion/emotion data for performance-driven video generation.
 """
 
 from datetime import datetime
-from decimal import Decimal
-from enum import Enum
-from typing import TYPE_CHECKING, Optional, List
+from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, Boolean
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
-
+from scenemachine.models.base import ArrayType, Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
-    from scenemachine.models.performance_take import PerformanceTake
     from scenemachine.models.booking import Booking
+    from scenemachine.models.performance_take import PerformanceTake
     from scenemachine.models.performer_rating import PerformerRating
 
 
-class PerformerType(str, Enum):
+class PerformerType(StrEnum):
     """Type of performer."""
     HUMAN = "human"  # Human glove actor with motion capture
     SYNTHETIC = "synthetic"  # AI-generated synthetic performer
 
 
-class PerformerAvailability(str, Enum):
+class PerformerAvailability(StrEnum):
     """Performer availability status."""
     AVAILABLE = "available"  # Ready for bookings
     BUSY = "busy"  # Currently fulfilling a booking
@@ -39,7 +37,7 @@ class PerformerAvailability(str, Enum):
     ON_LEAVE = "on_leave"  # Temporarily unavailable
 
 
-class PerformerVerification(str, Enum):
+class PerformerVerification(StrEnum):
     """Performer verification status."""
     UNVERIFIED = "unverified"  # Not yet verified
     PENDING = "pending"  # Verification in progress
@@ -76,8 +74,8 @@ class Performer(Base, UUIDMixin, TimestampMixin):
 
     # Identity
     stage_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    legal_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    user_id: Mapped[Optional[UUID]] = mapped_column(
+    legal_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    user_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         nullable=True,
         index=True,
@@ -102,9 +100,9 @@ class Performer(Base, UUIDMixin, TimestampMixin):
     )
 
     # Profile
-    profile_image_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    specialties: Mapped[Optional[list]] = mapped_column(ArrayType(String), nullable=True)
+    profile_image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    specialties: Mapped[list | None] = mapped_column(ArrayType(String), nullable=True)
     # Example specialties: ["dramatic", "comedic", "action", "romantic", "horror"]
 
     # Rating and performance
@@ -128,7 +126,7 @@ class Performer(Base, UUIDMixin, TimestampMixin):
     # $10M+: 99%
 
     # Motion capabilities
-    motion_capabilities: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    motion_capabilities: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "supports_liveportrait": true,
@@ -141,7 +139,7 @@ class Performer(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Pricing (USD per mode)
-    pricing: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    pricing: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "blink": 5.0,
@@ -151,12 +149,12 @@ class Performer(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Banking and legal (encrypted at rest)
-    banking_info: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
-    consent_documents: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    banking_info: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
+    consent_documents: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
 
     # Activity
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    last_active_at: Mapped[Optional[datetime]] = mapped_column(
+    last_active_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     joined_at: Mapped[datetime] = mapped_column(
@@ -165,17 +163,17 @@ class Performer(Base, UUIDMixin, TimestampMixin):
     )
 
     # Relationships
-    takes: Mapped[List["PerformanceTake"]] = relationship(
+    takes: Mapped[list["PerformanceTake"]] = relationship(
         "PerformanceTake",
         back_populates="performer",
         cascade="all, delete-orphan",
     )
-    bookings: Mapped[List["Booking"]] = relationship(
+    bookings: Mapped[list["Booking"]] = relationship(
         "Booking",
         back_populates="performer",
         foreign_keys="Booking.performer_id",
     )
-    ratings: Mapped[List["PerformerRating"]] = relationship(
+    ratings: Mapped[list["PerformerRating"]] = relationship(
         "PerformerRating",
         back_populates="performer",
         cascade="all, delete-orphan",
@@ -189,7 +187,7 @@ class Performer(Base, UUIDMixin, TimestampMixin):
         return (self.completed_bookings / self.total_bookings) * 100
 
     @property
-    def average_rating(self) -> Optional[float]:
+    def average_rating(self) -> float | None:
         """Calculate average rating from reviews."""
         if not self.ratings:
             return None
@@ -203,7 +201,7 @@ class Performer(Base, UUIDMixin, TimestampMixin):
             and self.availability_status == PerformerAvailability.AVAILABLE
         )
 
-    def get_price_for_mode(self, mode: str) -> Optional[float]:
+    def get_price_for_mode(self, mode: str) -> float | None:
         """Get pricing for a specific booking mode."""
         if not self.pricing:
             return None

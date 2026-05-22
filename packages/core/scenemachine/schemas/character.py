@@ -1,7 +1,6 @@
 """Pydantic schemas for Character API endpoints."""
 
-from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field, field_validator
@@ -14,25 +13,25 @@ from .base import BaseSchema, TimestampSchema
 class PhysicalDescription(BaseSchema):
     """Structured physical description for character generation."""
 
-    hair_color: Optional[str] = None
-    hair_style: Optional[str] = None
-    eye_color: Optional[str] = None
-    skin_tone: Optional[str] = None
-    height: Optional[str] = None
-    build: Optional[str] = None
-    distinguishing_features: List[str] = Field(default_factory=list)
-    clothing_style: Optional[str] = None
-    additional_notes: Optional[str] = None
+    hair_color: str | None = None
+    hair_style: str | None = None
+    eye_color: str | None = None
+    skin_tone: str | None = None
+    height: str | None = None
+    build: str | None = None
+    distinguishing_features: list[str] = Field(default_factory=list)
+    clothing_style: str | None = None
+    additional_notes: str | None = None
 
 
 class ConsentStatus(BaseSchema):
     """Consent and ethics tracking for character likeness."""
 
     is_real_person: bool = False
-    consent_obtained: Optional[bool] = None
-    consent_document_path: Optional[str] = None
+    consent_obtained: bool | None = None
+    consent_document_path: str | None = None
     likeness_rights_confirmed: bool = False
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class CharacterCreate(BaseSchema):
@@ -40,19 +39,19 @@ class CharacterCreate(BaseSchema):
 
     name: str = Field(..., min_length=1, max_length=255)
     screenplay_name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
-    age_range_min: Optional[int] = Field(None, ge=0, le=120)
-    age_range_max: Optional[int] = Field(None, ge=0, le=120)
+    description: str | None = None
+    age_range_min: int | None = Field(None, ge=0, le=120)
+    age_range_max: int | None = Field(None, ge=0, le=120)
     gender: CharacterGender = CharacterGender.UNSPECIFIED
-    physical_description: Optional[PhysicalDescription] = None
-    personality_traits: List[str] = Field(default_factory=list)
-    voice_description: Optional[str] = None
+    physical_description: PhysicalDescription | None = None
+    personality_traits: list[str] = Field(default_factory=list)
+    voice_description: str | None = None
     is_protagonist: bool = False
-    consent_status: Optional[ConsentStatus] = None
+    consent_status: ConsentStatus | None = None
 
     @field_validator("age_range_max")
     @classmethod
-    def validate_age_range(cls, v: Optional[int], info: Any) -> Optional[int]:
+    def validate_age_range(cls, v: int | None, info: Any) -> int | None:
         """Ensure age_range_max >= age_range_min."""
         if v is not None:
             age_min = info.data.get("age_range_min")
@@ -68,16 +67,16 @@ from typing import Any
 class CharacterUpdate(BaseSchema):
     """Schema for updating a character."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    age_range_min: Optional[int] = Field(None, ge=0, le=120)
-    age_range_max: Optional[int] = Field(None, ge=0, le=120)
-    gender: Optional[CharacterGender] = None
-    physical_description: Optional[PhysicalDescription] = None
-    personality_traits: Optional[List[str]] = None
-    voice_description: Optional[str] = None
-    is_protagonist: Optional[bool] = None
-    consent_status: Optional[ConsentStatus] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    age_range_min: int | None = Field(None, ge=0, le=120)
+    age_range_max: int | None = Field(None, ge=0, le=120)
+    gender: CharacterGender | None = None
+    physical_description: PhysicalDescription | None = None
+    personality_traits: list[str] | None = None
+    voice_description: str | None = None
+    is_protagonist: bool | None = None
+    consent_status: ConsentStatus | None = None
 
 
 class CharacterSummary(TimestampSchema):
@@ -102,21 +101,21 @@ class CharacterDetail(TimestampSchema):
     project_id: UUID
     name: str
     screenplay_name: str
-    description: Optional[str]
-    age_range_min: Optional[int]
-    age_range_max: Optional[int]
-    age_range_display: Optional[str]
+    description: str | None
+    age_range_min: int | None
+    age_range_max: int | None
+    age_range_display: str | None
     gender: CharacterGender
-    physical_description: Optional[PhysicalDescription]
-    personality_traits: Optional[List[str]]
-    voice_description: Optional[str]
+    physical_description: PhysicalDescription | None
+    personality_traits: list[str] | None
+    voice_description: str | None
     lock_state: CharacterLockState
     is_locked: bool
-    locked_likeness: Optional[dict]
+    locked_likeness: dict | None
     scene_count: int
     dialogue_count: int
     is_protagonist: bool
-    consent_status: Optional[ConsentStatus]
+    consent_status: ConsentStatus | None
     reference_asset_count: int = 0
 
 
@@ -124,9 +123,9 @@ class CharacterLockRequest(BaseSchema):
     """Request to lock a character's likeness."""
 
     primary_reference_asset_id: UUID
-    secondary_reference_asset_ids: List[UUID] = Field(default_factory=list)
+    secondary_reference_asset_ids: list[UUID] = Field(default_factory=list)
     generation_prompt: str = Field(..., min_length=10, max_length=2000)
-    negative_prompt: Optional[str] = Field(None, max_length=1000)
+    negative_prompt: str | None = Field(None, max_length=1000)
     confirm_consent: bool = Field(
         ..., description="User confirms they have rights to use this likeness"
     )
@@ -144,13 +143,13 @@ class CharacterGenerateOptionsRequest(BaseSchema):
     """Request to generate likeness options for review."""
 
     count: int = Field(4, ge=1, le=8, description="Number of options to generate")
-    style_preset: Optional[str] = None
-    additional_prompt: Optional[str] = Field(None, max_length=500)
+    style_preset: str | None = None
+    additional_prompt: str | None = Field(None, max_length=500)
 
 
 class CharacterGenerateOptionsResponse(BaseSchema):
     """Response with generated likeness options."""
 
     character_id: UUID
-    generated_asset_ids: List[UUID]
+    generated_asset_ids: list[UUID]
     generation_prompt_used: str

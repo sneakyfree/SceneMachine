@@ -1,13 +1,12 @@
 """Tests for Templates service."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.templates import TemplatesService
 from scenemachine.models import Project
+from scenemachine.services.templates import TemplatesService
 
 
 class TestTemplatesService:

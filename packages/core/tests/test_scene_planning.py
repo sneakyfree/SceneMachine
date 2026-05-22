@@ -1,11 +1,11 @@
 """Tests for scene planning service."""
 
-import pytest
-from datetime import datetime
 from uuid import uuid4
 
+import pytest
+
 from scenemachine.models.scene import SceneState, SceneType, TimeOfDay
-from scenemachine.models.shot import CameraMovement, ShotState, ShotType
+from scenemachine.models.shot import CameraMovement, ShotType
 from scenemachine.services.scene_planning import (
     SceneAnalysis,
     ScenePlanningService,

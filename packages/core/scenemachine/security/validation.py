@@ -8,7 +8,6 @@ import html
 import re
 import unicodedata
 from pathlib import Path
-from typing import List, Optional
 from urllib.parse import urlparse
 
 # Regex patterns for validation
@@ -94,7 +93,7 @@ def sanitize_filename(
 
 def sanitize_html(
     text: str,
-    allowed_tags: Optional[List[str]] = None,
+    allowed_tags: list[str] | None = None,
 ) -> str:
     """Sanitize HTML to prevent XSS attacks.
 
@@ -148,7 +147,7 @@ def validate_email(email: str) -> bool:
 def validate_url(
     url: str,
     require_https: bool = False,
-    allowed_schemes: Optional[List[str]] = None,
+    allowed_schemes: list[str] | None = None,
 ) -> bool:
     """Validate a URL.
 
@@ -181,10 +180,7 @@ def validate_url(
             return False
 
         # Must have a netloc (domain)
-        if not parsed.netloc:
-            return False
-
-        return True
+        return parsed.netloc
 
     except Exception:
         return False
@@ -192,7 +188,7 @@ def validate_url(
 
 def is_safe_redirect(
     url: str,
-    allowed_hosts: Optional[List[str]] = None,
+    allowed_hosts: list[str] | None = None,
 ) -> bool:
     """Check if a URL is safe for redirect.
 
@@ -251,15 +247,12 @@ def contains_path_traversal(path: str) -> bool:
         return True
 
     # Check for encoded traversal
-    if "%2e%2e" in path.lower() or "%252e" in path.lower():
-        return True
-
-    return False
+    return bool("%2e%2e" in path.lower() or "%252e" in path.lower())
 
 
 def validate_path(
     path: str,
-    base_path: Optional[str] = None,
+    base_path: str | None = None,
     must_exist: bool = False,
 ) -> bool:
     """Validate a file path for security.
@@ -291,10 +284,7 @@ def validate_path(
                 return False
 
         # Check existence if required
-        if must_exist and not resolved.exists():
-            return False
-
-        return True
+        return not (must_exist and not resolved.exists())
 
     except Exception:
         return False

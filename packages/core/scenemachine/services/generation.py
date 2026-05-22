@@ -7,32 +7,32 @@ provider abstraction, and progress tracking.
 import asyncio
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+# WebSocket event emitters for real-time updates
+from scenemachine.api.websocket import (
+    emit_job_completed,
+    emit_job_failed,
+    emit_job_progress,
+    emit_job_queued,
+    emit_job_started,
+    emit_queue_updated,
+)
 from scenemachine.config import get_settings
-from scenemachine.utils.ffmpeg import get_ffmpeg, FFmpegNotFoundError
-from scenemachine.models import Character, Project, Scene, Shot
+from scenemachine.models import Project, Scene, Shot
 from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus, JobType
 from scenemachine.models.project import ProjectState
 from scenemachine.models.shot import ShotState
-
-# WebSocket event emitters for real-time updates
-from scenemachine.api.websocket import (
-    emit_job_queued,
-    emit_job_started,
-    emit_job_progress,
-    emit_job_completed,
-    emit_job_failed,
-    emit_queue_updated,
-)
+from scenemachine.utils.ffmpeg import FFmpegNotFoundError, get_ffmpeg
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +48,13 @@ class GenerationRequest:
     height: int = 720
     fps: int = 24
     duration_seconds: float = 3.0
-    seed: Optional[int] = None
+    seed: int | None = None
     guidance_scale: float = 7.5
     num_inference_steps: int = 50
-    character_references: List[Dict[str, Any]] = field(default_factory=list)
-    style_preset: Optional[str] = None
-    extra_params: Dict[str, Any] = field(default_factory=dict)
-    
+    character_references: list[dict[str, Any]] = field(default_factory=list)
+    style_preset: str | None = None
+    extra_params: dict[str, Any] = field(default_factory=dict)
+
     # S-P1-04: IP-Adapter Adaptive Injection settings
     ip_adapter_strength: float = 0.6  # Default strength (0.0-1.0)
     ip_adapter_mode: str = "balanced"  # balanced, high_fidelity, creative
@@ -64,14 +64,14 @@ class GenerationRequest:
 @dataclass
 class IPAdapterConfig:
     """Configuration for adaptive IP-Adapter injection.
-    
+
     IP-Adapter allows injecting reference images to guide
     character consistency in video generation. The strength
     is adjusted dynamically based on scene requirements.
     """
-    
+
     # Strength presets based on scene type
-    STRENGTH_PRESETS: Dict[str, float] = field(default_factory=lambda: {
+    STRENGTH_PRESETS: dict[str, float] = field(default_factory=lambda: {
         "close_up": 0.85,       # High fidelity for close-up shots
         "medium_shot": 0.65,   # Balanced for medium shots
         "wide_shot": 0.45,     # Lower strength for wide shots (environment focus)
@@ -79,9 +79,9 @@ class IPAdapterConfig:
         "dialogue": 0.75,      # Higher for dialogue (face visible)
         "default": 0.60,       # Default balanced strength
     })
-    
+
     # Mode configurations
-    MODE_SETTINGS: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
+    MODE_SETTINGS: dict[str, dict[str, Any]] = field(default_factory=lambda: {
         "balanced": {
             "strength_multiplier": 1.0,
             "blend_mode": "linear",
@@ -98,7 +98,7 @@ class IPAdapterConfig:
             "description": "Allow more creative freedom, less strict matching",
         },
     })
-    
+
     def get_adaptive_strength(
         self,
         base_strength: float,
@@ -106,54 +106,54 @@ class IPAdapterConfig:
         mode: str = "balanced",
     ) -> float:
         """Calculate adaptive IP-Adapter strength.
-        
+
         Args:
             base_strength: Base strength setting (0.0-1.0)
             scene_type: Type of scene (close_up, medium_shot, etc.)
             mode: Injection mode (balanced, high_fidelity, creative)
-            
+
         Returns:
             Adjusted strength value clamped to 0.0-1.0
         """
         # Get scene-based strength
         scene_strength = self.STRENGTH_PRESETS.get(scene_type, self.STRENGTH_PRESETS["default"])
-        
+
         # Get mode multiplier
         mode_config = self.MODE_SETTINGS.get(mode, self.MODE_SETTINGS["balanced"])
         multiplier = mode_config["strength_multiplier"]
-        
+
         # Blend base strength with scene-specific strength
         blended = (base_strength * 0.4) + (scene_strength * 0.6)
-        
+
         # Apply mode multiplier
         final_strength = blended * multiplier
-        
+
         # Clamp to valid range
         return max(0.0, min(1.0, final_strength))
-    
+
     def get_reference_weights(
         self,
-        references: List[Dict[str, Any]],
+        references: list[dict[str, Any]],
         strength: float,
-    ) -> List[float]:
+    ) -> list[float]:
         """Get weights for multiple character references.
-        
+
         First reference (primary) gets higher weight,
         subsequent references get progressively lower weights.
-        
+
         Args:
             references: List of character reference dicts
             strength: Base strength setting
-            
+
         Returns:
             List of weights for each reference
         """
         if not references:
             return []
-        
+
         weights = []
         remaining = strength
-        
+
         for i, _ in enumerate(references):
             if i == 0:
                 # Primary reference gets 60% of total strength
@@ -162,10 +162,10 @@ class IPAdapterConfig:
                 # Distribute remaining among secondary refs
                 secondary_count = len(references) - 1
                 weight = (strength * 0.4) / secondary_count
-            
+
             weights.append(round(weight, 3))
             remaining -= weight
-        
+
         return weights
 
 
@@ -174,13 +174,13 @@ class GenerationResult:
     """Result from a generation attempt."""
 
     success: bool
-    output_path: Optional[str] = None
-    thumbnail_path: Optional[str] = None
-    error_message: Optional[str] = None
-    error_code: Optional[str] = None
-    duration_seconds: Optional[float] = None
-    cost_usd: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    output_path: str | None = None
+    thumbnail_path: str | None = None
+    error_message: str | None = None
+    error_code: str | None = None
+    duration_seconds: float | None = None
+    cost_usd: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -220,7 +220,7 @@ class GenerationProvider(ABC):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Execute generation.
 
@@ -257,7 +257,7 @@ class MockGenerationProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Simulate generation with delays."""
         settings = get_settings()
@@ -326,7 +326,7 @@ class VideoModel:
     supports_image_to_video: bool = False
     max_duration: float = 4.0
     default_fps: int = 24
-    input_mapping: Dict[str, str] = field(default_factory=dict)
+    input_mapping: dict[str, str] = field(default_factory=dict)
 
 
 class ReplicateProvider(GenerationProvider):
@@ -341,7 +341,7 @@ class ReplicateProvider(GenerationProvider):
     """
 
     # Available video generation models
-    MODELS: Dict[str, VideoModel] = {
+    MODELS: dict[str, VideoModel] = {
         "svd": VideoModel(
             id="stability-ai/stable-video-diffusion",
             name="Stable Video Diffusion",
@@ -393,13 +393,13 @@ class ReplicateProvider(GenerationProvider):
 
     def __init__(
         self,
-        api_token: Optional[str] = None,
-        model_id: Optional[str] = None,
-    ):
+        api_token: str | None = None,
+        model_id: str | None = None,
+    ) -> None:
         self.api_token = api_token
         self.model_id = model_id or self.DEFAULT_MODEL
         self._client = None
-        self._active_predictions: Dict[UUID, str] = {}  # shot_id -> prediction_id
+        self._active_predictions: dict[UUID, str] = {}  # shot_id -> prediction_id
 
     @property
     def name(self) -> str:
@@ -416,7 +416,7 @@ class ReplicateProvider(GenerationProvider):
             self._client = replicate.Client(api_token=self.api_token)
         return self._client
 
-    def get_model(self, model_id: Optional[str] = None) -> VideoModel:
+    def get_model(self, model_id: str | None = None) -> VideoModel:
         """Get model configuration."""
         mid = model_id or self.model_id
         if mid not in self.MODELS:
@@ -425,7 +425,7 @@ class ReplicateProvider(GenerationProvider):
 
     def estimate_cost(
         self,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
         duration_seconds: float = 3.0,
     ) -> float:
         """Estimate generation cost in USD."""
@@ -435,11 +435,11 @@ class ReplicateProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Generate video using Replicate API with async polling."""
         try:
-            import replicate
+            import replicate  # noqa: F401 — capability-detect probe; lazy-imported again at use sites
         except ImportError:
             return GenerationResult(
                 success=False,
@@ -454,7 +454,7 @@ class ReplicateProvider(GenerationProvider):
                 error_code="MISSING_API_TOKEN",
             )
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         model = self.get_model(request.extra_params.get("model_id"))
 
         try:
@@ -536,7 +536,7 @@ class ReplicateProvider(GenerationProvider):
             shot_dir = settings.output_dir / "shots" / str(request.shot_id)
             shot_dir.mkdir(parents=True, exist_ok=True)
 
-            output_path = await self._download_output(
+            await self._download_output(
                 output_url, shot_dir / "output.mp4"
             )
 
@@ -557,7 +557,7 @@ class ReplicateProvider(GenerationProvider):
             )
 
             # Calculate actual duration and cost
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             generation_duration = (end_time - start_time).total_seconds()
             estimated_cost = self.estimate_cost(
                 model_id=self.model_id,
@@ -584,7 +584,7 @@ class ReplicateProvider(GenerationProvider):
                 },
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Replicate generation timed out for shot {request.shot_id}")
             self._active_predictions.pop(request.shot_id, None)
             return GenerationResult(
@@ -606,9 +606,9 @@ class ReplicateProvider(GenerationProvider):
         self,
         request: GenerationRequest,
         model: VideoModel,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build model-specific input parameters."""
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         # Common parameters
         if model.supports_text_to_video:
@@ -688,10 +688,9 @@ class ReplicateProvider(GenerationProvider):
         self,
         prediction_id: str,
         shot_id: UUID,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Optional[str]:
+        progress_callback: ProgressCallback | None = None,
+    ) -> str | None:
         """Poll for prediction completion with progress updates."""
-        import replicate
 
         client = self._get_client()
         elapsed = 0.0
@@ -749,7 +748,7 @@ class ReplicateProvider(GenerationProvider):
             await asyncio.sleep(self.POLL_INTERVAL)
             elapsed += self.POLL_INTERVAL
 
-        raise asyncio.TimeoutError("Prediction polling timed out")
+        raise TimeoutError("Prediction polling timed out")
 
     async def _download_output(self, url: str, output_path: Path) -> str:
         """Download generated video from URL."""
@@ -768,7 +767,7 @@ class ReplicateProvider(GenerationProvider):
         self,
         video_path: Path,
         thumbnail_path: Path,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate thumbnail from video using ffmpeg."""
         if not video_path.exists():
             return None
@@ -819,7 +818,7 @@ class ReplicateProvider(GenerationProvider):
             return False
 
     @classmethod
-    def list_models(cls) -> List[Dict[str, Any]]:
+    def list_models(cls) -> list[dict[str, Any]]:
         """List available video generation models."""
         return [
             {
@@ -846,7 +845,7 @@ class FalProvider(GenerationProvider):
     """
 
     # Available video generation models
-    MODELS: Dict[str, VideoModel] = {
+    MODELS: dict[str, VideoModel] = {
         "fast-svd": VideoModel(
             id="fal-ai/fast-svd-lcm",
             name="Fast SVD LCM",
@@ -905,12 +904,12 @@ class FalProvider(GenerationProvider):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        model_id: Optional[str] = None,
-    ):
+        api_key: str | None = None,
+        model_id: str | None = None,
+    ) -> None:
         self.api_key = api_key
         self.model_id = model_id or self.DEFAULT_MODEL
-        self._active_requests: Dict[UUID, str] = {}  # shot_id -> request_id
+        self._active_requests: dict[UUID, str] = {}  # shot_id -> request_id
 
     @property
     def name(self) -> str:
@@ -920,7 +919,7 @@ class FalProvider(GenerationProvider):
     def provider_type(self) -> JobProvider:
         return JobProvider.FAL
 
-    def get_model(self, model_id: Optional[str] = None) -> VideoModel:
+    def get_model(self, model_id: str | None = None) -> VideoModel:
         """Get model configuration."""
         mid = model_id or self.model_id
         if mid not in self.MODELS:
@@ -929,7 +928,7 @@ class FalProvider(GenerationProvider):
 
     def estimate_cost(
         self,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
         duration_seconds: float = 3.0,
     ) -> float:
         """Estimate generation cost in USD."""
@@ -939,7 +938,7 @@ class FalProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Generate video using Fal.ai API with async queue."""
         try:
@@ -962,7 +961,7 @@ class FalProvider(GenerationProvider):
         import os
         os.environ["FAL_KEY"] = self.api_key
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         model = self.get_model(request.extra_params.get("model_id"))
 
         try:
@@ -1060,7 +1059,7 @@ class FalProvider(GenerationProvider):
             )
 
             # Calculate timing and cost
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             generation_duration = (end_time - start_time).total_seconds()
             estimated_cost = self.estimate_cost(
                 model_id=self.model_id,
@@ -1087,7 +1086,7 @@ class FalProvider(GenerationProvider):
                 },
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Fal.ai generation timed out for shot {request.shot_id}")
             self._active_requests.pop(request.shot_id, None)
             return GenerationResult(
@@ -1109,9 +1108,9 @@ class FalProvider(GenerationProvider):
         self,
         request: GenerationRequest,
         model: VideoModel,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build model-specific input arguments."""
-        args: Dict[str, Any] = {}
+        args: dict[str, Any] = {}
 
         # Common parameters
         if model.supports_text_to_video:
@@ -1161,8 +1160,8 @@ class FalProvider(GenerationProvider):
         self,
         handler,
         shot_id: UUID,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Dict[str, Any]:
+        progress_callback: ProgressCallback | None = None,
+    ) -> dict[str, Any]:
         """Poll for request completion with progress updates."""
         elapsed = 0.0
         last_progress = 15
@@ -1210,9 +1209,9 @@ class FalProvider(GenerationProvider):
             await asyncio.sleep(self.POLL_INTERVAL)
             elapsed += self.POLL_INTERVAL
 
-        raise asyncio.TimeoutError("Fal.ai request polling timed out")
+        raise TimeoutError("Fal.ai request polling timed out")
 
-    def _extract_video_url(self, result: Dict[str, Any]) -> Optional[str]:
+    def _extract_video_url(self, result: dict[str, Any]) -> str | None:
         """Extract video URL from Fal.ai result."""
         # Different models return video in different fields
         if "video" in result:
@@ -1248,7 +1247,7 @@ class FalProvider(GenerationProvider):
         self,
         video_path: Path,
         thumbnail_path: Path,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate thumbnail from video using ffmpeg."""
         if not video_path.exists():
             return None
@@ -1277,7 +1276,6 @@ class FalProvider(GenerationProvider):
             return False
 
         try:
-            import fal_client
             import os
             os.environ["FAL_KEY"] = self.api_key
             # Quick status check
@@ -1300,7 +1298,7 @@ class FalProvider(GenerationProvider):
             return False
 
     @classmethod
-    def list_models(cls) -> List[Dict[str, Any]]:
+    def list_models(cls) -> list[dict[str, Any]]:
         """List available video generation models."""
         return [
             {
@@ -1334,8 +1332,8 @@ class GenerationService:
         """
         self.session = session
         self.settings = get_settings()
-        self._providers: Dict[JobProvider, GenerationProvider] = {}
-        self._progress_callbacks: Dict[UUID, List[ProgressCallback]] = {}
+        self._providers: dict[JobProvider, GenerationProvider] = {}
+        self._progress_callbacks: dict[UUID, list[ProgressCallback]] = {}
 
         # Register default providers
         self._register_default_providers()
@@ -1348,7 +1346,6 @@ class GenerationService:
         Falls back to manual registration if the registry hasn't been initialized.
         """
         try:
-            from scenemachine.generators.registry import setup_providers
             from scenemachine.generators.base import get_provider_registry
 
             registry = get_provider_registry()
@@ -1395,11 +1392,11 @@ class GenerationService:
         self._providers[provider_type] = provider
         logger.info(f"Registered generation provider: {provider.name}")
 
-    def get_provider(self, provider_type: JobProvider) -> Optional[GenerationProvider]:
+    def get_provider(self, provider_type: JobProvider) -> GenerationProvider | None:
         """Get a registered provider."""
         return self._providers.get(provider_type)
 
-    async def get_available_providers(self) -> List[JobProvider]:
+    async def get_available_providers(self) -> list[JobProvider]:
         """Get list of available providers."""
         available = []
         for provider_type, provider in self._providers.items():
@@ -1424,8 +1421,8 @@ class GenerationService:
             Best JobProvider for the current conditions
         """
         try:
-            from scenemachine.gpu_exchange.router import get_gpu_exchange
             from scenemachine.gpu_exchange.models import GPUType, ProviderCapability
+            from scenemachine.gpu_exchange.router import get_gpu_exchange
 
             router = get_gpu_exchange()
             selection = await router.select_provider(
@@ -1606,7 +1603,7 @@ class GenerationService:
                 "duration_seconds": shot.duration_seconds,
                 "priority": priority,
             },
-            queued_at=datetime.now(timezone.utc),
+            queued_at=datetime.now(UTC),
         )
 
         self.session.add(job)
@@ -1660,7 +1657,7 @@ class GenerationService:
         self,
         scene_id: UUID,
         provider: JobProvider = JobProvider.LOCAL,
-    ) -> List[GenerationJob]:
+    ) -> list[GenerationJob]:
         """Queue all shots in a scene for generation.
 
         Args:
@@ -1693,7 +1690,7 @@ class GenerationService:
         self,
         project_id: UUID,
         provider: JobProvider = JobProvider.LOCAL,
-    ) -> List[GenerationJob]:
+    ) -> list[GenerationJob]:
         """Queue all planned shots in a project.
 
         Args:
@@ -1735,7 +1732,7 @@ class GenerationService:
     async def process_job(
         self,
         job_id: UUID,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Process a single generation job.
 
@@ -1812,7 +1809,7 @@ class GenerationService:
 
         # Update job status
         job.status = JobStatus.PREPARING
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = datetime.now(UTC)
         job.shot.state = ShotState.GENERATING
         await self.session.commit()
 
@@ -1884,7 +1881,7 @@ class GenerationService:
             gen_result = await provider.generate(request, update_progress)
 
             # Update job with result
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
 
             if gen_result.success:
                 job.status = JobStatus.COMPLETED
@@ -1966,7 +1963,7 @@ class GenerationService:
             job.status = JobStatus.FAILED
             job.error_message = str(e)
             job.error_code = "EXCEPTION"
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
             job.shot.state = ShotState.FAILED
             await self.session.commit()
 
@@ -1998,8 +1995,8 @@ class GenerationService:
             )
 
     async def get_queue_status(
-        self, project_id: Optional[UUID] = None
-    ) -> Dict[str, Any]:
+        self, project_id: UUID | None = None
+    ) -> dict[str, Any]:
         """Get generation queue status.
 
         Args:
@@ -2032,7 +2029,7 @@ class GenerationService:
             "failed": status_counts.get("failed", 0),
         }
 
-    async def get_pending_jobs(self, limit: int = 10) -> List[GenerationJob]:
+    async def get_pending_jobs(self, limit: int = 10) -> list[GenerationJob]:
         """Get pending jobs in queue order."""
         stmt = (
             select(GenerationJob)
@@ -2043,7 +2040,7 @@ class GenerationService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_job(self, job_id: UUID) -> Optional[GenerationJob]:
+    async def get_job(self, job_id: UUID) -> GenerationJob | None:
         """Get a job by ID."""
         stmt = (
             select(GenerationJob)
@@ -2070,7 +2067,7 @@ class GenerationService:
                 await provider.cancel(job.provider_job_id)
 
         job.status = JobStatus.CANCELLED
-        job.completed_at = datetime.now(timezone.utc)
+        job.completed_at = datetime.now(UTC)
         job.shot.state = ShotState.PLANNED
 
         await self.session.commit()
@@ -2086,7 +2083,7 @@ class GenerationService:
         self,
         job_id: UUID,
         max_retries: int = 5,
-    ) -> Optional[GenerationJob]:
+    ) -> GenerationJob | None:
         """Retry a failed job with exponential backoff.
 
         FEAT-037: Implements retry with exponential backoff to handle
@@ -2165,7 +2162,7 @@ class GenerationService:
         return shot
 
     async def reject_shot(
-        self, shot_id: UUID, notes: Optional[str] = None
+        self, shot_id: UUID, notes: str | None = None
     ) -> Shot:
         """Reject a generated shot for regeneration."""
         stmt = select(Shot).where(Shot.id == shot_id)
@@ -2230,8 +2227,8 @@ class GenerationService:
         self,
         request,  # scenemachine.generators.base.GenerationRequest
         *,
-        provider: Optional[JobProvider] = None,
-        progress_callback: Optional[Callable] = None,
+        provider: JobProvider | None = None,
+        progress_callback: Callable | None = None,
     ):
         """Run a single generation request against the chosen provider.
 
@@ -2265,7 +2262,7 @@ class GenerationService:
         provider_type = provider or JobProvider.LOCAL
         impl = self._providers.get(provider_type)
         if impl is None:
-            available = sorted(p.value for p in self._providers.keys())
+            available = sorted(p.value for p in self._providers)
             raise ValueError(
                 f"No generation provider registered for {provider_type.value}. "
                 f"Available: {available or '(none)'}"

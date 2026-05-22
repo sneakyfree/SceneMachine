@@ -1,13 +1,10 @@
 """Tests for WebSocket API routes."""
 
+from uuid import uuid4
+
 import pytest
 import pytest_asyncio
-import asyncio
-from uuid import uuid4
-from unittest.mock import AsyncMock, patch
-
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession
+from httpx import ASGITransport, AsyncClient
 
 from scenemachine.api.main import app
 

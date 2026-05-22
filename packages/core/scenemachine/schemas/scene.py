@@ -1,6 +1,6 @@
 """Pydantic schemas for Scene API endpoints."""
 
-from typing import Any, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field
@@ -15,10 +15,10 @@ class SceneAnalysis(BaseSchema):
 
     summary: str
     mood: str
-    emotional_arc: List[str] = Field(default_factory=list)
-    key_moments: List[dict[str, Any]] = Field(default_factory=list)
-    visual_style_suggestions: List[str] = Field(default_factory=list)
-    pacing: Optional[str] = None
+    emotional_arc: list[str] = Field(default_factory=list)
+    key_moments: list[dict[str, Any]] = Field(default_factory=list)
+    visual_style_suggestions: list[str] = Field(default_factory=list)
+    pacing: str | None = None
     importance: int = Field(ge=1, le=10)
 
 
@@ -28,7 +28,7 @@ class ShotBreakdownSummary(BaseSchema):
     approach: str
     shot_count: int
     coverage_style: str
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class SceneSummary(TimestampSchema):
@@ -45,7 +45,7 @@ class SceneSummary(TimestampSchema):
     state: SceneState
     shot_count: int
     shot_breakdown_approved: bool
-    estimated_duration_seconds: Optional[float]
+    estimated_duration_seconds: float | None
 
 
 class SceneDetail(TimestampSchema):
@@ -60,14 +60,14 @@ class SceneDetail(TimestampSchema):
     location: str
     time_of_day: TimeOfDay
     raw_content: str
-    action_lines: List[str]
-    character_ids: List[UUID]
-    analysis: Optional[SceneAnalysis]
-    shot_breakdown: Optional[ShotBreakdownSummary]
+    action_lines: list[str]
+    character_ids: list[UUID]
+    analysis: SceneAnalysis | None
+    shot_breakdown: ShotBreakdownSummary | None
     shot_breakdown_approved: bool
-    generation_settings: Optional[dict[str, Any]]
-    estimated_duration_seconds: Optional[float]
-    actual_duration_seconds: Optional[float]
+    generation_settings: dict[str, Any] | None
+    estimated_duration_seconds: float | None
+    actual_duration_seconds: float | None
     state: SceneState
     shot_count: int
     completed_shot_count: int
@@ -77,20 +77,20 @@ class SceneDetail(TimestampSchema):
 class SceneUpdate(BaseSchema):
     """Schema for updating scene metadata."""
 
-    generation_settings: Optional[dict[str, Any]] = None
-    estimated_duration_seconds: Optional[float] = Field(None, ge=0)
+    generation_settings: dict[str, Any] | None = None
+    estimated_duration_seconds: float | None = Field(None, ge=0)
 
 
 class ShotBreakdownRequest(BaseSchema):
     """Request to generate shot breakdown for a scene."""
 
-    style_preference: Optional[str] = Field(
+    style_preference: str | None = Field(
         None, description="Preferred coverage style (e.g., 'classical', 'modern', 'minimal')"
     )
-    target_shot_count: Optional[int] = Field(
+    target_shot_count: int | None = Field(
         None, ge=1, le=50, description="Target number of shots"
     )
-    focus_characters: Optional[List[UUID]] = Field(
+    focus_characters: list[UUID] | None = Field(
         None, description="Character IDs to prioritize in coverage"
     )
 
@@ -98,10 +98,10 @@ class ShotBreakdownRequest(BaseSchema):
 class ShotBreakdownApproval(BaseSchema):
     """Request to approve shot breakdown."""
 
-    notes: Optional[str] = Field(None, max_length=1000)
+    notes: str | None = Field(None, max_length=1000)
 
 
 class SceneReorderRequest(BaseSchema):
     """Request to reorder scenes."""
 
-    scene_ids: List[UUID] = Field(..., min_length=1)
+    scene_ids: list[UUID] = Field(..., min_length=1)

@@ -1,9 +1,9 @@
 """Sharing API endpoints."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,17 +20,17 @@ class CreateShareRequest(BaseModel):
 
     project_id: UUID
     permission: str = "view"
-    recipient_email: Optional[EmailStr] = None
-    recipient_name: Optional[str] = None
-    message: Optional[str] = None
-    expires_in_days: Optional[int] = None
+    recipient_email: EmailStr | None = None
+    recipient_name: str | None = None
+    message: str | None = None
+    expires_in_days: int | None = None
     is_public: bool = False
 
 
 class UpdateShareRequest(BaseModel):
     """Request to update a share."""
 
-    permission: Optional[str] = None
+    permission: str | None = None
 
 
 class AddCommentRequest(BaseModel):
@@ -38,10 +38,10 @@ class AddCommentRequest(BaseModel):
 
     author_name: str
     content: str
-    author_email: Optional[EmailStr] = None
-    shot_id: Optional[UUID] = None
-    parent_id: Optional[UUID] = None
-    timecode_seconds: Optional[float] = None
+    author_email: EmailStr | None = None
+    shot_id: UUID | None = None
+    parent_id: UUID | None = None
+    timecode_seconds: float | None = None
 
 
 # Routes
@@ -49,7 +49,7 @@ class AddCommentRequest(BaseModel):
 async def create_share(
     request: CreateShareRequest,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a new project share.
 
     Creates a shareable link for a project with specified permissions.
@@ -91,7 +91,7 @@ async def create_share(
 async def get_project_shares(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get all shares for a project."""
     service = SharingService(db)
     shares = await service.get_project_shares(project_id)
@@ -119,7 +119,7 @@ async def get_project_shares(
 async def get_share_by_code(
     share_code: str,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get share information by code."""
     service = SharingService(db)
     share = await service.get_share_by_code(share_code)
@@ -151,7 +151,7 @@ async def get_share_by_code(
 async def accept_share(
     share_code: str,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Accept a share invitation.
 
     Marks the share as accepted and returns project details.
@@ -172,7 +172,7 @@ async def accept_share(
 async def record_access(
     share_code: str,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Record share access for analytics."""
     service = SharingService(db)
     success = await service.record_access(share_code)
@@ -191,7 +191,7 @@ async def update_share(
     share_id: UUID,
     request: UpdateShareRequest,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Update share permission."""
     if request.permission:
         try:
@@ -218,7 +218,7 @@ async def update_share(
 async def revoke_share(
     share_id: UUID,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Revoke a share."""
     service = SharingService(db)
     success = await service.revoke_share(share_id)
@@ -238,7 +238,7 @@ async def add_comment(
     project_id: UUID,
     request: AddCommentRequest,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Add a comment to a project or shot."""
     service = SharingService(db)
     comment = await service.add_comment(
@@ -270,10 +270,10 @@ async def add_comment(
 @router.get("/projects/{project_id}/comments")
 async def get_project_comments(
     project_id: UUID,
-    shot_id: Optional[UUID] = None,
+    shot_id: UUID | None = None,
     include_resolved: bool = False,
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get comments for a project."""
     service = SharingService(db)
     comments = await service.get_project_comments(
@@ -289,7 +289,7 @@ async def get_project_comments(
 async def resolve_comment(
     comment_id: UUID,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Mark a comment as resolved."""
     service = SharingService(db)
     success = await service.resolve_comment(comment_id)
@@ -307,7 +307,7 @@ async def resolve_comment(
 async def delete_comment(
     comment_id: UUID,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Delete a comment."""
     service = SharingService(db)
     success = await service.delete_comment(comment_id)
@@ -324,7 +324,7 @@ async def delete_comment(
 @router.post("/cleanup-expired")
 async def cleanup_expired_shares(
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Mark expired shares as expired.
 
     This endpoint can be called periodically to clean up expired shares.

@@ -1,15 +1,12 @@
 """Tests for Screenplay API routes."""
 
+from uuid import uuid4
+
 import pytest
 import pytest_asyncio
-from uuid import uuid4
-from io import BytesIO
-
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession
+from httpx import ASGITransport, AsyncClient
 
 from scenemachine.api.main import app
-from scenemachine.models import Project
 
 
 class TestScreenplayRoutes:

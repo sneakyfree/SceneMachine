@@ -12,20 +12,18 @@ Provides audio mixing functionality for video production:
 import asyncio
 import json
 import logging
-import subprocess
-import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from uuid import UUID, uuid4
+from enum import StrEnum
+from typing import Any
+from uuid import uuid4
 
 from scenemachine.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-class AudioTrackType(str, Enum):
+class AudioTrackType(StrEnum):
     """Types of audio tracks."""
 
     DIALOGUE = "dialogue"
@@ -36,7 +34,7 @@ class AudioTrackType(str, Enum):
     FOLEY = "foley"
 
 
-class AudioFormat(str, Enum):
+class AudioFormat(StrEnum):
     """Supported audio output formats."""
 
     MP3 = "mp3"
@@ -46,7 +44,7 @@ class AudioFormat(str, Enum):
     OGG = "ogg"
 
 
-class FadeType(str, Enum):
+class FadeType(StrEnum):
     """Types of audio fades."""
 
     LINEAR = "linear"
@@ -60,7 +58,7 @@ class AudioEffect:
     """Base class for audio effects."""
 
     effect_type: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -72,7 +70,7 @@ class FadeEffect(AudioEffect):
         fade_in_duration: float = 0.0,
         fade_out_duration: float = 0.0,
         fade_type: FadeType = FadeType.LINEAR,
-    ):
+    ) -> None:
         super().__init__(
             effect_type="fade",
             parameters={
@@ -94,7 +92,7 @@ class CompressorEffect(AudioEffect):
         attack_ms: float = 5.0,
         release_ms: float = 50.0,
         makeup_gain_db: float = 0.0,
-    ):
+    ) -> None:
         super().__init__(
             effect_type="compressor",
             parameters={
@@ -120,7 +118,7 @@ class EqualizerBand:
 class EqualizerEffect(AudioEffect):
     """Parametric equalizer."""
 
-    def __init__(self, bands: List[EqualizerBand]):
+    def __init__(self, bands: list[EqualizerBand]) -> None:
         super().__init__(
             effect_type="equalizer",
             parameters={
@@ -141,16 +139,16 @@ class AudioTrack:
     track_type: AudioTrackType
     file_path: str
     start_time: float = 0.0  # seconds from start of mix
-    duration: Optional[float] = None  # None = use full file duration
+    duration: float | None = None  # None = use full file duration
     volume: float = 1.0  # 0.0 to 2.0 (0% to 200%)
     pan: float = 0.0  # -1.0 (left) to 1.0 (right)
     muted: bool = False
     solo: bool = False
-    effects: List[AudioEffect] = field(default_factory=list)
+    effects: list[AudioEffect] = field(default_factory=list)
     trim_start: float = 0.0  # seconds trimmed from start of file
     trim_end: float = 0.0  # seconds trimmed from end of file
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -177,12 +175,12 @@ class AudioMix:
 
     id: str
     name: str
-    tracks: List[AudioTrack] = field(default_factory=list)
+    tracks: list[AudioTrack] = field(default_factory=list)
     master_volume: float = 1.0
-    master_effects: List[AudioEffect] = field(default_factory=list)
+    master_effects: list[AudioEffect] = field(default_factory=list)
     sample_rate: int = 44100
     channels: int = 2  # 1=mono, 2=stereo
-    duration: Optional[float] = None  # Auto-calculated if None
+    duration: float | None = None  # Auto-calculated if None
 
     def add_track(self, track: AudioTrack) -> None:
         """Add a track to the mix."""
@@ -196,7 +194,7 @@ class AudioMix:
                 return True
         return False
 
-    def get_track(self, track_id: str) -> Optional[AudioTrack]:
+    def get_track(self, track_id: str) -> AudioTrack | None:
         """Get a track by ID."""
         for track in self.tracks:
             if track.id == track_id:
@@ -216,7 +214,7 @@ class AudioMix:
 
         return max_end
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -239,7 +237,7 @@ class MixProgress:
     percent: float
     stage: str
     message: str
-    current_track: Optional[str] = None
+    current_track: str | None = None
 
 
 @dataclass
@@ -247,9 +245,9 @@ class MixResult:
     """Result of mix rendering."""
 
     success: bool
-    output_path: Optional[str] = None
+    output_path: str | None = None
     duration_seconds: float = 0.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     processing_time_seconds: float = 0.0
 
 
@@ -259,7 +257,7 @@ class AudioMixerService:
     Uses FFmpeg for audio processing and mixing.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._ffmpeg_path = "ffmpeg"
         self._ffprobe_path = "ffprobe"
@@ -277,7 +275,7 @@ class AudioMixerService:
         except Exception:
             return False
 
-    async def get_audio_info(self, file_path: str) -> Optional[Dict[str, Any]]:
+    async def get_audio_info(self, file_path: str) -> dict[str, Any] | None:
         """Get audio file information using ffprobe."""
         try:
             cmd = [
@@ -350,7 +348,7 @@ class AudioMixerService:
         mix: AudioMix,
         output_path: str,
         output_format: AudioFormat = AudioFormat.MP3,
-        progress_callback: Optional[Callable[[MixProgress], Any]] = None,
+        progress_callback: Callable[[MixProgress], Any] | None = None,
     ) -> MixResult:
         """Render an audio mix to a file using FFmpeg."""
         import time
@@ -736,7 +734,7 @@ class AudioMixerService:
 
 
 # Singleton instance
-_audio_mixer_service: Optional[AudioMixerService] = None
+_audio_mixer_service: AudioMixerService | None = None
 
 
 def get_audio_mixer_service() -> AudioMixerService:

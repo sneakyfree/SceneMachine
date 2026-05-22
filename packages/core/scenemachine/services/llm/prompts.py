@@ -4,7 +4,7 @@ Contains prompt templates for various AI-powered features in SceneMachine.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -35,8 +35,8 @@ class CopilotPrompts:
     @staticmethod
     def chat_prompt(
         message: str,
-        project_context: Dict[str, Any],
-        conversation_history: Optional[List[Dict[str, str]]] = None,
+        project_context: dict[str, Any],
+        conversation_history: list[dict[str, str]] | None = None,
     ) -> str:
         """Generate prompt for chat interaction.
 
@@ -92,9 +92,9 @@ Format suggestions as JSON objects with: id, type, title, description, confidenc
 
     @staticmethod
     def analyze_project_prompt(
-        project_context: Dict[str, Any],
-        scenes: List[Dict[str, Any]],
-        characters: List[Dict[str, Any]],
+        project_context: dict[str, Any],
+        scenes: list[dict[str, Any]],
+        characters: list[dict[str, Any]],
     ) -> str:
         """Generate prompt for full project analysis.
 
@@ -164,9 +164,9 @@ Provide analysis in JSON format with these sections:
 
     @staticmethod
     def suggest_scene_prompt(
-        scene: Dict[str, Any],
-        characters: List[Dict[str, Any]],
-        adjacent_scenes: Optional[Dict[str, Any]] = None,
+        scene: dict[str, Any],
+        characters: list[dict[str, Any]],
+        adjacent_scenes: dict[str, Any] | None = None,
     ) -> str:
         """Generate prompt for scene-specific suggestions.
 
@@ -212,9 +212,9 @@ Provide 2-4 suggestions in JSON format:
 
     @staticmethod
     def suggest_shot_prompt(
-        shot: Dict[str, Any],
-        scene_context: Dict[str, Any],
-        adjacent_shots: Optional[Dict[str, Any]] = None,
+        shot: dict[str, Any],
+        scene_context: dict[str, Any],
+        adjacent_shots: dict[str, Any] | None = None,
     ) -> str:
         """Generate prompt for shot-specific suggestions.
 
@@ -260,8 +260,8 @@ Provide 1-2 suggestions in JSON format:
     @staticmethod
     def enhance_prompt_prompt(
         original_prompt: str,
-        shot_context: Dict[str, Any],
-        style_preferences: Optional[Dict[str, Any]] = None,
+        shot_context: dict[str, Any],
+        style_preferences: dict[str, Any] | None = None,
     ) -> str:
         """Generate prompt for enhancing a video generation prompt.
 
@@ -302,9 +302,9 @@ Return only the enhanced prompt text, no JSON or formatting."""
 
     @staticmethod
     def generate_shot_breakdown_prompt(
-        scene: Dict[str, Any],
-        characters: List[Dict[str, Any]],
-        visual_style: Optional[Dict[str, Any]] = None,
+        scene: dict[str, Any],
+        characters: list[dict[str, Any]],
+        visual_style: dict[str, Any] | None = None,
     ) -> str:
         """Generate prompt for creating shot breakdown from scene.
 

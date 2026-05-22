@@ -7,10 +7,11 @@ Tests cover:
 - Character metadata
 """
 
-import pytest
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
-from typing import Dict, Any
+
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
@@ -18,7 +19,7 @@ from fastapi.testclient import TestClient
 def create_mock_character(
     name: str = "John Doe",
     project_id: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a mock character."""
     return {
         "id": str(uuid4()),
@@ -44,7 +45,7 @@ class MockCharactersRouter:
 
     def __init__(self):
         self.app = FastAPI()
-        self.characters: Dict[str, Dict] = {}
+        self.characters: dict[str, dict] = {}
         self._setup_routes()
 
     def _setup_routes(self):
@@ -112,7 +113,7 @@ class MockCharactersRouter:
         async def update_physical_description(
             project_id: str,
             character_id: str,
-            physical_description: Dict[str, str] = None
+            physical_description: dict[str, str] = None
         ):
             if character_id not in self.characters:
                 raise HTTPException(status_code=404, detail="Character not found")

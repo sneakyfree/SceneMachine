@@ -4,7 +4,7 @@ Handles scene analysis, shot breakdown generation, and approval workflow.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -33,18 +33,18 @@ class SceneResponse(BaseModel):
     location: str
     time_of_day: str
     state: str
-    character_ids: List[str] = Field(default_factory=list)
-    analysis: Optional[Dict[str, Any]] = None
-    shot_breakdown: Optional[Dict[str, Any]] = None
+    character_ids: list[str] = Field(default_factory=list)
+    analysis: dict[str, Any] | None = None
+    shot_breakdown: dict[str, Any] | None = None
     shot_breakdown_approved: bool = False
-    estimated_duration_seconds: Optional[float] = None
+    estimated_duration_seconds: float | None = None
     shot_count: int = 0
 
 
 class SceneWithShotsResponse(SceneResponse):
     """Scene response with shots included."""
 
-    shots: List["ShotResponse"] = Field(default_factory=list)
+    shots: list["ShotResponse"] = Field(default_factory=list)
 
 
 class ShotResponse(BaseModel):
@@ -57,14 +57,14 @@ class ShotResponse(BaseModel):
     shot_type: str
     camera_movement: str
     description: str
-    dialogue: Optional[str] = None
-    action: Optional[str] = None
-    character_ids: List[str] = Field(default_factory=list)
+    dialogue: str | None = None
+    action: str | None = None
+    character_ids: list[str] = Field(default_factory=list)
     duration_seconds: float
-    composition_notes: Optional[str] = None
-    lighting_notes: Optional[str] = None
+    composition_notes: str | None = None
+    lighting_notes: str | None = None
     state: str
-    prompt: Optional[str] = None
+    prompt: str | None = None
 
 
 class SceneAnalysisResponse(BaseModel):
@@ -72,9 +72,9 @@ class SceneAnalysisResponse(BaseModel):
 
     summary: str
     mood: str
-    emotional_arc: List[str]
-    key_moments: List[Dict[str, Any]]
-    visual_style_suggestions: List[str]
+    emotional_arc: list[str]
+    key_moments: list[dict[str, Any]]
+    visual_style_suggestions: list[str]
     pacing: str
     importance: int
     suggested_shot_count: int
@@ -89,21 +89,21 @@ class ShotBreakdownResponse(BaseModel):
     approach: str
     coverage_style: str
     notes: str
-    shots: List[ShotResponse]
+    shots: list[ShotResponse]
     estimated_duration: float
 
 
 class UpdateShotRequest(BaseModel):
     """Request to update a shot."""
 
-    shot_type: Optional[str] = None
-    camera_movement: Optional[str] = None
-    description: Optional[str] = None
-    dialogue: Optional[str] = None
-    action: Optional[str] = None
-    duration_seconds: Optional[float] = None
-    composition_notes: Optional[str] = None
-    lighting_notes: Optional[str] = None
+    shot_type: str | None = None
+    camera_movement: str | None = None
+    description: str | None = None
+    dialogue: str | None = None
+    action: str | None = None
+    duration_seconds: float | None = None
+    composition_notes: str | None = None
+    lighting_notes: str | None = None
 
 
 class AddShotRequest(BaseModel):
@@ -113,17 +113,17 @@ class AddShotRequest(BaseModel):
     description: str
     camera_movement: str = "static"
     duration_seconds: float = 3.0
-    after_shot_id: Optional[str] = None
+    after_shot_id: str | None = None
 
 
 class ReorderShotsRequest(BaseModel):
     """Request to reorder shots."""
 
-    shot_ids: List[str]
+    shot_ids: list[str]
 
 
 # Helper functions
-def scene_to_response(scene, include_shots: bool = False) -> Dict[str, Any]:
+def scene_to_response(scene, include_shots: bool = False) -> dict[str, Any]:
     """Convert scene model to response dict."""
     # Scene doesn't have screenplay_id directly - it's accessed via project
     screenplay_id = getattr(scene, 'screenplay_id', None)
@@ -154,7 +154,7 @@ def scene_to_response(scene, include_shots: bool = False) -> Dict[str, Any]:
     return data
 
 
-def shot_to_response(shot) -> Dict[str, Any]:
+def shot_to_response(shot) -> dict[str, Any]:
     """Convert shot model to response dict."""
     return {
         "id": str(shot.id),
@@ -181,7 +181,7 @@ async def list_project_scenes(
     project_id: str,
     include_shots: bool = False,
     session: AsyncSession = Depends(get_session),
-) -> List[SceneResponse]:
+) -> list[SceneResponse]:
     """List all scenes for a project.
 
     Args:
@@ -386,7 +386,7 @@ async def approve_shot_breakdown(
 async def list_scene_shots(
     scene_id: str,
     session: AsyncSession = Depends(get_session),
-) -> List[ShotResponse]:
+) -> list[ShotResponse]:
     """List all shots for a scene.
 
     Args:
@@ -580,7 +580,7 @@ async def update_shot(
 async def delete_shot(
     shot_id: str,
     session: AsyncSession = Depends(get_session),
-) -> Dict[str, bool]:
+) -> dict[str, bool]:
     """Delete a shot.
 
     Args:
@@ -618,7 +618,7 @@ async def delete_shot(
 
 # Reference data endpoints
 @router.get("/reference/shot-types")
-async def list_shot_types() -> List[Dict[str, str]]:
+async def list_shot_types() -> list[dict[str, str]]:
     """Get available shot types.
 
     Returns:
@@ -647,7 +647,7 @@ async def list_shot_types() -> List[Dict[str, str]]:
 
 
 @router.get("/reference/camera-movements")
-async def list_camera_movements() -> List[Dict[str, str]]:
+async def list_camera_movements() -> list[dict[str, str]]:
     """Get available camera movements.
 
     Returns:

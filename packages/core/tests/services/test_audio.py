@@ -1,26 +1,25 @@
 """Tests for AudioService and TTS providers."""
 
-import pytest
-import pytest_asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.models import Project, Character
+from scenemachine.models import Character, Project
 from scenemachine.models.character import CharacterGender
 from scenemachine.services.audio import (
+    AudioProgress,
     AudioService,
+    ElevenLabsProvider,
+    MockTTSProvider,
+    OpenAITTSProvider,
+    TTSProvider,
     TTSRequest,
     TTSResult,
-    TTSProvider,
     Voice,
     VoiceGender,
-    AudioProgress,
-    MockTTSProvider,
-    ElevenLabsProvider,
-    OpenAITTSProvider,
 )
 
 

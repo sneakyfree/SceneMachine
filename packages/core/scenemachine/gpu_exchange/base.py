@@ -9,12 +9,11 @@ This module defines the core abstractions for GPU provider integration:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from enum import StrEnum
+from typing import Any
 
 
-class GPUType(str, Enum):
+class GPUType(StrEnum):
     """Standard GPU types across providers."""
 
     # NVIDIA Consumer
@@ -34,7 +33,7 @@ class GPUType(str, Enum):
     MI300X = "mi300x"
 
 
-class ProviderCapability(str, Enum):
+class ProviderCapability(StrEnum):
     """Capabilities a GPU provider may support."""
 
     VIDEO_GENERATION = "video_generation"
@@ -55,8 +54,8 @@ class GPUPricing:
     gpu_type: GPUType
     price_per_hour: float  # USD
     price_per_second: float  # USD (for sub-hour billing)
-    spot_price_per_hour: Optional[float] = None
-    reserved_price_per_hour: Optional[float] = None
+    spot_price_per_hour: float | None = None
+    reserved_price_per_hour: float | None = None
     currency: str = "USD"
     region: str = "us-east-1"
     availability: int = 0  # Number of instances available
@@ -82,9 +81,9 @@ class GPUInstance:
     region: str = "us-east-1"
     is_available: bool = True
     is_spot: bool = False
-    pricing: Optional[GPUPricing] = None
-    capabilities: List[ProviderCapability] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    pricing: GPUPricing | None = None
+    capabilities: list[ProviderCapability] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -92,15 +91,15 @@ class ProvisionResult:
     """Result of provisioning a GPU instance."""
 
     success: bool
-    instance_id: Optional[str] = None
-    instance: Optional[GPUInstance] = None
-    ssh_host: Optional[str] = None
+    instance_id: str | None = None
+    instance: GPUInstance | None = None
+    ssh_host: str | None = None
     ssh_port: int = 22
     ssh_user: str = "root"
-    api_endpoint: Optional[str] = None
-    error_message: Optional[str] = None
-    error_code: Optional[str] = None
-    startup_time_seconds: Optional[float] = None
+    api_endpoint: str | None = None
+    error_message: str | None = None
+    error_code: str | None = None
+    startup_time_seconds: float | None = None
 
 
 @dataclass
@@ -109,10 +108,10 @@ class ProviderHealth:
 
     available: bool
     message: str
-    latency_ms: Optional[float] = None
+    latency_ms: float | None = None
     instances_available: int = 0
     queue_depth: int = 0
-    error_code: Optional[str] = None
+    error_code: str | None = None
     last_check: datetime = field(default_factory=datetime.utcnow)
 
 
@@ -150,26 +149,26 @@ class GPUExchangeProvider(ABC):
         ...
 
     @property
-    def capabilities(self) -> List[ProviderCapability]:
+    def capabilities(self) -> list[ProviderCapability]:
         """Provider capabilities. Override to customize."""
         return [ProviderCapability.VIDEO_GENERATION]
 
     @property
-    def supported_gpu_types(self) -> List[GPUType]:
+    def supported_gpu_types(self) -> list[GPUType]:
         """GPU types supported by this provider. Override to customize."""
         return [GPUType.A100_80GB, GPUType.H100]
 
     @property
-    def regions(self) -> List[str]:
+    def regions(self) -> list[str]:
         """Available regions. Override to customize."""
         return ["us-east-1"]
 
     @abstractmethod
     async def get_available_instances(
         self,
-        gpu_type: Optional[GPUType] = None,
-        region: Optional[str] = None,
-    ) -> List[GPUInstance]:
+        gpu_type: GPUType | None = None,
+        region: str | None = None,
+    ) -> list[GPUInstance]:
         """Get list of available GPU instances.
 
         Args:
@@ -185,8 +184,8 @@ class GPUExchangeProvider(ABC):
     async def get_current_pricing(
         self,
         gpu_type: GPUType,
-        region: Optional[str] = None,
-    ) -> Optional[GPUPricing]:
+        region: str | None = None,
+    ) -> GPUPricing | None:
         """Get current pricing for a GPU type.
 
         Args:
@@ -203,7 +202,7 @@ class GPUExchangeProvider(ABC):
         self,
         gpu_type: GPUType,
         max_price_per_hour: float,
-        region: Optional[str] = None,
+        region: str | None = None,
         spot: bool = False,
     ) -> ProvisionResult:
         """Provision a GPU instance.
@@ -242,7 +241,7 @@ class GPUExchangeProvider(ABC):
     async def check_availability(self) -> bool:
         """Check if provider API is available."""
         try:
-            instances = await self.get_available_instances()
+            await self.get_available_instances()
             return True
         except Exception:
             return False

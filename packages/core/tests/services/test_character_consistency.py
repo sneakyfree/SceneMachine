@@ -21,11 +21,10 @@ behavior is validated by the per-shot measurement script.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
-
 
 # ----------------------------------------------------------------------
 # Helpers — synthetic embeddings + fake service
@@ -147,6 +146,7 @@ class TestCharacterConsistencyBranches:
     def _run(self, reviewer, fake_frame_paths, frame_embeddings, ref_paths=None, ref_embeddings=None):
         """Invoke _check_character_consistency with patched frame extraction + face service."""
         import asyncio
+
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
 
         fake_svc = FakeFaceService(frame_embeddings, ref_embeddings)
@@ -262,6 +262,7 @@ class TestCharacterConsistencyBranches:
     def test_no_frames_extracted_low_confidence(self, reviewer):
         """If frame extraction yields zero frames, return graceful low-conf."""
         import asyncio
+
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
 
         with patch.object(

@@ -1,6 +1,5 @@
 """Tests for password hashing utilities."""
 
-import pytest
 
 from scenemachine.auth.password import hash_password, verify_password
 

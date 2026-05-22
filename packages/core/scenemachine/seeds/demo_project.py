@@ -9,28 +9,26 @@ Creates a complete demo project with:
 """
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models import (
-    Project,
-    ProjectState,
+    CameraMovement,
     Character,
     CharacterLockState,
+    Project,
+    ProjectState,
     Scene,
     SceneState,
     SceneType,
-    TimeOfDay,
     Shot,
     ShotState,
     ShotType,
-    CameraMovement,
+    TimeOfDay,
 )
-
 
 # Demo project data
 DEMO_PROJECT = {
@@ -147,7 +145,7 @@ async def seed_demo_project(
     session: AsyncSession,
     force: bool = False,
     include_mock_videos: bool = True,
-) -> Optional[Project]:
+) -> Project | None:
     """
     Seed a complete demo project for investor demonstrations.
     """
@@ -156,18 +154,18 @@ async def seed_demo_project(
         select(Project).where(Project.name == DEMO_PROJECT["name"])
     )
     existing = result.scalar_one_or_none()
-    
+
     if existing and not force:
         print(f"Demo project '{DEMO_PROJECT['name']}' already exists. Use force=True to reseed.")
         return None
-    
+
     if existing and force:
         await session.delete(existing)
         await session.flush()
         print("Deleted existing demo project.")
-    
-    now = datetime.now(timezone.utc)
-    
+
+    now = datetime.now(UTC)
+
     # Create project
     project = Project(
         id=uuid4(),
@@ -180,7 +178,7 @@ async def seed_demo_project(
     session.add(project)
     await session.flush()
     print(f"Created project: {project.name}")
-    
+
     # Create characters
     character_lookup = {}
     for char_data in DEMO_CHARACTERS:
@@ -198,9 +196,9 @@ async def seed_demo_project(
         shorthand = char_data["name"].split()[0].lower().replace("dr.", "sarah")
         character_lookup[shorthand] = character
         print(f"  Created character: {char_data['name']}")
-    
+
     await session.flush()
-    
+
     # Create scenes and shots
     total_shots = 0
     for seq_num, scene_data in enumerate(DEMO_SCENES, start=1):
@@ -220,7 +218,7 @@ async def seed_demo_project(
         session.add(scene)
         await session.flush()
         print(f"  Created scene {scene.scene_number}: INT. {scene.location}")
-        
+
         # Create shots
         shot_file_mapping = {
             "1A": "shot_1a_establishing",
@@ -237,7 +235,7 @@ async def seed_demo_project(
                 shot_file = shot_file_mapping.get(shot_data['shot_number'], f"shot_{shot_data['shot_number'].lower()}")
                 video_path = f"demo/videos/{shot_file}.mp4"
                 thumbnail_path = f"demo/thumbnails/{shot_file}.jpg"
-            
+
             shot = Shot(
                 id=uuid4(),
                 scene_id=scene.id,
@@ -257,28 +255,28 @@ async def seed_demo_project(
             session.add(shot)
             total_shots += 1
             print(f"    Created shot {shot.shot_number}: {shot.shot_type.value}")
-    
+
     await session.commit()
-    
-    print(f"\n✅ Demo project seed complete:")
+
+    print("\n✅ Demo project seed complete:")
     print(f"   Project: {project.name}")
     print(f"   Characters: {len(DEMO_CHARACTERS)}")
     print(f"   Scenes: {len(DEMO_SCENES)}")
     print(f"   Shots: {total_shots}")
-    
+
     return project
 
 
-async def main():
+async def main() -> None:
     """Run demo project seeding as standalone script."""
     from scenemachine.database import get_db_manager
-    
+
     db_manager = get_db_manager()
     await db_manager.initialize()
-    
+
     async with db_manager.session() as session:
         await seed_demo_project(session, force=True)
-    
+
     await db_manager.close()
 
 

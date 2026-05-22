@@ -18,15 +18,14 @@ import argparse
 import asyncio
 import json
 import os
+import subprocess
 import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
-import subprocess
-import traceback
+from typing import Any
 
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -48,8 +47,8 @@ class TestResult:
     name: str
     passed: bool
     duration_ms: float
-    error: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
+    error: str | None = None
+    details: dict[str, Any] | None = None
 
 
 @dataclass
@@ -57,9 +56,9 @@ class CategoryResult:
     """Results for a test category."""
     name: str
     level: TestLevel
-    tests: List[TestResult] = field(default_factory=list)
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
+    tests: list[TestResult] = field(default_factory=list)
+    start_time: float | None = None
+    end_time: float | None = None
 
     @property
     def passed(self) -> int:
@@ -91,10 +90,10 @@ class HardeningReport:
     """Complete hardening test report."""
     level: str
     start_time: str
-    end_time: Optional[str] = None
+    end_time: str | None = None
     duration_seconds: float = 0.0
-    categories: List[CategoryResult] = field(default_factory=list)
-    environment: Dict[str, str] = field(default_factory=dict)
+    categories: list[CategoryResult] = field(default_factory=list)
+    environment: dict[str, str] = field(default_factory=dict)
 
     @property
     def total_passed(self) -> int:
@@ -114,7 +113,7 @@ class HardeningReport:
             return 0.0
         return (self.total_passed / self.total_tests) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "level": self.level,
@@ -162,8 +161,8 @@ class MasterHardeningSuite:
     def __init__(
         self,
         level: str = 'full',
-        database_url: Optional[str] = None,
-        output_dir: Optional[str] = None,
+        database_url: str | None = None,
+        output_dir: str | None = None,
         verbose: bool = False
     ):
         self.level = level
@@ -182,7 +181,7 @@ class MasterHardeningSuite:
         # Collect environment info
         self.report.environment = self._collect_environment()
 
-    def _collect_environment(self) -> Dict[str, str]:
+    def _collect_environment(self) -> dict[str, str]:
         """Collect system and environment information."""
         import platform
         return {

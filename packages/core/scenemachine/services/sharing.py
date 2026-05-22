@@ -3,8 +3,8 @@
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -27,10 +27,10 @@ class ShareResult:
     """Result of creating a share."""
 
     success: bool
-    share_id: Optional[str]
-    share_code: Optional[str]
-    share_url: Optional[str]
-    error: Optional[str]
+    share_id: str | None
+    share_code: str | None
+    share_url: str | None
+    error: str | None
 
 
 @dataclass
@@ -43,10 +43,10 @@ class ShareInfo:
     share_code: str
     permission: str
     status: str
-    recipient_email: Optional[str]
-    recipient_name: Optional[str]
+    recipient_email: str | None
+    recipient_name: str | None
     is_public: bool
-    expires_at: Optional[str]
+    expires_at: str | None
     created_at: str
     access_count: int
 
@@ -54,7 +54,7 @@ class ShareInfo:
 class SharingService:
     """Service for managing project sharing."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     def _generate_share_code(self) -> str:
@@ -65,10 +65,10 @@ class SharingService:
         self,
         project_id: UUID,
         permission: SharePermission = SharePermission.VIEW,
-        recipient_email: Optional[str] = None,
-        recipient_name: Optional[str] = None,
-        message: Optional[str] = None,
-        expires_in_days: Optional[int] = None,
+        recipient_email: str | None = None,
+        recipient_name: str | None = None,
+        message: str | None = None,
+        expires_in_days: int | None = None,
         is_public: bool = False,
     ) -> ShareResult:
         """Create a new project share.
@@ -103,7 +103,7 @@ class SharingService:
             # Calculate expiration
             expires_at = None
             if expires_in_days:
-                expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+                expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
 
             # Create share record
             share = ProjectShare(
@@ -146,7 +146,7 @@ class SharingService:
                 error=str(e),
             )
 
-    async def get_share_by_code(self, share_code: str) -> Optional[ProjectShare]:
+    async def get_share_by_code(self, share_code: str) -> ProjectShare | None:
         """Get a share by its code.
 
         Args:
@@ -163,7 +163,7 @@ class SharingService:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_project_shares(self, project_id: UUID) -> List[ShareInfo]:
+    async def get_project_shares(self, project_id: UUID) -> list[ShareInfo]:
         """Get all shares for a project.
 
         Args:
@@ -199,7 +199,7 @@ class SharingService:
             for share in shares
         ]
 
-    async def accept_share(self, share_code: str) -> Dict[str, Any]:
+    async def accept_share(self, share_code: str) -> dict[str, Any]:
         """Accept a share invitation.
 
         Args:
@@ -218,7 +218,7 @@ class SharingService:
 
         # Update share status
         share.status = ShareStatus.ACCEPTED
-        share.last_accessed_at = datetime.now(timezone.utc)
+        share.last_accessed_at = datetime.now(UTC)
         share.access_count += 1
 
         await self.session.commit()
@@ -286,7 +286,7 @@ class SharingService:
         if not share or not share.is_valid():
             return False
 
-        share.last_accessed_at = datetime.now(timezone.utc)
+        share.last_accessed_at = datetime.now(UTC)
         share.access_count += 1
         await self.session.commit()
 
@@ -298,11 +298,11 @@ class SharingService:
         project_id: UUID,
         author_name: str,
         content: str,
-        shot_id: Optional[UUID] = None,
-        author_email: Optional[str] = None,
-        parent_id: Optional[UUID] = None,
-        timecode_seconds: Optional[float] = None,
-    ) -> Optional[ProjectComment]:
+        shot_id: UUID | None = None,
+        author_email: str | None = None,
+        parent_id: UUID | None = None,
+        timecode_seconds: float | None = None,
+    ) -> ProjectComment | None:
         """Add a comment to a project or shot.
 
         Args:
@@ -335,7 +335,7 @@ class SharingService:
             logger.info(f"Added comment {comment.id} to project {project_id}")
             return comment
 
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to add comment")
             await self.session.rollback()
             return None
@@ -343,9 +343,9 @@ class SharingService:
     async def get_project_comments(
         self,
         project_id: UUID,
-        shot_id: Optional[UUID] = None,
+        shot_id: UUID | None = None,
         include_resolved: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get comments for a project.
 
         Args:
@@ -399,7 +399,7 @@ class SharingService:
             return False
 
         comment.is_resolved = True
-        comment.resolved_at = datetime.now(timezone.utc)
+        comment.resolved_at = datetime.now(UTC)
         await self.session.commit()
 
         return True
@@ -428,7 +428,7 @@ class SharingService:
         Returns:
             Number of shares expired
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         stmt = (
             update(ProjectShare)

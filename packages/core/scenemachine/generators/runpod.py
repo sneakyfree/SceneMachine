@@ -6,9 +6,9 @@ endpoint API. Supports custom endpoints with various video models.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from scenemachine.config import get_settings
 from scenemachine.models.generation_job import JobProvider
@@ -47,7 +47,7 @@ class RunPodProvider(GenerationProvider):
     """
 
     # Predefined endpoints (can be customized)
-    ENDPOINTS: Dict[str, Dict[str, Any]] = {
+    ENDPOINTS: dict[str, dict[str, Any]] = {
         "animatediff": {
             "name": "AnimateDiff Serverless",
             "default_model": "animatediff-v3",
@@ -62,7 +62,7 @@ class RunPodProvider(GenerationProvider):
         },
     }
 
-    MODELS: Dict[str, VideoModel] = {
+    MODELS: dict[str, VideoModel] = {
         "animatediff-v3": VideoModel(
             id="animatediff-v3",
             name="AnimateDiff v3",
@@ -115,9 +115,9 @@ class RunPodProvider(GenerationProvider):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        endpoint_id: Optional[str] = None,
-        model_id: Optional[str] = None,
+        api_key: str | None = None,
+        endpoint_id: str | None = None,
+        model_id: str | None = None,
     ) -> None:
         """Initialize RunPod provider.
 
@@ -129,7 +129,7 @@ class RunPodProvider(GenerationProvider):
         self.api_key = api_key
         self.endpoint_id = endpoint_id
         self.model_id = model_id or "animatediff-v3"
-        self._active_jobs: Dict[str, str] = {}  # shot_id -> job_id
+        self._active_jobs: dict[str, str] = {}  # shot_id -> job_id
 
     @property
     def name(self) -> str:
@@ -161,7 +161,7 @@ class RunPodProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Generate video using RunPod serverless endpoint."""
         try:
@@ -191,7 +191,7 @@ class RunPodProvider(GenerationProvider):
         if not model:
             model = self.MODELS["animatediff-v3"]
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         try:
             if progress_callback:
@@ -310,7 +310,7 @@ class RunPodProvider(GenerationProvider):
             )
 
             # Calculate cost
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             generation_duration = (end_time - start_time).total_seconds()
             estimated_cost = self.estimate_cost(
                 duration_seconds=request.duration_seconds,
@@ -339,7 +339,7 @@ class RunPodProvider(GenerationProvider):
                 },
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._active_jobs.pop(str(request.shot_id), None)
             return GenerationResult(
                 success=False,
@@ -360,7 +360,7 @@ class RunPodProvider(GenerationProvider):
         self,
         request: GenerationRequest,
         model: VideoModel,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build input payload for RunPod endpoint."""
         # Calculate frame count
         num_frames = int(request.duration_seconds * request.fps)
@@ -397,8 +397,8 @@ class RunPodProvider(GenerationProvider):
         self,
         job_id: str,
         shot_id: Any,
-        progress_callback: Optional[ProgressCallback] = None,
-    ) -> Optional[Dict[str, Any]]:
+        progress_callback: ProgressCallback | None = None,
+    ) -> dict[str, Any] | None:
         """Poll RunPod job for completion."""
         import httpx
 
@@ -460,11 +460,11 @@ class RunPodProvider(GenerationProvider):
                 await asyncio.sleep(self.POLL_INTERVAL)
                 elapsed += self.POLL_INTERVAL
 
-        raise asyncio.TimeoutError("RunPod job polling timed out")
+        raise TimeoutError("RunPod job polling timed out")
 
     async def _download_output(
         self,
-        output_data: Dict[str, Any],
+        output_data: dict[str, Any],
         output_path: Path,
     ) -> str:
         """Download output from RunPod result."""
@@ -497,13 +497,13 @@ class RunPodProvider(GenerationProvider):
         self,
         video_path: Path,
         thumbnail_path: Path,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate thumbnail from video using ffmpeg."""
         if not video_path.exists():
             return None
 
         try:
-            from scenemachine.utils.ffmpeg import get_ffmpeg, FFmpegNotFoundError
+            from scenemachine.utils.ffmpeg import get_ffmpeg
 
             ffmpeg = get_ffmpeg()
             await ffmpeg.extract_frame(
@@ -558,8 +558,9 @@ class RunPodProvider(GenerationProvider):
             )
 
         try:
-            import httpx
             import time
+
+            import httpx
 
             headers = {"Authorization": f"Bearer {self.api_key}"}
 
@@ -620,7 +621,7 @@ class RunPodProvider(GenerationProvider):
     def estimate_cost(
         self,
         duration_seconds: float = 3.0,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> float:
         """Estimate generation cost in USD."""
         model = self.get_model(model_id or self.model_id)
@@ -628,7 +629,7 @@ class RunPodProvider(GenerationProvider):
             return model.cost_per_second * duration_seconds
         return 0.05 * duration_seconds  # Default estimate
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """List available models."""
         return [
             {
@@ -642,6 +643,6 @@ class RunPodProvider(GenerationProvider):
             for model_id, model in self.MODELS.items()
         ]
 
-    def get_model(self, model_id: str) -> Optional[VideoModel]:
+    def get_model(self, model_id: str) -> VideoModel | None:
         """Get model by ID."""
         return self.MODELS.get(model_id)

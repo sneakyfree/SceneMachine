@@ -1,7 +1,7 @@
 """Movie Plan API routes."""
 
 import logging
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -28,15 +28,15 @@ class MoviePlanResponse(BaseModel):
     tone: str
     themes: list[str]
     estimated_runtime_minutes: int
-    visual_style: Dict[str, Any]
+    visual_style: dict[str, Any]
     color_palette: list[str]
     cinematography_notes: str
-    characters: list[Dict[str, Any]]
-    protagonist: Optional[str]
-    antagonist: Optional[str]
-    scenes: list[Dict[str, Any]]
-    act_structure: Dict[str, list[str]]
-    location_requirements: list[Dict[str, Any]]
+    characters: list[dict[str, Any]]
+    protagonist: str | None
+    antagonist: str | None
+    scenes: list[dict[str, Any]]
+    act_structure: dict[str, list[str]]
+    location_requirements: list[dict[str, Any]]
     prop_requirements: list[str]
     special_effects_notes: list[str]
     generation_notes: list[str]

@@ -11,18 +11,20 @@ Integrates all components from screenplay to final video:
 """
 
 import asyncio
+import contextlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 from uuid import UUID, uuid4
 
 logger = logging.getLogger(__name__)
 
 
-class PipelineStage(str, Enum):
+class PipelineStage(StrEnum):
     """Pipeline processing stages."""
     INITIALIZED = "initialized"
     PARSING = "parsing"
@@ -39,7 +41,7 @@ class PipelineStage(str, Enum):
     PAUSED = "paused"
 
 
-class PipelineMode(str, Enum):
+class PipelineMode(StrEnum):
     """Pipeline execution modes."""
     FULL_AUTO = "full_auto"  # Run everything automatically
     STEP_BY_STEP = "step_by_step"  # Pause after each stage
@@ -55,14 +57,14 @@ class ShotGenerationStatus:
     status: str  # queued, generating, reviewing, completed, failed
     quality_score: float = 0.0
     regeneration_count: int = 0
-    video_path: Optional[str] = None
-    audio_path: Optional[str] = None
-    error: Optional[str] = None
+    video_path: str | None = None
+    audio_path: str | None = None
+    error: str | None = None
     # Full per-dimension quality review result (review_video().to_dict()).
     # Populated when the review path runs successfully so the UI / audit
     # view can show which dimensions failed without re-running the
     # (CPU/disk-heavy) review.
-    quality_review: Optional[Dict[str, Any]] = None
+    quality_review: dict[str, Any] | None = None
 
 
 @dataclass
@@ -71,10 +73,10 @@ class PipelineProgress:
     stage: PipelineStage
     percent: float
     message: str
-    current_shot: Optional[str] = None
+    current_shot: str | None = None
     shots_completed: int = 0
     shots_total: int = 0
-    estimated_time_remaining: Optional[float] = None
+    estimated_time_remaining: float | None = None
 
 
 @dataclass
@@ -83,18 +85,18 @@ class PipelineResult:
     project_id: str
     success: bool
     stage: PipelineStage
-    output_path: Optional[str] = None
+    output_path: str | None = None
     total_shots: int = 0
     completed_shots: int = 0
     failed_shots: int = 0
     total_duration_seconds: float = 0.0
     total_cost_usd: float = 0.0
     processing_time_seconds: float = 0.0
-    error: Optional[str] = None
-    warnings: List[str] = field(default_factory=list)
-    shot_statuses: List[ShotGenerationStatus] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    error: str | None = None
+    warnings: list[str] = field(default_factory=list)
+    shot_statuses: list[ShotGenerationStatus] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "project_id": self.project_id,
             "success": self.success,
@@ -119,10 +121,10 @@ ProgressCallback = Callable[[PipelineProgress], Any]
 
 class ProductionPipeline:
     """Full production pipeline for screenplay-to-movie generation.
-    
+
     Implements the DNA strand master plan's end-to-end workflow:
     - Upload a script → Click "Generate Movie" → Download a finished film
-    
+
     Features:
     - Automatic blocker detection and resolution suggestions
     - Quality gating with regeneration
@@ -131,22 +133,22 @@ class ProductionPipeline:
     - Parallel shot generation
     - Progress streaming
     """
-    
+
     # Configuration
     DEFAULT_MAX_PARALLEL = 2
     DEFAULT_QUALITY_THRESHOLD = 0.7
     DEFAULT_BUDGET_LIMIT = 100.0  # USD
-    
+
     def __init__(
         self,
         project_id: str,
-        output_dir: Optional[Path] = None,
+        output_dir: Path | None = None,
         max_parallel: int = 2,
         quality_threshold: float = 0.7,
         budget_limit: float = 100.0,
-    ):
+    ) -> None:
         """Initialize the production pipeline.
-        
+
         Args:
             project_id: Unique project identifier
             output_dir: Directory for output files
@@ -157,36 +159,36 @@ class ProductionPipeline:
         self.project_id = project_id
         self.output_dir = output_dir or Path(f"/tmp/scenemachine/projects/{project_id}")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.max_parallel = max_parallel
         self.quality_threshold = quality_threshold
         self.budget_limit = budget_limit
-        
+
         # State
         self.stage = PipelineStage.INITIALIZED
-        self.screenplay_data: Optional[Dict[str, Any]] = None
-        self.shot_list: Optional[Dict[str, Any]] = None
-        self.characters: List[Dict[str, Any]] = []
-        self.blockers: List[Dict[str, Any]] = []
-        self.shot_statuses: Dict[str, ShotGenerationStatus] = {}
-        
+        self.screenplay_data: dict[str, Any] | None = None
+        self.shot_list: dict[str, Any] | None = None
+        self.characters: list[dict[str, Any]] = []
+        self.blockers: list[dict[str, Any]] = []
+        self.shot_statuses: dict[str, ShotGenerationStatus] = {}
+
         # Tracking
         self.total_cost: float = 0.0
-        self.start_time: Optional[datetime] = None
-        
+        self.start_time: datetime | None = None
+
         # Progress callback
-        self._progress_callback: Optional[ProgressCallback] = None
-    
+        self._progress_callback: ProgressCallback | None = None
+
     def set_progress_callback(self, callback: ProgressCallback) -> None:
         """Set progress callback for streaming updates."""
         self._progress_callback = callback
-    
+
     async def _emit_progress(
         self,
         stage: PipelineStage,
         percent: float,
         message: str,
-        current_shot: Optional[str] = None,
+        current_shot: str | None = None,
     ) -> None:
         """Emit progress update."""
         if self._progress_callback:
@@ -199,20 +201,20 @@ class ProductionPipeline:
                 shots_total=len(self.shot_statuses),
             )
             await self._progress_callback(progress)
-    
+
     async def run(
         self,
-        screenplay_path: Union[str, Path],
+        screenplay_path: str | Path,
         file_format: str,
         mode: PipelineMode = PipelineMode.FULL_AUTO,
     ) -> PipelineResult:
         """Run the full production pipeline.
-        
+
         Args:
             screenplay_path: Path to screenplay file
             file_format: File format (fountain, pdf, fdx)
             mode: Execution mode
-            
+
         Returns:
             PipelineResult with output and statistics
         """
@@ -242,7 +244,7 @@ class ProductionPipeline:
             self.stage = PipelineStage.BLOCKER_CHECK
 
             blockers = await self._check_blockers()
-            
+
             # Check for critical blockers
             critical_blockers = [b for b in blockers if b.get("severity") == "critical"]
             if critical_blockers:
@@ -253,7 +255,7 @@ class ProductionPipeline:
                     error=f"{len(critical_blockers)} critical blockers prevent generation",
                     warnings=[b.get("description", "") for b in critical_blockers],
                 )
-            
+
             # If validation mode, stop here
             if mode == PipelineMode.VALIDATE:
                 return PipelineResult(
@@ -263,7 +265,7 @@ class ProductionPipeline:
                     total_shots=len(self.shot_statuses),
                     warnings=[b.get("description", "") for b in self.blockers if b.get("severity") in ("high", "medium")],
                 )
-            
+
             # Stage 4: Prepare characters
             await self._emit_progress(PipelineStage.CHARACTER_PREP, 25, "Preparing characters...")
             self.stage = PipelineStage.CHARACTER_PREP
@@ -305,9 +307,9 @@ class ProductionPipeline:
             # Complete
             self.stage = PipelineStage.COMPLETED
             await self._emit_progress(PipelineStage.COMPLETED, 100, "Complete!")
-            
+
             processing_time = (datetime.utcnow() - self.start_time).total_seconds()
-            
+
             return PipelineResult(
                 project_id=self.project_id,
                 success=True,
@@ -320,11 +322,11 @@ class ProductionPipeline:
                 processing_time_seconds=processing_time,
                 shot_statuses=list(self.shot_statuses.values()),
             )
-            
+
         except Exception as e:
             logger.exception(f"Pipeline failed: {e}")
             return self._failure(str(e))
-    
+
     async def _snapshot_stage(self, label: str, description: str) -> None:
         """Persist an immutable snapshot at a stage boundary.
 
@@ -342,6 +344,7 @@ class ProductionPipeline:
         """
         try:
             from uuid import UUID as _UUID
+
             from scenemachine.services.snapshots import SnapshotService
 
             try:
@@ -353,7 +356,7 @@ class ProductionPipeline:
                 logger.debug("snapshot: skipping non-UUID project_id=%s", self.project_id)
                 return
 
-            shots_data: List[Dict[str, Any]] = []
+            shots_data: list[dict[str, Any]] = []
             for s in self.shot_statuses.values():
                 shots_data.append({
                     "shot_id": s.shot_id,
@@ -398,7 +401,7 @@ class ProductionPipeline:
         processing_time = 0.0
         if self.start_time:
             processing_time = (datetime.utcnow() - self.start_time).total_seconds()
-        
+
         return PipelineResult(
             project_id=self.project_id,
             success=False,
@@ -407,20 +410,20 @@ class ProductionPipeline:
             processing_time_seconds=processing_time,
             shot_statuses=list(self.shot_statuses.values()),
         )
-    
+
     async def _parse_screenplay(
-        self, 
-        path: Union[str, Path], 
+        self,
+        path: str | Path,
         format: str,
     ) -> bool:
         """Parse screenplay file."""
         try:
-            from scenemachine.parsers import FountainParser, PDFParser, FDXParser
-            
+            from scenemachine.parsers import FDXParser, FountainParser, PDFParser
+
             path = Path(path)
-            
+
             if format.lower() == "fountain":
-                with open(path, "r") as f:
+                with open(path) as f:
                     parser = FountainParser()
                     self.screenplay_data = parser.parse(f.read())
             elif format.lower() == "pdf":
@@ -431,21 +434,21 @@ class ProductionPipeline:
                 self.screenplay_data = parser.parse(str(path))
             else:
                 return False
-            
+
             return self.screenplay_data is not None
-            
+
         except Exception as e:
             logger.exception(f"Parse error: {e}")
             return False
-    
+
     async def _generate_shot_list(self) -> bool:
         """Generate shot breakdown."""
         try:
             from scenemachine.services.shot_list_generator import ShotListGenerator
-            
+
             generator = ShotListGenerator()
             self.shot_list = generator.generate(self.screenplay_data)
-            
+
             # Initialize shot statuses
             for scene in self.shot_list.get("scenes", []):
                 for shot in scene.get("shots", []):
@@ -455,50 +458,50 @@ class ProductionPipeline:
                         scene_id=scene.get("scene_number", ""),
                         status="queued",
                     )
-            
+
             return True
-            
+
         except Exception as e:
             logger.exception(f"Shot list error: {e}")
             return False
-    
-    async def _check_blockers(self) -> List[Dict[str, Any]]:
+
+    async def _check_blockers(self) -> list[dict[str, Any]]:
         """Check for generation blockers."""
         try:
             from scenemachine.services.blockers_engine import BlockersEngine
-            
+
             engine = BlockersEngine()
-            
+
             shots = [
                 shot
                 for scene in self.shot_list.get("scenes", [])
                 for shot in scene.get("shots", [])
             ]
-            
+
             result = engine.analyze_project(
                 characters=self.characters,
                 scenes=self.shot_list.get("scenes", []),
                 shots=shots,
             )
-            
+
             self.blockers = result.get("blockers", [])
             return self.blockers
-            
+
         except Exception as e:
             logger.exception(f"Blocker check error: {e}")
             return []
-    
+
     async def _prepare_characters(self) -> None:
         """Prepare character references and voices."""
         # Extract characters from shot list
         self.characters = self.shot_list.get("characters", [])
-        
+
         # In production, would generate reference images and assign voices
         logger.info(f"Prepared {len(self.characters)} characters")
-    
+
     async def _generate_videos(
         self,
-        shots: List[ShotGenerationStatus],
+        shots: list[ShotGenerationStatus],
     ) -> None:
         """Generate videos for shots, routing each through StackRouter.
 
@@ -514,15 +517,14 @@ class ProductionPipeline:
         available AND the shot has no character references (which would
         otherwise route to Animate — character ID outranks continuity).
         """
-        from scenemachine.services.video_quality_reviewer import get_video_quality_reviewer
-        from scenemachine.services.stack_router import route_shot
+        from scenemachine.config import get_settings
         from scenemachine.generators.base import (
             GenerationRequest,
             get_provider_registry,
         )
         from scenemachine.models.generation_job import JobProvider
-        from scenemachine.config import get_settings
-        from uuid import UUID, uuid4
+        from scenemachine.services.stack_router import route_shot
+        from scenemachine.services.video_quality_reviewer import get_video_quality_reviewer
 
         reviewer = get_video_quality_reviewer()
 
@@ -552,7 +554,7 @@ class ProductionPipeline:
 
         # Build a stable character_id -> reference_image_path map from
         # whatever the earlier pipeline stage prepared.
-        character_ref_paths: Dict[str, str] = {}
+        character_ref_paths: dict[str, str] = {}
         for c in (self.characters or []):
             cid = c.get("id") or c.get("character_id")
             ref = c.get("reference_image_path") or c.get("ref_image")
@@ -566,7 +568,7 @@ class ProductionPipeline:
         comfyui_input_dir.mkdir(parents=True, exist_ok=True)
 
         async def extract_last_frame(video_path: str, shot_id: str,
-                                     duration_s: float) -> Optional[str]:
+                                     duration_s: float) -> str | None:
             """Extract the last frame of the shot's mp4 into ComfyUI's input
             dir. Returns the filename (relative to ComfyUI input dir) on
             success, None on failure. Failure is logged but never raised —
@@ -611,14 +613,14 @@ class ProductionPipeline:
         # Group shots by scene_id so we can process each scene's shots
         # sequentially. Preserve the original order within each scene
         # (the shot_list generator already sorts by sequence_number).
-        scenes_to_shots: Dict[str, List[ShotGenerationStatus]] = {}
+        scenes_to_shots: dict[str, list[ShotGenerationStatus]] = {}
         for shot in shots:
             scenes_to_shots.setdefault(shot.scene_id or "_no_scene_", []).append(shot)
 
         async def generate_shot(
             shot: ShotGenerationStatus,
-            prev_shot_last_frame: Optional[str],
-        ) -> Optional[str]:
+            prev_shot_last_frame: str | None,
+        ) -> str | None:
             """Generate one shot. Returns the next shot's
             ``prev_shot_last_frame`` (None if generation failed or last-frame
             extraction failed — both are treated as no-continuity).
@@ -744,10 +746,8 @@ class ProductionPipeline:
                         # Cache the full per-dimension breakdown on the shot
                         # so the UI / audit view can show what failed and
                         # why. Avoids re-running the (expensive) review.
-                        try:
+                        with contextlib.suppress(Exception):
                             shot.quality_review = review.to_dict()
-                        except Exception:
-                            pass
                         if (
                             shot.quality_score < self.quality_threshold
                             and shot.regeneration_count < 2
@@ -796,13 +796,13 @@ class ProductionPipeline:
 
         async def generate_scene(
             scene_id: str,
-            scene_shots: List[ShotGenerationStatus],
+            scene_shots: list[ShotGenerationStatus],
         ) -> None:
             """Process one scene's shots SEQUENTIALLY so each can seed the
             next via I2V continuity. Scenes run in parallel up to
             ``self.max_parallel`` concurrent scenes."""
             async with scene_semaphore:
-                prev_frame: Optional[str] = None
+                prev_frame: str | None = None
                 for shot in scene_shots:
                     prev_frame = await generate_shot(shot, prev_frame)
 
@@ -810,46 +810,46 @@ class ProductionPipeline:
             generate_scene(scene_id, scene_shots)
             for scene_id, scene_shots in scenes_to_shots.items()
         ])
-    
+
     async def _generate_audio(
-        self, 
-        shots: List[ShotGenerationStatus],
+        self,
+        shots: list[ShotGenerationStatus],
     ) -> None:
         """Generate dialogue audio for shots using AudioService."""
         try:
-            from scenemachine.services.audio import AudioService, TTSProvider
             from scenemachine.db import get_db_manager
-            
+            from scenemachine.services.audio import AudioService, TTSProvider
+
             db_manager = get_db_manager()
-            
+
             async with db_manager.session() as session:
                 audio_service = AudioService(session)
                 await audio_service.initialize_providers()
-                
+
                 # Determine best available TTS provider
                 available = await audio_service.get_available_providers()
                 tts_provider = TTSProvider.MOCK
-                
+
                 for pref in [TTSProvider.ELEVENLABS, TTSProvider.OPENAI, TTSProvider.MOCK]:
                     if any(p["provider"] == pref.value and p["available"] for p in available):
                         tts_provider = pref
                         break
-                
+
                 logger.info(f"Using TTS provider: {tts_provider.value}")
-                
+
                 for shot in shots:
                     shot_data = self._get_shot_data(shot.shot_id)
-                    
+
                     if shot_data and shot_data.get("dialogue"):
                         dialogue = shot_data["dialogue"]
                         text = dialogue.get("text", "")
-                        
+
                         if not text.strip():
                             continue
-                        
+
                         # Use character voice if assigned, otherwise default
                         voice_id = dialogue.get("voice_id", "mock-male-1")
-                        
+
                         try:
                             result = await audio_service.generate_speech(
                                 text=text,
@@ -857,7 +857,7 @@ class ProductionPipeline:
                                 provider=tts_provider,
                                 speed=dialogue.get("speed", 1.0),
                             )
-                            
+
                             if result.success:
                                 shot.audio_path = result.audio_path
                                 self.total_cost += result.cost_usd or 0.0
@@ -865,47 +865,47 @@ class ProductionPipeline:
                                 logger.warning(f"TTS failed for shot {shot.shot_id}: {result.error_message}")
                         except Exception as tts_err:
                             logger.warning(f"TTS error for shot {shot.shot_id}: {tts_err}")
-        
+
         except Exception as e:
             logger.warning(f"Audio generation stage failed (non-fatal): {e}")
             # Audio generation failure is non-fatal; pipeline continues without dialogue
-    
+
     async def _apply_lip_sync(
-        self, 
-        shots: List[ShotGenerationStatus],
+        self,
+        shots: list[ShotGenerationStatus],
     ) -> None:
         """Apply lip sync to shots that have both audio and video."""
         try:
             from scenemachine.services.lipsync import LipSyncProvider, get_lip_sync_service
-            
+
             service = get_lip_sync_service()
             await service.initialize_providers()
-            
+
             # Determine best available lip sync provider
             available = await service.get_available_providers()
             ls_provider = LipSyncProvider.MOCK
-            
+
             for pref in [LipSyncProvider.LATENTSYNC, LipSyncProvider.RHUBARB, LipSyncProvider.MOCK]:
                 if any(p["provider"] == pref.value and p["available"] for p in available):
                     ls_provider = pref
                     break
-            
+
             logger.info(f"Using lip sync provider: {ls_provider.value}")
-            
+
             for shot in shots:
                 if shot.audio_path and shot.video_path:
                     try:
                         output_path = str(
                             Path(shot.video_path).parent / f"{Path(shot.video_path).stem}_lipsync.mp4"
                         )
-                        
+
                         result = await service.apply_to_video(
                             video_path=shot.video_path,
                             audio_path=shot.audio_path,
                             output_path=output_path,
                             provider=ls_provider,
                         )
-                        
+
                         if result.success and result.output_video_path:
                             shot.video_path = result.output_video_path
                             logger.info(f"Applied lip sync to shot {shot.shot_id}")
@@ -913,13 +913,13 @@ class ProductionPipeline:
                             logger.warning(f"Lip sync failed for {shot.shot_id}: {result.error_message}")
                     except Exception as ls_err:
                         logger.warning(f"Lip sync error for {shot.shot_id}: {ls_err}")
-        
+
         except Exception as e:
             logger.warning(f"Lip sync stage failed (non-fatal): {e}")
-    
+
     async def _assemble_movie(
         self,
-        shots: List[ShotGenerationStatus],
+        shots: list[ShotGenerationStatus],
     ) -> str:
         """Assemble final movie from shots using ffmpeg concat.
 
@@ -1006,7 +1006,7 @@ class ProductionPipeline:
             # listing — no concat_list.txt path quoting concerns. CPU encode
             # so it doesn't fight the GPU pipeline for VRAM.
             n = len(video_paths)
-            input_args: List[str] = []
+            input_args: list[str] = []
             for vp in video_paths:
                 input_args.extend(["-i", vp])
             stream_specs = "".join(f"[{i}:v:0]" for i in range(n))
@@ -1056,60 +1056,60 @@ class ProductionPipeline:
             concat_file.unlink(missing_ok=True)
 
         return str(output_path)
-    
-    def _build_generation_prompt(self, shot_data: Dict[str, Any]) -> str:
+
+    def _build_generation_prompt(self, shot_data: dict[str, Any]) -> str:
         """Build a video generation prompt from shot data.
-        
+
         Combines shot description, camera movement, characters, and mood
         into a cohesive prompt for the video generation provider.
         """
         parts = []
-        
+
         # Core shot description
         description = shot_data.get("description", "")
         if description:
             parts.append(description)
-        
+
         # Camera information
         shot_type = shot_data.get("shot_type", "")
         camera_movement = shot_data.get("camera_movement", "")
         camera_angle = shot_data.get("camera_angle", "")
-        
+
         camera_parts = [p for p in [shot_type, camera_movement, camera_angle] if p]
         if camera_parts:
             parts.append(f"Camera: {', '.join(camera_parts)}")
-        
+
         # Characters in shot
         characters = shot_data.get("characters", [])
         if characters:
             char_names = [c.get("name", c) if isinstance(c, dict) else str(c) for c in characters]
             parts.append(f"Characters: {', '.join(char_names)}")
-        
+
         # Mood/atmosphere
         mood = shot_data.get("mood", "") or shot_data.get("atmosphere", "")
         if mood:
             parts.append(f"Mood: {mood}")
-        
+
         # Lighting
         lighting = shot_data.get("lighting", "")
         if lighting:
             parts.append(f"Lighting: {lighting}")
-        
+
         return ". ".join(parts) if parts else "A cinematic shot"
-    
-    def _get_shot_data(self, shot_id: str) -> Optional[Dict[str, Any]]:
+
+    def _get_shot_data(self, shot_id: str) -> dict[str, Any] | None:
         """Get shot data from shot list."""
         if not self.shot_list:
             return None
-        
+
         for scene in self.shot_list.get("scenes", []):
             for shot in scene.get("shots", []):
                 if shot.get("shot_id") == shot_id:
                     return shot
-        
+
         return None
-    
-    def get_status(self) -> Dict[str, Any]:
+
+    def get_status(self) -> dict[str, Any]:
         """Get current pipeline status."""
         return {
             "project_id": self.project_id,

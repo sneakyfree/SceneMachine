@@ -2,8 +2,8 @@
 
 import base64
 import os
-from enum import Enum
-from typing import Any, Dict, Optional
+from enum import StrEnum
+from typing import Any
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
@@ -14,14 +14,14 @@ from sqlalchemy.orm import Mapped, mapped_column
 from scenemachine.models.base import Base, TimestampMixin, UUIDMixin
 
 
-class LLMProvider(str, Enum):
+class LLMProvider(StrEnum):
     """Supported LLM providers."""
 
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
 
 
-class VideoProvider(str, Enum):
+class VideoProvider(StrEnum):
     """Supported video generation providers."""
 
     LOCAL = "local"
@@ -30,7 +30,7 @@ class VideoProvider(str, Enum):
     RUNWAYML = "runwayml"
 
 
-class ThemeMode(str, Enum):
+class ThemeMode(StrEnum):
     """UI theme modes."""
 
     SYSTEM = "system"
@@ -93,39 +93,39 @@ class UserSettings(Base, UUIDMixin, TimestampMixin):
     )
 
     # AI Provider Settings
-    llm_provider: Mapped[Optional[str]] = mapped_column(
+    llm_provider: Mapped[str | None] = mapped_column(
         String(50),
         default=LLMProvider.ANTHROPIC.value,
         nullable=True,
     )
-    video_provider: Mapped[Optional[str]] = mapped_column(
+    video_provider: Mapped[str | None] = mapped_column(
         String(50),
         default=VideoProvider.LOCAL.value,
         nullable=True,
     )
 
     # Encrypted API Keys
-    _anthropic_api_key: Mapped[Optional[str]] = mapped_column(
+    _anthropic_api_key: Mapped[str | None] = mapped_column(
         "anthropic_api_key",
         Text,
         nullable=True,
     )
-    _openai_api_key: Mapped[Optional[str]] = mapped_column(
+    _openai_api_key: Mapped[str | None] = mapped_column(
         "openai_api_key",
         Text,
         nullable=True,
     )
-    _replicate_api_key: Mapped[Optional[str]] = mapped_column(
+    _replicate_api_key: Mapped[str | None] = mapped_column(
         "replicate_api_key",
         Text,
         nullable=True,
     )
-    _fal_api_key: Mapped[Optional[str]] = mapped_column(
+    _fal_api_key: Mapped[str | None] = mapped_column(
         "fal_api_key",
         Text,
         nullable=True,
     )
-    _runwayml_api_key: Mapped[Optional[str]] = mapped_column(
+    _runwayml_api_key: Mapped[str | None] = mapped_column(
         "runwayml_api_key",
         Text,
         nullable=True,
@@ -213,7 +213,7 @@ class UserSettings(Base, UUIDMixin, TimestampMixin):
     )
 
     # Additional settings stored as JSON
-    additional_settings: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    additional_settings: Mapped[dict[str, Any] | None] = mapped_column(
         JSON,
         default=dict,
         nullable=True,
@@ -288,7 +288,7 @@ class UserSettings(Base, UUIDMixin, TimestampMixin):
             return "****"
         return f"{key[:4]}...{key[-4:]}"
 
-    def to_dict(self, include_keys: bool = False) -> Dict[str, Any]:
+    def to_dict(self, include_keys: bool = False) -> dict[str, Any]:
         """Convert settings to dictionary.
 
         Args:

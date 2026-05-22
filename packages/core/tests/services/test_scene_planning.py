@@ -1,13 +1,12 @@
 """Tests for Scene Planning service."""
 
+
 import pytest
 import pytest_asyncio
-from uuid import uuid4
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.scene_planning import ScenePlanningService
 from scenemachine.models import Project, Scene, SceneState
+from scenemachine.services.scene_planning import ScenePlanningService
 
 
 class TestScenePlanningService:

@@ -4,18 +4,16 @@ Handles scene analysis, shot breakdown generation, and the approval workflow.
 """
 
 import logging
-import re
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.config import get_settings
-from scenemachine.models import Character, Project, Scene, Shot
+from scenemachine.models import Project, Scene, Shot
 from scenemachine.models.project import ProjectState
 from scenemachine.models.scene import SceneState
 from scenemachine.models.shot import CameraMovement, ShotState, ShotType
@@ -32,12 +30,12 @@ class ShotSpec:
     shot_type: ShotType
     camera_movement: CameraMovement
     description: str
-    dialogue: Optional[str] = None
-    action: Optional[str] = None
-    character_ids: List[UUID] = field(default_factory=list)
+    dialogue: str | None = None
+    action: str | None = None
+    character_ids: list[UUID] = field(default_factory=list)
     duration_seconds: float = 3.0
-    composition_notes: Optional[str] = None
-    lighting_notes: Optional[str] = None
+    composition_notes: str | None = None
+    lighting_notes: str | None = None
 
 
 @dataclass
@@ -46,9 +44,9 @@ class SceneAnalysis:
 
     summary: str
     mood: str
-    emotional_arc: List[str]
-    key_moments: List[Dict[str, Any]]
-    visual_style_suggestions: List[str]
+    emotional_arc: list[str]
+    key_moments: list[dict[str, Any]]
+    visual_style_suggestions: list[str]
     pacing: str
     importance: int  # 1-10
     suggested_shot_count: int
@@ -64,7 +62,7 @@ class ShotBreakdown:
     approach: str
     coverage_style: str
     notes: str
-    shots: List[ShotSpec]
+    shots: list[ShotSpec]
     estimated_duration: float
 
 
@@ -100,7 +98,7 @@ class ScenePlanningService:
         self,
         project_id: UUID,
         include_shots: bool = False,
-    ) -> List[Scene]:
+    ) -> list[Scene]:
         """Get all scenes for a project.
 
         Args:
@@ -129,7 +127,7 @@ class ScenePlanningService:
         self,
         scene_id: UUID,
         include_shots: bool = True,
-    ) -> Optional[Scene]:
+    ) -> Scene | None:
         """Get a scene by ID.
 
         Args:
@@ -245,7 +243,7 @@ class ScenePlanningService:
             "joyful": ["celebrate", "happy", "excited", "cheer", "party"],
         }
 
-        mood_scores: Dict[str, int] = {}
+        mood_scores: dict[str, int] = {}
         for mood, keywords in mood_keywords.items():
             score = sum(content.count(kw) for kw in keywords)
             if score > 0:
@@ -266,7 +264,7 @@ class ScenePlanningService:
         else:
             return "moderate with natural rhythm"
 
-    def _extract_key_moments(self, action_lines: List[str]) -> List[Dict[str, Any]]:
+    def _extract_key_moments(self, action_lines: list[str]) -> list[dict[str, Any]]:
         """Extract key moments from action lines."""
         key_moments = []
 
@@ -298,8 +296,8 @@ class ScenePlanningService:
         return key_moments[:10]  # Limit to 10 key moments
 
     def _generate_emotional_arc(
-        self, content: str, key_moments: List[Dict]
-    ) -> List[str]:
+        self, content: str, key_moments: list[dict]
+    ) -> list[str]:
         """Generate emotional arc for the scene."""
         emotions = []
 
@@ -331,7 +329,7 @@ class ScenePlanningService:
 
         return emotions if len(emotions) > 1 else ["neutral", "neutral"]
 
-    def _suggest_visual_style(self, scene: Scene, mood: str) -> List[str]:
+    def _suggest_visual_style(self, scene: Scene, mood: str) -> list[str]:
         """Suggest visual style based on scene attributes."""
         suggestions = []
 
@@ -413,7 +411,7 @@ class ScenePlanningService:
         return min(20, max(3, total))  # Clamp between 3 and 20
 
     def _generate_scene_summary(
-        self, scene: Scene, key_moments: List[Dict]
+        self, scene: Scene, key_moments: list[dict]
     ) -> str:
         """Generate a summary of the scene."""
         moment_descs = [m["description"] for m in key_moments[:3]]
@@ -531,12 +529,11 @@ class ScenePlanningService:
 
     def _generate_shots(
         self, scene: Scene, analysis: SceneAnalysis
-    ) -> List[ShotSpec]:
+    ) -> list[ShotSpec]:
         """Generate individual shots for a scene."""
-        shots: List[ShotSpec] = []
+        shots: list[ShotSpec] = []
         shot_num = 1
 
-        action_lines = scene.action_lines or []
         character_ids = scene.character_ids or []
 
         # 1. Establishing shot (if exterior or new location)
@@ -571,7 +568,7 @@ class ScenePlanningService:
             shot_num += 1
 
         # 2. Character introduction shots
-        for i, char_id in enumerate(character_ids[:2]):  # Main characters
+        for _i, char_id in enumerate(character_ids[:2]):  # Main characters
             shots.append(
                 ShotSpec(
                     shot_number=f"{scene.scene_number}-{shot_num}",
@@ -656,8 +653,8 @@ class ScenePlanningService:
         return shots
 
     def _suggest_shot_for_moment(
-        self, moment: Dict[str, Any]
-    ) -> Tuple[ShotType, CameraMovement]:
+        self, moment: dict[str, Any]
+    ) -> tuple[ShotType, CameraMovement]:
         """Suggest shot type and movement for a key moment."""
         desc = moment.get("description", "").lower()
         importance = moment.get("importance", "medium")
@@ -732,14 +729,14 @@ class ScenePlanningService:
     async def update_shot(
         self,
         shot_id: UUID,
-        shot_type: Optional[ShotType] = None,
-        camera_movement: Optional[CameraMovement] = None,
-        description: Optional[str] = None,
-        dialogue: Optional[str] = None,
-        action: Optional[str] = None,
-        duration_seconds: Optional[float] = None,
-        composition_notes: Optional[str] = None,
-        lighting_notes: Optional[str] = None,
+        shot_type: ShotType | None = None,
+        camera_movement: CameraMovement | None = None,
+        description: str | None = None,
+        dialogue: str | None = None,
+        action: str | None = None,
+        duration_seconds: float | None = None,
+        composition_notes: str | None = None,
+        lighting_notes: str | None = None,
     ) -> Shot:
         """Update a shot's specification.
 
@@ -820,7 +817,7 @@ class ScenePlanningService:
         description: str,
         camera_movement: CameraMovement = CameraMovement.STATIC,
         duration_seconds: float = 3.0,
-        after_shot_id: Optional[UUID] = None,
+        after_shot_id: UUID | None = None,
     ) -> Shot:
         """Add a new shot to a scene.
 
@@ -917,7 +914,7 @@ class ScenePlanningService:
                 await self.session.commit()
                 logger.info(f"All scenes approved for project {project_id}")
 
-    async def get_shot(self, shot_id: UUID) -> Optional[Shot]:
+    async def get_shot(self, shot_id: UUID) -> Shot | None:
         """Get a shot by ID."""
         stmt = select(Shot).where(Shot.id == shot_id)
         result = await self.session.execute(stmt)

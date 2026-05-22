@@ -1,17 +1,17 @@
 """Project sharing models."""
 
 import enum
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, Boolean
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from scenemachine.models.base import Base
 
 
-class SharePermission(str, enum.Enum):
+class SharePermission(enum.StrEnum):
     """Permission levels for shared projects."""
 
     VIEW = "view"  # Can view project, scenes, shots
@@ -20,7 +20,7 @@ class SharePermission(str, enum.Enum):
     ADMIN = "admin"  # Full access including sharing
 
 
-class ShareStatus(str, enum.Enum):
+class ShareStatus(enum.StrEnum):
     """Status of a share invitation."""
 
     PENDING = "pending"  # Invitation sent, not yet accepted
@@ -49,8 +49,8 @@ class ProjectShare(Base):
     )  # Unique share link code
 
     # Recipient (optional - can be email or user ID once auth is added)
-    recipient_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    recipient_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    recipient_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recipient_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Permission level
     permission: Mapped[SharePermission] = mapped_column(
@@ -63,13 +63,13 @@ class ProjectShare(Base):
     )
 
     # Optional message from sharer
-    message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Expiration (optional)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Access tracking
-    last_accessed_at: Mapped[Optional[datetime]] = mapped_column(
+    last_accessed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     access_count: Mapped[int] = mapped_column(default=0)
@@ -79,12 +79,12 @@ class ProjectShare(Base):
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships
@@ -94,9 +94,7 @@ class ProjectShare(Base):
         """Check if share is still valid."""
         if self.status not in (ShareStatus.PENDING, ShareStatus.ACCEPTED):
             return False
-        if self.expires_at and datetime.now(timezone.utc) > self.expires_at:
-            return False
-        return True
+        return not (self.expires_at and datetime.now(UTC) > self.expires_at)
 
     def can_view(self) -> bool:
         """Check if share allows viewing."""
@@ -141,42 +139,42 @@ class ProjectComment(Base):
     )
 
     # Optional specific shot (for shot-level feedback)
-    shot_id: Mapped[Optional[UUID]] = mapped_column(
+    shot_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("shots.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
 
     # Optional parent comment (for replies)
-    parent_id: Mapped[Optional[UUID]] = mapped_column(
+    parent_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("project_comments.id", ondelete="CASCADE"),
         nullable=True,
     )
 
     # Author info (from share or local user)
     author_name: Mapped[str] = mapped_column(String(255))
-    author_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    author_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Comment content
     content: Mapped[str] = mapped_column(Text)
 
     # Timecode reference (for shot comments)
-    timecode_seconds: Mapped[Optional[float]] = mapped_column(nullable=True)
+    timecode_seconds: Mapped[float | None] = mapped_column(nullable=True)
 
     # Status
     is_resolved: Mapped[bool] = mapped_column(Boolean, default=False)
-    resolved_at: Mapped[Optional[datetime]] = mapped_column(
+    resolved_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships

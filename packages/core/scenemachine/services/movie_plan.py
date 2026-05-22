@@ -6,7 +6,7 @@ Generates comprehensive movie plans from parsed screenplays using AI analysis.
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -26,9 +26,9 @@ class CharacterAnalysis:
     name: str
     description: str
     arc: str
-    relationships: List[Dict[str, str]]
-    visual_suggestions: Dict[str, Any]
-    key_scenes: List[str]
+    relationships: list[dict[str, str]]
+    visual_suggestions: dict[str, Any]
+    key_scenes: list[str]
     dialogue_style: str
     estimated_age_range: str
     gender_presentation: str
@@ -44,8 +44,8 @@ class SceneAnalysis:
     mood: str
     pacing: str
     visual_style: str
-    key_actions: List[str]
-    characters_present: List[str]
+    key_actions: list[str]
+    characters_present: list[str]
     dialogue_summary: str
     estimated_duration_seconds: int
     suggested_shot_count: int
@@ -67,31 +67,31 @@ class MoviePlan:
     logline: str
     genre: str
     tone: str
-    themes: List[str]
+    themes: list[str]
     estimated_runtime_minutes: int
 
     # Visual Style
-    visual_style: Dict[str, Any] = field(default_factory=dict)
-    color_palette: List[str] = field(default_factory=list)
+    visual_style: dict[str, Any] = field(default_factory=dict)
+    color_palette: list[str] = field(default_factory=list)
     cinematography_notes: str = ""
 
     # Characters
-    characters: List[Dict[str, Any]] = field(default_factory=list)
-    protagonist: Optional[str] = None
-    antagonist: Optional[str] = None
+    characters: list[dict[str, Any]] = field(default_factory=list)
+    protagonist: str | None = None
+    antagonist: str | None = None
 
     # Scenes
-    scenes: List[Dict[str, Any]] = field(default_factory=list)
-    act_structure: Dict[str, List[str]] = field(default_factory=dict)
+    scenes: list[dict[str, Any]] = field(default_factory=list)
+    act_structure: dict[str, list[str]] = field(default_factory=dict)
 
     # Production Notes
-    location_requirements: List[Dict[str, Any]] = field(default_factory=list)
-    prop_requirements: List[str] = field(default_factory=list)
-    special_effects_notes: List[str] = field(default_factory=list)
+    location_requirements: list[dict[str, Any]] = field(default_factory=list)
+    prop_requirements: list[str] = field(default_factory=list)
+    special_effects_notes: list[str] = field(default_factory=list)
 
     # Generation Statistics
-    generation_notes: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    generation_notes: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 class MoviePlanService:
@@ -164,8 +164,8 @@ class MoviePlanService:
     async def _generate_plan(
         self,
         screenplay: Screenplay,
-        characters: List[Character],
-        scenes: List[Scene],
+        characters: list[Character],
+        scenes: list[Scene],
     ) -> MoviePlan:
         """Generate movie plan using AI analysis.
 
@@ -249,7 +249,7 @@ class MoviePlanService:
             warnings=self._generate_warnings(screenplay, characters, scenes),
         )
 
-    def _analyze_genre_tone(self, elements: List[Dict]) -> tuple[str, str]:
+    def _analyze_genre_tone(self, elements: list[dict]) -> tuple[str, str]:
         """Analyze genre and tone from screenplay elements."""
         # Keywords for genre detection
         genre_keywords = {
@@ -264,7 +264,7 @@ class MoviePlanService:
 
         # Count keyword occurrences
         text = " ".join(e.get("text", "").lower() for e in elements)
-        genre_scores: Dict[str, int] = {}
+        genre_scores: dict[str, int] = {}
 
         for genre, keywords in genre_keywords.items():
             score = sum(text.count(kw) for kw in keywords)
@@ -289,7 +289,7 @@ class MoviePlanService:
 
         return genre, tone
 
-    def _extract_themes(self, elements: List[Dict]) -> List[str]:
+    def _extract_themes(self, elements: list[dict]) -> list[str]:
         """Extract thematic elements from the screenplay."""
         theme_keywords = {
             "redemption": ["forgive", "second chance", "redemption", "atone"],
@@ -312,7 +312,7 @@ class MoviePlanService:
         return themes[:5] if themes else ["personal journey"]
 
     def _generate_logline(
-        self, title: str, characters: List[Character], scenes: List[Scene]
+        self, title: str, characters: list[Character], scenes: list[Scene]
     ) -> str:
         """Generate a logline for the screenplay."""
         # Find protagonist (character with most dialogue)
@@ -332,8 +332,8 @@ class MoviePlanService:
         return f"An epic journey across {len(scenes)} scenes unfolds in this compelling story."
 
     def _analyze_visual_style(
-        self, scenes: List[Scene], genre: str, tone: str
-    ) -> Dict[str, Any]:
+        self, scenes: list[Scene], genre: str, tone: str
+    ) -> dict[str, Any]:
         """Analyze and suggest visual style."""
         return {
             "overall_look": self._get_visual_look(genre),
@@ -377,7 +377,7 @@ class MoviePlanService:
         }
         return styles.get(genre, "varied based on scene requirements")
 
-    def _generate_color_palette(self, genre: str, tone: str) -> List[str]:
+    def _generate_color_palette(self, genre: str, tone: str) -> list[str]:
         """Generate suggested color palette."""
         palettes = {
             "horror": ["#1a1a2e", "#16213e", "#0f3460", "#e94560"],
@@ -400,8 +400,8 @@ class MoviePlanService:
         )
 
     def _analyze_character(
-        self, character: Character, scenes: List[Scene], elements: List[Dict]
-    ) -> Dict[str, Any]:
+        self, character: Character, scenes: list[Scene], elements: list[dict]
+    ) -> dict[str, Any]:
         """Analyze a character for the movie plan."""
         # Find scenes character appears in
         character_scenes = [
@@ -424,8 +424,8 @@ class MoviePlanService:
         }
 
     def _identify_protagonist(
-        self, characters: List[Character], scenes: List[Scene]
-    ) -> Optional[str]:
+        self, characters: list[Character], scenes: list[Scene]
+    ) -> str | None:
         """Identify the likely protagonist."""
         if not characters:
             return None
@@ -439,10 +439,10 @@ class MoviePlanService:
 
     def _identify_antagonist(
         self,
-        characters: List[Character],
-        scenes: List[Scene],
-        protagonist: Optional[str],
-    ) -> Optional[str]:
+        characters: list[Character],
+        scenes: list[Scene],
+        protagonist: str | None,
+    ) -> str | None:
         """Identify a potential antagonist."""
         if not characters or not protagonist:
             return None
@@ -461,8 +461,8 @@ class MoviePlanService:
         return None
 
     def _analyze_scene(
-        self, scene: Scene, characters: List[Character], elements: List[Dict]
-    ) -> Dict[str, Any]:
+        self, scene: Scene, characters: list[Character], elements: list[dict]
+    ) -> dict[str, Any]:
         """Analyze a scene for the movie plan."""
         # Estimate duration based on action lines
         action_count = len(scene.action_lines) if scene.action_lines else 0
@@ -481,8 +481,8 @@ class MoviePlanService:
         }
 
     def _determine_act_structure(
-        self, scenes: List[Scene]
-    ) -> Dict[str, List[str]]:
+        self, scenes: list[Scene]
+    ) -> dict[str, list[str]]:
         """Determine three-act structure."""
         total = len(scenes)
         if total == 0:
@@ -498,9 +498,9 @@ class MoviePlanService:
             "act_3": [s.scene_number for s in scenes[act_3_start:]],
         }
 
-    def _extract_locations(self, scenes: List[Scene]) -> List[Dict[str, Any]]:
+    def _extract_locations(self, scenes: list[Scene]) -> list[dict[str, Any]]:
         """Extract unique location requirements."""
-        locations: Dict[str, Dict[str, Any]] = {}
+        locations: dict[str, dict[str, Any]] = {}
 
         for scene in scenes:
             loc = scene.location
@@ -521,7 +521,7 @@ class MoviePlanService:
             for loc in locations.values()
         ]
 
-    def _extract_props(self, elements: List[Dict]) -> List[str]:
+    def _extract_props(self, elements: list[dict]) -> list[str]:
         """Extract potential prop requirements from action lines."""
         # Common prop indicators
         prop_words = [
@@ -539,7 +539,7 @@ class MoviePlanService:
 
         return sorted(props)
 
-    def _identify_special_effects(self, elements: List[Dict]) -> List[str]:
+    def _identify_special_effects(self, elements: list[dict]) -> list[str]:
         """Identify potential special effects needs."""
         sfx_keywords = {
             "explosion": "Pyrotechnic or VFX explosion",
@@ -565,14 +565,14 @@ class MoviePlanService:
     def _generate_warnings(
         self,
         screenplay: Screenplay,
-        characters: List[Character],
-        scenes: List[Scene],
-    ) -> List[str]:
+        characters: list[Character],
+        scenes: list[Scene],
+    ) -> list[str]:
         """Generate warnings about potential production challenges."""
         warnings = []
 
         # Too many locations
-        locations = set(s.location for s in scenes)
+        locations = {s.location for s in scenes}
         if len(locations) > 20:
             warnings.append(f"High location count ({len(locations)}) may impact budget")
 
@@ -614,7 +614,7 @@ class MoviePlanService:
 
         return True
 
-    async def get_movie_plan(self, screenplay_id: UUID) -> Optional[MoviePlan]:
+    async def get_movie_plan(self, screenplay_id: UUID) -> MoviePlan | None:
         """Get the movie plan for a screenplay.
 
         Args:
@@ -629,7 +629,7 @@ class MoviePlanService:
 
         return self._dict_to_movie_plan(screenplay.movie_plan)
 
-    def _movie_plan_to_dict(self, plan: MoviePlan) -> Dict[str, Any]:
+    def _movie_plan_to_dict(self, plan: MoviePlan) -> dict[str, Any]:
         """Convert MoviePlan to dictionary for storage."""
         return {
             "screenplay_id": plan.screenplay_id,
@@ -656,7 +656,7 @@ class MoviePlanService:
             "warnings": plan.warnings,
         }
 
-    def _dict_to_movie_plan(self, data: Dict[str, Any]) -> MoviePlan:
+    def _dict_to_movie_plan(self, data: dict[str, Any]) -> MoviePlan:
         """Convert dictionary to MoviePlan."""
         return MoviePlan(
             screenplay_id=data.get("screenplay_id", ""),
@@ -683,25 +683,25 @@ class MoviePlanService:
             warnings=data.get("warnings", []),
         )
 
-    async def _get_screenplay(self, screenplay_id: UUID) -> Optional[Screenplay]:
+    async def _get_screenplay(self, screenplay_id: UUID) -> Screenplay | None:
         """Get screenplay by ID."""
         stmt = select(Screenplay).where(Screenplay.id == screenplay_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _get_project(self, project_id: UUID) -> Optional[Project]:
+    async def _get_project(self, project_id: UUID) -> Project | None:
         """Get project by ID."""
         stmt = select(Project).where(Project.id == project_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _get_characters(self, project_id: UUID) -> List[Character]:
+    async def _get_characters(self, project_id: UUID) -> list[Character]:
         """Get all characters for a project."""
         stmt = select(Character).where(Character.project_id == project_id)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def _get_scenes(self, project_id: UUID) -> List[Scene]:
+    async def _get_scenes(self, project_id: UUID) -> list[Scene]:
         """Get all scenes for a project, ordered by sequence."""
         stmt = (
             select(Scene)

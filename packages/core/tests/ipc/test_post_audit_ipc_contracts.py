@@ -116,6 +116,7 @@ class TestSnapshotsIpcContract:
         """Source-level assertion that the run() method invokes the
         snapshot hook at the documented stage boundaries."""
         import inspect
+
         from scenemachine.services.production_pipeline import ProductionPipeline
         src = inspect.getsource(ProductionPipeline.run)
         # Five documented snapshot points

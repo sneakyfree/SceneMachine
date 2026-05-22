@@ -7,8 +7,8 @@ Tests cover:
 - Database connectivity check
 """
 
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -158,7 +158,7 @@ class TestHealthResponseFormat:
         data = response.json()
 
         assert "providers" in data
-        for provider_name, provider_data in data["providers"].items():
+        for _provider_name, provider_data in data["providers"].items():
             assert "status" in provider_data
             assert "available" in provider_data
 
@@ -183,5 +183,5 @@ class TestHealthStatusValues:
             "unavailable": "Service not available",
         }
 
-        for status, meaning in status_meanings.items():
+        for _status, meaning in status_meanings.items():
             assert len(meaning) > 0

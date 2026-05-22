@@ -3,19 +3,18 @@
 Supports styling, positioning, and animation of text on video.
 """
 
-from enum import Enum
-from typing import List, Optional
-from uuid import UUID, uuid4
+from enum import StrEnum
+from uuid import UUID
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, TimestampMixin, UUIDMixin, JSONType
+from .base import Base, JSONType, TimestampMixin, UUIDMixin
 
 
-class TextOverlayType(str, Enum):
+class TextOverlayType(StrEnum):
     """Types of text overlays."""
 
     TITLE = "title"
@@ -25,7 +24,7 @@ class TextOverlayType(str, Enum):
     CUSTOM = "custom"
 
 
-class TextPosition(str, Enum):
+class TextPosition(StrEnum):
     """Preset positions for text overlays."""
 
     TOP_LEFT = "top_left"
@@ -40,7 +39,7 @@ class TextPosition(str, Enum):
     CUSTOM = "custom"
 
 
-class TextAnimation(str, Enum):
+class TextAnimation(StrEnum):
     """Animation types for text overlays."""
 
     NONE = "none"
@@ -65,19 +64,19 @@ class TextOverlay(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "text_overlays"
 
     # Parent relationships (one of these should be set)
-    shot_id: Mapped[Optional[UUID]] = mapped_column(
+    shot_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("shots.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
-    scene_id: Mapped[Optional[UUID]] = mapped_column(
+    scene_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("scenes.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
-    project_id: Mapped[Optional[UUID]] = mapped_column(
+    project_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("projects.id", ondelete="CASCADE"),
         nullable=True,
@@ -100,11 +99,11 @@ class TextOverlay(Base, UUIDMixin, TimestampMixin):
         default=TextPosition.CENTER,
         nullable=False,
     )
-    custom_x: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # 0-100 percentage
-    custom_y: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # 0-100 percentage
+    custom_x: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-100 percentage
+    custom_y: Mapped[float | None] = mapped_column(Float, nullable=True)  # 0-100 percentage
 
     # Style (stored as JSON for flexibility)
-    style: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True, default=dict)
+    style: Mapped[dict | None] = mapped_column(JSONType, nullable=True, default=dict)
     # Expected style fields:
     # - fontFamily: str
     # - fontSize: int

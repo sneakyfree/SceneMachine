@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from uuid import uuid4
+
 import pytest
 
 
@@ -350,7 +351,6 @@ async def test_no_provider_registered_fails_all_shots_loudly(
     failed with an actionable error. This is the loud-failure replacement
     for the prior silent placeholder."""
     from scenemachine.generators import base as base_module
-    from scenemachine.models.generation_job import JobProvider
 
     class _EmptyRegistry:
         def get_provider(self, kind):

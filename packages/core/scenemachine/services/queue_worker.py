@@ -7,15 +7,16 @@ using the configured generation providers.
 import asyncio
 import logging
 import signal
-from contextlib import asynccontextmanager
+from collections.abc import Callable
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from scenemachine.config import get_settings
 from scenemachine.database import get_db_manager
-from scenemachine.services.generation import GenerationService, GenerationProgress
+from scenemachine.services.generation import GenerationService
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +29,14 @@ class WorkerStats:
     jobs_processed: int = 0
     jobs_succeeded: int = 0
     jobs_failed: int = 0
-    current_job_id: Optional[str] = None
-    last_job_completed_at: Optional[datetime] = None
+    current_job_id: str | None = None
+    last_job_completed_at: datetime | None = None
     is_running: bool = False
     is_paused: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert stats to dictionary."""
-        uptime = (datetime.now(timezone.utc) - self.started_at).total_seconds()
+        uptime = (datetime.now(UTC) - self.started_at).total_seconds()
         return {
             "started_at": self.started_at.isoformat(),
             "uptime_seconds": uptime,
@@ -75,7 +76,7 @@ class QueueWorker:
         max_concurrent: int = 2,
         poll_interval: float = 2.0,
         max_retries: int = 3,
-    ):
+    ) -> None:
         """Initialize queue worker.
 
         Args:
@@ -90,10 +91,10 @@ class QueueWorker:
         self._running = False
         self._paused = False
         self._shutdown_event = asyncio.Event()
-        self._active_tasks: Dict[UUID, asyncio.Task] = {}
-        self._stats = WorkerStats(started_at=datetime.now(timezone.utc))
-        self._on_job_complete: Optional[Callable] = None
-        self._on_job_failed: Optional[Callable] = None
+        self._active_tasks: dict[UUID, asyncio.Task] = {}
+        self._stats = WorkerStats(started_at=datetime.now(UTC))
+        self._on_job_complete: Callable | None = None
+        self._on_job_failed: Callable | None = None
 
     @property
     def stats(self) -> WorkerStats:
@@ -114,8 +115,8 @@ class QueueWorker:
 
     def set_callbacks(
         self,
-        on_complete: Optional[Callable] = None,
-        on_failed: Optional[Callable] = None,
+        on_complete: Callable | None = None,
+        on_failed: Callable | None = None,
     ) -> None:
         """Set callback functions for job events.
 
@@ -137,7 +138,7 @@ class QueueWorker:
             return
 
         self._running = True
-        self._stats = WorkerStats(started_at=datetime.now(timezone.utc))
+        self._stats = WorkerStats(started_at=datetime.now(UTC))
         self._stats.is_running = True
         self._shutdown_event.clear()
 
@@ -174,7 +175,7 @@ class QueueWorker:
                     asyncio.gather(*self._active_tasks.values(), return_exceptions=True),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(f"Timeout waiting for jobs, cancelling {len(self._active_tasks)} tasks")
                 for task in self._active_tasks.values():
                     task.cancel()
@@ -193,7 +194,7 @@ class QueueWorker:
 
     async def _run_loop(self) -> None:
         """Main processing loop."""
-        settings = get_settings()
+        get_settings()
 
         while self._running:
             try:
@@ -259,7 +260,7 @@ class QueueWorker:
                 result = await service.process_job(job_id)
 
                 self._stats.jobs_processed += 1
-                self._stats.last_job_completed_at = datetime.now(timezone.utc)
+                self._stats.last_job_completed_at = datetime.now(UTC)
 
                 if result.success:
                     self._stats.jobs_succeeded += 1
@@ -323,7 +324,7 @@ class QueueWorker:
 
 
 # Global worker instance
-_worker: Optional[QueueWorker] = None
+_worker: QueueWorker | None = None
 
 
 def get_queue_worker() -> QueueWorker:
@@ -369,17 +370,13 @@ async def managed_queue_worker():
     finally:
         await worker.stop()
         task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
 
 # CLI entry point
 async def run_worker_cli() -> None:
     """Run the queue worker from command line."""
-    import signal
-    import sys
 
     settings = get_settings()
     settings.configure_logging()
@@ -395,7 +392,7 @@ async def run_worker_cli() -> None:
     # Setup signal handlers
     loop = asyncio.get_event_loop()
 
-    def handle_signal(sig):
+    def handle_signal(sig) -> None:
         logger.info(f"Received signal {sig}")
         asyncio.create_task(worker.stop())
 

@@ -7,12 +7,7 @@ Tests validate:
 - Composite and partial indexes
 """
 
-import pytest
-import sqlite3
-from pathlib import Path
-from typing import Any
 from uuid import uuid4
-
 
 # Note: These tests are designed to work with SQLite for unit testing
 # Production uses PostgreSQL which has better constraint support
@@ -558,5 +553,5 @@ class TestConstraintViolationBehavior:
             "ck_generation_jobs_progress": "Progress must be between 0 and 100",
         }
 
-        for constraint, message in expected_errors.items():
+        for _constraint, message in expected_errors.items():
             assert len(message) > 0

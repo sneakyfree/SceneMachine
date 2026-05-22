@@ -1,12 +1,12 @@
 """Settings service for managing user configuration."""
 
 import asyncio
+import contextlib
 import logging
-import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 from sqlalchemy import select
@@ -32,7 +32,7 @@ class ProviderStatus:
     available: bool
     configured: bool
     message: str
-    latency_ms: Optional[float] = None
+    latency_ms: float | None = None
 
 
 @dataclass
@@ -53,7 +53,7 @@ class StorageStats:
 class SettingsService:
     """Service for managing user settings and configuration."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         """Initialize settings service.
 
         Args:
@@ -83,25 +83,25 @@ class SettingsService:
 
     async def update_settings(
         self,
-        llm_provider: Optional[str] = None,
-        video_provider: Optional[str] = None,
-        max_concurrent_generations: Optional[int] = None,
-        generation_timeout_seconds: Optional[int] = None,
-        default_video_resolution: Optional[str] = None,
-        default_video_fps: Optional[int] = None,
-        theme_mode: Optional[str] = None,
-        auto_save_enabled: Optional[bool] = None,
-        show_advanced_options: Optional[bool] = None,
-        auto_cleanup_temp_files: Optional[bool] = None,
-        max_cache_size_gb: Optional[int] = None,
-        default_export_format: Optional[str] = None,
-        default_export_quality: Optional[str] = None,
+        llm_provider: str | None = None,
+        video_provider: str | None = None,
+        max_concurrent_generations: int | None = None,
+        generation_timeout_seconds: int | None = None,
+        default_video_resolution: str | None = None,
+        default_video_fps: int | None = None,
+        theme_mode: str | None = None,
+        auto_save_enabled: bool | None = None,
+        show_advanced_options: bool | None = None,
+        auto_cleanup_temp_files: bool | None = None,
+        max_cache_size_gb: int | None = None,
+        default_export_format: str | None = None,
+        default_export_quality: str | None = None,
         # Accessibility settings
-        font_size_scale: Optional[str] = None,
-        high_contrast_enabled: Optional[bool] = None,
-        reduce_motion_enabled: Optional[bool] = None,
-        large_click_targets_enabled: Optional[bool] = None,
-        additional_settings: Optional[Dict[str, Any]] = None,
+        font_size_scale: str | None = None,
+        high_contrast_enabled: bool | None = None,
+        reduce_motion_enabled: bool | None = None,
+        large_click_targets_enabled: bool | None = None,
+        additional_settings: dict[str, Any] | None = None,
     ) -> UserSettings:
         """Update user settings.
 
@@ -242,7 +242,7 @@ class SettingsService:
         """
         return await self.set_api_key(provider, "")
 
-    async def validate_api_key(self, provider: str, api_key: Optional[str] = None) -> ProviderStatus:
+    async def validate_api_key(self, provider: str, api_key: str | None = None) -> ProviderStatus:
         """Validate an API key by testing the provider.
 
         Args:
@@ -520,7 +520,7 @@ class SettingsService:
             message="Invalid API key format",
         )
 
-    async def check_all_providers(self) -> List[ProviderStatus]:
+    async def check_all_providers(self) -> list[ProviderStatus]:
         """Check status of all configured providers.
 
         Returns:
@@ -566,19 +566,17 @@ class SettingsService:
             if path.exists():
                 for p in path.rglob("*"):
                     if p.is_file():
-                        try:
+                        with contextlib.suppress(OSError, PermissionError):
                             total += p.stat().st_size
-                        except (OSError, PermissionError):
-                            pass
             return total
 
         def count_temp_files(path: Path) -> int:
             """Count temporary files."""
             count = 0
             if path.exists():
-                for p in path.rglob("*.tmp"):
+                for _p in path.rglob("*.tmp"):
                     count += 1
-                for p in path.rglob("temp_*"):
+                for _p in path.rglob("temp_*"):
                     count += 1
             return count
 
@@ -606,7 +604,7 @@ class SettingsService:
             temp_files_count=temp_count,
         )
 
-    async def clear_cache(self, cache_type: str = "all") -> Dict[str, Any]:
+    async def clear_cache(self, cache_type: str = "all") -> dict[str, Any]:
         """Clear cached files.
 
         Args:
@@ -654,7 +652,7 @@ class SettingsService:
 
         return cleared
 
-    async def get_available_llm_providers(self) -> List[Dict[str, Any]]:
+    async def get_available_llm_providers(self) -> list[dict[str, Any]]:
         """Get list of available LLM providers.
 
         Returns:
@@ -675,7 +673,7 @@ class SettingsService:
             },
         ]
 
-    async def get_available_video_providers(self) -> List[Dict[str, Any]]:
+    async def get_available_video_providers(self) -> list[dict[str, Any]]:
         """Get list of available video generation providers.
 
         Returns:
@@ -708,7 +706,7 @@ class SettingsService:
             },
         ]
 
-    async def get_theme_options(self) -> List[Dict[str, str]]:
+    async def get_theme_options(self) -> list[dict[str, str]]:
         """Get available theme options.
 
         Returns:
@@ -720,7 +718,7 @@ class SettingsService:
             {"value": ThemeMode.DARK.value, "label": "Dark"},
         ]
 
-    async def export_settings(self) -> Dict[str, Any]:
+    async def export_settings(self) -> dict[str, Any]:
         """Export settings for backup (excluding sensitive data).
 
         Returns:
@@ -729,7 +727,7 @@ class SettingsService:
         settings = await self.get_settings()
         return settings.to_dict(include_keys=False)
 
-    async def import_settings(self, data: Dict[str, Any]) -> UserSettings:
+    async def import_settings(self, data: dict[str, Any]) -> UserSettings:
         """Import settings from backup.
 
         Args:

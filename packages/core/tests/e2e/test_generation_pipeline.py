@@ -3,28 +3,20 @@
 Tests the complete flow from shot queuing through generation to approval.
 """
 
-import asyncio
-import pytest
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import List
-from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models import Project, ProjectState, Scene, Shot
-from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus
+from scenemachine.models.generation_job import JobProvider, JobStatus
 from scenemachine.models.scene import SceneState
 from scenemachine.models.shot import CameraMovement, ShotState, ShotType
 from scenemachine.services.generation import (
-    GenerationService,
-    GenerationRequest,
-    GenerationResult,
-    MockGenerationProvider,
-    ReplicateProvider,
     FalProvider,
+    GenerationService,
+    ReplicateProvider,
 )
-from scenemachine.services.queue_worker import QueueWorker, get_queue_worker
+from scenemachine.services.queue_worker import QueueWorker
 
 
 @pytest.fixture

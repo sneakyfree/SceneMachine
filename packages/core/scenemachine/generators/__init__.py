@@ -29,35 +29,6 @@ Usage:
 """
 
 # Base classes and interfaces
-from .base import (
-    GenerationProgress,
-    GenerationProvider,
-    GenerationRequest,
-    GenerationResult,
-    ProgressCallback,
-    ProviderCapabilities,
-    ProviderFeature,
-    ProviderHealth,
-    ProviderRegistry,
-    VideoModel,
-    get_provider_registry,
-)
-
-# Provider implementations
-from .actcore import ActCoreProvider
-from .comfyui import ComfyUIProvider
-from .fal import FalProvider
-from .mock import MockGenerationProvider
-from .replicate import ReplicateProvider
-from .runpod import RunPodProvider
-
-# Registry setup
-from .registry import (
-    check_provider_status,
-    register_builtin_providers,
-    setup_providers,
-)
-
 # Import from services for backwards compatibility
 from scenemachine.services.generation import (
     GenerationService,
@@ -71,6 +42,34 @@ from scenemachine.services.queue_worker import (
     start_queue_worker,
     stop_queue_worker,
 )
+
+# Provider implementations
+from .actcore import ActCoreProvider
+from .base import (
+    GenerationProgress,
+    GenerationProvider,
+    GenerationRequest,
+    GenerationResult,
+    ProgressCallback,
+    ProviderCapabilities,
+    ProviderFeature,
+    ProviderHealth,
+    ProviderRegistry,
+    VideoModel,
+    get_provider_registry,
+)
+from .comfyui import ComfyUIProvider
+from .fal import FalProvider
+from .mock import MockGenerationProvider
+
+# Registry setup
+from .registry import (
+    check_provider_status,
+    register_builtin_providers,
+    setup_providers,
+)
+from .replicate import ReplicateProvider
+from .runpod import RunPodProvider
 
 __all__ = [
     # Base classes and interfaces

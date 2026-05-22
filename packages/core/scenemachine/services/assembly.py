@@ -5,23 +5,24 @@ Handles scene assembly, movie composition, and export operations.
 
 import asyncio
 import logging
-import shutil
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.config import get_settings
-from scenemachine.models import Project, Scene, Shot
+from scenemachine.models import Project, Scene
 from scenemachine.models.asset import Asset, AssetStatus, AssetType
 from scenemachine.models.export_history import (
     ExportHistory,
+)
+from scenemachine.models.export_history import (
     ExportStatus as ExportHistoryStatus,
 )
 from scenemachine.models.project import ProjectState
@@ -30,15 +31,15 @@ from scenemachine.models.text_overlay import TextOverlay
 from scenemachine.utils.ffmpeg import (
     FFmpeg,
     FFmpegError,
-    FFmpegNotFoundError,
     FFmpegExecutionError,
+    FFmpegNotFoundError,
     get_ffmpeg,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     """Supported export formats."""
 
     MP4_H264 = "mp4_h264"  # Standard H.264 in MP4
@@ -48,7 +49,7 @@ class ExportFormat(str, Enum):
     MKV_H264 = "mkv_h264"  # H.264 in MKV
 
 
-class ExportQuality(str, Enum):
+class ExportQuality(StrEnum):
     """Export quality presets."""
 
     DRAFT = "draft"  # Fast, lower quality
@@ -66,7 +67,7 @@ class ColorGradeSettings:
     saturation: float = 0.0  # -100 to 100
     temperature: float = 0.0  # -100 to 100 (cool to warm)
     vignette_amount: float = 0.0  # 0 to 100
-    lut_path: Optional[str] = None
+    lut_path: str | None = None
     lut_intensity: float = 100.0  # 0 to 100
 
 
@@ -84,12 +85,12 @@ class ExportSettings:
     include_audio: bool = True
     include_subtitles: bool = False
     include_text_overlays: bool = True
-    watermark: Optional[str] = None
+    watermark: str | None = None
     watermark_position: str = "bottom_right"
     watermark_opacity: float = 0.5
-    color_grade: Optional[ColorGradeSettings] = None
-    subtitle_path: Optional[str] = None
-    audio_tracks: List[Dict[str, Any]] = field(default_factory=list)
+    color_grade: ColorGradeSettings | None = None
+    subtitle_path: str | None = None
+    audio_tracks: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -99,8 +100,8 @@ class AssemblyProgress:
     stage: str
     percent: float
     message: str
-    current_scene: Optional[int] = None
-    total_scenes: Optional[int] = None
+    current_scene: int | None = None
+    total_scenes: int | None = None
 
 
 @dataclass
@@ -108,11 +109,11 @@ class ExportResult:
     """Result of an export operation."""
 
     success: bool
-    output_path: Optional[str] = None
-    file_size_bytes: Optional[int] = None
-    duration_seconds: Optional[float] = None
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    output_path: str | None = None
+    file_size_bytes: int | None = None
+    duration_seconds: float | None = None
+    error_message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -134,7 +135,7 @@ class Timeline:
     total_duration: float
     scene_count: int = 0
     shot_count: int = 0
-    scenes: List[Dict[str, Any]] = field(default_factory=list)
+    scenes: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -144,8 +145,8 @@ class TimelineShot:
     shot_id: UUID
     shot_number: str
     duration: float
-    output_path: Optional[str] = None
-    thumbnail_path: Optional[str] = None
+    output_path: str | None = None
+    thumbnail_path: str | None = None
 
 
 @dataclass
@@ -156,7 +157,7 @@ class TimelineScene:
     scene_number: str
     title: str
     duration: float
-    shots: List[TimelineShot] = field(default_factory=list)
+    shots: list[TimelineShot] = field(default_factory=list)
 
 
 class ProgressCallback(Protocol):
@@ -238,7 +239,7 @@ class AssemblyService:
         """
         self.session = session
         self.settings = get_settings()
-        self._ffmpeg: Optional[FFmpeg] = None
+        self._ffmpeg: FFmpeg | None = None
 
     async def _get_ffmpeg(self) -> FFmpeg:
         """Get FFmpeg instance, checking availability on first use.
@@ -338,7 +339,7 @@ class AssemblyService:
         pos = self.WATERMARK_POSITIONS.get(position, "W-w-10:H-h-10")
         return f"[1:v]format=rgba,colorchannelmixer=aa={opacity:.2f}[wm];[0:v][wm]overlay={pos}"
 
-    def _build_subtitle_filter(self, subtitle_path: str, style: Optional[str] = None) -> str:
+    def _build_subtitle_filter(self, subtitle_path: str, style: str | None = None) -> str:
         """Build FFmpeg filter string for subtitle overlay.
 
         Args:
@@ -357,7 +358,7 @@ class AssemblyService:
 
     def _build_text_overlay_filter(
         self,
-        overlays: List[Dict],
+        overlays: list[dict],
         video_width: int = 1920,
         video_height: int = 1080,
     ) -> str:
@@ -415,15 +416,15 @@ class AssemblyService:
             )
 
             # Get font settings
-            font_family = style.get("fontFamily", "Arial")
+            style.get("fontFamily", "Arial")
             font_size = style.get("fontSize", 48)
             font_color = style.get("color", "#FFFFFF").lstrip("#")
-            font_weight = style.get("fontWeight", "normal")
+            style.get("fontWeight", "normal")
 
             # Build drawtext filter
             parts = [
                 f"drawtext=text='{escaped_text}'",
-                f"fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Fallback font
+                "fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # Fallback font
                 f"fontsize={font_size}",
                 f"fontcolor=0x{font_color}",
                 f"x={x}",
@@ -433,18 +434,18 @@ class AssemblyService:
             # Add text shadow if enabled
             if style.get("textShadow", False):
                 shadow_color = style.get("textShadowColor", "#000000").lstrip("#")
-                shadow_blur = style.get("textShadowBlur", 4)
+                style.get("textShadowBlur", 4)
                 parts.append(f"shadowcolor=0x{shadow_color}")
-                parts.append(f"shadowx=2")
-                parts.append(f"shadowy=2")
+                parts.append("shadowx=2")
+                parts.append("shadowy=2")
 
             # Add background box if enabled
             bg_opacity = style.get("backgroundOpacity", 0)
             if bg_opacity > 0:
                 bg_color = style.get("backgroundColor", "#000000").lstrip("#")
-                parts.append(f"box=1")
+                parts.append("box=1")
                 parts.append(f"boxcolor=0x{bg_color}@{bg_opacity:.2f}")
-                parts.append(f"boxborderw=10")
+                parts.append("boxborderw=10")
 
             # Add timing using enable expression
             start_time = timing.get("startTime", 0) / 1000.0  # Convert ms to seconds
@@ -500,8 +501,8 @@ class AssemblyService:
     def _get_text_position(
         self,
         position: str,
-        custom_x: Optional[float],
-        custom_y: Optional[float],
+        custom_x: float | None,
+        custom_y: float | None,
         video_width: int,
         video_height: int,
         text_align: str = "center",
@@ -622,7 +623,7 @@ class AssemblyService:
     async def mix_audio_tracks(
         self,
         video_path: Path,
-        audio_tracks: List[Dict[str, Any]],
+        audio_tracks: list[dict[str, Any]],
         output_path: Path,
     ) -> str:
         """Mix multiple audio tracks with the video.
@@ -674,7 +675,7 @@ class AssemblyService:
 
         try:
             # Ensure FFmpeg is available
-            ffmpeg = await self._get_ffmpeg()
+            await self._get_ffmpeg()
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -702,8 +703,8 @@ class AssemblyService:
 
     async def apply_transitions(
         self,
-        shot_paths: List[str],
-        transitions: List[Dict[str, Any]],
+        shot_paths: list[str],
+        transitions: list[dict[str, Any]],
         output_path: Path,
     ) -> str:
         """Apply transitions between shots.
@@ -724,7 +725,7 @@ class AssemblyService:
         ffmpeg = await self._get_ffmpeg()
 
         # Get actual durations of each video using ffprobe
-        video_durations: List[float] = []
+        video_durations: list[float] = []
         for path in shot_paths:
             try:
                 info = await ffmpeg.get_video_info(Path(path))
@@ -816,7 +817,7 @@ class AssemblyService:
 
     def _map_transition_type(self, trans_type: str) -> str:
         """Map our transition types to FFmpeg xfade transitions.
-        
+
         Supports an expanded set of cinematic transitions for
         professional-quality scene transitions.
         """
@@ -833,7 +834,7 @@ class AssemblyService:
             "fadewhite": "fadewhite",
             "fadeblack": "fadeblack",
             "fadegrays": "fadegrays",
-            
+
             # Directional wipes
             "wipe_left": "wipeleft",
             "wipe_right": "wiperight",
@@ -843,58 +844,58 @@ class AssemblyService:
             "wipe_bl": "wipebl",  # Bottom left
             "wipe_tr": "wipetr",  # Top right
             "wipe_tl": "wipetl",  # Top left
-            
+
             # Slides
             "slide_left": "slideleft",
             "slide_right": "slideright",
             "slide_up": "slideup",
             "slide_down": "slidedown",
-            
+
             # Smooth directional
             "smooth_left": "smoothleft",
             "smooth_right": "smoothright",
             "smooth_up": "smoothup",
             "smooth_down": "smoothdown",
-            
+
             # Circle effects
             "circle_open": "circleopen",
             "circle_close": "circleclose",
             "circle_crop": "circlecrop",
-            
+
             # Rectangle effects
             "rect_crop": "rectcrop",
             "hr_slice": "hrslice",  # Horizontal slice
             "vr_slice": "vrslice",  # Vertical slice
-            
+
             # Distance/blur effects
             "distance": "distance",
             "hlslice": "hlslice",
             "vlslice": "vlslice",
-            
+
             # Zoom effects
             "zoom_in": "zoomin",
             "zoom_out": "fadefast",
             "squeeze_h": "squeezeh",
             "squeeze_v": "squeezev",
-            
+
             # Radial effects
             "radial": "radial",
             "reveal_h": "revealh",
             "reveal_v": "revealv",
-            
+
             # Pixel and grain effects
             "pixelize": "pixelize",
             "diagtl": "diagtl",  # Diagonal top-left
             "diagtr": "diagtr",  # Diagonal top-right
             "diagbl": "diagbl",  # Diagonal bottom-left
             "diagbr": "diagbr",  # Diagonal bottom-right
-            
+
             # Cover effects
             "cover_left": "coverleft",
             "cover_right": "coverright",
             "cover_up": "coverup",
             "cover_down": "coverdown",
-            
+
             # Legacy aliases
             "blur": "smoothleft",
             "flash": "fadewhite",
@@ -902,7 +903,7 @@ class AssemblyService:
         }
         return mapping.get(trans_type, "fade")
 
-    async def _concat_videos(self, video_paths: List[str], output_path: Path) -> str:
+    async def _concat_videos(self, video_paths: list[str], output_path: Path) -> str:
         """Concatenate videos without transitions.
 
         Args:
@@ -1011,7 +1012,7 @@ class AssemblyService:
     async def assemble_scene(
         self,
         scene_id: UUID,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> SceneRender:
         """Assemble approved shots into a scene video.
 
@@ -1059,8 +1060,8 @@ class AssemblyService:
         output_path = output_dir / "scene.mp4"
 
         # Collect shot paths and transitions
-        shot_paths: List[str] = []
-        transitions: List[Dict[str, Any]] = []
+        shot_paths: list[str] = []
+        transitions: list[dict[str, Any]] = []
 
         for shot in sorted_shots:
             shot_path = self.settings.output_dir / shot.output_video_path
@@ -1142,7 +1143,7 @@ class AssemblyService:
     async def assemble_movie(
         self,
         project_id: UUID,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> str:
         """Assemble all scenes into the complete movie.
 
@@ -1181,7 +1182,7 @@ class AssemblyService:
             )
 
         # Assemble each scene
-        scene_renders: List[SceneRender] = []
+        scene_renders: list[SceneRender] = []
         sorted_scenes = sorted(project.scenes, key=lambda s: s.sequence_number)
 
         for i, scene in enumerate(sorted_scenes):
@@ -1236,7 +1237,7 @@ class AssemblyService:
 
         # Use FFmpeg to concatenate
         try:
-            ffmpeg = await self._get_ffmpeg()
+            await self._get_ffmpeg()
 
             cmd = [
                 "ffmpeg", "-y",
@@ -1287,8 +1288,8 @@ class AssemblyService:
         self,
         project_id: UUID,
         settings: ExportSettings,
-        output_filename: Optional[str] = None,
-        progress_callback: Optional[ProgressCallback] = None,
+        output_filename: str | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> ExportResult:
         """Export the assembled movie with specified settings.
 
@@ -1337,7 +1338,7 @@ class AssemblyService:
         await self.session.commit()
         await self.session.refresh(export_record)
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         export_record.started_at = start_time
         export_record.status = ExportHistoryStatus.IN_PROGRESS.value
         await self.session.commit()
@@ -1376,7 +1377,7 @@ class AssemblyService:
             export_record.status = ExportHistoryStatus.FAILED.value
             export_record.error_message = str(e)
             export_record.error_code = "ASSEMBLY_FAILED"
-            export_record.completed_at = datetime.now(timezone.utc)
+            export_record.completed_at = datetime.now(UTC)
             await self.session.commit()
             raise
 
@@ -1429,7 +1430,7 @@ class AssemblyService:
             # Query text overlays for this project
             overlay_stmt = select(TextOverlay).where(
                 TextOverlay.project_id == project_id,
-                TextOverlay.is_visible == True,
+                TextOverlay.is_visible,
             ).order_by(TextOverlay.z_index)
             overlay_result = await self.session.execute(overlay_stmt)
             text_overlays = overlay_result.scalars().all()
@@ -1547,7 +1548,7 @@ class AssemblyService:
                 )
 
             # Ensure FFmpeg is available
-            ffmpeg = await self._get_ffmpeg()
+            await self._get_ffmpeg()
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -1569,7 +1570,7 @@ class AssemblyService:
             export_record.status = ExportHistoryStatus.FAILED.value
             export_record.error_message = str(e)
             export_record.error_code = "FFMPEG_NOT_FOUND"
-            export_record.completed_at = datetime.now(timezone.utc)
+            export_record.completed_at = datetime.now(UTC)
             await self.session.commit()
             raise
         except FFmpegError as e:
@@ -1577,7 +1578,7 @@ class AssemblyService:
             export_record.status = ExportHistoryStatus.FAILED.value
             export_record.error_message = str(e)
             export_record.error_code = "FFMPEG_ERROR"
-            export_record.completed_at = datetime.now(timezone.utc)
+            export_record.completed_at = datetime.now(UTC)
             await self.session.commit()
             raise
 
@@ -1605,7 +1606,7 @@ class AssemblyService:
             export_record.status = ExportHistoryStatus.FAILED.value
             export_record.error_message = f"Verification failed: {verification_result['error']}"
             export_record.error_code = "VERIFICATION_FAILED"
-            export_record.completed_at = datetime.now(timezone.utc)
+            export_record.completed_at = datetime.now(UTC)
             export_record.verification_result = verification_result
             await self.session.commit()
             return ExportResult(
@@ -1620,7 +1621,7 @@ class AssemblyService:
         actual_resolution = verification_result.get("resolution")
 
         # Calculate encoding duration
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         encoding_duration = (end_time - start_time).total_seconds()
 
         # Update export record with success
@@ -1701,7 +1702,7 @@ class AssemblyService:
         self,
         output_path: Path,
         settings: ExportSettings,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Verify an exported video file is valid.
 
         Args:
@@ -1711,7 +1712,7 @@ class AssemblyService:
         Returns:
             Verification result dict with 'valid' key
         """
-        result: Dict[str, Any] = {"valid": False}
+        result: dict[str, Any] = {"valid": False}
 
         # Check file exists
         if not output_path.exists():
@@ -1766,7 +1767,7 @@ class AssemblyService:
             result["error"] = f"Verification failed: {str(e)}"
             return result
 
-    async def get_export_history(self, project_id: UUID) -> List[Dict[str, Any]]:
+    async def get_export_history(self, project_id: UUID) -> list[dict[str, Any]]:
         """Get export history for a project.
 
         Args:
@@ -1786,7 +1787,7 @@ class AssemblyService:
 
         return [export.to_dict() for export in exports]
 
-    async def get_export_by_id(self, export_id: UUID) -> Optional[ExportHistory]:
+    async def get_export_by_id(self, export_id: UUID) -> ExportHistory | None:
         """Get a specific export record by ID.
 
         Args:
@@ -1826,7 +1827,7 @@ class AssemblyService:
 
         return True
 
-    async def get_export_stats(self, project_id: UUID) -> Dict[str, Any]:
+    async def get_export_stats(self, project_id: UUID) -> dict[str, Any]:
         """Get export statistics for a project.
 
         Args:
@@ -1873,8 +1874,8 @@ class AssemblyService:
             "total_file_size_display": self._format_file_size(total_size),
             "total_encoding_time_seconds": total_encoding_time,
             "average_encoding_time_seconds": avg_encoding_time,
-            "formats_used": list(set(e.format for e in completed)),
-            "qualities_used": list(set(e.quality for e in completed)),
+            "formats_used": list({e.format for e in completed}),
+            "qualities_used": list({e.quality for e in completed}),
         }
 
     def _format_file_size(self, size_bytes: int) -> str:
@@ -1885,7 +1886,7 @@ class AssemblyService:
             size_bytes /= 1024
         return f"{size_bytes:.1f} TB"
 
-    async def get_export_formats(self) -> List[Dict[str, Any]]:
+    async def get_export_formats(self) -> list[dict[str, Any]]:
         """Get available export formats.
 
         Returns:
@@ -1929,7 +1930,7 @@ class AssemblyService:
             for fmt, info in format_info.items()
         ]
 
-    async def get_quality_presets(self) -> List[Dict[str, Any]]:
+    async def get_quality_presets(self) -> list[dict[str, Any]]:
         """Get available quality presets.
 
         Returns:

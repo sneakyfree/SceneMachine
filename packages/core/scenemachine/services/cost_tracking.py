@@ -6,12 +6,12 @@ with aggregation and reporting capabilities.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus
@@ -19,7 +19,7 @@ from scenemachine.models.generation_job import GenerationJob, JobProvider, JobSt
 logger = logging.getLogger(__name__)
 
 
-class CostCategory(str, Enum):
+class CostCategory(StrEnum):
     """Cost categories for tracking."""
 
     VIDEO_GENERATION = "video_generation"
@@ -35,9 +35,9 @@ class CostBreakdown:
     """Breakdown of costs by category and provider."""
 
     total_usd: float = 0.0
-    by_category: Dict[str, float] = field(default_factory=dict)
-    by_provider: Dict[str, float] = field(default_factory=dict)
-    by_model: Dict[str, float] = field(default_factory=dict)
+    by_category: dict[str, float] = field(default_factory=dict)
+    by_provider: dict[str, float] = field(default_factory=dict)
+    by_model: dict[str, float] = field(default_factory=dict)
     job_count: int = 0
     successful_jobs: int = 0
     failed_jobs: int = 0
@@ -52,7 +52,7 @@ class CostEstimate:
     estimated_cost_usd: float
     duration_seconds: float
     cost_per_second: float
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 @dataclass
@@ -130,7 +130,7 @@ class CostTrackingService:
             session: Database session
         """
         self.session = session
-        self._budget_limit: Optional[float] = None
+        self._budget_limit: float | None = None
         self._budget_period_days: int = 30
 
     def set_budget_limit(self, limit_usd: float, period_days: int = 30) -> None:
@@ -146,7 +146,7 @@ class CostTrackingService:
     def estimate_generation_cost(
         self,
         provider: JobProvider,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
         duration_seconds: float = 3.0,
     ) -> CostEstimate:
         """Estimate cost for a video generation.
@@ -208,8 +208,8 @@ class CostTrackingService:
     async def get_project_costs(
         self,
         project_id: UUID,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> CostBreakdown:
         """Get cost breakdown for a project.
 
@@ -245,7 +245,7 @@ class CostTrackingService:
         self,
         start_date: datetime,
         end_date: datetime,
-        project_id: Optional[UUID] = None,
+        project_id: UUID | None = None,
     ) -> UsageStats:
         """Get usage statistics for a time period.
 
@@ -298,8 +298,8 @@ class CostTrackingService:
         self,
         year: int,
         month: int,
-        project_id: Optional[UUID] = None,
-    ) -> Dict[str, Any]:
+        project_id: UUID | None = None,
+    ) -> dict[str, Any]:
         """Get monthly cost report.
 
         Args:
@@ -313,16 +313,16 @@ class CostTrackingService:
         from calendar import monthrange
 
         # Get start and end of month
-        start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+        start_date = datetime(year, month, 1, tzinfo=UTC)
         _, last_day = monthrange(year, month)
-        end_date = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+        end_date = datetime(year, month, last_day, 23, 59, 59, tzinfo=UTC)
 
         # Get overall stats
         stats = await self.get_period_costs(start_date, end_date, project_id)
 
         # Get daily breakdown
-        daily_costs: Dict[str, float] = {}
-        daily_jobs: Dict[str, int] = {}
+        daily_costs: dict[str, float] = {}
+        daily_jobs: dict[str, int] = {}
 
         from scenemachine.models import Scene, Shot
 
@@ -370,9 +370,9 @@ class CostTrackingService:
 
     async def get_provider_comparison(
         self,
-        project_id: Optional[UUID] = None,
+        project_id: UUID | None = None,
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compare costs across providers.
 
         Args:
@@ -382,7 +382,7 @@ class CostTrackingService:
         Returns:
             Provider comparison data
         """
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now(UTC)
         start_date = end_date - timedelta(days=days)
 
         stats = await self.get_period_costs(start_date, end_date, project_id)
@@ -427,8 +427,8 @@ class CostTrackingService:
 
     async def check_budget_alert(
         self,
-        project_id: Optional[UUID] = None,
-    ) -> Optional[Dict[str, Any]]:
+        project_id: UUID | None = None,
+    ) -> dict[str, Any] | None:
         """Check if budget limit has been exceeded.
 
         Args:
@@ -440,7 +440,7 @@ class CostTrackingService:
         if not self._budget_limit:
             return None
 
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now(UTC)
         start_date = end_date - timedelta(days=self._budget_period_days)
 
         stats = await self.get_period_costs(start_date, end_date, project_id)
@@ -464,7 +464,7 @@ class CostTrackingService:
 
         return None
 
-    def _calculate_breakdown(self, jobs: List[GenerationJob]) -> CostBreakdown:
+    def _calculate_breakdown(self, jobs: list[GenerationJob]) -> CostBreakdown:
         """Calculate cost breakdown from jobs.
 
         Args:
@@ -503,7 +503,7 @@ class CostTrackingService:
 
         return breakdown
 
-    def _get_budget_status(self, current_spend: float) -> Dict[str, Any]:
+    def _get_budget_status(self, current_spend: float) -> dict[str, Any]:
         """Get budget status.
 
         Args:
@@ -536,8 +536,8 @@ class CostTrackingService:
 
     def _get_recommended_provider(
         self,
-        provider_metrics: Dict[str, Dict[str, Any]],
-    ) -> Optional[str]:
+        provider_metrics: dict[str, dict[str, Any]],
+    ) -> str | None:
         """Get recommended provider based on cost efficiency.
 
         Args:

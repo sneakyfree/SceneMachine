@@ -7,14 +7,13 @@ Implements the DNA strand master plan's "Scenario Universe Builder" concept.
 import logging
 import re
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-from uuid import UUID
+from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class CameraAngle(str, Enum):
+class CameraAngle(StrEnum):
     """Camera angle/shot type options."""
     WIDE = "wide"
     MEDIUM = "medium"
@@ -27,7 +26,7 @@ class CameraAngle(str, Enum):
     GROUP = "group"
 
 
-class CameraMovement(str, Enum):
+class CameraMovement(StrEnum):
     """Camera movement types."""
     STATIC = "static"
     PAN_LEFT = "pan_left"
@@ -42,7 +41,7 @@ class CameraMovement(str, Enum):
     ZOOM = "zoom"
 
 
-class ShotConfidence(str, Enum):
+class ShotConfidence(StrEnum):
     """Confidence level for generated shots."""
     HIGH = "high"      # >= 0.8
     MEDIUM = "medium"  # >= 0.6
@@ -55,7 +54,7 @@ class DialogueLine:
     character: str
     text: str
     emotion: str = "neutral"
-    parenthetical: Optional[str] = None
+    parenthetical: str | None = None
 
 
 @dataclass
@@ -66,11 +65,11 @@ class GeneratedShot:
     negative_prompt: str = "blurry, low quality, distorted, artifacts"
     camera_angle: CameraAngle = CameraAngle.MEDIUM
     camera_movement: CameraMovement = CameraMovement.STATIC
-    characters_in_frame: List[str] = field(default_factory=list)
-    dialogue: Optional[DialogueLine] = None
+    characters_in_frame: list[str] = field(default_factory=list)
+    dialogue: DialogueLine | None = None
     duration_estimate_seconds: float = 5.0
     confidence: float = 0.7
-    unknowns: List[str] = field(default_factory=list)
+    unknowns: list[str] = field(default_factory=list)
     source: str = "generated"  # "parsed", "inferred", "user_edited"
     notes: str = ""
 
@@ -85,60 +84,60 @@ class SceneBreakdown:
     time_of_day: str
     int_ext: str
     description: str
-    shots: List[GeneratedShot] = field(default_factory=list)
-    characters_present: List[str] = field(default_factory=list)
+    shots: list[GeneratedShot] = field(default_factory=list)
+    characters_present: list[str] = field(default_factory=list)
     estimated_duration_seconds: float = 0.0
 
 
-@dataclass 
+@dataclass
 class Contradiction:
     """A detected contradiction in the screenplay."""
     contradiction_id: str
     type: str  # "character_description", "timeline", "location", "prop"
     description: str
-    locations: List[Dict[str, Any]]  # Where in script it appears
+    locations: list[dict[str, Any]]  # Where in script it appears
     severity: str  # "critical", "warning", "info"
-    suggested_resolution: Optional[str] = None
+    suggested_resolution: str | None = None
 
 
 @dataclass
 class ShotListResult:
     """Result of shot list generation."""
-    title: Optional[str]
-    scenes: List[SceneBreakdown]
-    characters: List[Dict[str, Any]]
-    contradictions: List[Contradiction]
+    title: str | None
+    scenes: list[SceneBreakdown]
+    characters: list[dict[str, Any]]
+    contradictions: list[Contradiction]
     total_shots: int
     estimated_duration_seconds: float
     parse_confidence: float
-    warnings: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 class ShotListGenerator:
     """Generates shot lists from parsed screenplays.
-    
+
     This implements the DNA strand master plan's requirements:
     - Exhaustive shot planning within configured sources
     - Labels unknowns honestly
     - Never invents terms/pricing/eligibility
     - Contradiction detection
     """
-    
+
     # Camera angle inference patterns
     CLOSE_UP_KEYWORDS = [
         "close on", "closeup", "close-up", "insert", "detail",
         "eyes", "face", "hands", "mouth", "tears"
     ]
-    
+
     WIDE_KEYWORDS = [
         "wide", "establishing", "master", "aerial", "panoramic",
         "full shot", "enter", "exit", "entire room"
     ]
-    
+
     POV_KEYWORDS = [
         "pov", "point of view", "through the eyes", "subjective"
     ]
-    
+
     # Emotion inference from parentheticals
     EMOTION_MAP = {
         "angry": ["angry", "furious", "enraged", "shouting", "yelling"],
@@ -148,56 +147,56 @@ class ShotListGenerator:
         "surprised": ["surprised", "shocked", "stunned", "astonished"],
         "whisper": ["whisper", "quiet", "sotto voce", "under breath"],
     }
-    
-    def __init__(self):
+
+    def __init__(self) -> None:
         """Initialize the shot list generator."""
-        self._character_descriptions: Dict[str, List[str]] = {}
-        self._character_appearances: Dict[str, List[str]] = {}
-    
-    def generate(self, parsed_screenplay: Dict[str, Any]) -> Dict[str, Any]:
+        self._character_descriptions: dict[str, list[str]] = {}
+        self._character_appearances: dict[str, list[str]] = {}
+
+    def generate(self, parsed_screenplay: dict[str, Any]) -> dict[str, Any]:
         """Generate shot list from parsed screenplay.
-        
+
         Args:
             parsed_screenplay: Output from FountainParser, PDFParser, or FDXParser
-            
+
         Returns:
             Complete shot list with scenes, shots, and metadata
         """
         # Reset state
         self._character_descriptions = {}
         self._character_appearances = {}
-        
+
         # Extract title
         title = parsed_screenplay.get("title") or parsed_screenplay.get("title_page", {}).get("title")
-        
+
         # Process scenes
         scenes = []
         raw_scenes = parsed_screenplay.get("scenes", [])
-        
+
         for idx, scene_data in enumerate(raw_scenes):
             scene_breakdown = self._process_scene(scene_data, idx + 1)
             scenes.append(scene_breakdown)
-        
+
         # Extract character list with metadata
         characters = self._build_character_list(parsed_screenplay)
-        
+
         # Detect contradictions
         contradictions = self._detect_contradictions(parsed_screenplay, scenes)
-        
+
         # Calculate totals
         total_shots = sum(len(scene.shots) for scene in scenes)
         total_duration = sum(scene.estimated_duration_seconds for scene in scenes)
-        
+
         # Calculate overall confidence
         if total_shots > 0:
             avg_confidence = sum(
-                shot.confidence 
-                for scene in scenes 
+                shot.confidence
+                for scene in scenes
                 for shot in scene.shots
             ) / total_shots
         else:
             avg_confidence = 0.0
-        
+
         result = ShotListResult(
             title=title,
             scenes=scenes,
@@ -207,50 +206,50 @@ class ShotListGenerator:
             estimated_duration_seconds=total_duration,
             parse_confidence=avg_confidence,
         )
-        
+
         return self._to_dict(result)
-    
-    def _process_scene(self, scene_data: Dict[str, Any], scene_index: int) -> SceneBreakdown:
+
+    def _process_scene(self, scene_data: dict[str, Any], scene_index: int) -> SceneBreakdown:
         """Process a single scene into a shot breakdown."""
         scene_number = scene_data.get("scene_number", str(scene_index))
         scene_id = f"scene_{scene_number.zfill(3)}"
-        
+
         # Parse slug
         slug = scene_data.get("slug", "")
         location = scene_data.get("location", "")
         time_of_day = scene_data.get("time_of_day", "")
         int_ext = scene_data.get("scene_type", "INT")
-        
+
         # Collect scene elements
         elements = scene_data.get("elements", [])
-        
+
         # Extract description (action elements)
         descriptions = []
         for elem in elements:
             if elem.get("type") in ("action", "Action"):
                 descriptions.append(elem.get("text", ""))
         description = " ".join(descriptions)
-        
+
         # Generate shots from scene
         shots = self._generate_shots(scene_id, elements)
-        
+
         # Get characters present
-        characters_present = list(set(
+        characters_present = list({
             elem.get("character_name") or elem.get("character", "")
             for elem in elements
             if elem.get("type") in ("character", "Character", "dialogue", "Dialogue")
             and (elem.get("character_name") or elem.get("character"))
-        ))
-        
+        })
+
         # Track character appearances
         for char in characters_present:
             if char not in self._character_appearances:
                 self._character_appearances[char] = []
             self._character_appearances[char].append(scene_number)
-        
+
         # Calculate duration
         scene_duration = sum(shot.duration_estimate_seconds for shot in shots)
-        
+
         return SceneBreakdown(
             scene_id=scene_id,
             scene_number=scene_number,
@@ -263,43 +262,42 @@ class ShotListGenerator:
             characters_present=characters_present,
             estimated_duration_seconds=scene_duration,
         )
-    
-    def _generate_shots(self, scene_id: str, elements: List[Dict[str, Any]]) -> List[GeneratedShot]:
+
+    def _generate_shots(self, scene_id: str, elements: list[dict[str, Any]]) -> list[GeneratedShot]:
         """Generate shots from scene elements."""
         shots = []
         shot_index = 1
         current_action = []
         current_dialogue = None
-        
+
         for elem in elements:
             elem_type = elem.get("type", "").lower()
             text = elem.get("text", "")
-            
+
             if elem_type in ("action", "general"):
                 # Accumulate action text
                 current_action.append(text)
-                
+
                 # Check for natural breakpoints
-                if self._is_shot_break(text):
-                    if current_action:
-                        shot = self._create_action_shot(
-                            scene_id, shot_index, " ".join(current_action)
-                        )
-                        shots.append(shot)
-                        shot_index += 1
-                        current_action = []
-            
+                if self._is_shot_break(text) and current_action:
+                    shot = self._create_action_shot(
+                        scene_id, shot_index, " ".join(current_action)
+                    )
+                    shots.append(shot)
+                    shot_index += 1
+                    current_action = []
+
             elif elem_type == "character":
                 # Start tracking dialogue
                 char_name = elem.get("character_name") or text.strip()
                 current_dialogue = {"character": char_name, "text": "", "parenthetical": None}
-            
+
             elif elem_type == "parenthetical" and current_dialogue:
                 current_dialogue["parenthetical"] = text
-            
+
             elif elem_type == "dialogue" and current_dialogue:
                 current_dialogue["text"] = text
-                
+
                 # Create shot for dialogue
                 shot = self._create_dialogue_shot(
                     scene_id, shot_index, current_dialogue, current_action
@@ -308,14 +306,14 @@ class ShotListGenerator:
                 shot_index += 1
                 current_action = []
                 current_dialogue = None
-        
+
         # Handle remaining action
         if current_action:
             shot = self._create_action_shot(
                 scene_id, shot_index, " ".join(current_action)
             )
             shots.append(shot)
-        
+
         # Ensure at least one shot per scene
         if not shots:
             shots.append(GeneratedShot(
@@ -325,36 +323,36 @@ class ShotListGenerator:
                 unknowns=["No content to generate shot from"],
                 source="inferred",
             ))
-        
+
         return shots
-    
+
     def _create_action_shot(
         self, scene_id: str, shot_index: int, action_text: str
     ) -> GeneratedShot:
         """Create a shot from action description."""
         shot_id = f"{scene_id}_{str(shot_index).zfill(3)}"
-        
+
         # Infer camera angle
         camera_angle = self._infer_camera_angle(action_text)
-        
+
         # Infer camera movement
         camera_movement = self._infer_camera_movement(action_text)
-        
+
         # Extract characters mentioned
         characters = self._extract_characters_from_text(action_text)
-        
+
         # Build visual prompt
         visual_prompt = self._build_visual_prompt(action_text, characters)
-        
+
         # Calculate confidence
         confidence = self._calculate_confidence(action_text, characters)
-        
+
         # Identify unknowns
         unknowns = self._identify_unknowns(action_text)
-        
+
         # Estimate duration
         duration = self._estimate_duration(action_text)
-        
+
         return GeneratedShot(
             shot_id=shot_id,
             visual_prompt=visual_prompt,
@@ -366,24 +364,24 @@ class ShotListGenerator:
             unknowns=unknowns,
             source="parsed",
         )
-    
+
     def _create_dialogue_shot(
-        self, 
-        scene_id: str, 
-        shot_index: int, 
-        dialogue_info: Dict[str, Any],
-        preceding_action: List[str]
+        self,
+        scene_id: str,
+        shot_index: int,
+        dialogue_info: dict[str, Any],
+        preceding_action: list[str]
     ) -> GeneratedShot:
         """Create a shot for dialogue."""
         shot_id = f"{scene_id}_{str(shot_index).zfill(3)}"
-        
+
         character = dialogue_info["character"]
         dialogue_text = dialogue_info["text"]
         parenthetical = dialogue_info.get("parenthetical", "")
-        
+
         # Infer emotion
         emotion = self._infer_emotion(parenthetical, dialogue_text)
-        
+
         # Create dialogue line
         dialogue = DialogueLine(
             character=character,
@@ -391,25 +389,25 @@ class ShotListGenerator:
             emotion=emotion,
             parenthetical=parenthetical,
         )
-        
+
         # Build context from preceding action
         context = " ".join(preceding_action) if preceding_action else ""
-        
+
         # Infer camera angle for dialogue
         camera_angle = self._infer_dialogue_camera_angle(dialogue_text, context)
-        
+
         # Build visual prompt
         visual_prompt = self._build_dialogue_visual_prompt(
             character, dialogue_text, emotion, context
         )
-        
+
         # Estimate duration based on dialogue length
         word_count = len(dialogue_text.split())
         duration = max(3.0, word_count * 0.4)  # ~2.5 words per second
-        
+
         # Calculate confidence
         confidence = 0.8  # Dialogue shots are generally more predictable
-        
+
         return GeneratedShot(
             shot_id=shot_id,
             visual_prompt=visual_prompt,
@@ -421,31 +419,31 @@ class ShotListGenerator:
             confidence=confidence,
             source="parsed",
         )
-    
+
     def _infer_camera_angle(self, text: str) -> CameraAngle:
         """Infer appropriate camera angle from text."""
         text_lower = text.lower()
-        
+
         # Check for explicit mentions
         if any(kw in text_lower for kw in self.CLOSE_UP_KEYWORDS):
             return CameraAngle.CLOSE_UP
-        
+
         if any(kw in text_lower for kw in self.WIDE_KEYWORDS):
             return CameraAngle.WIDE
-        
+
         if any(kw in text_lower for kw in self.POV_KEYWORDS):
             return CameraAngle.POV
-        
+
         # Default based on content
         if "two" in text_lower and any(w in text_lower for w in ["face", "look", "stare"]):
             return CameraAngle.TWO_SHOT
-        
+
         return CameraAngle.MEDIUM
-    
+
     def _infer_camera_movement(self, text: str) -> CameraMovement:
         """Infer camera movement from text."""
         text_lower = text.lower()
-        
+
         movement_keywords = {
             "follows": CameraMovement.TRACKING,
             "pan": CameraMovement.PAN_LEFT,
@@ -457,122 +455,122 @@ class ShotListGenerator:
             "handheld": CameraMovement.HANDHELD,
             "zoom": CameraMovement.ZOOM,
         }
-        
+
         for keyword, movement in movement_keywords.items():
             if keyword in text_lower:
                 return movement
-        
+
         return CameraMovement.STATIC
-    
+
     def _infer_dialogue_camera_angle(self, dialogue: str, context: str) -> CameraAngle:
         """Infer camera angle for dialogue shot."""
         combined = (dialogue + " " + context).lower()
-        
+
         # Intense moments get close-ups
         if any(word in combined for word in ["whisper", "confess", "reveal", "cry", "tears"]):
             return CameraAngle.CLOSE_UP
-        
+
         return CameraAngle.MEDIUM
-    
-    def _infer_emotion(self, parenthetical: Optional[str], dialogue: str) -> str:
+
+    def _infer_emotion(self, parenthetical: str | None, dialogue: str) -> str:
         """Infer emotion from parenthetical and dialogue."""
         text = ((parenthetical or "") + " " + (dialogue or "")).lower()
-        
+
         for emotion, keywords in self.EMOTION_MAP.items():
             if any(kw in text for kw in keywords):
                 return emotion
-        
+
         return "neutral"
-    
-    def _extract_characters_from_text(self, text: str) -> List[str]:
+
+    def _extract_characters_from_text(self, text: str) -> list[str]:
         """Extract character names mentioned in text."""
         # Look for names that are known characters
         characters = []
-        
-        for char in self._character_appearances.keys():
+
+        for char in self._character_appearances:
             if char.upper() in text.upper():
                 characters.append(char)
-        
+
         # Also look for capitalized names
         words = re.findall(r'\b[A-Z][A-Z]+\b', text)
         for word in words:
             if len(word) > 2 and word not in ["THE", "AND", "INT", "EXT"]:
                 if word not in characters:
                     characters.append(word)
-        
+
         return characters[:3]  # Limit to 3 characters per shot
-    
-    def _build_visual_prompt(self, action_text: str, characters: List[str]) -> str:
+
+    def _build_visual_prompt(self, action_text: str, characters: list[str]) -> str:
         """Build a visual prompt for video generation."""
         # Clean up the action text
         prompt = action_text.strip()
-        
+
         # Add character context
         if characters:
             char_str = ", ".join(characters)
             if char_str.upper() not in prompt.upper():
                 prompt = f"{char_str} - {prompt}"
-        
+
         # Limit length
         if len(prompt) > 300:
             prompt = prompt[:297] + "..."
-        
+
         return prompt
-    
+
     def _build_dialogue_visual_prompt(
         self, character: str, dialogue: str, emotion: str, context: str
     ) -> str:
         """Build visual prompt for dialogue shot."""
         parts = []
-        
+
         # Character and emotion
         parts.append(f"{character} speaking")
         if emotion != "neutral":
             parts.append(f"with {emotion} expression")
-        
+
         # Context
         if context:
             parts.append(f"- {context[:100]}")
-        
+
         return ", ".join(parts)
-    
-    def _calculate_confidence(self, text: str, characters: List[str]) -> float:
+
+    def _calculate_confidence(self, text: str, characters: list[str]) -> float:
         """Calculate confidence score for the shot."""
         confidence = 0.7  # Base confidence
-        
+
         # Reduce confidence for vague descriptions
         vague_words = ["something", "somehow", "perhaps", "maybe", "unclear"]
         for word in vague_words:
             if word in text.lower():
                 confidence -= 0.1
-        
+
         # Increase confidence for specific details
         if characters:
             confidence += 0.05 * min(len(characters), 2)
-        
+
         # Bound confidence
         return max(0.3, min(0.95, confidence))
-    
-    def _identify_unknowns(self, text: str) -> List[str]:
+
+    def _identify_unknowns(self, text: str) -> list[str]:
         """Identify unknowns that need clarification."""
         unknowns = []
-        
+
         # Check for time indicators
         if not any(t in text.lower() for t in ["day", "night", "morning", "evening"]):
             if "exterior" in text.lower() or "ext" in text.lower()[:10]:
                 unknowns.append("Time of day not specified")
-        
+
         # Check for character details
         if "man" in text.lower() or "woman" in text.lower():
             unknowns.append("Character appearance not specified")
-        
+
         return unknowns
-    
+
     def _estimate_duration(self, text: str) -> float:
         """Estimate shot duration in seconds."""
         # Base duration
         duration = 5.0
-        
+
         # Adjust based on action complexity
         word_count = len(text.split())
         if word_count > 50:
@@ -581,47 +579,47 @@ class ShotListGenerator:
             duration = 12.0
         elif word_count < 20:
             duration = 3.0
-        
+
         return duration
-    
+
     def _is_shot_break(self, text: str) -> bool:
         """Determine if text indicates a natural shot break."""
         indicators = [
             "cut to", "angle on", "close on", "wide shot",
             "new angle", "reverse", "another angle"
         ]
-        
+
         return any(ind in text.lower() for ind in indicators)
-    
-    def _build_character_list(self, parsed: Dict[str, Any]) -> List[Dict[str, Any]]:
+
+    def _build_character_list(self, parsed: dict[str, Any]) -> list[dict[str, Any]]:
         """Build character list with metadata."""
         raw_characters = parsed.get("characters", [])
-        
+
         characters = []
         for char_name in raw_characters:
             appearances = self._character_appearances.get(char_name, [])
-            
+
             characters.append({
                 "name": char_name,
                 "scene_count": len(appearances),
                 "first_scene": appearances[0] if appearances else None,
                 "scenes": appearances,
             })
-        
+
         # Sort by scene count (prominence)
         characters.sort(key=lambda c: c["scene_count"], reverse=True)
-        
+
         return characters
-    
+
     def _detect_contradictions(
-        self, parsed: Dict[str, Any], scenes: List[SceneBreakdown]
-    ) -> List[Contradiction]:
+        self, parsed: dict[str, Any], scenes: list[SceneBreakdown]
+    ) -> list[Contradiction]:
         """Detect contradictions in the screenplay."""
         contradictions = []
-        
+
         # Track character descriptions
-        char_descriptions: Dict[str, List[Tuple[str, str]]] = {}
-        
+        char_descriptions: dict[str, list[tuple[str, str]]] = {}
+
         for scene in scenes:
             for shot in scene.shots:
                 # Look for character descriptions in prompts
@@ -635,11 +633,10 @@ class ShotListGenerator:
                         if char not in char_descriptions:
                             char_descriptions[char] = []
                         char_descriptions[char].append((scene.scene_number, match.strip()))
-        
+
         # Check for height/appearance contradictions
         height_words = ["tall", "short", "medium height"]
-        hair_words = ["blonde", "brunette", "redhead", "bald", "gray", "black hair"]
-        
+
         for char, descriptions in char_descriptions.items():
             # Check heights
             heights_found = set()
@@ -647,7 +644,7 @@ class ShotListGenerator:
                 for h in height_words:
                     if h in desc.lower():
                         heights_found.add((h, scene_num))
-            
+
             if len(heights_found) > 1:
                 contradictions.append(Contradiction(
                     contradiction_id=f"char_height_{char}",
@@ -657,10 +654,10 @@ class ShotListGenerator:
                     severity="warning",
                     suggested_resolution=f"Clarify {char}'s height in Character Laboratory",
                 ))
-        
+
         return contradictions
-    
-    def _to_dict(self, result: ShotListResult) -> Dict[str, Any]:
+
+    def _to_dict(self, result: ShotListResult) -> dict[str, Any]:
         """Convert result to dictionary."""
         return {
             "title": result.title,
@@ -723,12 +720,12 @@ class ShotListGenerator:
         }
 
 
-def generate_shot_list(parsed_screenplay: Dict[str, Any]) -> Dict[str, Any]:
+def generate_shot_list(parsed_screenplay: dict[str, Any]) -> dict[str, Any]:
     """Convenience function to generate shot list.
-    
+
     Args:
         parsed_screenplay: Output from any screenplay parser
-        
+
     Returns:
         Complete shot list with scenes, shots, and metadata
     """

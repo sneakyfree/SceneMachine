@@ -8,7 +8,6 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -17,14 +16,14 @@ from sqlalchemy.orm import selectinload
 
 from scenemachine.config import get_settings
 from scenemachine.models import (
-    Project,
-    ProjectState,
     Character,
     CharacterLockState,
+    Project,
+    ProjectState,
     Scene,
+    Screenplay,
     Shot,
     ShotState,
-    Screenplay,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ logger = logging.getLogger(__name__)
 class ProjectDuplicator:
     """Service for duplicating projects with all their data."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         """Initialize with database session.
 
         Args:
@@ -45,7 +44,7 @@ class ProjectDuplicator:
     async def duplicate(
         self,
         project_id: UUID,
-        new_name: Optional[str] = None,
+        new_name: str | None = None,
         include_generated_videos: bool = False,
     ) -> Project:
         """Create a complete copy of a project.
@@ -130,7 +129,7 @@ class ProjectDuplicator:
 
     async def _load_project_with_relations(
         self, project_id: UUID
-    ) -> Optional[Project]:
+    ) -> Project | None:
         """Load project with all relationships eagerly loaded.
 
         Args:
@@ -337,7 +336,7 @@ class ProjectDuplicator:
 async def duplicate_project(
     session: AsyncSession,
     project_id: UUID,
-    new_name: Optional[str] = None,
+    new_name: str | None = None,
     include_generated_videos: bool = False,
 ) -> Project:
     """Convenience function to duplicate a project.

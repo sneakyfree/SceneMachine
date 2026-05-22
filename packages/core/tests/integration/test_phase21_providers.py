@@ -3,17 +3,12 @@
 Tests for the provider registry system and individual providers.
 """
 
-import asyncio
-import os
-from pathlib import Path
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from scenemachine.models.generation_job import JobProvider
-
 
 # =============================================================================
 # Provider Registry Tests
@@ -36,7 +31,6 @@ class TestProviderRegistry:
     def test_register_provider(self):
         """Test registering a provider."""
         from scenemachine.generators.base import (
-            GenerationProvider,
             ProviderRegistry,
         )
         from scenemachine.generators.mock import MockGenerationProvider
@@ -169,8 +163,8 @@ class TestMockProvider:
 
     def test_mock_provider_capabilities(self):
         """Test mock provider capabilities."""
-        from scenemachine.generators.mock import MockGenerationProvider
         from scenemachine.generators.base import ProviderFeature
+        from scenemachine.generators.mock import MockGenerationProvider
 
         provider = MockGenerationProvider()
         caps = provider.capabilities
@@ -210,8 +204,8 @@ class TestMockProvider:
     @pytest.mark.asyncio
     async def test_mock_provider_generate(self, tmp_path):
         """Test mock provider generation."""
-        from scenemachine.generators.mock import MockGenerationProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.mock import MockGenerationProvider
 
         # Patch settings to use tmp_path
         with patch("scenemachine.generators.mock.get_settings") as mock_settings:
@@ -245,8 +239,8 @@ class TestMockProvider:
     @pytest.mark.asyncio
     async def test_mock_provider_simulated_failure(self, tmp_path):
         """Test mock provider simulated failures."""
-        from scenemachine.generators.mock import MockGenerationProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.mock import MockGenerationProvider
 
         with patch("scenemachine.generators.mock.get_settings") as mock_settings:
             settings = MagicMock()
@@ -322,8 +316,8 @@ class TestReplicateProvider:
     @pytest.mark.asyncio
     async def test_replicate_generate_without_token(self):
         """Test Replicate generation fails without token."""
-        from scenemachine.generators.replicate import ReplicateProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.replicate import ReplicateProvider
 
         provider = ReplicateProvider(api_token=None)
         request = GenerationRequest(
@@ -388,8 +382,8 @@ class TestFalProvider:
     @pytest.mark.asyncio
     async def test_fal_generate_without_key(self):
         """Test Fal generation fails without API key."""
-        from scenemachine.generators.fal import FalProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.fal import FalProvider
 
         provider = FalProvider(api_key=None)
         request = GenerationRequest(
@@ -452,8 +446,8 @@ class TestComfyUIProvider:
 
     def test_comfyui_workflow_building(self):
         """Test ComfyUI workflow building (legacy AnimateDiff stub)."""
-        from scenemachine.generators.comfyui import ComfyUIProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.comfyui import ComfyUIProvider
 
         provider = ComfyUIProvider()
         model = provider.get_model("animatediff-v3")
@@ -484,18 +478,18 @@ class TestComfyUIProvider:
     def _make_request(self, **overrides):
         from scenemachine.generators.base import GenerationRequest
 
-        defaults = dict(
-            shot_id=uuid4(),
-            prompt="a cinematic wide shot of a windswept desert at golden hour",
-            negative_prompt="ugly, blurry",
-            width=768,
-            height=432,
-            duration_seconds=3.0,
-            fps=24,
-            seed=42,
-            guidance_scale=6.0,
-            num_inference_steps=30,
-        )
+        defaults = {
+            "shot_id": uuid4(),
+            "prompt": "a cinematic wide shot of a windswept desert at golden hour",
+            "negative_prompt": "ugly, blurry",
+            "width": 768,
+            "height": 432,
+            "duration_seconds": 3.0,
+            "fps": 24,
+            "seed": 42,
+            "guidance_scale": 6.0,
+            "num_inference_steps": 30,
+        }
         defaults.update(overrides)
         return GenerationRequest(**defaults)
 
@@ -602,8 +596,9 @@ class TestComfyUIProvider:
         2026-05-13). When a real one ships, swap the synthetic name
         for the actual file and the test continues to pass.
         """
-        from scenemachine.generators.comfyui import ComfyUIProvider
         from copy import deepcopy
+
+        from scenemachine.generators.comfyui import ComfyUIProvider
 
         provider = ComfyUIProvider()
         model = deepcopy(provider.get_model("wan22-animate-14b"))
@@ -1114,8 +1109,8 @@ class TestComfyUIProvider:
     def test_comfyui_provider_advertises_character_consistency(self):
         """Wan Animate gives us character-consistency support, so the
         provider's capabilities must advertise the feature."""
-        from scenemachine.generators.comfyui import ComfyUIProvider
         from scenemachine.generators.base import ProviderFeature
+        from scenemachine.generators.comfyui import ComfyUIProvider
 
         provider = ComfyUIProvider()
         assert ProviderFeature.CHARACTER_CONSISTENCY in provider.capabilities.features
@@ -1172,8 +1167,8 @@ class TestRunPodProvider:
     @pytest.mark.asyncio
     async def test_runpod_generate_without_key(self):
         """Test RunPod generation fails without API key."""
-        from scenemachine.generators.runpod import RunPodProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.runpod import RunPodProvider
 
         provider = RunPodProvider(api_key=None)
         request = GenerationRequest(
@@ -1189,8 +1184,8 @@ class TestRunPodProvider:
     @pytest.mark.asyncio
     async def test_runpod_generate_without_endpoint(self):
         """Test RunPod generation fails without endpoint ID."""
-        from scenemachine.generators.runpod import RunPodProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.runpod import RunPodProvider
 
         provider = RunPodProvider(api_key="test-key", endpoint_id=None)
         request = GenerationRequest(
@@ -1214,8 +1209,8 @@ class TestRequestValidation:
 
     def test_validate_request_width(self):
         """Test request width validation."""
-        from scenemachine.generators.mock import MockGenerationProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.mock import MockGenerationProvider
 
         provider = MockGenerationProvider()
 
@@ -1241,8 +1236,8 @@ class TestRequestValidation:
 
     def test_validate_request_duration(self):
         """Test request duration validation."""
-        from scenemachine.generators.mock import MockGenerationProvider
         from scenemachine.generators.base import GenerationRequest
+        from scenemachine.generators.mock import MockGenerationProvider
 
         provider = MockGenerationProvider()
 
@@ -1341,9 +1336,9 @@ class TestProviderHealthEndpoints:
     @pytest.mark.asyncio
     async def test_providers_health_endpoint(self):
         """Test the /health/providers endpoint."""
+        from scenemachine.api.routes.health import providers_health_check
         from scenemachine.generators.base import ProviderRegistry
         from scenemachine.generators.mock import MockGenerationProvider
-        from scenemachine.api.routes.health import providers_health_check
 
         ProviderRegistry.reset()
         registry = ProviderRegistry.get_instance()
@@ -1361,9 +1356,9 @@ class TestProviderHealthEndpoints:
     @pytest.mark.asyncio
     async def test_single_provider_health_endpoint(self):
         """Test the /health/providers/{provider_type} endpoint."""
+        from scenemachine.api.routes.health import provider_health_check
         from scenemachine.generators.base import ProviderRegistry
         from scenemachine.generators.mock import MockGenerationProvider
-        from scenemachine.api.routes.health import provider_health_check
 
         ProviderRegistry.reset()
         registry = ProviderRegistry.get_instance()
@@ -1380,8 +1375,8 @@ class TestProviderHealthEndpoints:
     @pytest.mark.asyncio
     async def test_unknown_provider_health_endpoint(self):
         """Test health check for unknown provider."""
-        from scenemachine.generators.base import ProviderRegistry
         from scenemachine.api.routes.health import provider_health_check
+        from scenemachine.generators.base import ProviderRegistry
 
         ProviderRegistry.reset()
 

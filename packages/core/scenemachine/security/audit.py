@@ -6,18 +6,19 @@ Useful for compliance, debugging, and security monitoring.
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
-from uuid import UUID, uuid4
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+from uuid import uuid4
 
 from fastapi import Request
 
 logger = logging.getLogger("scenemachine.audit")
 
 
-class AuditEventType(str, Enum):
+class AuditEventType(StrEnum):
     """Types of audit events."""
 
     # Authentication events
@@ -66,31 +67,31 @@ class AuditEvent:
     """Represents an audit event."""
 
     event_type: AuditEventType
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     event_id: str = field(default_factory=lambda: str(uuid4()))
 
     # Actor information
-    user_id: Optional[str] = None
-    user_email: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
+    user_id: str | None = None
+    user_email: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
 
     # Request context
-    request_id: Optional[str] = None
-    method: Optional[str] = None
-    path: Optional[str] = None
+    request_id: str | None = None
+    method: str | None = None
+    path: str | None = None
 
     # Event details
-    resource_type: Optional[str] = None
-    resource_id: Optional[str] = None
-    action: Optional[str] = None
+    resource_type: str | None = None
+    resource_id: str | None = None
+    action: str | None = None
     outcome: str = "success"  # "success", "failure", "error"
-    message: Optional[str] = None
+    message: str | None = None
 
     # Additional metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         data = asdict(self)
         data["event_type"] = self.event_type.value
@@ -109,8 +110,8 @@ class AuditLog:
     Supports multiple output handlers (logging, file, database).
     """
 
-    def __init__(self):
-        self._handlers: List[Callable[[AuditEvent], None]] = []
+    def __init__(self) -> None:
+        self._handlers: list[Callable[[AuditEvent], None]] = []
         # Add default logging handler
         self._handlers.append(self._log_handler)
 
@@ -151,14 +152,14 @@ class AuditLog:
         self,
         event_type: AuditEventType,
         *,
-        user_id: Optional[str] = None,
-        user_email: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        request: Optional[Request] = None,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        user_id: str | None = None,
+        user_email: str | None = None,
+        ip_address: str | None = None,
+        request: Request | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
         outcome: str = "success",
-        message: Optional[str] = None,
+        message: str | None = None,
         **metadata: Any,
     ) -> AuditEvent:
         """Log an audit event with convenience parameters.
@@ -209,7 +210,7 @@ class AuditLog:
 
 
 # Global instance
-_audit_logger: Optional[AuditLog] = None
+_audit_logger: AuditLog | None = None
 
 
 def get_audit_logger() -> AuditLog:
@@ -231,11 +232,11 @@ def get_audit_logger() -> AuditLog:
 
 def log_auth_event(
     event_type: AuditEventType,
-    user_id: Optional[str] = None,
-    user_email: Optional[str] = None,
-    request: Optional[Request] = None,
+    user_id: str | None = None,
+    user_email: str | None = None,
+    request: Request | None = None,
     outcome: str = "success",
-    message: Optional[str] = None,
+    message: str | None = None,
     **metadata: Any,
 ) -> AuditEvent:
     """Log an authentication-related event.
@@ -265,9 +266,9 @@ def log_auth_event(
 
 def log_security_event(
     event_type: AuditEventType,
-    request: Optional[Request] = None,
+    request: Request | None = None,
     outcome: str = "failure",
-    message: Optional[str] = None,
+    message: str | None = None,
     **metadata: Any,
 ) -> AuditEvent:
     """Log a security-related event.
