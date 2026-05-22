@@ -11,7 +11,7 @@ import { useLipSyncStore } from '../../../stores/lipsync-store';
 // Mock Electron API with default implementation
 const mockBackendRequest = vi.fn().mockImplementation((endpoint, _params) => {
   // Default response for get providers
-  if (endpoint === 'lipsync.getProviders') {
+  if (endpoint === 'lipSync.getProviders') {
     return Promise.resolve({ providers: [] });
   }
   return Promise.resolve({});
@@ -274,7 +274,7 @@ describe('LipSyncPanel', () => {
       );
 
       await waitFor(() => {
-        expect(mockBackendRequest).toHaveBeenCalledWith('lipsync.getProviders', {});
+        expect(mockBackendRequest).toHaveBeenCalledWith('lipSync.getProviders', {});
       });
     });
 
