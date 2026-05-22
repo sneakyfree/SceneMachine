@@ -56,6 +56,7 @@ collect_ignore = [
     "services/test_storage.py",
     "services/test_templates.py",
     "workflows/test_base.py",
+    "investor_hardening_test.py",  # opens data/investor_hardening_test.log at import time
     "e2e/test_generation_pipeline.py",  # service signature drift
     "integration/test_phase20_features.py",
     "integration/test_phase21_providers.py",

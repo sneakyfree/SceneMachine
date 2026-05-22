@@ -2880,7 +2880,10 @@ export type CameraMovement = 'static' | 'pan_left' | 'pan_right' | 'tilt_up' | '
 
 export interface Shot {
   id: string;
-  sceneId?: string;
+  // Every shot in the DB has a scene_id FK (NOT NULL on the backend) — the
+  // optionality here was a leftover from an earlier draft. Marking as
+  // required to satisfy strict TypeScript indexing in stores/shot-store.ts.
+  sceneId: string;
   shotNumber: string;
   sequenceNumber: number;
   shotType: ShotType;
