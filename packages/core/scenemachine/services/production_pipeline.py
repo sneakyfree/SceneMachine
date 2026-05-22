@@ -701,6 +701,9 @@ class ProductionPipeline:
 
                 extra_params = {"model_id": decision.model_id}
                 extra_params.update(decision.extra_params or {})
+                shot_extra = shot_data.get("extra_params")
+                if isinstance(shot_extra, dict):
+                    extra_params.update(shot_extra)
 
                 # Plumb num_inference_steps + guidance_scale from shot_data
                 # when present. Previously these always took the dataclass
