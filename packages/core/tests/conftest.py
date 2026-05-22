@@ -30,8 +30,8 @@ from tests.sqlite_compat import create_all_tables_sqlite
 # 2 sub-directories that fail at import because email-validator isn't
 # in the dev dependency set (would need pydantic[email] added).
 collect_ignore = [
-    "api/routes",          # whole dir: email-validator import error
-    "auth",                # whole dir: email-validator import error
+    "api/routes",  # whole dir: email-validator import error
+    "auth",  # whole dir: email-validator import error
     "parsers/test_fountain.py",
     "parsers/test_pdf.py",
     "services/test_aci.py",
