@@ -120,6 +120,26 @@ PRESETS: Dict[str, BenchmarkPreset] = {
         use_continuity=True,
         expected_wallclock_minutes_per_47_shots=8 * 60,
     ),
+    # V9 — the chain-mode fix of V4. V4 used per-scene scene_id which gave
+    # 1-shot groups; I2V routing never fired (confirmed 2026-05-21). V9
+    # leverages the chain-mode logic added below: all shots share
+    # scene_id="_continuity_chain" so the whole run forms one I2V chain
+    # seeded from each prev shot's last frame. The first shot of every
+    # character ideally routes Animate (V8's anchor); subsequent shots
+    # route I2V with the chain. Tests the V8 follow-up hypothesis:
+    # "does I2V preserve identity across T2V-style chains?" See
+    # docs/V9_PLUS_LADDER.md.
+    "V9_continuity_chain": BenchmarkPreset(
+        name="V9_continuity_chain",
+        description=(
+            "V4 with the harness chain-mode fix: all shots in one I2V "
+            "chain. First-shot T2V seeds, every subsequent shot I2V "
+            "from prev shot's last frame. Tests identity carry-over."
+        ),
+        num_inference_steps=30,
+        use_continuity=True,
+        expected_wallclock_minutes_per_47_shots=8 * 60,
+    ),
     "V5_animate": BenchmarkPreset(
         name="V5_animate",
         description="V1 + Animate when named characters in frame (needs character refs first).",
