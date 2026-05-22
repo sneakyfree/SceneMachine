@@ -179,7 +179,7 @@ class TestWebSocketMessageHandling:
         """Test that messages are properly serialized."""
         from scenemachine.api.routes.ws import serialize_message
 
-        if callable(serialize_message) if 'serialize_message' in dir() else False:
+        if callable(serialize_message) if "serialize_message" in dir() else False:
             message = {"type": "status", "data": {"progress": 50}}
             serialized = serialize_message(message)
             assert isinstance(serialized, (str, bytes))

@@ -41,7 +41,11 @@ class TestTemplatesService:
         all_templates = await templates_service.get_all()
 
         if all_templates:
-            template_id = all_templates[0].id if hasattr(all_templates[0], "id") else all_templates[0].get("id")
+            template_id = (
+                all_templates[0].id
+                if hasattr(all_templates[0], "id")
+                else all_templates[0].get("id")
+            )
             template = await templates_service.get_by_id(template_id)
             assert template is not None
 

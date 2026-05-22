@@ -126,22 +126,24 @@ async def get_timeline(
 
         scenes_data = []
         for scene in timeline.scenes:
-            scenes_data.append({
-                "scene_id": str(scene.scene_id),
-                "scene_number": scene.scene_number,
-                "title": scene.title,
-                "duration": scene.duration,
-                "shots": [
-                    {
-                        "shot_id": str(shot.shot_id),
-                        "shot_number": shot.shot_number,
-                        "duration": shot.duration,
-                        "has_output": shot.output_path is not None,
-                        "thumbnail": shot.thumbnail_path,
-                    }
-                    for shot in scene.shots
-                ],
-            })
+            scenes_data.append(
+                {
+                    "scene_id": str(scene.scene_id),
+                    "scene_number": scene.scene_number,
+                    "title": scene.title,
+                    "duration": scene.duration,
+                    "shots": [
+                        {
+                            "shot_id": str(shot.shot_id),
+                            "shot_number": shot.shot_number,
+                            "duration": shot.duration,
+                            "has_output": shot.output_path is not None,
+                            "thumbnail": shot.thumbnail_path,
+                        }
+                        for shot in scene.shots
+                    ],
+                }
+            )
 
         return TimelineResponse(
             project_id=str(project_id),

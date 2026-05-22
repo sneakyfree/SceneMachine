@@ -144,13 +144,15 @@ class Settings(BaseSettings):
         )
 
 
-_INSECURE_SECRET_DEFAULTS = frozenset({
-    "change-me-in-production-use-strong-random-key",
-    "jwt-secret-change-me-in-production",
-    "dev-jwt-secret-do-not-use-in-production",
-    "scenemachine-dev-secret-key-not-for-production-32ch",
-    "scenemachine-dev-jwt-key-not-for-production-32ch",
-})
+_INSECURE_SECRET_DEFAULTS = frozenset(
+    {
+        "change-me-in-production-use-strong-random-key",
+        "jwt-secret-change-me-in-production",
+        "dev-jwt-secret-do-not-use-in-production",
+        "scenemachine-dev-secret-key-not-for-production-32ch",
+        "scenemachine-dev-jwt-key-not-for-production-32ch",
+    }
+)
 
 
 def validate_secrets_for_production(settings: Settings) -> None:

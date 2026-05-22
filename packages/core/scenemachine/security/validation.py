@@ -11,9 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 # Regex patterns for validation
-EMAIL_PATTERN = re.compile(
-    r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-)
+EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 URL_PATTERN = re.compile(
     r"^https?://"
@@ -22,7 +20,7 @@ URL_PATTERN = re.compile(
     r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
     r"(?::\d+)?"
     r"(?:/?|[/?]\S+)$",
-    re.IGNORECASE
+    re.IGNORECASE,
 )
 
 # Dangerous filename characters
@@ -80,7 +78,7 @@ def sanitize_filename(
         parts = filename.rsplit(".", 1)
         if len(parts) == 2 and len(parts[1]) <= 10:
             name, ext = parts
-            filename = f"{name[:max_length - len(ext) - 1]}.{ext}"
+            filename = f"{name[: max_length - len(ext) - 1]}.{ext}"
         else:
             filename = filename[:max_length]
 

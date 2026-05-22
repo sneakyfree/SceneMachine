@@ -123,10 +123,7 @@ class AuditLog:
         elif event.outcome == "error":
             log_level = logging.ERROR
 
-        logger.log(
-            log_level,
-            f"AUDIT: {event.event_type.value} - {event.to_json()}"
-        )
+        logger.log(log_level, f"AUDIT: {event.event_type.value} - {event.to_json()}")
 
     def add_handler(self, handler: Callable[[AuditEvent], None]) -> None:
         """Add a custom audit event handler.

@@ -4,6 +4,7 @@ Verifies that the service correctly dispatches to a registered provider
 without depending on a real ComfyUI process. Uses a stub provider that
 satisfies the generators.base.GenerationProvider interface.
 """
+
 from __future__ import annotations
 
 from uuid import uuid4
@@ -26,15 +27,18 @@ class _StubProvider:
 
     async def generate(self, request, *, progress_callback=None):
         # Capture the call so the test can assert on it
-        self.calls.append({
-            "shot_id": str(request.shot_id),
-            "prompt": request.prompt,
-            "model_id": (request.extra_params or {}).get("model_id"),
-            "input_image_path": request.input_image_path,
-            "character_refs": list(request.character_references or []),
-        })
+        self.calls.append(
+            {
+                "shot_id": str(request.shot_id),
+                "prompt": request.prompt,
+                "model_id": (request.extra_params or {}).get("model_id"),
+                "input_image_path": request.input_image_path,
+                "character_refs": list(request.character_references or []),
+            }
+        )
         # Return a generators.base.GenerationResult-shaped object
         from scenemachine.generators.base import GenerationResult
+
         return GenerationResult(
             success=True,
             output_path=f"shots/{request.shot_id}/output.mp4",
@@ -45,6 +49,7 @@ class _StubProvider:
 
 def _build_request(**overrides):
     from scenemachine.generators.base import GenerationRequest
+
     defaults = {
         "shot_id": uuid4(),
         "prompt": "a hero walks through a misty forest",
@@ -137,18 +142,14 @@ async def test_generate_forwards_input_image_and_character_refs():
 
     request = _build_request(
         input_image_path="prev_last.png",
-        character_references=[
-            {"character_id": "hero", "reference_image_path": "hero.png"}
-        ],
+        character_references=[{"character_id": "hero", "reference_image_path": "hero.png"}],
         extra_params={"model_id": "wan22-animate-14b"},
     )
     await svc.generate(request, provider=JobProvider.LOCAL)
 
     call = stub.calls[0]
     assert call["input_image_path"] == "prev_last.png"
-    assert call["character_refs"] == [
-        {"character_id": "hero", "reference_image_path": "hero.png"}
-    ]
+    assert call["character_refs"] == [{"character_id": "hero", "reference_image_path": "hero.png"}]
     assert call["model_id"] == "wan22-animate-14b"
 
 

@@ -163,9 +163,7 @@ async def analyze_scene(
     """
     try:
         # Load scene data from database
-        scene_result = await session.execute(
-            select(Scene).where(Scene.id == request.scene_id)
-        )
+        scene_result = await session.execute(select(Scene).where(Scene.id == request.scene_id))
         scene = scene_result.scalar_one_or_none()
 
         if not scene:
@@ -177,7 +175,7 @@ async def analyze_scene(
             "scene_number": scene.scene_number,
             "heading": scene.heading,
             "description": scene.description,
-            "dialogue": getattr(scene, 'dialogue', ''),
+            "dialogue": getattr(scene, "dialogue", ""),
             "context": request.context,
         }
 
@@ -209,9 +207,12 @@ async def analyze_scene(
             return SceneAnalysis(
                 scene_id=request.scene_id,
                 scene_summary=summary,
-                emotional_arc=["rising action", "climax", "resolution"] if suggestions else ["neutral"],
+                emotional_arc=["rising action", "climax", "resolution"]
+                if suggestions
+                else ["neutral"],
                 pacing_score=0.75 + (len(suggestions) * 0.02),  # Adjust based on suggestion count
-                visual_complexity=0.5 + (len([s for s in suggestions if s.category == "visual"]) * 0.1),
+                visual_complexity=0.5
+                + (len([s for s in suggestions if s.category == "visual"]) * 0.1),
                 suggestions=suggestions,
                 performer_recommendations=[],  # Would require performer matching service
             )
@@ -279,9 +280,7 @@ async def chat_with_steven(
                 from sqlalchemy import select
 
                 char_result = await session.execute(
-                    select(Character).where(
-                        Character.project_id == project.id
-                    ).limit(20)
+                    select(Character).where(Character.project_id == project.id).limit(20)
                 )
                 characters = char_result.scalars().all()
                 if characters:
@@ -292,9 +291,7 @@ async def chat_with_steven(
 
                 # Fetch scenes
                 scene_result = await session.execute(
-                    select(Scene).where(
-                        Scene.project_id == project.id
-                    ).limit(50)
+                    select(Scene).where(Scene.project_id == project.id).limit(50)
                 )
                 scenes = scene_result.scalars().all()
                 if scenes:
@@ -302,7 +299,7 @@ async def chat_with_steven(
                     project_context["scenes"] = [
                         {
                             "id": str(s.id),
-                            "title": getattr(s, "title", f"Scene {i+1}"),
+                            "title": getattr(s, "title", f"Scene {i + 1}"),
                             "shot_count": getattr(s, "shot_count", 0),
                         }
                         for i, s in enumerate(scenes[:10])
@@ -327,9 +324,10 @@ async def chat_with_steven(
         return ChatResponse(
             message=llm_result.get("message", "I'm here to help with your project."),
             suggestions=[
-                s.get("title", s.get("description", ""))
-                for s in llm_result.get("suggestions", [])
-            ][:3] if llm_result.get("suggestions") else None,
+                s.get("title", s.get("description", "")) for s in llm_result.get("suggestions", [])
+            ][:3]
+            if llm_result.get("suggestions")
+            else None,
             actions=None,  # Actions determined by specific commands
             confidence=0.9,
         )
@@ -506,10 +504,7 @@ async def recommend_performers(
 
     # Filter by budget if specified
     if request.max_budget_usd:
-        recommendations = [
-            r for r in recommendations
-            if r.estimated_cost <= request.max_budget_usd
-        ]
+        recommendations = [r for r in recommendations if r.estimated_cost <= request.max_budget_usd]
 
     return recommendations
 
@@ -549,14 +544,15 @@ async def get_creative_guidance(
 
         # Extract recommendations from suggestions
         recommendations = [
-            s.get("description", s.get("title", ""))
-            for s in llm_result.get("suggestions", [])
+            s.get("description", s.get("title", "")) for s in llm_result.get("suggestions", [])
         ]
 
         return CreativeGuidance(
             guidance_type=request.guidance_type,
             analysis=llm_result.get("message", "Analysis based on your project."),
-            recommendations=recommendations if recommendations else [
+            recommendations=recommendations
+            if recommendations
+            else [
                 "Consider the emotional arc of your story",
                 "Ensure visual consistency across scenes",
                 "Let character actions reveal motivation",

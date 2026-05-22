@@ -274,11 +274,22 @@ class TestPerformerGetHandler:
         result = await handler(id=str(sample_performers[0].id))
 
         required_fields = [
-            "id", "stage_name", "bio", "specialties", "aci_score",
-            "performer_type", "is_verified", "is_available",
-            "motion_capabilities", "total_bookings",
-            "completed_bookings", "lifetime_earnings_usd", "average_rating",
-            "pricing_blink_usd", "base_price_usd", "completion_rate",
+            "id",
+            "stage_name",
+            "bio",
+            "specialties",
+            "aci_score",
+            "performer_type",
+            "is_verified",
+            "is_available",
+            "motion_capabilities",
+            "total_bookings",
+            "completed_bookings",
+            "lifetime_earnings_usd",
+            "average_rating",
+            "pricing_blink_usd",
+            "base_price_usd",
+            "completion_rate",
         ]
         for field in required_fields:
             assert field in result

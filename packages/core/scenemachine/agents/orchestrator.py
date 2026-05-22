@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PipelineState:
     """State of the current pipeline execution."""
+
     project_id: UUID
     status: str = "idle"  # idle, running, paused, completed, failed
     current_phase: str = "init"
@@ -163,7 +164,7 @@ class OrchestratorAgent(BaseAgent):
                 self._state.current_phase = phase
                 self._state.progress_percent = (i / len(phases_to_run)) * 100
 
-                logger.info(f"Running phase: {phase} ({i+1}/{len(phases_to_run)})")
+                logger.info(f"Running phase: {phase} ({i + 1}/{len(phases_to_run)})")
 
                 result = await self._run_phase(
                     context,

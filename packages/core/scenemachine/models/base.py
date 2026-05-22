@@ -21,6 +21,7 @@ class JSONType(TypeDecorator):
     A JSON type that uses JSONB on PostgreSQL and JSON on SQLite/others.
     This allows models to be database-agnostic.
     """
+
     impl = JSON
     cache_ok = True
 
@@ -35,6 +36,7 @@ class ArrayType(TypeDecorator):
     An ARRAY type that uses native ARRAY on PostgreSQL and JSON on SQLite/others.
     This allows models to be database-agnostic for array columns.
     """
+
     impl = JSON
     cache_ok = True
 
@@ -74,6 +76,7 @@ class UUIDType(TypeDecorator):
     """
     A UUID type that uses native UUID on PostgreSQL and String on SQLite/others.
     """
+
     impl = String(36)
     cache_ok = True
 
@@ -95,7 +98,9 @@ class UUIDType(TypeDecorator):
         if dialect.name == "postgresql":
             return value
         from uuid import UUID
+
         return UUID(value) if isinstance(value, str) else value
+
 
 # Naming convention for constraints (helps with migrations)
 convention = {

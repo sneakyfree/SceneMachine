@@ -70,7 +70,9 @@ async def export_project(
             "includesOutputs": result.manifest.includes_outputs if result.manifest else None,
             "fileCount": result.manifest.file_count if result.manifest else None,
             "totalSizeBytes": result.manifest.total_size_bytes if result.manifest else None,
-        } if result.manifest else None,
+        }
+        if result.manifest
+        else None,
     }
 
 
@@ -225,7 +227,9 @@ async def list_exports(
                 "version": archive["manifest"]["version"],
                 "projectId": archive["manifest"]["project_id"],
                 "projectName": archive["manifest"]["project_name"],
-            } if archive["manifest"] else None,
+            }
+            if archive["manifest"]
+            else None,
         }
         for archive in archives
     ]

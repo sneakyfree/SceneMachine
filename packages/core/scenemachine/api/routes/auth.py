@@ -241,9 +241,7 @@ async def change_password(
             current_password=data.current_password,
             new_password=data.new_password,
         )
-        return MessageResponse(
-            message="Password changed successfully. Please log in again."
-        )
+        return MessageResponse(message="Password changed successfully. Please log in again.")
     except InvalidCredentialsError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

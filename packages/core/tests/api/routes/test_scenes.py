@@ -16,10 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 
-def create_mock_scene(
-    scene_number: int = 1,
-    project_id: str = None
-) -> dict[str, Any]:
+def create_mock_scene(scene_number: int = 1, project_id: str = None) -> dict[str, Any]:
     """Create a mock scene."""
     return {
         "id": str(uuid4()),
@@ -54,13 +51,14 @@ class MockScenesRouter:
 
         @self.app.post("/api/v1/projects/{project_id}/scenes")
         async def create_scene(
-            project_id: str,
-            scene_number: int,
-            heading: str = "INT. LOCATION - DAY"
+            project_id: str, scene_number: int, heading: str = "INT. LOCATION - DAY"
         ):
             # Check for duplicate scene numbers
-            existing = [s for s in self.scenes.values()
-                       if s["project_id"] == project_id and s["scene_number"] == scene_number]
+            existing = [
+                s
+                for s in self.scenes.values()
+                if s["project_id"] == project_id and s["scene_number"] == scene_number
+            ]
             if existing:
                 raise HTTPException(status_code=400, detail="Scene number already exists")
 
@@ -77,10 +75,7 @@ class MockScenesRouter:
 
         @self.app.put("/api/v1/projects/{project_id}/scenes/{scene_id}")
         async def update_scene(
-            project_id: str,
-            scene_id: str,
-            heading: str = None,
-            description: str = None
+            project_id: str, scene_id: str, heading: str = None, description: str = None
         ):
             if scene_id not in self.scenes:
                 raise HTTPException(status_code=404, detail="Scene not found")
@@ -145,7 +140,7 @@ class TestScenesCRUD:
         """Test creating a new scene."""
         response = client.post(
             f"/api/v1/projects/{project_id}/scenes",
-            params={"scene_number": 1, "heading": "INT. COFFEE SHOP - DAY"}
+            params={"scene_number": 1, "heading": "INT. COFFEE SHOP - DAY"},
         )
 
         assert response.status_code == 200
@@ -155,15 +150,9 @@ class TestScenesCRUD:
 
     def test_duplicate_scene_number_rejected(self, client, project_id):
         """Test duplicate scene numbers are rejected."""
-        client.post(
-            f"/api/v1/projects/{project_id}/scenes",
-            params={"scene_number": 1}
-        )
+        client.post(f"/api/v1/projects/{project_id}/scenes", params={"scene_number": 1})
 
-        response = client.post(
-            f"/api/v1/projects/{project_id}/scenes",
-            params={"scene_number": 1}
-        )
+        response = client.post(f"/api/v1/projects/{project_id}/scenes", params={"scene_number": 1})
 
         assert response.status_code == 400
 
@@ -171,10 +160,7 @@ class TestScenesCRUD:
         """Test scenes are listed in sequence order."""
         # Create scenes out of order
         for num in [3, 1, 2]:
-            client.post(
-                f"/api/v1/projects/{project_id}/scenes",
-                params={"scene_number": num}
-            )
+            client.post(f"/api/v1/projects/{project_id}/scenes", params={"scene_number": num})
 
         response = client.get(f"/api/v1/projects/{project_id}/scenes")
 
@@ -186,8 +172,7 @@ class TestScenesCRUD:
     def test_get_scene(self, client, project_id):
         """Test getting a single scene."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/scenes",
-            params={"scene_number": 1}
+            f"/api/v1/projects/{project_id}/scenes", params={"scene_number": 1}
         )
         scene_id = create_response.json()["id"]
 
@@ -200,14 +185,13 @@ class TestScenesCRUD:
     def test_update_scene(self, client, project_id):
         """Test updating a scene."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/scenes",
-            params={"scene_number": 1}
+            f"/api/v1/projects/{project_id}/scenes", params={"scene_number": 1}
         )
         scene_id = create_response.json()["id"]
 
         response = client.put(
             f"/api/v1/projects/{project_id}/scenes/{scene_id}",
-            params={"heading": "EXT. PARK - NIGHT"}
+            params={"heading": "EXT. PARK - NIGHT"},
         )
 
         assert response.status_code == 200
@@ -217,8 +201,7 @@ class TestScenesCRUD:
     def test_delete_scene(self, client, project_id):
         """Test deleting a scene."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/scenes",
-            params={"scene_number": 1}
+            f"/api/v1/projects/{project_id}/scenes", params={"scene_number": 1}
         )
         scene_id = create_response.json()["id"]
 
@@ -244,16 +227,14 @@ class TestSceneOrdering:
         scene_ids = []
         for num in [1, 2, 3]:
             response = client.post(
-                f"/api/v1/projects/{project_id}/scenes",
-                params={"scene_number": num}
+                f"/api/v1/projects/{project_id}/scenes", params={"scene_number": num}
             )
             scene_ids.append(response.json()["id"])
 
         # Reorder to [3, 1, 2]
         new_order = [scene_ids[2], scene_ids[0], scene_ids[1]]
         response = client.post(
-            f"/api/v1/projects/{project_id}/scenes/reorder",
-            params={"scene_ids": new_order}
+            f"/api/v1/projects/{project_id}/scenes/reorder", params={"scene_ids": new_order}
         )
 
         assert response.status_code == 200
@@ -274,14 +255,11 @@ class TestSceneBreakdown:
     def test_get_scene_breakdown(self, client, project_id):
         """Test getting scene breakdown."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/scenes",
-            params={"scene_number": 1}
+            f"/api/v1/projects/{project_id}/scenes", params={"scene_number": 1}
         )
         scene_id = create_response.json()["id"]
 
-        response = client.get(
-            f"/api/v1/projects/{project_id}/scenes/{scene_id}/breakdown"
-        )
+        response = client.get(f"/api/v1/projects/{project_id}/scenes/{scene_id}/breakdown")
 
         assert response.status_code == 200
         data = response.json()
@@ -296,8 +274,14 @@ class TestSceneValidation:
     def test_valid_time_of_day_values(self):
         """Test valid time of day values."""
         valid_times = [
-            "day", "night", "dawn", "dusk",
-            "morning", "afternoon", "evening", "unspecified"
+            "day",
+            "night",
+            "dawn",
+            "dusk",
+            "morning",
+            "afternoon",
+            "evening",
+            "unspecified",
         ]
         for time in valid_times:
             assert time in valid_times
@@ -310,6 +294,7 @@ class TestSceneValidation:
 
     def test_scene_number_positive(self):
         """Test scene number must be positive."""
+
         def validate_scene_number(num: int) -> bool:
             return num > 0
 

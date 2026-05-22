@@ -266,8 +266,7 @@ class CostTrackingService:
 
         if project_id:
             stmt = (
-                stmt
-                .join(Shot, GenerationJob.shot_id == Shot.id)
+                stmt.join(Shot, GenerationJob.shot_id == Shot.id)
                 .join(Scene, Shot.scene_id == Scene.id)
                 .where(Scene.project_id == project_id)
             )
@@ -290,7 +289,9 @@ class CostTrackingService:
             total_cost_usd=breakdown.total_usd,
             total_duration_seconds=total_duration,
             average_cost_per_job=breakdown.total_usd / len(jobs) if jobs else 0,
-            average_duration_per_job=total_duration / breakdown.successful_jobs if breakdown.successful_jobs else 0,
+            average_duration_per_job=total_duration / breakdown.successful_jobs
+            if breakdown.successful_jobs
+            else 0,
             breakdown=breakdown,
         )
 
@@ -333,8 +334,7 @@ class CostTrackingService:
 
         if project_id:
             stmt = (
-                stmt
-                .join(Shot, GenerationJob.shot_id == Shot.id)
+                stmt.join(Shot, GenerationJob.shot_id == Shot.id)
                 .join(Scene, Shot.scene_id == Scene.id)
                 .where(Scene.project_id == project_id)
             )
@@ -401,8 +401,7 @@ class CostTrackingService:
 
             if project_id:
                 stmt = (
-                    stmt
-                    .join(Shot, GenerationJob.shot_id == Shot.id)
+                    stmt.join(Shot, GenerationJob.shot_id == Shot.id)
                     .join(Scene, Shot.scene_id == Scene.id)
                     .where(Scene.project_id == project_id)
                 )
@@ -487,9 +486,7 @@ class CostTrackingService:
 
             # By provider
             provider = job.provider.value if job.provider else "unknown"
-            breakdown.by_provider[provider] = (
-                breakdown.by_provider.get(provider, 0.0) + cost
-            )
+            breakdown.by_provider[provider] = breakdown.by_provider.get(provider, 0.0) + cost
 
             # By model
             model = job.model_id or "default"
@@ -497,9 +494,7 @@ class CostTrackingService:
 
             # By category (all video generation for now)
             category = CostCategory.VIDEO_GENERATION.value
-            breakdown.by_category[category] = (
-                breakdown.by_category.get(category, 0.0) + cost
-            )
+            breakdown.by_category[category] = breakdown.by_category.get(category, 0.0) + cost
 
         return breakdown
 

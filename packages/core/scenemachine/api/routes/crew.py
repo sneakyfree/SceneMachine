@@ -199,11 +199,13 @@ async def list_agents() -> list[dict[str, Any]]:
 
     agents = []
     for agent_type, agent in orchestrator._agents.items():
-        agents.append({
-            "type": agent_type.value,
-            "name": agent.name,
-            "capabilities": agent.capabilities,
-            "requires_approval": agent.requires_approval,
-        })
+        agents.append(
+            {
+                "type": agent_type.value,
+                "name": agent.name,
+                "capabilities": agent.capabilities,
+                "requires_approval": agent.requires_approval,
+            }
+        )
 
     return agents

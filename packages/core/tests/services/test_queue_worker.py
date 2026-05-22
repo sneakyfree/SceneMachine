@@ -200,6 +200,7 @@ class TestQueueWorker:
     ):
         """Test registering a custom job handler."""
         if hasattr(queue_worker, "register_handler"):
+
             async def custom_handler(job_data):
                 return {"status": "completed"}
 

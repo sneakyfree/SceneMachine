@@ -375,9 +375,7 @@ class ActCoreProvider(GenerationProvider):
             return GenerationResult(
                 success=True,
                 output_path=f"shots/{request.shot_id}/output.mp4",
-                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg"
-                if thumbnail_path
-                else None,
+                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg" if thumbnail_path else None,
                 duration_seconds=generation_duration,
                 cost_usd=estimated_cost,
                 metadata={

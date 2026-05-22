@@ -324,10 +324,12 @@ class CharacterService:
         character_scenes = []
         for scene in scenes:
             if character_name in scene.get("characters", []):
-                character_scenes.append({
-                    "location": scene.get("location"),
-                    "time_of_day": scene.get("time_of_day"),
-                })
+                character_scenes.append(
+                    {
+                        "location": scene.get("location"),
+                        "time_of_day": scene.get("time_of_day"),
+                    }
+                )
 
         return {
             "dialogues": dialogues[:20],  # Limit for analysis
@@ -657,12 +659,14 @@ class CharacterService:
             prompt_parts.append(f"in {scene_context}")
 
         # Quality modifiers
-        prompt_parts.extend([
-            "highly detailed",
-            "cinematic lighting",
-            "professional photography",
-            "8k resolution",
-        ])
+        prompt_parts.extend(
+            [
+                "highly detailed",
+                "cinematic lighting",
+                "professional photography",
+                "8k resolution",
+            ]
+        )
 
         positive_prompt = ", ".join(filter(None, prompt_parts))
 
@@ -737,7 +741,8 @@ class CharacterService:
                 )
 
             locked_likeness["secondary_reference_asset_ids"] = [
-                str(a.id) for a in character.reference_assets
+                str(a.id)
+                for a in character.reference_assets
                 if str(a.id) != locked_likeness.get("primary_reference_asset_id")
             ]
 
@@ -815,10 +820,7 @@ class CharacterService:
         await self.session.commit()
         await self.session.refresh(character)
 
-        logger.info(
-            f"Updated voice for character {character_id}: "
-            f"{voice_name} ({voice_provider})"
-        )
+        logger.info(f"Updated voice for character {character_id}: {voice_name} ({voice_provider})")
         return character
 
     async def _check_all_characters_locked(self, project_id: UUID) -> None:
@@ -854,9 +856,9 @@ class CharacterService:
     # ============================================================
 
     # Consistency thresholds
-    CONSISTENCY_HIGH = 0.75      # Strong match
-    CONSISTENCY_MEDIUM = 0.55    # Acceptable match
-    CONSISTENCY_LOW = 0.35       # Likely different character
+    CONSISTENCY_HIGH = 0.75  # Strong match
+    CONSISTENCY_MEDIUM = 0.55  # Acceptable match
+    CONSISTENCY_LOW = 0.35  # Likely different character
 
     async def check_character_consistency(
         self,
@@ -1020,19 +1022,20 @@ class CharacterService:
                 # Compare to reference if available
                 if reference_embedding:
                     similarity = face_service.compare_faces(
-                        reference_embedding,
-                        face.get("embedding", [])
+                        reference_embedding, face.get("embedding", [])
                     )
                 else:
                     similarity = 0.5  # No reference, neutral score
 
-                scored_faces.append({
-                    "index": i,
-                    "similarity": similarity,
-                    "quality_score": quality.get("overall_score", 0.0),
-                    "quality_tier": quality.get("tier", "unknown"),
-                    "bbox": face.get("bbox"),
-                })
+                scored_faces.append(
+                    {
+                        "index": i,
+                        "similarity": similarity,
+                        "quality_score": quality.get("overall_score", 0.0),
+                        "quality_tier": quality.get("tier", "unknown"),
+                        "bbox": face.get("bbox"),
+                    }
+                )
 
                 if similarity > best_match_score:
                     best_match_score = similarity

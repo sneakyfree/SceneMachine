@@ -83,9 +83,7 @@ class TimelineService:
         """
         # Auto-assign order if not provided
         if order is None:
-            result = await self.session.execute(
-                select(Track).where(Track.project_id == project_id)
-            )
+            result = await self.session.execute(select(Track).where(Track.project_id == project_id))
             existing_tracks = result.scalars().all()
             order = len(existing_tracks)
 
@@ -134,9 +132,7 @@ class TimelineService:
         Raises:
             TrackNotFoundError: If track not found
         """
-        result = await self.session.execute(
-            select(Track).where(Track.id == track_id)
-        )
+        result = await self.session.execute(select(Track).where(Track.id == track_id))
         track = result.scalar_one_or_none()
 
         if not track:
@@ -176,9 +172,7 @@ class TimelineService:
         Raises:
             TrackNotFoundError: If track not found
         """
-        result = await self.session.execute(
-            select(Track).where(Track.id == track_id)
-        )
+        result = await self.session.execute(select(Track).where(Track.id == track_id))
         track = result.scalar_one_or_none()
 
         if not track:
@@ -189,9 +183,7 @@ class TimelineService:
 
         return True
 
-    async def reorder_tracks(
-        self, project_id: UUID, track_ids: list[UUID]
-    ) -> list[Track]:
+    async def reorder_tracks(self, project_id: UUID, track_ids: list[UUID]) -> list[Track]:
         """Reorder tracks by setting new positions.
 
         Args:
@@ -262,9 +254,7 @@ class TimelineService:
         Returns:
             TimelineClip or None
         """
-        result = await self.session.execute(
-            select(TimelineClip).where(TimelineClip.id == clip_id)
-        )
+        result = await self.session.execute(select(TimelineClip).where(TimelineClip.id == clip_id))
         return result.scalar_one_or_none()
 
     async def update_clip(
@@ -424,9 +414,7 @@ class TimelineService:
 
         return clip, second_clip
 
-    async def ripple_delete(
-        self, clip_id: UUID, track_id: UUID
-    ) -> list[TimelineClip]:
+    async def ripple_delete(self, clip_id: UUID, track_id: UUID) -> list[TimelineClip]:
         """Delete clip and shift following clips to fill gap.
 
         Args:

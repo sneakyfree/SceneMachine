@@ -72,13 +72,9 @@ class TestMockBackend:
     @pytest.mark.asyncio
     async def test_custom_response(self):
         """Should return custom responses for matching keys."""
-        backend = MockBackend(responses={
-            "hello": '{"greeting": "Hi there!"}'
-        })
+        backend = MockBackend(responses={"hello": '{"greeting": "Hi there!"}'})
 
-        response = await backend.complete(
-            messages=[{"role": "user", "content": "hello world"}]
-        )
+        response = await backend.complete(messages=[{"role": "user", "content": "hello world"}])
 
         assert response.provider == LLMProvider.MOCK
         parsed = response.parse_json()
@@ -140,12 +136,8 @@ class TestMockBackend:
         """Should track call history."""
         backend = MockBackend()
 
-        await backend.complete(
-            messages=[{"role": "user", "content": "test 1"}]
-        )
-        await backend.complete(
-            messages=[{"role": "user", "content": "test 2"}]
-        )
+        await backend.complete(messages=[{"role": "user", "content": "test 1"}])
+        await backend.complete(messages=[{"role": "user", "content": "test 2"}])
 
         assert len(backend.call_history) == 2
 
@@ -276,6 +268,7 @@ class TestLLMServiceFallback:
     @pytest.mark.asyncio
     async def test_fallback_on_primary_failure(self):
         """Should fall back to secondary provider on failure."""
+
         # Create a failing backend
         class FailingBackend:
             async def complete(self, *args, **kwargs):

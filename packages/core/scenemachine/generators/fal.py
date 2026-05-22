@@ -309,9 +309,7 @@ class FalProvider(GenerationProvider):
             return GenerationResult(
                 success=True,
                 output_path=f"shots/{request.shot_id}/output.mp4",
-                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg"
-                if thumbnail_path
-                else None,
+                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg" if thumbnail_path else None,
                 duration_seconds=generation_duration,
                 cost_usd=estimated_cost,
                 metadata={
@@ -372,9 +370,7 @@ class FalProvider(GenerationProvider):
             args["num_frames"] = int(request.duration_seconds * model.default_fps)
 
         elif model.id == "fal-ai/cogvideox-5b":
-            args["num_frames"] = min(
-                int(request.duration_seconds * model.default_fps), 49
-            )
+            args["num_frames"] = min(int(request.duration_seconds * model.default_fps), 49)
             args["guidance_scale"] = request.guidance_scale
             args["num_inference_steps"] = min(request.num_inference_steps, 50)
 
@@ -545,7 +541,6 @@ class FalProvider(GenerationProvider):
             )
 
         try:
-
             os.environ["FAL_KEY"] = self.api_key
 
             # Try to get status of a known model

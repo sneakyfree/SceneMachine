@@ -560,17 +560,21 @@ async def get_approval_queue(
         job_result = await session.execute(job_stmt)
         latest_job = job_result.scalar_one_or_none()
 
-        queue_items.append({
-            "shot_id": str(shot.id),
-            "shot_title": getattr(shot, "title", f"Shot {getattr(shot, 'order', '?')}"),
-            "scene_id": str(shot.scene_id) if shot.scene_id else None,
-            "state": shot.state.value if hasattr(shot.state, "value") else str(shot.state),
-            "thumbnail_path": latest_job.thumbnail_path if latest_job else None,
-            "output_path": latest_job.output_path if latest_job else None,
-            "provider": latest_job.provider if latest_job else None,
-            "generated_at": latest_job.completed_at.isoformat() if latest_job and latest_job.completed_at else None,
-            "cost_usd": latest_job.cost_usd if latest_job else None,
-        })
+        queue_items.append(
+            {
+                "shot_id": str(shot.id),
+                "shot_title": getattr(shot, "title", f"Shot {getattr(shot, 'order', '?')}"),
+                "scene_id": str(shot.scene_id) if shot.scene_id else None,
+                "state": shot.state.value if hasattr(shot.state, "value") else str(shot.state),
+                "thumbnail_path": latest_job.thumbnail_path if latest_job else None,
+                "output_path": latest_job.output_path if latest_job else None,
+                "provider": latest_job.provider if latest_job else None,
+                "generated_at": latest_job.completed_at.isoformat()
+                if latest_job and latest_job.completed_at
+                else None,
+                "cost_usd": latest_job.cost_usd if latest_job else None,
+            }
+        )
 
     return {
         "total": len(queue_items),
@@ -739,14 +743,16 @@ async def get_providers_health(
             raw_models = provider.list_models()
             for m in raw_models:
                 if isinstance(m, dict):
-                    models.append(ProviderModelResponse(
-                        id=m.get("id", "unknown"),
-                        name=m.get("name", "Unknown"),
-                        cost_per_second=m.get("cost_per_second", 0.0),
-                        supports_text_to_video=m.get("supports_text_to_video", True),
-                        supports_image_to_video=m.get("supports_image_to_video", False),
-                        max_duration=m.get("max_duration", 10.0),
-                    ))
+                    models.append(
+                        ProviderModelResponse(
+                            id=m.get("id", "unknown"),
+                            name=m.get("name", "Unknown"),
+                            cost_per_second=m.get("cost_per_second", 0.0),
+                            supports_text_to_video=m.get("supports_text_to_video", True),
+                            supports_image_to_video=m.get("supports_image_to_video", False),
+                            max_duration=m.get("max_duration", 10.0),
+                        )
+                    )
         except Exception:
             pass
 
@@ -802,14 +808,16 @@ async def get_provider_models(
         raw_models = provider.list_models()
         for m in raw_models:
             if isinstance(m, dict):
-                models.append(ProviderModelResponse(
-                    id=m.get("id", "unknown"),
-                    name=m.get("name", "Unknown"),
-                    cost_per_second=m.get("cost_per_second", 0.0),
-                    supports_text_to_video=m.get("supports_text_to_video", True),
-                    supports_image_to_video=m.get("supports_image_to_video", False),
-                    max_duration=m.get("max_duration", 10.0),
-                ))
+                models.append(
+                    ProviderModelResponse(
+                        id=m.get("id", "unknown"),
+                        name=m.get("name", "Unknown"),
+                        cost_per_second=m.get("cost_per_second", 0.0),
+                        supports_text_to_video=m.get("supports_text_to_video", True),
+                        supports_image_to_video=m.get("supports_image_to_video", False),
+                        max_duration=m.get("max_duration", 10.0),
+                    )
+                )
     except Exception as e:
         logger.warning(f"Failed to list models for {provider_id}: {e}")
 
@@ -920,8 +928,10 @@ async def resume_worker() -> dict[str, bool]:
 
 # ---- Quality Review ----
 
+
 class QualityDimensionScoreResponse(BaseModel):
     """Score for a single quality dimension."""
+
     dimension: str
     score: float
     confidence: float
@@ -932,6 +942,7 @@ class QualityDimensionScoreResponse(BaseModel):
 
 class QualityReviewResponse(BaseModel):
     """Full quality review result for a generation job."""
+
     job_id: str
     overall_score: float
     passed: bool
@@ -995,14 +1006,16 @@ async def get_job_quality_review(
 
     dimensions = []
     for ds in result.dimension_scores:
-        dimensions.append(QualityDimensionScoreResponse(
-            dimension=ds.dimension.value,
-            score=round(ds.score, 3),
-            confidence=round(ds.confidence, 3),
-            weight=weight_map.get(ds.dimension, 0.1),
-            issues=[i.value for i in ds.issues],
-            notes=ds.notes,
-        ))
+        dimensions.append(
+            QualityDimensionScoreResponse(
+                dimension=ds.dimension.value,
+                score=round(ds.score, 3),
+                confidence=round(ds.confidence, 3),
+                weight=weight_map.get(ds.dimension, 0.1),
+                issues=[i.value for i in ds.issues],
+                notes=ds.notes,
+            )
+        )
 
     return QualityReviewResponse(
         job_id=job_id,
@@ -1018,8 +1031,10 @@ async def get_job_quality_review(
 
 # ---- IP-Adapter Settings ----
 
+
 class IPAdapterSettingsResponse(BaseModel):
     """IP-Adapter character consistency settings."""
+
     mode: str = "balanced"
     strength: float = 0.6
     available_modes: list[str] = ["balanced", "strong", "face_only"]
@@ -1027,6 +1042,7 @@ class IPAdapterSettingsResponse(BaseModel):
 
 class IPAdapterSettingsRequest(BaseModel):
     """Request to update IP-Adapter settings."""
+
     mode: str | None = None
     strength: float | None = None
 

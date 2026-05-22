@@ -83,8 +83,7 @@ class CircuitOpenError(CircuitBreakerError):
         self.circuit_name = circuit_name
         self.remaining_time = remaining_time
         super().__init__(
-            f"Circuit '{circuit_name}' is open. "
-            f"Retry after {remaining_time:.1f} seconds."
+            f"Circuit '{circuit_name}' is open. Retry after {remaining_time:.1f} seconds."
         )
 
 
@@ -183,17 +182,19 @@ class CircuitBreaker:
         self._state = new_state
 
         # Record state change
-        self._stats.state_changes.append({
-            "from": old_state.value,
-            "to": new_state.value,
-            "timestamp": time.time(),
-            "consecutive_failures": self._stats.consecutive_failures,
-            "consecutive_successes": self._stats.consecutive_successes,
-        })
+        self._stats.state_changes.append(
+            {
+                "from": old_state.value,
+                "to": new_state.value,
+                "timestamp": time.time(),
+                "consecutive_failures": self._stats.consecutive_failures,
+                "consecutive_successes": self._stats.consecutive_successes,
+            }
+        )
 
         # Trim history
         if len(self._stats.state_changes) > self.config.max_history:
-            self._stats.state_changes = self._stats.state_changes[-self.config.max_history:]
+            self._stats.state_changes = self._stats.state_changes[-self.config.max_history :]
 
         logger.info(
             f"Circuit '{self.name}' transitioned from {old_state.value} to {new_state.value}"
@@ -232,9 +233,7 @@ class CircuitBreaker:
         self._stats.consecutive_failures += 1
         self._stats.consecutive_successes = 0
 
-        logger.warning(
-            f"Circuit '{self.name}' recorded failure: {type(error).__name__}: {error}"
-        )
+        logger.warning(f"Circuit '{self.name}' recorded failure: {type(error).__name__}: {error}")
 
         if self._state == CircuitState.HALF_OPEN:
             # Any failure in half-open goes back to open

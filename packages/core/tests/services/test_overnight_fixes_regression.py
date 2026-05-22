@@ -12,6 +12,7 @@ loudly instead of reintroducing the silent failures.
   PR #46 — robust _assemble_movie + no silent first-shot lie
   PR #47 — extract_frame -sseof for negative timestamp (av1 GOP fix)
 """
+
 from __future__ import annotations
 
 import inspect
@@ -21,6 +22,7 @@ import pytest
 # ----------------------------------------------------------------------
 # PR #44 — Per-model expected_timeout_seconds
 # ----------------------------------------------------------------------
+
 
 class TestPR44PerModelTimeouts:
     """Pre-PR #44, the provider's POLL_TIMEOUT (600s) was the only
@@ -32,6 +34,7 @@ class TestPR44PerModelTimeouts:
     @pytest.fixture
     def provider(self):
         from scenemachine.generators.comfyui import ComfyUIProvider
+
         return ComfyUIProvider
 
     def test_t2v_has_expected_timeout_override(self, provider):
@@ -70,6 +73,7 @@ class TestPR44PerModelTimeouts:
 # PR #45 — num_inference_steps + guidance_scale plumbing
 # ----------------------------------------------------------------------
 
+
 class TestPR45StepsAndCfgPlumbing:
     """Pre-PR #45, ProductionPipeline._generate_videos built every
     GenerationRequest with the dataclass defaults
@@ -85,10 +89,11 @@ class TestPR45StepsAndCfgPlumbing:
 
     def test_generate_videos_reads_shot_data_steps(self):
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         src = inspect.getsource(ProductionPipeline._generate_videos)
         # The fix references shot_data.get('num_inference_steps') and
         # passes it via **_req_kwargs into GenerationRequest. Pin both.
-        assert "shot_data.get(\"num_inference_steps\")" in src, (
+        assert 'shot_data.get("num_inference_steps")' in src, (
             "_generate_videos must read num_inference_steps from "
             "shot_data; reverting drops the per-shot step override."
         )
@@ -100,8 +105,9 @@ class TestPR45StepsAndCfgPlumbing:
 
     def test_generate_videos_reads_shot_data_cfg(self):
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         src = inspect.getsource(ProductionPipeline._generate_videos)
-        assert "shot_data.get(\"guidance_scale\")" in src, (
+        assert 'shot_data.get("guidance_scale")' in src, (
             "_generate_videos must read guidance_scale from shot_data."
         )
 
@@ -109,6 +115,7 @@ class TestPR45StepsAndCfgPlumbing:
 # ----------------------------------------------------------------------
 # PR #46 — robust _assemble_movie + no silent first-shot lie
 # ----------------------------------------------------------------------
+
 
 class TestPR46AssemblyRobustness:
     """Pre-PR #46, _assemble_movie silently fell back to copying the
@@ -126,6 +133,7 @@ class TestPR46AssemblyRobustness:
 
     def test_no_silent_first_shot_fallback(self):
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         src = inspect.getsource(ProductionPipeline._assemble_movie)
         # The bad pattern was a `shutil.copy2(video_paths[0], output_path)`
         # call INSIDE the concat-failure exception branch (not the
@@ -135,7 +143,7 @@ class TestPR46AssemblyRobustness:
         #   (a) the empty-placeholder signal exists on the failure path
         #   (b) the explicit "No silent first-shot fallback" comment from
         #       PR #46 is preserved (intent-level documentation)
-        assert "output_path.write_bytes(b\"\")" in src, (
+        assert 'output_path.write_bytes(b"")' in src, (
             "_assemble_movie must write an empty placeholder when both "
             "assembly strategies fail, not silently copy the first shot. "
             "Per the feedback_no_silent_fallbacks rule, the empty-on-fail "
@@ -145,7 +153,7 @@ class TestPR46AssemblyRobustness:
         # branches that emit an empty file (filter fallback fail + outer
         # except). If someone reverts to a silent first-shot copy, both
         # disappear together.
-        assert src.count("output_path.write_bytes(b\"\")") >= 2, (
+        assert src.count('output_path.write_bytes(b"")') >= 2, (
             "Expected at least two empty-placeholder branches in "
             "_assemble_movie (concat-filter failure path + outer except). "
             "Reverting to a single silent first-shot copy reduces these."
@@ -153,6 +161,7 @@ class TestPR46AssemblyRobustness:
 
     def test_concat_filter_fallback_exists(self):
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         src = inspect.getsource(ProductionPipeline._assemble_movie)
         # The fallback uses ffmpeg's concat *filter* (not the demuxer)
         # with libx264 re-encoding. Pin the existence so the
@@ -165,6 +174,7 @@ class TestPR46AssemblyRobustness:
 
     def test_stderr_buffer_widened(self):
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         src = inspect.getsource(ProductionPipeline._assemble_movie)
         # Pre-PR was `stderr.decode()[:500]` which couldn't fit ffmpeg's
         # banner alone. PR #46 expanded to 4096.
@@ -178,6 +188,7 @@ class TestPR46AssemblyRobustness:
 # ----------------------------------------------------------------------
 # PR #47 — extract_frame -sseof for negative timestamp (av1 GOP bug)
 # ----------------------------------------------------------------------
+
 
 class TestPR47ExtractFrameSseof:
     """Pre-PR #47, FFmpeg.extract_frame used input seek (-ss) for all
@@ -196,6 +207,7 @@ class TestPR47ExtractFrameSseof:
 
     def test_extract_frame_branches_on_negative_timestamp(self):
         from scenemachine.utils.ffmpeg import FFmpeg
+
         src = inspect.getsource(FFmpeg.extract_frame)
         assert "sseof" in src, (
             "extract_frame must use -sseof when timestamp < 0; this is "
@@ -208,13 +220,15 @@ class TestPR47ExtractFrameSseof:
 
     def test_extract_frame_has_update_flag(self):
         from scenemachine.utils.ffmpeg import FFmpeg
+
         src = inspect.getsource(FFmpeg.extract_frame)
-        assert "-update" in src and "\"1\"" in src, (
+        assert "-update" in src and '"1"' in src, (
             "PR #47 added -update 1 for modern ffmpeg; do not drop."
         )
 
     def test_extract_frame_empty_output_raises(self):
         from scenemachine.utils.ffmpeg import FFmpeg
+
         src = inspect.getsource(FFmpeg.extract_frame)
         # The post-condition checks st_size == 0 and raises.
         assert "st_size == 0" in src or "stat().st_size" in src, (
@@ -226,6 +240,7 @@ class TestPR47ExtractFrameSseof:
         """The caller (extract_last_frame inside _generate_videos)
         must pass a negative timestamp to take advantage of the fix."""
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         src = inspect.getsource(ProductionPipeline._generate_videos)
         assert "timestamp=-0.1" in src, (
             "Pipeline's extract_last_frame helper must pass "

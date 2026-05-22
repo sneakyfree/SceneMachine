@@ -41,12 +41,11 @@ class TestDashboardEndpoint:
         self, app: FastAPI, db_session: AsyncSession
     ) -> None:
         """Test getting dashboard stats with default time range."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # Override dependency
             app.dependency_overrides = {}
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get("/api/v1/analytics/dashboard")
@@ -63,10 +62,9 @@ class TestDashboardEndpoint:
         self, app: FastAPI, db_session: AsyncSession
     ) -> None:
         """Test getting dashboard stats with specified time range."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get("/api/v1/analytics/dashboard?time_range=30d")
@@ -78,10 +76,9 @@ class TestDashboardEndpoint:
         self, app: FastAPI, db_session: AsyncSession
     ) -> None:
         """Test getting dashboard stats with invalid time range."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get("/api/v1/analytics/dashboard?time_range=invalid")
@@ -93,14 +90,11 @@ class TestGenerationStatsEndpoint:
     """Tests for generation stats endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_generation_stats(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_get_generation_stats(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test getting generation statistics."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get("/api/v1/analytics/generation-stats")
@@ -115,10 +109,9 @@ class TestGenerationStatsEndpoint:
         self, app: FastAPI, db_session: AsyncSession, project: Project
     ) -> None:
         """Test getting generation stats for a specific project."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get(
@@ -132,14 +125,11 @@ class TestCostStatsEndpoint:
     """Tests for cost stats endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_cost_stats(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_get_cost_stats(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test getting cost statistics."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get("/api/v1/analytics/cost-stats")
@@ -153,17 +143,14 @@ class TestDailyStatsEndpoint:
     """Tests for daily stats endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_daily_stats(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_get_daily_stats(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test getting daily statistics."""
         start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
         end = datetime.now().strftime("%Y-%m-%d")
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get(
@@ -179,10 +166,9 @@ class TestDailyStatsEndpoint:
         self, app: FastAPI, db_session: AsyncSession
     ) -> None:
         """Test getting daily stats without required dates."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get("/api/v1/analytics/daily-stats")
@@ -194,14 +180,11 @@ class TestProviderUsageEndpoint:
     """Tests for provider usage endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_provider_usage(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_get_provider_usage(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test getting provider usage statistics."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get("/api/v1/analytics/provider-usage")
@@ -219,15 +202,12 @@ class TestProjectStatsEndpoint:
         self, app: FastAPI, db_session: AsyncSession, project: Project
     ) -> None:
         """Test getting project statistics."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
-            response = await client.get(
-                f"/api/v1/analytics/project-stats/{project.id}"
-            )
+            response = await client.get(f"/api/v1/analytics/project-stats/{project.id}")
 
             assert response.status_code == 200
             data = response.json()
@@ -238,14 +218,11 @@ class TestPerformanceStatsEndpoint:
     """Tests for performance stats endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_performance_stats(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_get_performance_stats(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test getting performance statistics."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.get("/api/v1/analytics/performance-stats")

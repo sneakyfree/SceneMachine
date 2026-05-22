@@ -232,7 +232,5 @@ class Screenplay(Base, UUIDMixin, TimestampMixin):
     def __repr__(self) -> str:
         """String representation."""
         return (
-            f"<Screenplay(id={self.id}, "
-            f"title='{self.title}', "
-            f"format={self.original_format.value})>"
+            f"<Screenplay(id={self.id}, title='{self.title}', format={self.original_format.value})>"
         )

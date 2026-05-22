@@ -472,11 +472,7 @@ class LiveStudioService:
         Returns:
             Number of locks removed
         """
-        expired = [
-            lock_key
-            for lock_key, lock in session.edit_locks.items()
-            if lock.is_expired()
-        ]
+        expired = [lock_key for lock_key, lock in session.edit_locks.items() if lock.is_expired()]
 
         for lock_key in expired:
             del session.edit_locks[lock_key]

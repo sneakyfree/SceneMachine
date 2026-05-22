@@ -17,10 +17,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 
-def create_mock_job(
-    shot_id: str = None,
-    status: str = "pending"
-) -> dict[str, Any]:
+def create_mock_job(shot_id: str = None, status: str = "pending") -> dict[str, Any]:
     """Create a mock generation job."""
     return {
         "id": str(uuid4()),
@@ -52,8 +49,11 @@ class MockGenerationRouter:
         @self.app.get("/api/v1/generation/queue")
         async def get_queue():
             pending = [j for j in self.jobs.values() if j["status"] == "pending"]
-            running = [j for j in self.jobs.values()
-                      if j["status"] in ("preparing", "running", "post_processing")]
+            running = [
+                j
+                for j in self.jobs.values()
+                if j["status"] in ("preparing", "running", "post_processing")
+            ]
             return {
                 "pending": pending,
                 "running": running,
@@ -124,9 +124,7 @@ class MockGenerationRouter:
 
         @self.app.post("/api/v1/generation/estimate-cost")
         async def estimate_cost(
-            provider: str = "replicate",
-            model: str = "minimax/video-01",
-            duration: float = 5.0
+            provider: str = "replicate", model: str = "minimax/video-01", duration: float = 5.0
         ):
             # Mock cost estimation
             base_costs = {
@@ -175,8 +173,7 @@ class TestQueueManagement:
     def test_queue_job(self, client):
         """Test queuing a new job."""
         response = client.post(
-            "/api/v1/generation/queue",
-            params={"shot_id": str(uuid4()), "priority": 5}
+            "/api/v1/generation/queue", params={"shot_id": str(uuid4()), "priority": 5}
         )
 
         assert response.status_code == 200
@@ -187,8 +184,7 @@ class TestQueueManagement:
     def test_queue_with_provider_selection(self, client):
         """Test queuing with specific provider."""
         response = client.post(
-            "/api/v1/generation/queue",
-            params={"shot_id": str(uuid4()), "provider": "fal"}
+            "/api/v1/generation/queue", params={"shot_id": str(uuid4()), "provider": "fal"}
         )
 
         assert response.status_code == 200
@@ -198,10 +194,7 @@ class TestQueueManagement:
     def test_queue_count_increases(self, client):
         """Test queue count increases with jobs."""
         for _ in range(3):
-            client.post(
-                "/api/v1/generation/queue",
-                params={"shot_id": str(uuid4())}
-            )
+            client.post("/api/v1/generation/queue", params={"shot_id": str(uuid4())})
 
         response = client.get("/api/v1/generation/queue")
 
@@ -220,10 +213,7 @@ class TestJobLifecycle:
 
     def test_get_job(self, client):
         """Test getting a job by ID."""
-        create_response = client.post(
-            "/api/v1/generation/queue",
-            params={"shot_id": str(uuid4())}
-        )
+        create_response = client.post("/api/v1/generation/queue", params={"shot_id": str(uuid4())})
         job_id = create_response.json()["id"]
 
         response = client.get(f"/api/v1/generation/jobs/{job_id}")
@@ -239,10 +229,7 @@ class TestJobLifecycle:
 
     def test_cancel_pending_job(self, client):
         """Test cancelling a pending job."""
-        create_response = client.post(
-            "/api/v1/generation/queue",
-            params={"shot_id": str(uuid4())}
-        )
+        create_response = client.post("/api/v1/generation/queue", params={"shot_id": str(uuid4())})
         job_id = create_response.json()["id"]
 
         response = client.post(f"/api/v1/generation/jobs/{job_id}/cancel")
@@ -303,8 +290,7 @@ class TestCostEstimation:
     def test_estimate_cost(self, client):
         """Test cost estimation."""
         response = client.post(
-            "/api/v1/generation/estimate-cost",
-            params={"provider": "replicate", "duration": 10.0}
+            "/api/v1/generation/estimate-cost", params={"provider": "replicate", "duration": 10.0}
         )
 
         assert response.status_code == 200
@@ -315,12 +301,10 @@ class TestCostEstimation:
     def test_cost_varies_by_provider(self, client):
         """Test costs vary by provider."""
         replicate_response = client.post(
-            "/api/v1/generation/estimate-cost",
-            params={"provider": "replicate", "duration": 5.0}
+            "/api/v1/generation/estimate-cost", params={"provider": "replicate", "duration": 5.0}
         )
         fal_response = client.post(
-            "/api/v1/generation/estimate-cost",
-            params={"provider": "fal", "duration": 5.0}
+            "/api/v1/generation/estimate-cost", params={"provider": "fal", "duration": 5.0}
         )
 
         replicate_response.json()["estimated_cost_usd"]
@@ -331,14 +315,8 @@ class TestCostEstimation:
 
     def test_cost_scales_with_duration(self, client):
         """Test cost scales with duration."""
-        short_response = client.post(
-            "/api/v1/generation/estimate-cost",
-            params={"duration": 5.0}
-        )
-        long_response = client.post(
-            "/api/v1/generation/estimate-cost",
-            params={"duration": 10.0}
-        )
+        short_response = client.post("/api/v1/generation/estimate-cost", params={"duration": 5.0})
+        long_response = client.post("/api/v1/generation/estimate-cost", params={"duration": 10.0})
 
         short_cost = short_response.json()["estimated_cost_usd"]
         long_cost = long_response.json()["estimated_cost_usd"]
@@ -359,9 +337,7 @@ class TestSceneGeneration:
         project_id = str(uuid4())
         scene_id = str(uuid4())
 
-        response = client.post(
-            f"/api/v1/projects/{project_id}/scenes/{scene_id}/generate"
-        )
+        response = client.post(f"/api/v1/projects/{project_id}/scenes/{scene_id}/generate")
 
         assert response.status_code == 200
         data = response.json()
@@ -389,6 +365,7 @@ class TestJobValidation:
 
     def test_progress_range(self):
         """Test progress percentage range."""
+
         def validate_progress(percent: int) -> bool:
             return 0 <= percent <= 100
 
@@ -400,6 +377,7 @@ class TestJobValidation:
 
     def test_priority_range(self):
         """Test priority range."""
+
         def validate_priority(priority: int) -> bool:
             return -100 <= priority <= 100
 
@@ -411,6 +389,7 @@ class TestJobValidation:
 
     def test_retry_count_non_negative(self):
         """Test retry count is non-negative."""
+
         def validate_retry_count(count: int) -> bool:
             return count >= 0
 

@@ -140,7 +140,7 @@ async def upload_watermark(
     if len(content) > MAX_FILE_SIZE:
         return WatermarkUploadResponse(
             success=False,
-            error=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB",
+            error=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB",
         )
 
     # Generate unique filename

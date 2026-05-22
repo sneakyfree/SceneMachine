@@ -42,8 +42,7 @@ Some action here.
 
         # Find scene heading element
         scene_heading = next(
-            (e for e in result.elements if e.element_type == "scene_heading"),
-            None
+            (e for e in result.elements if e.element_type == "scene_heading"), None
         )
 
         assert scene_heading is not None
@@ -59,8 +58,7 @@ Waves crash on the shore.
         result = parser.parse(content)
 
         scene_heading = next(
-            (e for e in result.elements if e.element_type == "scene_heading"),
-            None
+            (e for e in result.elements if e.element_type == "scene_heading"), None
         )
 
         assert scene_heading is not None
@@ -114,8 +112,7 @@ Don't tell anyone.
         result = parser.parse(content)
 
         parenthetical = next(
-            (e for e in result.elements if e.element_type == "parenthetical"),
-            None
+            (e for e in result.elements if e.element_type == "parenthetical"), None
         )
 
         assert parenthetical is not None
@@ -133,10 +130,7 @@ EXT. STREET - DAY
 """
         result = parser.parse(content)
 
-        transition = next(
-            (e for e in result.elements if e.element_type == "transition"),
-            None
-        )
+        transition = next((e for e in result.elements if e.element_type == "transition"), None)
 
         assert transition is not None
         assert "CUT TO" in transition.text
@@ -193,8 +187,7 @@ Action here.
         result = parser.parse(content)
 
         scene_heading = next(
-            (e for e in result.elements if e.element_type == "scene_heading"),
-            None
+            (e for e in result.elements if e.element_type == "scene_heading"), None
         )
 
         assert scene_heading is not None

@@ -222,9 +222,7 @@ class FFmpegValidator:
                 loop.close()
 
         if not cls._info or not cls._info.available:
-            raise FFmpegNotFoundError(
-                cls._info.error_message if cls._info else "FFmpeg not found"
-            )
+            raise FFmpegNotFoundError(cls._info.error_message if cls._info else "FFmpeg not found")
 
     @classmethod
     def is_available(cls) -> bool:
@@ -279,8 +277,10 @@ class FFmpeg:
         try:
             cmd = [
                 self._info.ffprobe_path or "ffprobe",
-                "-v", "quiet",
-                "-print_format", "json",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
                 "-show_format",
                 "-show_streams",
                 str(video_path),
@@ -350,9 +350,12 @@ class FFmpeg:
         try:
             cmd = [
                 self._info.ffprobe_path or "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 str(file_path),
             ]
 
@@ -428,10 +431,14 @@ class FFmpeg:
             self._info.ffmpeg_path or "ffmpeg",
             "-y",
             *seek_args,
-            "-i", str(video_path),
-            "-update", "1",
-            "-frames:v", "1",
-            "-q:v", str(quality),
+            "-i",
+            str(video_path),
+            "-update",
+            "1",
+            "-frames:v",
+            "1",
+            "-q:v",
+            str(quality),
             str(output_path),
         ]
 
@@ -494,11 +501,16 @@ class FFmpeg:
             cmd = [
                 self._info.ffmpeg_path or "ffmpeg",
                 "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(concat_file),
-                "-c", "copy",
-                "-progress", "pipe:1",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_file),
+                "-c",
+                "copy",
+                "-progress",
+                "pipe:1",
                 str(output_path),
             ]
 
@@ -584,10 +596,14 @@ class FFmpeg:
         cmd = [
             self._info.ffmpeg_path or "ffmpeg",
             "-y",
-            "-i", str(input_path),
-            "-c:v", video_codec,
-            "-c:a", audio_codec,
-            "-preset", preset,
+            "-i",
+            str(input_path),
+            "-c:v",
+            video_codec,
+            "-c:a",
+            audio_codec,
+            "-preset",
+            preset,
         ]
 
         if video_bitrate:
@@ -670,9 +686,7 @@ class FFmpeg:
                     try:
                         time_ms = int(line_str.split("=")[1])
                         progress.time_seconds = time_ms / 1_000_000
-                        progress.percent = min(
-                            100, (progress.time_seconds / total_duration) * 100
-                        )
+                        progress.percent = min(100, (progress.time_seconds / total_duration) * 100)
                     except (ValueError, IndexError):
                         pass
 

@@ -323,9 +323,7 @@ class RunPodProvider(GenerationProvider):
             return GenerationResult(
                 success=True,
                 output_path=f"shots/{request.shot_id}/output.mp4",
-                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg"
-                if thumbnail_path
-                else None,
+                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg" if thumbnail_path else None,
                 duration_seconds=generation_duration,
                 cost_usd=estimated_cost,
                 metadata={
@@ -367,8 +365,7 @@ class RunPodProvider(GenerationProvider):
 
         payload = {
             "prompt": request.prompt,
-            "negative_prompt": request.negative_prompt
-            or "bad quality, blurry, distorted",
+            "negative_prompt": request.negative_prompt or "bad quality, blurry, distorted",
             "width": request.width,
             "height": request.height,
             "num_frames": num_frames,

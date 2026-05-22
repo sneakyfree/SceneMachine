@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Snapshot:
     """Immutable snapshot of project state."""
+
     id: UUID
     project_id: UUID
     created_at: datetime
@@ -92,6 +93,7 @@ class Snapshot:
 @dataclass
 class DeltaItem:
     """A single change between snapshots."""
+
     entity_type: str  # project, scene, character, shot
     entity_id: str
     change_type: str  # added, removed, modified
@@ -113,6 +115,7 @@ class DeltaItem:
 @dataclass
 class DeltaReport:
     """Comparison between two snapshots."""
+
     from_snapshot_id: UUID
     to_snapshot_id: UUID
     from_label: str
@@ -265,36 +268,44 @@ class SnapshotService:
         changes: list[DeltaItem] = []
 
         # Compare scenes
-        changes.extend(self._compare_lists(
-            "scene",
-            from_snapshot.scenes_data,
-            to_snapshot.scenes_data,
-            id_key="id",
-        ))
+        changes.extend(
+            self._compare_lists(
+                "scene",
+                from_snapshot.scenes_data,
+                to_snapshot.scenes_data,
+                id_key="id",
+            )
+        )
 
         # Compare characters
-        changes.extend(self._compare_lists(
-            "character",
-            from_snapshot.characters_data,
-            to_snapshot.characters_data,
-            id_key="id",
-        ))
+        changes.extend(
+            self._compare_lists(
+                "character",
+                from_snapshot.characters_data,
+                to_snapshot.characters_data,
+                id_key="id",
+            )
+        )
 
         # Compare shots
-        changes.extend(self._compare_lists(
-            "shot",
-            from_snapshot.shots_data,
-            to_snapshot.shots_data,
-            id_key="id",
-        ))
+        changes.extend(
+            self._compare_lists(
+                "shot",
+                from_snapshot.shots_data,
+                to_snapshot.shots_data,
+                id_key="id",
+            )
+        )
 
         # Compare project settings
-        changes.extend(self._compare_dicts(
-            "project",
-            str(project_id),
-            from_snapshot.project_data,
-            to_snapshot.project_data,
-        ))
+        changes.extend(
+            self._compare_dicts(
+                "project",
+                str(project_id),
+                from_snapshot.project_data,
+                to_snapshot.project_data,
+            )
+        )
 
         return DeltaReport(
             from_snapshot_id=from_id,
@@ -321,20 +332,24 @@ class SnapshotService:
         # Find additions
         for item_id in to_by_id:
             if item_id not in from_by_id:
-                changes.append(DeltaItem(
-                    entity_type=entity_type,
-                    entity_id=item_id,
-                    change_type="added",
-                ))
+                changes.append(
+                    DeltaItem(
+                        entity_type=entity_type,
+                        entity_id=item_id,
+                        change_type="added",
+                    )
+                )
 
         # Find removals
         for item_id in from_by_id:
             if item_id not in to_by_id:
-                changes.append(DeltaItem(
-                    entity_type=entity_type,
-                    entity_id=item_id,
-                    change_type="removed",
-                ))
+                changes.append(
+                    DeltaItem(
+                        entity_type=entity_type,
+                        entity_id=item_id,
+                        change_type="removed",
+                    )
+                )
 
         # Find modifications
         for item_id in from_by_id:
@@ -342,12 +357,14 @@ class SnapshotService:
                 from_item = from_by_id[item_id]
                 to_item = to_by_id[item_id]
 
-                changes.extend(self._compare_dicts(
-                    entity_type,
-                    item_id,
-                    from_item,
-                    to_item,
-                ))
+                changes.extend(
+                    self._compare_dicts(
+                        entity_type,
+                        item_id,
+                        from_item,
+                        to_item,
+                    )
+                )
 
         return changes
 
@@ -368,22 +385,24 @@ class SnapshotService:
             to_val = to_dict.get(key)
 
             if from_val != to_val:
-                changes.append(DeltaItem(
-                    entity_type=entity_type,
-                    entity_id=entity_id,
-                    change_type="modified",
-                    field_name=key,
-                    old_value=from_val,
-                    new_value=to_val,
-                ))
+                changes.append(
+                    DeltaItem(
+                        entity_type=entity_type,
+                        entity_id=entity_id,
+                        change_type="modified",
+                        field_name=key,
+                        old_value=from_val,
+                        new_value=to_val,
+                    )
+                )
 
         return changes
 
     async def verify_snapshot(self, snapshot: Snapshot) -> bool:
         """Verify snapshot integrity using hashes."""
         return (
-            self._hash_data(snapshot.project_data) == snapshot.project_hash and
-            self._hash_data(snapshot.scenes_data) == snapshot.scenes_hash and
-            self._hash_data(snapshot.characters_data) == snapshot.characters_hash and
-            self._hash_data(snapshot.shots_data) == snapshot.shots_hash
+            self._hash_data(snapshot.project_data) == snapshot.project_hash
+            and self._hash_data(snapshot.scenes_data) == snapshot.scenes_hash
+            and self._hash_data(snapshot.characters_data) == snapshot.characters_hash
+            and self._hash_data(snapshot.shots_data) == snapshot.shots_hash
         )

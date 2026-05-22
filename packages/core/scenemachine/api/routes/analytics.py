@@ -355,9 +355,7 @@ async def get_provider_comparison(
     users optimize their generation budget.
     """
     cost_service = CostTrackingService(db)
-    comparison = await cost_service.get_provider_comparison(
-        project_id=project_id, days=days
-    )
+    comparison = await cost_service.get_provider_comparison(project_id=project_id, days=days)
 
     return {
         "periodDays": days,

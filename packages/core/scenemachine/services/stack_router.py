@@ -18,6 +18,7 @@ The caller (the production pipeline) is responsible for actually:
   * uploading character reference images to ComfyUI's input dir
   * passing the decision into a GenerationRequest before calling the provider
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -103,8 +104,7 @@ def route_shot(
             model_id=MODEL_ANIMATE,
             character_references=refs,
             reason=(
-                f"animate: {len(refs)} character reference"
-                f"{'s' if len(refs) != 1 else ''} available"
+                f"animate: {len(refs)} character reference{'s' if len(refs) != 1 else ''} available"
             ),
         )
 
@@ -140,8 +140,10 @@ def _build_character_refs(
         path = character_ref_paths.get(key)
         if not path:
             continue
-        refs.append({
-            "character_id": key,
-            "reference_image_path": path,
-        })
+        refs.append(
+            {
+                "character_id": key,
+                "reference_image_path": path,
+            }
+        )
     return refs

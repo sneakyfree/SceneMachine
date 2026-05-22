@@ -125,9 +125,7 @@ class TestTextOverlaysRoutes:
         """Test duplicating a text overlay."""
         project_id = uuid4()
         overlay_id = uuid4()
-        response = await client.post(
-            f"/api/text-overlays/{project_id}/{overlay_id}/duplicate"
-        )
+        response = await client.post(f"/api/text-overlays/{project_id}/{overlay_id}/duplicate")
 
         assert response.status_code in (200, 201, 401, 403, 404)
 

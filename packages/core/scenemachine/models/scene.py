@@ -111,9 +111,7 @@ class Scene(Base, UUIDMixin, TimestampMixin):
 
     # Scene content (from screenplay)
     raw_content: Mapped[str] = mapped_column(Text, nullable=False)
-    action_lines: Mapped[list[str]] = mapped_column(
-        ArrayType(Text), default=list, nullable=False
-    )
+    action_lines: Mapped[list[str]] = mapped_column(ArrayType(Text), default=list, nullable=False)
     dialogue_blocks: Mapped[list | None] = mapped_column(JSONType, nullable=True)
     # Dialogue blocks structure:
     # [
@@ -163,9 +161,7 @@ class Scene(Base, UUIDMixin, TimestampMixin):
 
     # Shot breakdown (AI-generated, user-editable)
     shot_breakdown: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
-    shot_breakdown_approved: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    shot_breakdown_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Shot breakdown structure:
     # {
     #     "version": 1,
@@ -214,12 +210,8 @@ class Scene(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Timing
-    estimated_duration_seconds: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
-    actual_duration_seconds: Mapped[float | None] = mapped_column(
-        Float, nullable=True
-    )
+    estimated_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    actual_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # State
     state: Mapped[SceneState] = mapped_column(

@@ -20,18 +20,20 @@ logger = logging.getLogger(__name__)
 
 class QualityDimension(StrEnum):
     """Quality assessment dimensions."""
-    VISUAL_FIDELITY = "visual_fidelity"       # Overall visual quality
-    MOTION_COHERENCE = "motion_coherence"      # Natural movement
+
+    VISUAL_FIDELITY = "visual_fidelity"  # Overall visual quality
+    MOTION_COHERENCE = "motion_coherence"  # Natural movement
     CHARACTER_CONSISTENCY = "character_consistency"  # Face/body match
-    PROMPT_ADHERENCE = "prompt_adherence"      # Matches description
-    TEMPORAL_STABILITY = "temporal_stability"   # No flickering
+    PROMPT_ADHERENCE = "prompt_adherence"  # Matches description
+    TEMPORAL_STABILITY = "temporal_stability"  # No flickering
     PHYSICS_PLAUSIBILITY = "physics_plausibility"  # Realistic physics
     LIGHTING_CONSISTENCY = "lighting_consistency"  # Stable lighting
-    AUDIO_SYNC = "audio_sync"                   # Lip sync accuracy
+    AUDIO_SYNC = "audio_sync"  # Lip sync accuracy
 
 
 class QualityIssue(StrEnum):
     """Types of quality issues."""
+
     LOW_RESOLUTION = "low_resolution"
     BLURRY_FRAMES = "blurry_frames"
     FACE_DISTORTION = "face_distortion"
@@ -49,6 +51,7 @@ class QualityIssue(StrEnum):
 
 class EscalationReason(StrEnum):
     """Reasons for escalating to human review."""
+
     QUALITY_BELOW_THRESHOLD = "quality_below_threshold"
     MULTIPLE_REGENERATIONS = "multiple_regenerations"
     SENSITIVE_CONTENT = "sensitive_content"
@@ -59,6 +62,7 @@ class EscalationReason(StrEnum):
 @dataclass
 class QualityScore:
     """Quality score for a single dimension."""
+
     dimension: QualityDimension
     score: float  # 0.0 to 1.0
     confidence: float  # 0.0 to 1.0
@@ -69,6 +73,7 @@ class QualityScore:
 @dataclass
 class VideoReviewResult:
     """Complete review result for a video."""
+
     video_path: str
     shot_id: str | None = None
     overall_score: float = 0.0
@@ -127,25 +132,25 @@ class VideoQualityReviewer:
             "pass_threshold": 0.55,
             "escalation_threshold": 0.35,
             "max_regenerations": 2,
-            "description": "Quick preview, lower standards"
+            "description": "Quick preview, lower standards",
         },
         "preview": {
             "pass_threshold": 0.65,
             "escalation_threshold": 0.45,
             "max_regenerations": 3,
-            "description": "Review quality, moderate standards"
+            "description": "Review quality, moderate standards",
         },
         "production": {
             "pass_threshold": 0.75,
             "escalation_threshold": 0.55,
             "max_regenerations": 4,
-            "description": "Final output, high standards"
+            "description": "Final output, high standards",
         },
         "master": {
             "pass_threshold": 0.85,
             "escalation_threshold": 0.65,
             "max_regenerations": 5,
-            "description": "Theatrical quality, strict standards"
+            "description": "Theatrical quality, strict standards",
         },
     }
 
@@ -196,6 +201,7 @@ class VideoQualityReviewer:
             VideoReviewResult with scores and recommendations
         """
         import time
+
         start_time = time.time()
 
         video_path = Path(video_path)
@@ -215,12 +221,22 @@ class VideoQualityReviewer:
         # Visual fidelity check
         visual_score = await self._check_visual_fidelity(video_path)
         dimension_scores.append(visual_score)
-        all_issues.extend([{"dimension": visual_score.dimension.value, "issue": i.value} for i in visual_score.issues])
+        all_issues.extend(
+            [
+                {"dimension": visual_score.dimension.value, "issue": i.value}
+                for i in visual_score.issues
+            ]
+        )
 
         # Motion coherence check
         motion_score = await self._check_motion_coherence(video_path)
         dimension_scores.append(motion_score)
-        all_issues.extend([{"dimension": motion_score.dimension.value, "issue": i.value} for i in motion_score.issues])
+        all_issues.extend(
+            [
+                {"dimension": motion_score.dimension.value, "issue": i.value}
+                for i in motion_score.issues
+            ]
+        )
 
         # Character consistency check
         if character_references:
@@ -233,22 +249,39 @@ class VideoQualityReviewer:
                 notes="No character references provided",
             )
         dimension_scores.append(char_score)
-        all_issues.extend([{"dimension": char_score.dimension.value, "issue": i.value} for i in char_score.issues])
+        all_issues.extend(
+            [{"dimension": char_score.dimension.value, "issue": i.value} for i in char_score.issues]
+        )
 
         # Prompt adherence check
         prompt_score = await self._check_prompt_adherence(video_path, prompt)
         dimension_scores.append(prompt_score)
-        all_issues.extend([{"dimension": prompt_score.dimension.value, "issue": i.value} for i in prompt_score.issues])
+        all_issues.extend(
+            [
+                {"dimension": prompt_score.dimension.value, "issue": i.value}
+                for i in prompt_score.issues
+            ]
+        )
 
         # Temporal stability check
         stability_score = await self._check_temporal_stability(video_path)
         dimension_scores.append(stability_score)
-        all_issues.extend([{"dimension": stability_score.dimension.value, "issue": i.value} for i in stability_score.issues])
+        all_issues.extend(
+            [
+                {"dimension": stability_score.dimension.value, "issue": i.value}
+                for i in stability_score.issues
+            ]
+        )
 
         # Physics check
         physics_score = await self._check_physics(video_path)
         dimension_scores.append(physics_score)
-        all_issues.extend([{"dimension": physics_score.dimension.value, "issue": i.value} for i in physics_score.issues])
+        all_issues.extend(
+            [
+                {"dimension": physics_score.dimension.value, "issue": i.value}
+                for i in physics_score.issues
+            ]
+        )
 
         # Audio sync check
         if audio_path:
@@ -333,11 +366,21 @@ class VideoQualityReviewer:
 
         # Probe duration once
         try:
-            dur = float(subprocess.check_output(
-                ["ffprobe", "-v", "error", "-show_entries",
-                 "format=duration", "-of", "csv=p=0", str(video_path)],
-                text=True,
-            ).strip())
+            dur = float(
+                subprocess.check_output(
+                    [
+                        "ffprobe",
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "csv=p=0",
+                        str(video_path),
+                    ],
+                    text=True,
+                ).strip()
+            )
         except Exception as e:
             logger.warning("ffprobe failed for %s: %s", video_path, e)
             return []
@@ -354,10 +397,23 @@ class VideoQualityReviewer:
             out = tmpdir / f"f{idx:02d}.png"
             try:
                 subprocess.run(
-                    ["ffmpeg", "-y", "-loglevel", "error",
-                     "-ss", f"{ts:.3f}", "-i", str(video_path),
-                     "-update", "1", "-frames:v", "1", str(out)],
-                    check=True, timeout=15,
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-loglevel",
+                        "error",
+                        "-ss",
+                        f"{ts:.3f}",
+                        "-i",
+                        str(video_path),
+                        "-update",
+                        "1",
+                        "-frames:v",
+                        "1",
+                        str(out),
+                    ],
+                    check=True,
+                    timeout=15,
                 )
                 if out.exists() and out.stat().st_size > 0:
                     out_paths.append(out)
@@ -385,9 +441,7 @@ class VideoQualityReviewer:
         # 3x3 discrete Laplacian kernel [[0,1,0],[1,-4,1],[0,1,0]] applied
         # via slicing (vectorised, no scipy dependency).
         lap = (
-            -4.0 * arr[1:-1, 1:-1]
-            + arr[:-2, 1:-1] + arr[2:, 1:-1]
-            + arr[1:-1, :-2] + arr[1:-1, 2:]
+            -4.0 * arr[1:-1, 1:-1] + arr[:-2, 1:-1] + arr[2:, 1:-1] + arr[1:-1, :-2] + arr[1:-1, 2:]
         )
         return float(lap.var())
 
@@ -414,7 +468,10 @@ class VideoQualityReviewer:
 
         try:
             frame_paths = await asyncio.get_event_loop().run_in_executor(
-                None, self._sample_frame_paths, video_path, 5,
+                None,
+                self._sample_frame_paths,
+                video_path,
+                5,
             )
 
             if not frame_paths:
@@ -433,7 +490,9 @@ class VideoQualityReviewer:
                 try:
                     variances.append(
                         await asyncio.get_event_loop().run_in_executor(
-                            None, self._laplacian_variance, p,
+                            None,
+                            self._laplacian_variance,
+                            p,
                         )
                     )
                 except Exception as e:
@@ -513,8 +572,8 @@ class VideoQualityReviewer:
     # Grant graded them 1/5. The slop driver is semantic identity drift
     # (subjects morphing smoothly between frames). This metric is the one
     # designed to catch exactly that.
-    CHARACTER_DRIFT_THRESHOLD: float = 0.55   # below this → flag CHARACTER_DRIFT
-    CHARACTER_FRAME_SAMPLES: int = 8           # frames to sample per video
+    CHARACTER_DRIFT_THRESHOLD: float = 0.55  # below this → flag CHARACTER_DRIFT
+    CHARACTER_FRAME_SAMPLES: int = 8  # frames to sample per video
     # Minimum frames-with-faces required to compute drift. With fewer than
     # this many face-bearing frames we report a low-confidence "insufficient
     # data" result rather than scoring noisy.
@@ -570,7 +629,10 @@ class VideoQualityReviewer:
 
         try:
             frame_paths = await asyncio.get_event_loop().run_in_executor(
-                None, self._sample_frame_paths, video_path, self.CHARACTER_FRAME_SAMPLES,
+                None,
+                self._sample_frame_paths,
+                video_path,
+                self.CHARACTER_FRAME_SAMPLES,
             )
             if not frame_paths:
                 return QualityScore(
@@ -588,6 +650,7 @@ class VideoQualityReviewer:
                 # Re-instantiate the singleton on CPU. get_face_embedding_service
                 # caches; for our purposes we want a CPU instance.
                 from scenemachine.services.face_embedding import FaceEmbeddingService
+
                 svc = FaceEmbeddingService(gpu_id=-1)
 
             def _extract_all() -> list[Any]:
@@ -601,7 +664,8 @@ class VideoQualityReviewer:
                 return results
 
             extraction_results = await asyncio.get_event_loop().run_in_executor(
-                None, _extract_all,
+                None,
+                _extract_all,
             )
 
             # Best-effort tmp cleanup
@@ -649,6 +713,7 @@ class VideoQualityReviewer:
             reference_sim = None
             n_refs_used = 0
             if reference_paths:
+
                 def _extract_refs() -> list[Any]:
                     refs = []
                     for r in reference_paths:
@@ -661,7 +726,8 @@ class VideoQualityReviewer:
                     return refs
 
                 ref_embeddings = await asyncio.get_event_loop().run_in_executor(
-                    None, _extract_refs,
+                    None,
+                    _extract_refs,
                 )
                 n_refs_used = len(ref_embeddings)
                 if ref_embeddings:
@@ -810,9 +876,13 @@ class VideoQualityReviewer:
         deltas — that this catches.
         """
         import shutil
+
         try:
             frame_paths = await asyncio.get_event_loop().run_in_executor(
-                None, self._sample_frame_paths, video_path, 10,
+                None,
+                self._sample_frame_paths,
+                video_path,
+                10,
             )
             if len(frame_paths) < 3:
                 return QualityScore(
@@ -823,7 +893,9 @@ class VideoQualityReviewer:
                 )
 
             deltas = await asyncio.get_event_loop().run_in_executor(
-                None, self._temporal_frame_deltas, frame_paths,
+                None,
+                self._temporal_frame_deltas,
+                frame_paths,
             )
 
             # Best-effort tmp cleanup
@@ -852,7 +924,7 @@ class VideoQualityReviewer:
             # Sample stdev (Bessel correction)
             n = len(deltas)
             var = sum((x - mean_d) ** 2 for x in deltas) / (n - 1)
-            stdev = var ** 0.5
+            stdev = var**0.5
             cov = stdev / mean_d
 
             score = max(0.0, min(1.0, 1.0 - cov / self.TEMPORAL_COV_CAP))
@@ -937,11 +1009,17 @@ class VideoQualityReviewer:
         for score in sorted_scores[:3]:
             if score.score < self.pass_threshold:
                 if score.dimension == QualityDimension.VISUAL_FIDELITY:
-                    recommendations.append("Try regenerating with higher quality settings or more steps")
+                    recommendations.append(
+                        "Try regenerating with higher quality settings or more steps"
+                    )
                 elif score.dimension == QualityDimension.CHARACTER_CONSISTENCY:
-                    recommendations.append("Use stronger character reference embedding (IP-Adapter) or LoRA")
+                    recommendations.append(
+                        "Use stronger character reference embedding (IP-Adapter) or LoRA"
+                    )
                 elif score.dimension == QualityDimension.MOTION_COHERENCE:
-                    recommendations.append("Try adjusting motion parameters or using a different motion model")
+                    recommendations.append(
+                        "Try adjusting motion parameters or using a different motion model"
+                    )
                 elif score.dimension == QualityDimension.TEMPORAL_STABILITY:
                     recommendations.append("Reduce CFG scale or use temporal smoothing LoRA")
 

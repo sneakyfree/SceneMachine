@@ -307,7 +307,7 @@ class AssemblyService:
             if intensity < 1.0 and intensity > 0:
                 # Blend LUT with original using split and blend
                 # Split input, apply LUT to one branch, blend with specified intensity
-                blend_expr = f"A*{1-intensity:.3f}+B*{intensity:.3f}"
+                blend_expr = f"A*{1 - intensity:.3f}+B*{intensity:.3f}"
                 filters.append(
                     f"split[lut_orig][lut_togr];"
                     f"[lut_togr]lut3d={escaped_lut_path}:interp=trilinear[lut_graded];"
@@ -470,14 +470,12 @@ class AssemblyService:
                 parts.append(f"alpha='{alpha_expr}'")
             elif anim_in == "fade_in":
                 alpha_expr = (
-                    f"if(lt(t\\,{start_time + anim_in_dur})\\,"
-                    f"(t-{start_time})/{anim_in_dur}\\,1)"
+                    f"if(lt(t\\,{start_time + anim_in_dur})\\,(t-{start_time})/{anim_in_dur}\\,1)"
                 )
                 parts.append(f"alpha='{alpha_expr}'")
             elif anim_out == "fade_out":
                 alpha_expr = (
-                    f"if(gt(t\\,{end_time - anim_out_dur})\\,"
-                    f"({end_time}-t)/{anim_out_dur}\\,1)"
+                    f"if(gt(t\\,{end_time - anim_out_dur})\\,({end_time}-t)/{anim_out_dur}\\,1)"
                 )
                 parts.append(f"alpha='{alpha_expr}'")
             elif anim_in == "fade_in_out":
@@ -574,9 +572,7 @@ class AssemblyService:
         """
         stmt = (
             select(Project)
-            .options(
-                selectinload(Project.scenes).selectinload(Scene.shots)
-            )
+            .options(selectinload(Project.scenes).selectinload(Scene.shots))
             .where(Project.id == project_id)
         )
         result = await self.session.execute(stmt)
@@ -659,19 +655,29 @@ class AssemblyService:
             mix_inputs.append(f"[a{i}]")
 
         # Combine with amix
-        filter_parts.append(f"{''.join(mix_inputs)}amix=inputs={len(mix_inputs)}:duration=longest[aout]")
+        filter_parts.append(
+            f"{''.join(mix_inputs)}amix=inputs={len(mix_inputs)}:duration=longest[aout]"
+        )
 
         filter_complex = ";".join(filter_parts)
 
-        cmd.extend([
-            "-filter_complex", filter_complex,
-            "-map", "0:v",
-            "-map", "[aout]",
-            "-c:v", "copy",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            str(output_path),
-        ])
+        cmd.extend(
+            [
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                "0:v",
+                "-map",
+                "[aout]",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+                str(output_path),
+            ]
+        )
 
         try:
             # Ensure FFmpeg is available
@@ -775,7 +781,11 @@ class AssemblyService:
             current_output = output_label
 
             # Accumulated duration decreases by transition overlap
-            accumulated_duration = offset + video_durations[i + 1] if i + 1 < len(video_durations) else accumulated_duration
+            accumulated_duration = (
+                offset + video_durations[i + 1]
+                if i + 1 < len(video_durations)
+                else accumulated_duration
+            )
 
         if not filter_parts:
             # No valid transitions, use simple concat
@@ -785,11 +795,11 @@ class AssemblyService:
 
         # Build command with proper quoting
         cmd = (
-            ["ffmpeg", "-y"] +
-            input_args +
-            ["-filter_complex", filter_complex, "-map", "[vout]"] +
-            ["-c:v", "libx264", "-preset", "medium", "-crf", "23"] +
-            [str(output_path)]
+            ["ffmpeg", "-y"]
+            + input_args
+            + ["-filter_complex", filter_complex, "-map", "[vout]"]
+            + ["-c:v", "libx264", "-preset", "medium", "-crf", "23"]
+            + [str(output_path)]
         )
 
         try:
@@ -834,7 +844,6 @@ class AssemblyService:
             "fadewhite": "fadewhite",
             "fadeblack": "fadeblack",
             "fadegrays": "fadegrays",
-
             # Directional wipes
             "wipe_left": "wipeleft",
             "wipe_right": "wiperight",
@@ -844,58 +853,48 @@ class AssemblyService:
             "wipe_bl": "wipebl",  # Bottom left
             "wipe_tr": "wipetr",  # Top right
             "wipe_tl": "wipetl",  # Top left
-
             # Slides
             "slide_left": "slideleft",
             "slide_right": "slideright",
             "slide_up": "slideup",
             "slide_down": "slidedown",
-
             # Smooth directional
             "smooth_left": "smoothleft",
             "smooth_right": "smoothright",
             "smooth_up": "smoothup",
             "smooth_down": "smoothdown",
-
             # Circle effects
             "circle_open": "circleopen",
             "circle_close": "circleclose",
             "circle_crop": "circlecrop",
-
             # Rectangle effects
             "rect_crop": "rectcrop",
             "hr_slice": "hrslice",  # Horizontal slice
             "vr_slice": "vrslice",  # Vertical slice
-
             # Distance/blur effects
             "distance": "distance",
             "hlslice": "hlslice",
             "vlslice": "vlslice",
-
             # Zoom effects
             "zoom_in": "zoomin",
             "zoom_out": "fadefast",
             "squeeze_h": "squeezeh",
             "squeeze_v": "squeezev",
-
             # Radial effects
             "radial": "radial",
             "reveal_h": "revealh",
             "reveal_v": "revealv",
-
             # Pixel and grain effects
             "pixelize": "pixelize",
             "diagtl": "diagtl",  # Diagonal top-left
             "diagtr": "diagtr",  # Diagonal top-right
             "diagbl": "diagbl",  # Diagonal bottom-left
             "diagbr": "diagbr",  # Diagonal bottom-right
-
             # Cover effects
             "cover_left": "coverleft",
             "cover_right": "coverright",
             "cover_up": "coverup",
             "cover_down": "coverdown",
-
             # Legacy aliases
             "blur": "smoothleft",
             "flash": "fadewhite",
@@ -953,9 +952,7 @@ class AssemblyService:
         """
         stmt = (
             select(Project)
-            .options(
-                selectinload(Project.scenes).selectinload(Scene.shots)
-            )
+            .options(selectinload(Project.scenes).selectinload(Scene.shots))
             .where(Project.id == project_id)
         )
         result = await self.session.execute(stmt)
@@ -969,37 +966,37 @@ class AssemblyService:
         total_shots = 0
 
         for scene in sorted(project.scenes, key=lambda s: s.sequence_number):
-            approved_shots = [
-                s for s in scene.shots if s.state == ShotState.APPROVED
-            ]
+            approved_shots = [s for s in scene.shots if s.state == ShotState.APPROVED]
 
             scene_duration = sum(s.duration_seconds for s in approved_shots)
             total_duration += scene_duration
             total_shots += len(approved_shots)
 
-            scenes_data.append({
-                "id": str(scene.id),
-                "scene_number": scene.scene_number,
-                "heading": scene.heading,
-                "location": scene.location,
-                "time_of_day": scene.time_of_day.value,
-                "duration_seconds": scene_duration,
-                "shot_count": len(approved_shots),
-                "all_shots_approved": len(approved_shots) == len(scene.shots),
-                "start_time": total_duration - scene_duration,
-                "shots": [
-                    {
-                        "id": str(shot.id),
-                        "shot_number": shot.shot_number,
-                        "shot_type": shot.shot_type.value,
-                        "duration_seconds": shot.duration_seconds,
-                        "output_path": shot.output_video_path,
-                        "thumbnail_path": shot.output_thumbnail_path,
-                        "state": shot.state.value,
-                    }
-                    for shot in sorted(approved_shots, key=lambda s: s.sequence_number)
-                ],
-            })
+            scenes_data.append(
+                {
+                    "id": str(scene.id),
+                    "scene_number": scene.scene_number,
+                    "heading": scene.heading,
+                    "location": scene.location,
+                    "time_of_day": scene.time_of_day.value,
+                    "duration_seconds": scene_duration,
+                    "shot_count": len(approved_shots),
+                    "all_shots_approved": len(approved_shots) == len(scene.shots),
+                    "start_time": total_duration - scene_duration,
+                    "shots": [
+                        {
+                            "id": str(shot.id),
+                            "shot_number": shot.shot_number,
+                            "shot_type": shot.shot_type.value,
+                            "duration_seconds": shot.duration_seconds,
+                            "output_path": shot.output_video_path,
+                            "thumbnail_path": shot.output_thumbnail_path,
+                            "state": shot.state.value,
+                        }
+                        for shot in sorted(approved_shots, key=lambda s: s.sequence_number)
+                    ],
+                }
+            )
 
         return Timeline(
             project_id=str(project_id),
@@ -1023,11 +1020,7 @@ class AssemblyService:
         Returns:
             SceneRender with output path
         """
-        stmt = (
-            select(Scene)
-            .options(selectinload(Scene.shots))
-            .where(Scene.id == scene_id)
-        )
+        stmt = select(Scene).options(selectinload(Scene.shots)).where(Scene.id == scene_id)
         result = await self.session.execute(stmt)
         scene = result.scalar_one_or_none()
 
@@ -1036,8 +1029,7 @@ class AssemblyService:
 
         # Get approved shots
         approved_shots = [
-            s for s in scene.shots
-            if s.state == ShotState.APPROVED and s.output_video_path
+            s for s in scene.shots if s.state == ShotState.APPROVED and s.output_video_path
         ]
 
         if not approved_shots:
@@ -1069,10 +1061,12 @@ class AssemblyService:
                 shot_paths.append(str(shot_path.absolute()))
                 # Collect transition info for this shot (transition to next)
                 if shot.transition_type:
-                    transitions.append({
-                        "type": shot.transition_type,
-                        "duration": shot.transition_duration or 500,  # Default 500ms
-                    })
+                    transitions.append(
+                        {
+                            "type": shot.transition_type,
+                            "duration": shot.transition_duration or 500,  # Default 500ms
+                        }
+                    )
                 else:
                     transitions.append(None)  # No transition
 
@@ -1088,22 +1082,22 @@ class AssemblyService:
                 AssemblyProgress(
                     stage="encoding",
                     percent=50,
-                    message="Encoding scene video" + (" with transitions" if has_transitions else ""),
+                    message="Encoding scene video"
+                    + (" with transitions" if has_transitions else ""),
                 )
             )
 
         # Use transitions if any shots have them defined
         if has_transitions and len(shot_paths) >= 2:
             # Build transitions list, replacing None with default fade
-            transition_configs = [
-                t if t else {"type": "fade", "duration": 0}
-                for t in transitions
-            ]
+            transition_configs = [t if t else {"type": "fade", "duration": 0} for t in transitions]
             # Filter out zero-duration transitions
             active_transitions = [t for t in transition_configs if t["duration"] > 0]
 
             if active_transitions:
-                logger.info(f"Assembling scene {scene_id} with {len(active_transitions)} transitions")
+                logger.info(
+                    f"Assembling scene {scene_id} with {len(active_transitions)} transitions"
+                )
                 await self.apply_transitions(
                     shot_paths,
                     transition_configs,
@@ -1156,9 +1150,7 @@ class AssemblyService:
         """
         stmt = (
             select(Project)
-            .options(
-                selectinload(Project.scenes).selectinload(Scene.shots)
-            )
+            .options(selectinload(Project.scenes).selectinload(Scene.shots))
             .where(Project.id == project_id)
         )
         result = await self.session.execute(stmt)
@@ -1224,8 +1216,7 @@ class AssemblyService:
         # Build concat list
         concat_file = output_dir / "concat.txt"
         valid_scene_paths = [
-            render.output_path for render in scene_renders
-            if Path(render.output_path).exists()
+            render.output_path for render in scene_renders if Path(render.output_path).exists()
         ]
 
         if not valid_scene_paths:
@@ -1240,11 +1231,16 @@ class AssemblyService:
             await self._get_ffmpeg()
 
             cmd = [
-                "ffmpeg", "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(concat_file),
-                "-c", "copy",
+                "ffmpeg",
+                "-y",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_file),
+                "-c",
+                "copy",
                 str(output_path),
             ]
 
@@ -1428,10 +1424,14 @@ class AssemblyService:
                     )
                 )
             # Query text overlays for this project
-            overlay_stmt = select(TextOverlay).where(
-                TextOverlay.project_id == project_id,
-                TextOverlay.is_visible,
-            ).order_by(TextOverlay.z_index)
+            overlay_stmt = (
+                select(TextOverlay)
+                .where(
+                    TextOverlay.project_id == project_id,
+                    TextOverlay.is_visible,
+                )
+                .order_by(TextOverlay.z_index)
+            )
             overlay_result = await self.session.execute(overlay_stmt)
             text_overlays = overlay_result.scalars().all()
             logger.info(f"Found {len(text_overlays)} text overlays for project {project_id}")
@@ -1443,25 +1443,27 @@ class AssemblyService:
         if text_overlays:
             overlay_dicts = []
             for overlay in text_overlays:
-                overlay_dicts.append({
-                    "text": overlay.text,
-                    "position": overlay.position.value if overlay.position else "center",
-                    "customX": overlay.custom_x,
-                    "customY": overlay.custom_y,
-                    "style": overlay.style or {},
-                    "timing": {
-                        "startTime": overlay.start_time_ms,
-                        "duration": overlay.duration_ms,
-                    },
-                    "animation": {
-                        "in": overlay.animation_in.value if overlay.animation_in else "none",
-                        "out": overlay.animation_out.value if overlay.animation_out else "none",
-                        "inDuration": overlay.animation_in_duration_ms,
-                        "outDuration": overlay.animation_out_duration_ms,
-                    },
-                    "zIndex": overlay.z_index,
-                    "isVisible": overlay.is_visible,
-                })
+                overlay_dicts.append(
+                    {
+                        "text": overlay.text,
+                        "position": overlay.position.value if overlay.position else "center",
+                        "customX": overlay.custom_x,
+                        "customY": overlay.custom_y,
+                        "style": overlay.style or {},
+                        "timing": {
+                            "startTime": overlay.start_time_ms,
+                            "duration": overlay.duration_ms,
+                        },
+                        "animation": {
+                            "in": overlay.animation_in.value if overlay.animation_in else "none",
+                            "out": overlay.animation_out.value if overlay.animation_out else "none",
+                            "inDuration": overlay.animation_in_duration_ms,
+                            "outDuration": overlay.animation_out_duration_ms,
+                        },
+                        "zIndex": overlay.z_index,
+                        "isVisible": overlay.is_visible,
+                    }
+                )
             text_overlay_filter = self._build_text_overlay_filter(
                 overlay_dicts, int(width), int(height)
             )
@@ -1529,10 +1531,14 @@ class AssemblyService:
 
             # Audio settings
             if settings.include_audio:
-                cmd.extend([
-                    "-c:a", settings.audio_codec,
-                    "-b:a", settings.audio_bitrate,
-                ])
+                cmd.extend(
+                    [
+                        "-c:a",
+                        settings.audio_codec,
+                        "-b:a",
+                        settings.audio_bitrate,
+                    ]
+                )
             else:
                 cmd.extend(["-an"])
 
@@ -1746,7 +1752,10 @@ class AssemblyService:
 
             # Verify resolution matches expected (with some tolerance)
             expected_width, expected_height = map(int, settings.resolution.split("x"))
-            if abs(video_info.width - expected_width) > 10 or abs(video_info.height - expected_height) > 10:
+            if (
+                abs(video_info.width - expected_width) > 10
+                or abs(video_info.height - expected_height) > 10
+            ):
                 logger.warning(
                     f"Resolution mismatch: expected {settings.resolution}, "
                     f"got {video_info.width}x{video_info.height}"
@@ -1836,10 +1845,7 @@ class AssemblyService:
         Returns:
             Statistics about exports
         """
-        stmt = (
-            select(ExportHistory)
-            .where(ExportHistory.project_id == project_id)
-        )
+        stmt = select(ExportHistory).where(ExportHistory.project_id == project_id)
         result = await self.session.execute(stmt)
         exports = result.scalars().all()
 
@@ -1864,12 +1870,21 @@ class AssemblyService:
             "total_exports": len(exports),
             "completed_exports": len(completed),
             "failed_exports": len(failed),
-            "pending_exports": len([e for e in exports if e.status == ExportHistoryStatus.PENDING.value]),
-            "in_progress_exports": len([e for e in exports if e.status in (
-                ExportHistoryStatus.IN_PROGRESS.value,
-                ExportHistoryStatus.ENCODING.value,
-                ExportHistoryStatus.VERIFYING.value,
-            )]),
+            "pending_exports": len(
+                [e for e in exports if e.status == ExportHistoryStatus.PENDING.value]
+            ),
+            "in_progress_exports": len(
+                [
+                    e
+                    for e in exports
+                    if e.status
+                    in (
+                        ExportHistoryStatus.IN_PROGRESS.value,
+                        ExportHistoryStatus.ENCODING.value,
+                        ExportHistoryStatus.VERIFYING.value,
+                    )
+                ]
+            ),
             "total_file_size_bytes": total_size,
             "total_file_size_display": self._format_file_size(total_size),
             "total_encoding_time_seconds": total_encoding_time,

@@ -19,6 +19,7 @@ from scenemachine.workflows.base import (
 @dataclass
 class TestWorkflowContext:
     """Context for test workflow."""
+
     value: int = 0
     processed: bool = False
 

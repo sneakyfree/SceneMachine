@@ -106,9 +106,7 @@ class PerformerRating(Base, UUIDMixin, TimestampMixin):
 
     # Performer response
     performer_response: Mapped[str | None] = mapped_column(Text, nullable=True)
-    responded_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Timestamps
     rated_at: Mapped[datetime] = mapped_column(
@@ -130,12 +128,14 @@ class PerformerRating(Base, UUIDMixin, TimestampMixin):
     def average_detailed_score(self) -> float | None:
         """Calculate average of detailed scores."""
         scores = [
-            s for s in [
+            s
+            for s in [
                 self.motion_quality_score,
                 self.emotion_accuracy_score,
                 self.professionalism_score,
                 self.timeliness_score,
-            ] if s is not None
+            ]
+            if s is not None
         ]
         if scores:
             return sum(scores) / len(scores)
@@ -144,12 +144,14 @@ class PerformerRating(Base, UUIDMixin, TimestampMixin):
     @property
     def has_detailed_scores(self) -> bool:
         """Check if rating has detailed scores."""
-        return any([
-            self.motion_quality_score is not None,
-            self.emotion_accuracy_score is not None,
-            self.professionalism_score is not None,
-            self.timeliness_score is not None,
-        ])
+        return any(
+            [
+                self.motion_quality_score is not None,
+                self.emotion_accuracy_score is not None,
+                self.professionalism_score is not None,
+                self.timeliness_score is not None,
+            ]
+        )
 
     @property
     def engagement_score(self) -> float:

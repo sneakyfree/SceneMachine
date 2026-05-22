@@ -401,7 +401,9 @@ class ProjectArchiveService:
                         shot = Shot(
                             scene_id=scene.id,
                             project_id=project.id,
-                            shot_number=shot_data.get("shot_number", f"{scenes_imported}.{shots_imported + 1}"),
+                            shot_number=shot_data.get(
+                                "shot_number", f"{scenes_imported}.{shots_imported + 1}"
+                            ),
                             sequence_number=shot_data.get("sequence_number", shots_imported + 1),
                             shot_type=shot_data.get("shot_type", "medium"),
                             camera_movement=shot_data.get("camera_movement", "static"),
@@ -523,7 +525,9 @@ class ProjectArchiveService:
                             "shot_number": shot.shot_number,
                             "sequence_number": shot.sequence_number,
                             "shot_type": shot.shot_type.value if shot.shot_type else None,
-                            "camera_movement": shot.camera_movement.value if shot.camera_movement else None,
+                            "camera_movement": shot.camera_movement.value
+                            if shot.camera_movement
+                            else None,
                             "camera_angle": shot.camera_angle.value if shot.camera_angle else None,
                             "description": shot.description,
                             "action": shot.action,
@@ -575,13 +579,15 @@ class ProjectArchiveService:
         for path in exports_dir.glob("*.smproject"):
             try:
                 manifest = await self.get_archive_info(path)
-                archives.append({
-                    "path": str(path),
-                    "filename": path.name,
-                    "size_bytes": path.stat().st_size,
-                    "created_at": datetime.fromtimestamp(path.stat().st_mtime).isoformat(),
-                    "manifest": manifest.__dict__ if manifest else None,
-                })
+                archives.append(
+                    {
+                        "path": str(path),
+                        "filename": path.name,
+                        "size_bytes": path.stat().st_size,
+                        "created_at": datetime.fromtimestamp(path.stat().st_mtime).isoformat(),
+                        "manifest": manifest.__dict__ if manifest else None,
+                    }
+                )
             except Exception:
                 pass
 

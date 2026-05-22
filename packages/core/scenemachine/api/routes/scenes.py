@@ -126,9 +126,11 @@ class ReorderShotsRequest(BaseModel):
 def scene_to_response(scene, include_shots: bool = False) -> dict[str, Any]:
     """Convert scene model to response dict."""
     # Scene doesn't have screenplay_id directly - it's accessed via project
-    screenplay_id = getattr(scene, 'screenplay_id', None)
-    if screenplay_id is None and hasattr(scene, 'project') and scene.project:
-        screenplay_id = scene.project.screenplay_id if hasattr(scene.project, 'screenplay_id') else None
+    screenplay_id = getattr(scene, "screenplay_id", None)
+    if screenplay_id is None and hasattr(scene, "project") and scene.project:
+        screenplay_id = (
+            scene.project.screenplay_id if hasattr(scene.project, "screenplay_id") else None
+        )
     data = {
         "id": str(scene.id),
         "project_id": str(scene.project_id),
@@ -149,7 +151,9 @@ def scene_to_response(scene, include_shots: bool = False) -> dict[str, Any]:
     }
 
     if include_shots and hasattr(scene, "shots") and scene.shots:
-        data["shots"] = [shot_to_response(s) for s in sorted(scene.shots, key=lambda x: x.sequence_number)]
+        data["shots"] = [
+            shot_to_response(s) for s in sorted(scene.shots, key=lambda x: x.sequence_number)
+        ]
 
     return data
 

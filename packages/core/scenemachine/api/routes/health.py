@@ -304,9 +304,7 @@ async def detailed_health_check(
     }
 
     # Determine overall status
-    all_ok = all(
-        c.get("status") == "ok" for c in checks.values()
-    )
+    all_ok = all(c.get("status") == "ok" for c in checks.values())
     status = "healthy" if all_ok else "degraded"
 
     return DetailedHealthResponse(
@@ -430,6 +428,7 @@ async def reset_circuit_breaker(circuit_name: str) -> dict[str, Any]:
 # FEAT-119: Prometheus-Compatible /metrics Endpoint
 # ---------------------------------------------------------------------------
 
+
 @router.get("/metrics", response_class=None)
 async def prometheus_metrics(
     db: AsyncSession = Depends(get_db),
@@ -470,8 +469,7 @@ async def prometheus_metrics(
     lines.append("# HELP scenemachine_info Application version info")
     lines.append("# TYPE scenemachine_info gauge")
     lines.append(
-        f'scenemachine_info{{version="{settings.version}",'
-        f'environment="{settings.environment}"}} 1'
+        f'scenemachine_info{{version="{settings.version}",environment="{settings.environment}"}} 1'
     )
 
     # Database health
@@ -501,9 +499,7 @@ async def prometheus_metrics(
         lines.append("# TYPE scenemachine_provider_available gauge")
         for ptype, pstatus in health.items():
             val = 1 if pstatus.available else 0
-            lines.append(
-                f'scenemachine_provider_available{{provider="{ptype.value}"}} {val}'
-            )
+            lines.append(f'scenemachine_provider_available{{provider="{ptype.value}"}} {val}')
     except Exception:
         pass  # Providers not yet initialized
 
@@ -522,9 +518,7 @@ async def prometheus_metrics(
             lines.append("# TYPE scenemachine_circuit_breaker_state gauge")
             for cb_name, cb_status in all_cb.items():
                 state_val = state_map.get(cb_status.get("state", "closed"), 0)
-                lines.append(
-                    f'scenemachine_circuit_breaker_state{{name="{cb_name}"}} {state_val}'
-                )
+                lines.append(f'scenemachine_circuit_breaker_state{{name="{cb_name}"}} {state_val}')
     except Exception:
         pass
 

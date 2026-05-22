@@ -22,14 +22,17 @@ router = APIRouter(prefix="/intake", tags=["intake"])
 
 # --- Request/Response Models ---
 
+
 class ParseScreenplayRequest(BaseModel):
     """Request to parse screenplay text directly."""
+
     content: str = Field(..., description="Raw screenplay text content")
     format: str = Field("fountain", description="Format: fountain, txt")
 
 
 class ParseScreenplayResponse(BaseModel):
     """Response from screenplay parsing."""
+
     success: bool
     title: str | None = None
     author: str | None = None
@@ -41,11 +44,13 @@ class ParseScreenplayResponse(BaseModel):
 
 class GenerateShotListRequest(BaseModel):
     """Request to generate shot list from parsed screenplay."""
+
     parsed_screenplay: dict[str, Any]
 
 
 class GenerateShotListResponse(BaseModel):
     """Response from shot list generation."""
+
     success: bool
     title: str | None = None
     scenes: list[dict[str, Any]] = []
@@ -57,6 +62,7 @@ class GenerateShotListResponse(BaseModel):
 
 class AnalyzeBlockersRequest(BaseModel):
     """Request to analyze blockers."""
+
     characters: list[dict[str, Any]] = []
     scenes: list[dict[str, Any]] = []
     shots: list[dict[str, Any]] = []
@@ -65,6 +71,7 @@ class AnalyzeBlockersRequest(BaseModel):
 
 class AnalyzeBlockersResponse(BaseModel):
     """Response from blocker analysis."""
+
     success: bool
     blockers: list[dict[str, Any]] = []
     summary: dict[str, Any] = {}
@@ -72,6 +79,7 @@ class AnalyzeBlockersResponse(BaseModel):
 
 
 # --- Endpoints ---
+
 
 @router.post("/parse/text", response_model=ParseScreenplayResponse)
 async def parse_screenplay_text(request: ParseScreenplayRequest):
@@ -90,8 +98,12 @@ async def parse_screenplay_text(request: ParseScreenplayRequest):
 
         return ParseScreenplayResponse(
             success=True,
-            title=result.get("title_page", {}).get("title") if isinstance(result.get("title_page"), dict) else None,
-            author=result.get("title_page", {}).get("author") if isinstance(result.get("title_page"), dict) else None,
+            title=result.get("title_page", {}).get("title")
+            if isinstance(result.get("title_page"), dict)
+            else None,
+            author=result.get("title_page", {}).get("author")
+            if isinstance(result.get("title_page"), dict)
+            else None,
             scenes=result.get("scenes", []),
             characters=result.get("characters", []),
             warnings=result.get("warnings", []),
@@ -140,13 +152,23 @@ async def parse_screenplay_file(
         else:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file format: {suffix}. Supported: .fountain, .fdx, .pdf, .txt"
+                detail=f"Unsupported file format: {suffix}. Supported: .fountain, .fdx, .pdf, .txt",
             )
 
         return ParseScreenplayResponse(
             success=True,
-            title=result.get("title") or (result.get("title_page", {}).get("title") if isinstance(result.get("title_page"), dict) else None),
-            author=result.get("author") or (result.get("title_page", {}).get("author") if isinstance(result.get("title_page"), dict) else None),
+            title=result.get("title")
+            or (
+                result.get("title_page", {}).get("title")
+                if isinstance(result.get("title_page"), dict)
+                else None
+            ),
+            author=result.get("author")
+            or (
+                result.get("title_page", {}).get("author")
+                if isinstance(result.get("title_page"), dict)
+                else None
+            ),
             scenes=result.get("scenes", []),
             characters=result.get("characters", []),
             warnings=result.get("warnings", []),

@@ -210,9 +210,7 @@ class ScenePlanningService:
         importance = self._estimate_importance(scene, dialogue_count, action_count)
 
         # Suggest shot count based on content
-        suggested_shots = self._suggest_shot_count(
-            dialogue_count, action_count, importance
-        )
+        suggested_shots = self._suggest_shot_count(dialogue_count, action_count, importance)
 
         # Generate summary
         summary = self._generate_scene_summary(scene, key_moments)
@@ -251,9 +249,7 @@ class ScenePlanningService:
 
         return max(mood_scores, key=mood_scores.get) if mood_scores else "neutral"
 
-    def _determine_pacing(
-        self, content: str, action_heavy: bool, dialogue_heavy: bool
-    ) -> str:
+    def _determine_pacing(self, content: str, action_heavy: bool, dialogue_heavy: bool) -> str:
         """Determine scene pacing."""
         if action_heavy:
             return "fast-paced with quick cuts"
@@ -269,12 +265,28 @@ class ScenePlanningService:
         key_moments = []
 
         high_importance_keywords = [
-            "reveals", "discovers", "enters", "exits", "pulls", "grabs",
-            "suddenly", "finally", "realizes", "screams", "kisses", "dies"
+            "reveals",
+            "discovers",
+            "enters",
+            "exits",
+            "pulls",
+            "grabs",
+            "suddenly",
+            "finally",
+            "realizes",
+            "screams",
+            "kisses",
+            "dies",
         ]
 
         medium_importance_keywords = [
-            "looks", "turns", "walks", "sits", "stands", "opens", "closes"
+            "looks",
+            "turns",
+            "walks",
+            "sits",
+            "stands",
+            "opens",
+            "closes",
         ]
 
         for i, line in enumerate(action_lines):
@@ -287,17 +299,17 @@ class ScenePlanningService:
                 importance = "medium"
 
             if importance != "low":
-                key_moments.append({
-                    "description": line[:100],
-                    "importance": importance,
-                    "line_index": i,
-                })
+                key_moments.append(
+                    {
+                        "description": line[:100],
+                        "importance": importance,
+                        "line_index": i,
+                    }
+                )
 
         return key_moments[:10]  # Limit to 10 key moments
 
-    def _generate_emotional_arc(
-        self, content: str, key_moments: list[dict]
-    ) -> list[str]:
+    def _generate_emotional_arc(self, content: str, key_moments: list[dict]) -> list[str]:
         """Generate emotional arc for the scene."""
         emotions = []
 
@@ -364,9 +376,7 @@ class ScenePlanningService:
 
         return suggestions
 
-    def _estimate_importance(
-        self, scene: Scene, dialogue_count: int, action_count: int
-    ) -> int:
+    def _estimate_importance(self, scene: Scene, dialogue_count: int, action_count: int) -> int:
         """Estimate scene importance on 1-10 scale."""
         # Base importance
         importance = 5
@@ -390,9 +400,7 @@ class ScenePlanningService:
 
         return min(10, max(1, importance))
 
-    def _suggest_shot_count(
-        self, dialogue_count: int, action_count: int, importance: int
-    ) -> int:
+    def _suggest_shot_count(self, dialogue_count: int, action_count: int, importance: int) -> int:
         """Suggest number of shots for scene."""
         # Base shot count
         base_shots = 4
@@ -410,9 +418,7 @@ class ScenePlanningService:
 
         return min(20, max(3, total))  # Clamp between 3 and 20
 
-    def _generate_scene_summary(
-        self, scene: Scene, key_moments: list[dict]
-    ) -> str:
+    def _generate_scene_summary(self, scene: Scene, key_moments: list[dict]) -> str:
         """Generate a summary of the scene."""
         moment_descs = [m["description"] for m in key_moments[:3]]
 
@@ -521,15 +527,11 @@ class ScenePlanningService:
 
         await self.session.commit()
 
-        logger.info(
-            f"Generated shot breakdown for scene {scene_id}: {len(shots)} shots"
-        )
+        logger.info(f"Generated shot breakdown for scene {scene_id}: {len(shots)} shots")
 
         return breakdown
 
-    def _generate_shots(
-        self, scene: Scene, analysis: SceneAnalysis
-    ) -> list[ShotSpec]:
+    def _generate_shots(self, scene: Scene, analysis: SceneAnalysis) -> list[ShotSpec]:
         """Generate individual shots for a scene."""
         shots: list[ShotSpec] = []
         shot_num = 1
@@ -548,7 +550,8 @@ class ScenePlanningService:
                     duration_seconds=4.0,
                     composition_notes="Wide angle, full environment visible",
                     lighting_notes=analysis.visual_style_suggestions[0]
-                    if analysis.visual_style_suggestions else None,
+                    if analysis.visual_style_suggestions
+                    else None,
                 )
             )
             shot_num += 1
@@ -633,8 +636,7 @@ class ScenePlanningService:
 
         # 6. Closing shot
         closing_type = (
-            ShotType.WIDE if analysis.mood in ("somber", "mysterious")
-            else ShotType.MEDIUM
+            ShotType.WIDE if analysis.mood in ("somber", "mysterious") else ShotType.MEDIUM
         )
         shots.append(
             ShotSpec(
@@ -652,9 +654,7 @@ class ScenePlanningService:
 
         return shots
 
-    def _suggest_shot_for_moment(
-        self, moment: dict[str, Any]
-    ) -> tuple[ShotType, CameraMovement]:
+    def _suggest_shot_for_moment(self, moment: dict[str, Any]) -> tuple[ShotType, CameraMovement]:
         """Suggest shot type and movement for a key moment."""
         desc = moment.get("description", "").lower()
         importance = moment.get("importance", "medium")
@@ -721,9 +721,8 @@ class ScenePlanningService:
             coverage_style=breakdown_data.get("coverage_style", ""),
             notes=breakdown_data.get("notes", ""),
             shots=shots,
-            estimated_duration=scene.estimated_duration_seconds or sum(
-                s.duration_seconds for s in shots
-            ),
+            estimated_duration=scene.estimated_duration_seconds
+            or sum(s.duration_seconds for s in shots),
         )
 
     async def update_shot(

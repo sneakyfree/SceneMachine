@@ -71,31 +71,98 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 MOVIE_TITLES = [
-    "The Last Horizon", "Echoes of Tomorrow", "Crimson Dawn",
-    "Whispers in the Dark", "The Forgotten Kingdom", "Starlight Express",
-    "Beyond the Veil", "The Silent Observer", "Midnight's Edge",
-    "The Phoenix Protocol", "Shadows of Yesterday", "The Crystal Key",
+    "The Last Horizon",
+    "Echoes of Tomorrow",
+    "Crimson Dawn",
+    "Whispers in the Dark",
+    "The Forgotten Kingdom",
+    "Starlight Express",
+    "Beyond the Veil",
+    "The Silent Observer",
+    "Midnight's Edge",
+    "The Phoenix Protocol",
+    "Shadows of Yesterday",
+    "The Crystal Key",
 ]
 
 GENRES = ["Drama", "Thriller", "Sci-Fi", "Comedy", "Action", "Horror", "Romance", "Mystery"]
 
 CHARACTER_FIRST_NAMES = [
-    "James", "Sarah", "Michael", "Emily", "David", "Rachel", "John", "Maria",
-    "Robert", "Jennifer", "Thomas", "Elizabeth", "William", "Amanda", "Richard", "Jessica",
-    "Marcus", "Olivia", "Daniel", "Sophia", "Alexander", "Isabella", "Nathan", "Victoria",
+    "James",
+    "Sarah",
+    "Michael",
+    "Emily",
+    "David",
+    "Rachel",
+    "John",
+    "Maria",
+    "Robert",
+    "Jennifer",
+    "Thomas",
+    "Elizabeth",
+    "William",
+    "Amanda",
+    "Richard",
+    "Jessica",
+    "Marcus",
+    "Olivia",
+    "Daniel",
+    "Sophia",
+    "Alexander",
+    "Isabella",
+    "Nathan",
+    "Victoria",
 ]
 
 CHARACTER_LAST_NAMES = [
-    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-    "Rodriguez", "Martinez", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin",
-    "Chen", "Patel", "Nakamura", "O'Brien", "Schmidt", "Kowalski", "Fernandez", "Kim",
+    "Smith",
+    "Johnson",
+    "Williams",
+    "Brown",
+    "Jones",
+    "Garcia",
+    "Miller",
+    "Davis",
+    "Rodriguez",
+    "Martinez",
+    "Anderson",
+    "Taylor",
+    "Thomas",
+    "Moore",
+    "Jackson",
+    "Martin",
+    "Chen",
+    "Patel",
+    "Nakamura",
+    "O'Brien",
+    "Schmidt",
+    "Kowalski",
+    "Fernandez",
+    "Kim",
 ]
 
 LOCATIONS = [
-    "APARTMENT", "OFFICE", "COFFEE SHOP", "HOSPITAL", "POLICE STATION",
-    "BAR", "RESTAURANT", "WAREHOUSE", "BEACH", "FOREST", "MOUNTAIN TOP",
-    "STREET", "SUBWAY STATION", "PARKING GARAGE", "ROOFTOP", "LIBRARY",
-    "COURTROOM", "PRISON", "LABORATORY", "HOTEL LOBBY", "AIRPORT",
+    "APARTMENT",
+    "OFFICE",
+    "COFFEE SHOP",
+    "HOSPITAL",
+    "POLICE STATION",
+    "BAR",
+    "RESTAURANT",
+    "WAREHOUSE",
+    "BEACH",
+    "FOREST",
+    "MOUNTAIN TOP",
+    "STREET",
+    "SUBWAY STATION",
+    "PARKING GARAGE",
+    "ROOFTOP",
+    "LIBRARY",
+    "COURTROOM",
+    "PRISON",
+    "LABORATORY",
+    "HOTEL LOBBY",
+    "AIRPORT",
 ]
 
 ACTION_LINES = [
@@ -129,9 +196,21 @@ DIALOGUE_LINES = [
 ]
 
 PERSONALITY_TRAITS = [
-    "brave", "cautious", "intelligent", "hot-headed", "mysterious",
-    "charming", "ruthless", "compassionate", "ambitious", "loyal",
-    "cunning", "idealistic", "cynical", "playful", "stoic",
+    "brave",
+    "cautious",
+    "intelligent",
+    "hot-headed",
+    "mysterious",
+    "charming",
+    "ruthless",
+    "compassionate",
+    "ambitious",
+    "loyal",
+    "cunning",
+    "idealistic",
+    "cynical",
+    "playful",
+    "stoic",
 ]
 
 HAIR_COLORS = ["black", "brown", "blonde", "red", "gray", "white", "auburn"]
@@ -140,24 +219,49 @@ BUILDS = ["slim", "athletic", "average", "muscular", "heavy"]
 HEIGHTS = ["short", "average", "tall"]
 
 SOUND_EFFECT_CATEGORIES = [
-    "Foley", "Ambience", "Impact", "Transition", "UI",
-    "Nature", "Urban", "Mechanical", "Human", "Sci-Fi",
+    "Foley",
+    "Ambience",
+    "Impact",
+    "Transition",
+    "UI",
+    "Nature",
+    "Urban",
+    "Mechanical",
+    "Human",
+    "Sci-Fi",
 ]
 
 MUSIC_GENRES = [
-    "Cinematic", "Electronic", "Classical", "Jazz", "Rock",
-    "Hip-Hop", "Ambient", "Folk", "World", "Orchestral",
+    "Cinematic",
+    "Electronic",
+    "Classical",
+    "Jazz",
+    "Rock",
+    "Hip-Hop",
+    "Ambient",
+    "Folk",
+    "World",
+    "Orchestral",
 ]
 
 MUSIC_MOODS = [
-    "Tense", "Happy", "Sad", "Epic", "Mysterious",
-    "Romantic", "Action", "Peaceful", "Dark", "Hopeful",
+    "Tense",
+    "Happy",
+    "Sad",
+    "Epic",
+    "Mysterious",
+    "Romantic",
+    "Action",
+    "Peaceful",
+    "Dark",
+    "Hopeful",
 ]
 
 
 # ============================================================================
 # MOCK DATA GENERATOR CLASS
 # ============================================================================
+
 
 class MockDataGenerator:
     """Generates comprehensive mock data for SceneMachine."""
@@ -209,6 +313,7 @@ class MockDataGenerator:
         if self.is_sqlite:
             # Use SQLite compatibility layer
             from tests.sqlite_compat import create_all_tables_sqlite
+
             await create_all_tables_sqlite(self.engine, Base)
         else:
             async with self.engine.begin() as conn:
@@ -220,9 +325,19 @@ class MockDataGenerator:
         async with self.session_factory() as session:
             # Delete in reverse dependency order
             tables = [
-                ProjectComment, ProjectShare, TextOverlay, AudioAsset,
-                ExportHistory, Asset, GenerationJob, Shot, Scene,
-                Character, Screenplay, Project, UserSettings,
+                ProjectComment,
+                ProjectShare,
+                TextOverlay,
+                AudioAsset,
+                ExportHistory,
+                Asset,
+                GenerationJob,
+                Shot,
+                Scene,
+                Character,
+                Screenplay,
+                Project,
+                UserSettings,
             ]
             for table in tables:
                 await session.execute(delete(table))
@@ -316,24 +431,23 @@ class MockDataGenerator:
                 location = random.choice(LOCATIONS)
                 time = random.choice(["DAY", "NIGHT", "DAWN", "DUSK"])
 
-                characters_in_scene = random.sample(
-                    CHARACTER_FIRST_NAMES,
-                    k=random.randint(1, 4)
-                )
+                characters_in_scene = random.sample(CHARACTER_FIRST_NAMES, k=random.randint(1, 4))
 
-                scenes_data.append({
-                    "scene_number": f"{scene_num + 1}",
-                    "heading": f"{scene_type}. {location} - {time}",
-                    "type": scene_type,
-                    "location": location,
-                    "time_of_day": time,
-                    "characters": characters_in_scene,
-                    "action_lines": random.sample(ACTION_LINES, k=random.randint(2, 5)),
-                    "dialogue": [
-                        {"character": c, "line": random.choice(DIALOGUE_LINES)}
-                        for c in characters_in_scene[:2]
-                    ],
-                })
+                scenes_data.append(
+                    {
+                        "scene_number": f"{scene_num + 1}",
+                        "heading": f"{scene_type}. {location} - {time}",
+                        "type": scene_type,
+                        "location": location,
+                        "time_of_day": time,
+                        "characters": characters_in_scene,
+                        "action_lines": random.sample(ACTION_LINES, k=random.randint(2, 5)),
+                        "dialogue": [
+                            {"character": c, "line": random.choice(DIALOGUE_LINES)}
+                            for c in characters_in_scene[:2]
+                        ],
+                    }
+                )
 
             # Create movie plan for projects that have it
             movie_plan = None
@@ -368,9 +482,7 @@ class MockDataGenerator:
                     "title": project.name,
                     "author": f"{random.choice(CHARACTER_FIRST_NAMES)} {random.choice(CHARACTER_LAST_NAMES)}",
                     "scenes": scenes_data,
-                    "character_names": list({
-                        c for s in scenes_data for c in s["characters"]
-                    }),
+                    "character_names": list({c for s in scenes_data for c in s["characters"]}),
                 },
                 movie_plan=movie_plan,
                 movie_plan_approved=movie_plan_approved,
@@ -427,12 +539,14 @@ class MockDataGenerator:
                 if project.state.value >= ProjectState.CHARACTERS_LOCKED.value:
                     lock_state = CharacterLockState.LOCKED
                 elif project.state.value >= ProjectState.CHARACTERS_IN_PROGRESS.value:
-                    lock_state = random.choice([
-                        CharacterLockState.DRAFT,
-                        CharacterLockState.REFERENCE_UPLOADED,
-                        CharacterLockState.REVIEW,
-                        CharacterLockState.LOCKED,
-                    ])
+                    lock_state = random.choice(
+                        [
+                            CharacterLockState.DRAFT,
+                            CharacterLockState.REFERENCE_UPLOADED,
+                            CharacterLockState.REVIEW,
+                            CharacterLockState.LOCKED,
+                        ]
+                    )
                 else:
                     lock_state = CharacterLockState.UNDEFINED
 
@@ -453,13 +567,19 @@ class MockDataGenerator:
                         "build": random.choice(BUILDS),
                         "distinguishing_features": random.sample(
                             ["scar", "tattoo", "glasses", "beard", "freckles"],
-                            k=random.randint(0, 2)
+                            k=random.randint(0, 2),
                         ),
                     },
-                    personality_traits=self._serialize_list(random.sample(PERSONALITY_TRAITS, k=random.randint(2, 4))),
+                    personality_traits=self._serialize_list(
+                        random.sample(PERSONALITY_TRAITS, k=random.randint(2, 4))
+                    ),
                     voice_description=f"A {random.choice(['deep', 'soft', 'gravelly', 'melodic'])} {random.choice(['voice', 'tone'])} with {random.choice(['authority', 'warmth', 'mystery'])}.",
-                    voice_id=f"voice_{uuid4().hex[:8]}" if lock_state == CharacterLockState.LOCKED else None,
-                    voice_provider="elevenlabs" if lock_state == CharacterLockState.LOCKED else None,
+                    voice_id=f"voice_{uuid4().hex[:8]}"
+                    if lock_state == CharacterLockState.LOCKED
+                    else None,
+                    voice_provider="elevenlabs"
+                    if lock_state == CharacterLockState.LOCKED
+                    else None,
                     lock_state=lock_state,
                     scene_count=random.randint(3, 15),
                     dialogue_count=random.randint(10, 50),
@@ -504,18 +624,23 @@ class MockDataGenerator:
                 if project.state.value >= ProjectState.SCENES_APPROVED.value:
                     state = SceneState.APPROVED
                 elif project.state.value >= ProjectState.SCENES_PLANNING.value:
-                    state = random.choice([
-                        SceneState.PARSED, SceneState.PLANNED,
-                        SceneState.PLAN_APPROVED, SceneState.APPROVED,
-                    ])
+                    state = random.choice(
+                        [
+                            SceneState.PARSED,
+                            SceneState.PLANNED,
+                            SceneState.PLAN_APPROVED,
+                            SceneState.APPROVED,
+                        ]
+                    )
                 else:
                     state = SceneState.PARSED
 
                 # Scene characters
-                scene_chars = random.sample(
-                    project_chars,
-                    k=min(random.randint(1, 4), len(project_chars))
-                ) if project_chars else []
+                scene_chars = (
+                    random.sample(project_chars, k=min(random.randint(1, 4), len(project_chars)))
+                    if project_chars
+                    else []
+                )
 
                 action_lines_data = random.sample(ACTION_LINES, k=random.randint(2, 5))
                 char_ids_data = [c.id for c in scene_chars]
@@ -528,8 +653,8 @@ class MockDataGenerator:
                     scene_type=scene_type,
                     location=location,
                     time_of_day=time_of_day,
-                    raw_content=f"{scene_type.value}. {location} - {time_of_day.value}\n\n" +
-                                "\n".join(random.sample(ACTION_LINES, k=3)),
+                    raw_content=f"{scene_type.value}. {location} - {time_of_day.value}\n\n"
+                    + "\n".join(random.sample(ACTION_LINES, k=3)),
                     action_lines=self._serialize_list(action_lines_data),
                     character_ids=self._serialize_list(char_ids_data),
                     analysis={
@@ -537,13 +662,17 @@ class MockDataGenerator:
                         "pacing": random.choice(["fast", "medium", "slow"]),
                         "key_moments": random.sample(
                             ["revelation", "confrontation", "escape", "reunion"],
-                            k=random.randint(1, 2)
+                            k=random.randint(1, 2),
                         ),
-                    } if state.value >= SceneState.PLANNED.value else None,
+                    }
+                    if state.value >= SceneState.PLANNED.value
+                    else None,
                     shot_breakdown={
                         "shot_count": random.randint(5, 12),
                         "estimated_duration": random.randint(60, 180),
-                    } if state.value >= SceneState.PLAN_APPROVED.value else None,
+                    }
+                    if state.value >= SceneState.PLAN_APPROVED.value
+                    else None,
                     shot_breakdown_approved=state.value >= SceneState.PLAN_APPROVED.value,
                     estimated_duration_seconds=random.randint(60, 180),
                     state=state,
@@ -587,19 +716,31 @@ class MockDataGenerator:
 
                 # Determine state based on scene state
                 if scene.state == SceneState.APPROVED:
-                    state = random.choice([
-                        ShotState.APPROVED, ShotState.GENERATED,
-                        ShotState.REVIEW, ShotState.APPROVED,
-                    ])
+                    state = random.choice(
+                        [
+                            ShotState.APPROVED,
+                            ShotState.GENERATED,
+                            ShotState.REVIEW,
+                            ShotState.APPROVED,
+                        ]
+                    )
                 elif scene.state == SceneState.GENERATING:
-                    state = random.choice([
-                        ShotState.PLANNED, ShotState.QUEUED,
-                        ShotState.GENERATING, ShotState.GENERATED,
-                    ])
+                    state = random.choice(
+                        [
+                            ShotState.PLANNED,
+                            ShotState.QUEUED,
+                            ShotState.GENERATING,
+                            ShotState.GENERATED,
+                        ]
+                    )
                 else:
                     state = ShotState.PLANNED
 
-                shot_char_ids = [c.id for c in random.sample(scene_chars, k=min(2, len(scene_chars)))] if scene_chars else []
+                shot_char_ids = (
+                    [c.id for c in random.sample(scene_chars, k=min(2, len(scene_chars)))]
+                    if scene_chars
+                    else []
+                )
 
                 # Pre-allocate the shot UUID so we can reference it in
                 # output_video_path / output_thumbnail_path below. Previously
@@ -617,15 +758,23 @@ class MockDataGenerator:
                     dialogue=random.choice(DIALOGUE_LINES) if random.random() > 0.5 else None,
                     action=random.choice(ACTION_LINES),
                     character_ids=self._serialize_list(shot_char_ids),
-                    generation_prompt=f"Cinematic {shot_type.value} shot, {camera.value} camera, film lighting" if state.value >= ShotState.QUEUED.value else None,
+                    generation_prompt=f"Cinematic {shot_type.value} shot, {camera.value} camera, film lighting"
+                    if state.value >= ShotState.QUEUED.value
+                    else None,
                     duration_seconds=random.uniform(2.0, 8.0),
                     state=state,
-                    output_video_path=f"/data/outputs/{scene.project_id}/{shot_id}.mp4" if state in [ShotState.GENERATED, ShotState.APPROVED] else None,
-                    output_thumbnail_path=f"/data/outputs/{scene.project_id}/{shot_id}_thumb.jpg" if state in [ShotState.GENERATED, ShotState.APPROVED] else None,
+                    output_video_path=f"/data/outputs/{scene.project_id}/{shot_id}.mp4"
+                    if state in [ShotState.GENERATED, ShotState.APPROVED]
+                    else None,
+                    output_thumbnail_path=f"/data/outputs/{scene.project_id}/{shot_id}_thumb.jpg"
+                    if state in [ShotState.GENERATED, ShotState.APPROVED]
+                    else None,
                     timeline_visible=True,
                     timeline_locked=state == ShotState.APPROVED,
                     timeline_order=seq,
-                    transition_type=random.choice(["cut", "dissolve", "fade"]) if random.random() > 0.7 else None,
+                    transition_type=random.choice(["cut", "dissolve", "fade"])
+                    if random.random() > 0.7
+                    else None,
                     transition_duration=random.randint(200, 800) if random.random() > 0.7 else None,
                     created_at=scene.created_at + timedelta(minutes=5),
                     updated_at=datetime.now(UTC),
@@ -638,9 +787,12 @@ class MockDataGenerator:
                     num_jobs = random.randint(1, 3) if state == ShotState.FAILED else 1
                     for job_num in range(num_jobs):
                         job_status = (
-                            JobStatus.COMPLETED if state in [ShotState.GENERATED, ShotState.APPROVED, ShotState.REVIEW]
-                            else JobStatus.RUNNING if state == ShotState.GENERATING
-                            else JobStatus.FAILED if state == ShotState.FAILED
+                            JobStatus.COMPLETED
+                            if state in [ShotState.GENERATED, ShotState.APPROVED, ShotState.REVIEW]
+                            else JobStatus.RUNNING
+                            if state == ShotState.GENERATING
+                            else JobStatus.FAILED
+                            if state == ShotState.FAILED
                             else JobStatus.PENDING
                         )
 
@@ -649,8 +801,12 @@ class MockDataGenerator:
                             shot_id=shot.id,
                             job_number=job_num + 1,
                             status=job_status,
-                            provider=random.choice([JobProvider.REPLICATE, JobProvider.FAL, JobProvider.RUNPOD]),
-                            provider_job_id=f"job_{uuid4().hex[:12]}" if job_status != JobStatus.PENDING else None,
+                            provider=random.choice(
+                                [JobProvider.REPLICATE, JobProvider.FAL, JobProvider.RUNPOD]
+                            ),
+                            provider_job_id=f"job_{uuid4().hex[:12]}"
+                            if job_status != JobStatus.PENDING
+                            else None,
                             model_id=random.choice(["svd", "animatediff", "cogvideox"]),
                             parameters={
                                 "num_frames": 24,
@@ -658,12 +814,26 @@ class MockDataGenerator:
                                 "motion_bucket_id": random.randint(100, 200),
                             },
                             queued_at=self._random_datetime(),
-                            started_at=self._random_datetime() if job_status.value >= JobStatus.RUNNING.value else None,
-                            completed_at=self._random_datetime() if job_status in [JobStatus.COMPLETED, JobStatus.FAILED] else None,
-                            progress_percent=100.0 if job_status == JobStatus.COMPLETED else random.uniform(0, 100) if job_status == JobStatus.RUNNING else 0.0,
-                            output_path=shot.output_video_path if job_status == JobStatus.COMPLETED else None,
-                            error_message="Generation failed: timeout" if job_status == JobStatus.FAILED else None,
-                            cost_usd=random.uniform(0.02, 0.15) if job_status == JobStatus.COMPLETED else None,
+                            started_at=self._random_datetime()
+                            if job_status.value >= JobStatus.RUNNING.value
+                            else None,
+                            completed_at=self._random_datetime()
+                            if job_status in [JobStatus.COMPLETED, JobStatus.FAILED]
+                            else None,
+                            progress_percent=100.0
+                            if job_status == JobStatus.COMPLETED
+                            else random.uniform(0, 100)
+                            if job_status == JobStatus.RUNNING
+                            else 0.0,
+                            output_path=shot.output_video_path
+                            if job_status == JobStatus.COMPLETED
+                            else None,
+                            error_message="Generation failed: timeout"
+                            if job_status == JobStatus.FAILED
+                            else None,
+                            cost_usd=random.uniform(0.02, 0.15)
+                            if job_status == JobStatus.COMPLETED
+                            else None,
                             created_at=shot.created_at + timedelta(minutes=1),
                             updated_at=datetime.now(UTC),
                         )
@@ -737,10 +907,14 @@ class MockDataGenerator:
 
             num_exports = random.randint(1, 5)
             for i in range(num_exports):
-                status = random.choice([
-                    ExportStatus.COMPLETED, ExportStatus.COMPLETED,
-                    ExportStatus.COMPLETED, ExportStatus.FAILED,
-                ])
+                status = random.choice(
+                    [
+                        ExportStatus.COMPLETED,
+                        ExportStatus.COMPLETED,
+                        ExportStatus.COMPLETED,
+                        ExportStatus.FAILED,
+                    ]
+                )
 
                 export = ExportHistory(
                     id=uuid4(),
@@ -750,15 +924,31 @@ class MockDataGenerator:
                     resolution=random.choice(["1920x1080", "3840x2160", "1280x720"]),
                     frame_rate=random.choice([24, 25, 30]),
                     status=status.value,
-                    progress_percent=100.0 if status == ExportStatus.COMPLETED else random.uniform(0, 100),
-                    output_filename=f"{project.name.replace(' ', '_')}_export_{i + 1}.mp4" if status == ExportStatus.COMPLETED else None,
-                    output_path=f"/data/exports/{project.id}/export_{i + 1}.mp4" if status == ExportStatus.COMPLETED else None,
-                    file_size_bytes=random.randint(100000000, 5000000000) if status == ExportStatus.COMPLETED else None,
-                    actual_duration_seconds=random.uniform(5400, 9000) if status == ExportStatus.COMPLETED else None,
+                    progress_percent=100.0
+                    if status == ExportStatus.COMPLETED
+                    else random.uniform(0, 100),
+                    output_filename=f"{project.name.replace(' ', '_')}_export_{i + 1}.mp4"
+                    if status == ExportStatus.COMPLETED
+                    else None,
+                    output_path=f"/data/exports/{project.id}/export_{i + 1}.mp4"
+                    if status == ExportStatus.COMPLETED
+                    else None,
+                    file_size_bytes=random.randint(100000000, 5000000000)
+                    if status == ExportStatus.COMPLETED
+                    else None,
+                    actual_duration_seconds=random.uniform(5400, 9000)
+                    if status == ExportStatus.COMPLETED
+                    else None,
                     started_at=self._random_datetime(),
-                    completed_at=self._random_datetime() if status in [ExportStatus.COMPLETED, ExportStatus.FAILED] else None,
-                    encoding_duration_seconds=random.uniform(600, 3600) if status == ExportStatus.COMPLETED else None,
-                    error_message="Export failed: disk full" if status == ExportStatus.FAILED else None,
+                    completed_at=self._random_datetime()
+                    if status in [ExportStatus.COMPLETED, ExportStatus.FAILED]
+                    else None,
+                    encoding_duration_seconds=random.uniform(600, 3600)
+                    if status == ExportStatus.COMPLETED
+                    else None,
+                    error_message="Export failed: disk full"
+                    if status == ExportStatus.FAILED
+                    else None,
                     include_subtitles=random.random() > 0.5,
                     include_audio=True,
                     has_watermark=random.random() > 0.7,
@@ -794,11 +984,15 @@ class MockDataGenerator:
                     share = ProjectShare(
                         id=uuid4(),
                         project_id=project.id,
-                        share_code=''.join(random.choices(string.ascii_letters + string.digits, k=32)),
+                        share_code="".join(
+                            random.choices(string.ascii_letters + string.digits, k=32)
+                        ),
                         recipient_email=f"{random.choice(CHARACTER_FIRST_NAMES).lower()}@example.com",
                         recipient_name=f"{random.choice(CHARACTER_FIRST_NAMES)} {random.choice(CHARACTER_LAST_NAMES)}",
                         permission=random.choice(list(SharePermission)),
-                        status=random.choice([ShareStatus.PENDING, ShareStatus.ACCEPTED, ShareStatus.ACCEPTED]),
+                        status=random.choice(
+                            [ShareStatus.PENDING, ShareStatus.ACCEPTED, ShareStatus.ACCEPTED]
+                        ),
                         message="Please review this project",
                         expires_at=datetime.now(UTC) + timedelta(days=random.randint(7, 30)),
                         access_count=random.randint(0, 20),
@@ -817,13 +1011,15 @@ class MockDataGenerator:
                                 project_id=project.id,
                                 author_name=share.recipient_name or "Anonymous",
                                 author_email=share.recipient_email,
-                                content=random.choice([
-                                    "Great work on this scene!",
-                                    "The pacing feels a bit slow here",
-                                    "Love the lighting in this shot",
-                                    "Can we adjust the timing?",
-                                    "This transition needs work",
-                                ]),
+                                content=random.choice(
+                                    [
+                                        "Great work on this scene!",
+                                        "The pacing feels a bit slow here",
+                                        "Love the lighting in this shot",
+                                        "Can we adjust the timing?",
+                                        "This transition needs work",
+                                    ]
+                                ),
                                 is_resolved=random.random() > 0.7,
                                 created_at=self._random_datetime(),
                                 updated_at=datetime.now(UTC),
@@ -902,10 +1098,16 @@ class MockDataGenerator:
             overlays.append(credits_overlay)
 
             # Random lower thirds on some shots
-            project_shots = [s for s in shots if s.scene_id and any(
-                sc.project_id == project.id for sc in self.generated_data["scenes"]
-                if sc.id == s.scene_id
-            )]
+            project_shots = [
+                s
+                for s in shots
+                if s.scene_id
+                and any(
+                    sc.project_id == project.id
+                    for sc in self.generated_data["scenes"]
+                    if sc.id == s.scene_id
+                )
+            ]
 
             for shot in random.sample(project_shots, k=min(5, len(project_shots))):
                 overlay = TextOverlay(
@@ -961,10 +1163,23 @@ class MockDataGenerator:
 
         # Sound effects
         sfx_names = [
-            "Door Slam", "Footsteps Concrete", "Glass Break", "Thunder",
-            "Rain Ambience", "Crowd Murmur", "Car Engine", "Phone Ring",
-            "Gunshot", "Explosion", "Wind Howl", "Clock Tick", "Heartbeat",
-            "Metal Clang", "Water Splash", "Fire Crackle", "Birds Chirping",
+            "Door Slam",
+            "Footsteps Concrete",
+            "Glass Break",
+            "Thunder",
+            "Rain Ambience",
+            "Crowd Murmur",
+            "Car Engine",
+            "Phone Ring",
+            "Gunshot",
+            "Explosion",
+            "Wind Howl",
+            "Clock Tick",
+            "Heartbeat",
+            "Metal Clang",
+            "Water Splash",
+            "Fire Crackle",
+            "Birds Chirping",
         ]
 
         for i in range(count_sfx):
@@ -992,10 +1207,18 @@ class MockDataGenerator:
 
         # Music tracks
         music_names = [
-            "Epic Orchestral Theme", "Tense Suspense", "Romantic Piano",
-            "Action Drums", "Mysterious Ambience", "Hopeful Strings",
-            "Dark Electronic", "Peaceful Nature", "Victory Fanfare",
-            "Sad Violin Solo", "Chase Sequence", "Corporate Upbeat",
+            "Epic Orchestral Theme",
+            "Tense Suspense",
+            "Romantic Piano",
+            "Action Drums",
+            "Mysterious Ambience",
+            "Hopeful Strings",
+            "Dark Electronic",
+            "Peaceful Nature",
+            "Victory Fanfare",
+            "Sad Violin Solo",
+            "Chase Sequence",
+            "Corporate Upbeat",
         ]
 
         for i in range(count_music):
@@ -1016,7 +1239,8 @@ class MockDataGenerator:
                 genre=genre,
                 bpm=random.randint(60, 180),
                 mood=mood,
-                key=random.choice(["C", "D", "E", "F", "G", "A", "B"]) + random.choice([" major", " minor"]),
+                key=random.choice(["C", "D", "E", "F", "G", "A", "B"])
+                + random.choice([" major", " minor"]),
                 tags=[genre.lower(), "cinematic", "background"],
                 is_favorite=random.random() > 0.7,
                 use_count=random.randint(0, 30),
@@ -1146,6 +1370,7 @@ class MockDataGenerator:
 # ============================================================================
 # CLI ENTRY POINT
 # ============================================================================
+
 
 async def main():
     """Main entry point."""

@@ -191,7 +191,10 @@ class TestAssemblyService:
             assert isinstance(formats, list)
             # Should include common formats
             format_names = [f.get("name", f) if isinstance(f, dict) else f for f in formats]
-            assert any("264" in str(f).lower() or "mp4" in str(f).lower() for f in format_names) or len(formats) >= 0
+            assert (
+                any("264" in str(f).lower() or "mp4" in str(f).lower() for f in format_names)
+                or len(formats) >= 0
+            )
 
     @pytest.mark.asyncio
     async def test_estimate_export_size(

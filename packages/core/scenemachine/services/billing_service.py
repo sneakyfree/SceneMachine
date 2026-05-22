@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class SubscriptionTier(StrEnum):
     """Available subscription tiers."""
+
     FREE = "free"
     PRO = "pro"
     TEAM = "team"
@@ -26,6 +27,7 @@ class SubscriptionTier(StrEnum):
 
 class PlanConfig:
     """Stripe plan configuration."""
+
     PLANS = {
         SubscriptionTier.FREE: {
             "name": "Free",
@@ -95,6 +97,7 @@ class PlanConfig:
 
 class BillingServiceError(Exception):
     """Base exception for billing service."""
+
     def __init__(self, message: str, code: str = "billing_error") -> None:
         self.message = message
         self.code = code
@@ -114,12 +117,12 @@ class BillingService:
         if self._stripe is None:
             try:
                 import stripe
+
                 stripe.api_key = self.settings.stripe_secret_key
                 self._stripe = stripe
             except ImportError:
                 raise BillingServiceError(
-                    "Stripe library not installed",
-                    code="stripe_not_installed"
+                    "Stripe library not installed", code="stripe_not_installed"
                 )
         return self._stripe
 
@@ -144,9 +147,7 @@ class BillingService:
         stripe = self._get_stripe()
 
         # Get user
-        result = await self.session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -191,9 +192,7 @@ class BillingService:
         stripe = self._get_stripe()
 
         # Get user's customer ID (would be stored in user model)
-        result = await self.session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -204,10 +203,7 @@ class BillingService:
         try:
             customers = stripe.Customer.list(email=user.email, limit=1)
             if not customers.data:
-                raise BillingServiceError(
-                    "No billing profile found",
-                    code="no_customer"
-                )
+                raise BillingServiceError("No billing profile found", code="no_customer")
 
             portal_session = stripe.billing_portal.Session.create(
                 customer=customers.data[0].id,
@@ -239,10 +235,7 @@ class BillingService:
                 self.settings.stripe_webhook_secret,
             )
         except stripe.error.SignatureVerificationError:
-            raise BillingServiceError(
-                "Invalid webhook signature",
-                code="invalid_signature"
-            )
+            raise BillingServiceError("Invalid webhook signature", code="invalid_signature")
 
         event_type = event["type"]
         data = event["data"]["object"]
@@ -273,10 +266,7 @@ class BillingService:
         subscription_id = data.get("subscription")
         data.get("customer")
 
-        logger.info(
-            f"Checkout completed for user {user_id}, "
-            f"subscription {subscription_id}"
-        )
+        logger.info(f"Checkout completed for user {user_id}, subscription {subscription_id}")
 
         # TODO: Update user's subscription status in database
 
@@ -286,9 +276,7 @@ class BillingService:
         status = data.get("status")
         data.get("current_period_end")
 
-        logger.info(
-            f"Subscription updated for user {user_id}: {status}"
-        )
+        logger.info(f"Subscription updated for user {user_id}: {status}")
 
         # TODO: Update user's subscription status in database
 
@@ -305,10 +293,7 @@ class BillingService:
         subscription_id = data.get("subscription")
         amount_paid = data.get("amount_paid")
 
-        logger.info(
-            f"Invoice paid for subscription {subscription_id}: "
-            f"${amount_paid / 100:.2f}"
-        )
+        logger.info(f"Invoice paid for subscription {subscription_id}: ${amount_paid / 100:.2f}")
 
     async def _handle_payment_failed(self, data: dict) -> None:
         """Handle failed payment."""

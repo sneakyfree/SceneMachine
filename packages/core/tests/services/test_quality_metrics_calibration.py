@@ -20,6 +20,7 @@ If V0 corpus gets re-measured and the medians shift by >2x, these tests
 will catch it before it lands in main and silently invalidates the V0
 baseline that every future V_N is measured against.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,6 +32,7 @@ from PIL import Image
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
+
 
 def _save_png(arr: np.ndarray, path: Path) -> None:
     """Save a 2D uint8 array as a grayscale PNG."""
@@ -70,6 +72,7 @@ class TestLaplacianVariance:
     @pytest.fixture
     def func(self):
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
+
         return VideoQualityReviewer._laplacian_variance
 
     def test_flat_image_near_zero(self, func, tmp_path):
@@ -111,9 +114,7 @@ class TestLaplacianVariance:
         var = func(p)
         # Pure-noise σ=50 produces very high Laplacian variance
         # (every pixel-pair differs independently).
-        assert var > 1000.0, (
-            f"σ=50 Gaussian noise must score above V0 median (~927); got {var}."
-        )
+        assert var > 1000.0, f"σ=50 Gaussian noise must score above V0 median (~927); got {var}."
 
     def test_returns_float(self, func, tmp_path):
         p = tmp_path / "f.png"
@@ -142,6 +143,7 @@ class TestTemporalFrameDeltas:
     @pytest.fixture
     def func(self):
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
+
         return VideoQualityReviewer._temporal_frame_deltas
 
     def _write_frames(self, arrays, tmp_path):
@@ -226,6 +228,7 @@ class TestCalibrationConstants:
     @pytest.fixture
     def cls(self):
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
+
         return VideoQualityReviewer
 
     def test_sharpness_cap_published(self, cls):
@@ -290,9 +293,21 @@ async def test_visual_fidelity_on_synthetic_blurry_video(tmp_path):
     mp4 = tmp_path / "blurry.mp4"
     # 1 second of solid gray @ 24 fps
     rc = subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error",
-         "-f", "lavfi", "-i", "color=c=gray:s=128x128:d=1:r=24",
-         "-c:v", "libx264", "-pix_fmt", "yuv420p", str(mp4)],
+        [
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=gray:s=128x128:d=1:r=24",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(mp4),
+        ],
         timeout=30,
     ).returncode
     if rc != 0 or not mp4.exists():
@@ -307,6 +322,4 @@ async def test_visual_fidelity_on_synthetic_blurry_video(tmp_path):
         "tripwire confirms the unit-tested math actually reaches the "
         "issues-list output when wired end-to-end through ffmpeg."
     )
-    assert result.score < 0.1, (
-        f"Solid-gray score must be near 0; got {result.score}."
-    )
+    assert result.score < 0.1, f"Solid-gray score must be near 0; got {result.score}."

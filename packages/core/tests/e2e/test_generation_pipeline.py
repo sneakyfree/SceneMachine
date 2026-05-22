@@ -3,7 +3,6 @@
 Tests the complete flow from shot queuing through generation to approval.
 """
 
-
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -206,9 +205,7 @@ class TestMockGeneration:
         await service.process_job(job.id)
 
         # Reject with notes
-        rejected_shot = await service.reject_shot(
-            shot.id, notes="Lighting is too dark"
-        )
+        rejected_shot = await service.reject_shot(shot.id, notes="Lighting is too dark")
 
         assert rejected_shot.state == ShotState.REJECTED
         assert rejected_shot.user_notes == "Lighting is too dark"
@@ -346,9 +343,7 @@ class TestProviders:
     """Tests for provider management."""
 
     @pytest.mark.asyncio
-    async def test_list_available_providers(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_list_available_providers(self, db_session: AsyncSession) -> None:
         """Test listing available providers."""
         service = GenerationService(db_session)
 

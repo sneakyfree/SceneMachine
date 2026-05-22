@@ -61,7 +61,7 @@ class TestSanitizeFilename:
 
     def test_windows_reserved(self):
         """Should handle Windows reserved characters."""
-        result = sanitize_filename('file:name|test?.txt')
+        result = sanitize_filename("file:name|test?.txt")
         assert ":" not in result
         assert "|" not in result
         assert "?" not in result

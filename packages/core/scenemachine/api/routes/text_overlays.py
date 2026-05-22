@@ -168,9 +168,17 @@ async def get_presets():
     """Get available text overlay presets."""
     presets = [
         PresetResponse(type="title", label="Title", style=DEFAULT_STYLES[TextOverlayType.TITLE]),
-        PresetResponse(type="subtitle", label="Subtitle", style=DEFAULT_STYLES[TextOverlayType.SUBTITLE]),
-        PresetResponse(type="lower_third", label="Lower Third", style=DEFAULT_STYLES[TextOverlayType.LOWER_THIRD]),
-        PresetResponse(type="caption", label="Caption", style=DEFAULT_STYLES[TextOverlayType.CAPTION]),
+        PresetResponse(
+            type="subtitle", label="Subtitle", style=DEFAULT_STYLES[TextOverlayType.SUBTITLE]
+        ),
+        PresetResponse(
+            type="lower_third",
+            label="Lower Third",
+            style=DEFAULT_STYLES[TextOverlayType.LOWER_THIRD],
+        ),
+        PresetResponse(
+            type="caption", label="Caption", style=DEFAULT_STYLES[TextOverlayType.CAPTION]
+        ),
         PresetResponse(type="custom", label="Custom", style=DEFAULT_STYLES[TextOverlayType.CUSTOM]),
     ]
     return presets
@@ -430,9 +438,7 @@ async def batch_update_shot_overlays(
     This is useful for syncing the frontend state with the backend.
     """
     # Delete existing overlays
-    await session.execute(
-        delete(TextOverlay).where(TextOverlay.shot_id == UUID(shot_id))
-    )
+    await session.execute(delete(TextOverlay).where(TextOverlay.shot_id == UUID(shot_id)))
 
     # Create new overlays
     new_overlays = []

@@ -208,9 +208,7 @@ class Workflow(ABC, Generic[T]):
             return
 
         completed = sum(
-            1
-            for s in self._state.steps
-            if s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
+            1 for s in self._state.steps if s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
         )
         self._state.progress_percent = (completed / total) * 100
 

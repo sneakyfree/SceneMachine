@@ -86,9 +86,7 @@ class TestLipSyncRoutes:
         assert "video asset" in response.json()["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_start_lipsync_audio_not_found(
-        self, client: AsyncClient, video_asset: Asset
-    ):
+    async def test_start_lipsync_audio_not_found(self, client: AsyncClient, video_asset: Asset):
         """Test POST /lipsync/ returns 404 for missing audio_id."""
         nonexistent_audio_id = str(uuid4())
 

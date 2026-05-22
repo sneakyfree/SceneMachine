@@ -1,6 +1,5 @@
 """Tests for Scene Planning service."""
 
-
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -146,9 +145,7 @@ class TestScenePlanningService:
     ):
         """Test generating a shot breakdown for a scene."""
         if hasattr(scene_planning_service, "generate_shot_breakdown"):
-            breakdown = await scene_planning_service.generate_shot_breakdown(
-                sample_scene.id
-            )
+            breakdown = await scene_planning_service.generate_shot_breakdown(sample_scene.id)
             assert breakdown is not None
 
     @pytest.mark.asyncio

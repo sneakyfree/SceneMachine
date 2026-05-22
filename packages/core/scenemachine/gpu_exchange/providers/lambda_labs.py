@@ -274,7 +274,9 @@ class LambdaLabsProvider(GPUExchangeProvider):
                 "quantity": 1,
             }
 
-            response = await self._make_request("POST", "/instance-operations/launch", json=launch_data)
+            response = await self._make_request(
+                "POST", "/instance-operations/launch", json=launch_data
+            )
             instance_ids = response.get("data", {}).get("instance_ids", [])
 
             if not instance_ids:

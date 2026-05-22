@@ -71,33 +71,37 @@ class IPAdapterConfig:
     """
 
     # Strength presets based on scene type
-    STRENGTH_PRESETS: dict[str, float] = field(default_factory=lambda: {
-        "close_up": 0.85,       # High fidelity for close-up shots
-        "medium_shot": 0.65,   # Balanced for medium shots
-        "wide_shot": 0.45,     # Lower strength for wide shots (environment focus)
-        "action": 0.55,        # Slightly lower for motion-heavy scenes
-        "dialogue": 0.75,      # Higher for dialogue (face visible)
-        "default": 0.60,       # Default balanced strength
-    })
+    STRENGTH_PRESETS: dict[str, float] = field(
+        default_factory=lambda: {
+            "close_up": 0.85,  # High fidelity for close-up shots
+            "medium_shot": 0.65,  # Balanced for medium shots
+            "wide_shot": 0.45,  # Lower strength for wide shots (environment focus)
+            "action": 0.55,  # Slightly lower for motion-heavy scenes
+            "dialogue": 0.75,  # Higher for dialogue (face visible)
+            "default": 0.60,  # Default balanced strength
+        }
+    )
 
     # Mode configurations
-    MODE_SETTINGS: dict[str, dict[str, Any]] = field(default_factory=lambda: {
-        "balanced": {
-            "strength_multiplier": 1.0,
-            "blend_mode": "linear",
-            "description": "Balanced between fidelity and creativity",
-        },
-        "high_fidelity": {
-            "strength_multiplier": 1.3,
-            "blend_mode": "emphasis",
-            "description": "Prioritize character similarity over scene creativity",
-        },
-        "creative": {
-            "strength_multiplier": 0.7,
-            "blend_mode": "soft",
-            "description": "Allow more creative freedom, less strict matching",
-        },
-    })
+    MODE_SETTINGS: dict[str, dict[str, Any]] = field(
+        default_factory=lambda: {
+            "balanced": {
+                "strength_multiplier": 1.0,
+                "blend_mode": "linear",
+                "description": "Balanced between fidelity and creativity",
+            },
+            "high_fidelity": {
+                "strength_multiplier": 1.3,
+                "blend_mode": "emphasis",
+                "description": "Prioritize character similarity over scene creativity",
+            },
+            "creative": {
+                "strength_multiplier": 0.7,
+                "blend_mode": "soft",
+                "description": "Allow more creative freedom, less strict matching",
+            },
+        }
+    )
 
     def get_adaptive_strength(
         self,
@@ -413,6 +417,7 @@ class ReplicateProvider(GenerationProvider):
         """Get or create Replicate client."""
         if self._client is None:
             import replicate
+
             self._client = replicate.Client(api_token=self.api_token)
         return self._client
 
@@ -536,9 +541,7 @@ class ReplicateProvider(GenerationProvider):
             shot_dir = settings.output_dir / "shots" / str(request.shot_id)
             shot_dir.mkdir(parents=True, exist_ok=True)
 
-            await self._download_output(
-                output_url, shot_dir / "output.mp4"
-            )
+            await self._download_output(output_url, shot_dir / "output.mp4")
 
             # Generate thumbnail
             if progress_callback:
@@ -672,15 +675,15 @@ class ReplicateProvider(GenerationProvider):
             return "1:1"
         elif width > height:
             ratio = width / height
-            if abs(ratio - 16/9) < 0.1:
+            if abs(ratio - 16 / 9) < 0.1:
                 return "16:9"
-            elif abs(ratio - 4/3) < 0.1:
+            elif abs(ratio - 4 / 3) < 0.1:
                 return "4:3"
         else:
             ratio = height / width
-            if abs(ratio - 16/9) < 0.1:
+            if abs(ratio - 16 / 9) < 0.1:
                 return "9:16"
-            elif abs(ratio - 4/3) < 0.1:
+            elif abs(ratio - 4 / 3) < 0.1:
                 return "3:4"
         return "16:9"  # Default
 
@@ -796,6 +799,7 @@ class ReplicateProvider(GenerationProvider):
             return False
         try:
             import replicate
+
             client = replicate.Client(api_token=self.api_token)
             # Simple check - get account info
             await asyncio.to_thread(lambda: client.models.list().__next__())
@@ -959,6 +963,7 @@ class FalProvider(GenerationProvider):
 
         # Set API key for fal_client
         import os
+
         os.environ["FAL_KEY"] = self.api_key
 
         start_time = datetime.now(UTC)
@@ -1201,7 +1206,9 @@ class FalProvider(GenerationProvider):
                             GenerationProgress(
                                 job_id=shot_id,
                                 percent=15,
-                                message=f"In queue (position ~{queue_pos})" if queue_pos else "In queue",
+                                message=f"In queue (position ~{queue_pos})"
+                                if queue_pos
+                                else "In queue",
                                 stage="queued",
                             )
                         )
@@ -1277,6 +1284,7 @@ class FalProvider(GenerationProvider):
 
         try:
             import os
+
             os.environ["FAL_KEY"] = self.api_key
             # Quick status check
             return True
@@ -1288,6 +1296,7 @@ class FalProvider(GenerationProvider):
         """Cancel a running request."""
         try:
             import fal_client
+
             await asyncio.to_thread(
                 fal_client.cancel,
                 provider_job_id,
@@ -1356,7 +1365,9 @@ class GenerationService:
                     provider = registry.get_provider(provider_type)
                     if provider:
                         self._providers[provider_type] = provider
-                        logger.debug(f"Loaded provider from registry: {provider.name} ({provider_type.value})")
+                        logger.debug(
+                            f"Loaded provider from registry: {provider.name} ({provider_type.value})"
+                        )
                 logger.info(f"Loaded {len(self._providers)} providers from global registry")
                 return
         except Exception as e:
@@ -1385,9 +1396,7 @@ class GenerationService:
             )
             logger.info("Registered Fal.ai provider (fallback)")
 
-    def register_provider(
-        self, provider_type: JobProvider, provider: GenerationProvider
-    ) -> None:
+    def register_provider(self, provider_type: JobProvider, provider: GenerationProvider) -> None:
         """Register a generation provider."""
         self._providers[provider_type] = provider
         logger.info(f"Registered generation provider: {provider.name}")
@@ -1562,11 +1571,7 @@ class GenerationService:
             Created GenerationJob
         """
         # Get shot with scene to get project_id
-        stmt = (
-            select(Shot)
-            .options(selectinload(Shot.scene))
-            .where(Shot.id == shot_id)
-        )
+        stmt = select(Shot).options(selectinload(Shot.scene)).where(Shot.id == shot_id)
         result = await self.session.execute(stmt)
         shot = result.scalar_one_or_none()
 
@@ -1667,11 +1672,7 @@ class GenerationService:
         Returns:
             List of created GenerationJobs
         """
-        stmt = (
-            select(Scene)
-            .options(selectinload(Scene.shots))
-            .where(Scene.id == scene_id)
-        )
+        stmt = select(Scene).options(selectinload(Scene.shots)).where(Scene.id == scene_id)
         result = await self.session.execute(stmt)
         scene = result.scalar_one_or_none()
 
@@ -1746,9 +1747,7 @@ class GenerationService:
         # Get job with shot and scene (for project_id)
         stmt = (
             select(GenerationJob)
-            .options(
-                selectinload(GenerationJob.shot).selectinload(Shot.scene)
-            )
+            .options(selectinload(GenerationJob.shot).selectinload(Shot.scene))
             .where(GenerationJob.id == job_id)
         )
         result = await self.session.execute(stmt)
@@ -1758,11 +1757,7 @@ class GenerationService:
             raise ValueError(f"Job {job_id} not found")
 
         # Get project_id for WebSocket events
-        project_id = (
-            str(job.shot.scene.project_id)
-            if job.shot and job.shot.scene
-            else None
-        )
+        project_id = str(job.shot.scene.project_id) if job.shot and job.shot.scene else None
 
         # Get provider
         provider = self.get_provider(job.provider)
@@ -1775,11 +1770,7 @@ class GenerationService:
                 "comfyui": "COMFYUI_HOST",
             }
             hint = _env_var_hints.get(job.provider.value, "")
-            hint_msg = (
-                f" Set {hint} in your .env file to enable it."
-                if hint
-                else ""
-            )
+            hint_msg = f" Set {hint} in your .env file to enable it." if hint else ""
             job.status = JobStatus.FAILED
             job.error_message = (
                 f"Provider '{job.provider.value}' is not configured.{hint_msg} "
@@ -1952,9 +1943,7 @@ class GenerationService:
 
             await self.session.commit()
 
-            logger.info(
-                f"Job {job_id} {'completed' if gen_result.success else 'failed'}"
-            )
+            logger.info(f"Job {job_id} {'completed' if gen_result.success else 'failed'}")
 
             return gen_result
 
@@ -1994,9 +1983,7 @@ class GenerationService:
                 error_code="EXCEPTION",
             )
 
-    async def get_queue_status(
-        self, project_id: UUID | None = None
-    ) -> dict[str, Any]:
+    async def get_queue_status(self, project_id: UUID | None = None) -> dict[str, Any]:
         """Get generation queue status.
 
         Args:
@@ -2022,9 +2009,7 @@ class GenerationService:
             "total_jobs": len(jobs),
             "status_counts": status_counts,
             "pending": status_counts.get("pending", 0),
-            "running": sum(
-                1 for j in jobs if j.status in (JobStatus.PREPARING, JobStatus.RUNNING)
-            ),
+            "running": sum(1 for j in jobs if j.status in (JobStatus.PREPARING, JobStatus.RUNNING)),
             "completed": status_counts.get("completed", 0),
             "failed": status_counts.get("failed", 0),
         }
@@ -2107,14 +2092,13 @@ class GenerationService:
         # Check retry count to prevent infinite loops
         retry_count = getattr(old_job, "retry_count", 0) or 0
         if retry_count >= max_retries:
-            logger.warning(
-                f"Job {job_id} has reached max retries ({max_retries}), not retrying"
-            )
+            logger.warning(f"Job {job_id} has reached max retries ({max_retries}), not retrying")
             return None
 
         # Calculate exponential backoff delay
         import asyncio
-        backoff_seconds = self.BASE_BACKOFF_SECONDS * (2 ** retry_count)
+
+        backoff_seconds = self.BASE_BACKOFF_SECONDS * (2**retry_count)
         logger.info(
             f"Retrying job {job_id} (attempt {retry_count + 1}/{max_retries}), "
             f"backoff {backoff_seconds:.1f}s"
@@ -2161,9 +2145,7 @@ class GenerationService:
 
         return shot
 
-    async def reject_shot(
-        self, shot_id: UUID, notes: str | None = None
-    ) -> Shot:
+    async def reject_shot(self, shot_id: UUID, notes: str | None = None) -> Shot:
         """Reject a generated shot for regeneration."""
         stmt = select(Shot).where(Shot.id == shot_id)
         result = await self.session.execute(stmt)
@@ -2183,11 +2165,7 @@ class GenerationService:
 
     async def _check_scene_completion(self, scene_id: UUID) -> None:
         """Check if all shots in a scene are approved."""
-        stmt = (
-            select(Scene)
-            .options(selectinload(Scene.shots))
-            .where(Scene.id == scene_id)
-        )
+        stmt = select(Scene).options(selectinload(Scene.shots)).where(Scene.id == scene_id)
         result = await self.session.execute(stmt)
         scene = result.scalar_one_or_none()
 
@@ -2202,16 +2180,12 @@ class GenerationService:
     async def _check_project_completion(self, project_id: UUID) -> None:
         """Check if all shots in project are approved."""
         stmt = (
-            select(Scene)
-            .options(selectinload(Scene.shots))
-            .where(Scene.project_id == project_id)
+            select(Scene).options(selectinload(Scene.shots)).where(Scene.project_id == project_id)
         )
         result = await self.session.execute(stmt)
         scenes = result.scalars().all()
 
-        all_approved = all(
-            s.state == ShotState.APPROVED for scene in scenes for s in scene.shots
-        )
+        all_approved = all(s.state == ShotState.APPROVED for scene in scenes for s in scene.shots)
 
         if all_approved:
             stmt = select(Project).where(Project.id == project_id)

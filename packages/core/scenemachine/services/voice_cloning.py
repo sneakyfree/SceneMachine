@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class TTSProvider(StrEnum):
     """Available TTS providers."""
+
     KOKORO = "kokoro"
     ELEVENLABS = "elevenlabs"
     OPENAI = "openai"
@@ -26,6 +27,7 @@ class TTSProvider(StrEnum):
 
 class VoiceGender(StrEnum):
     """Voice gender categories."""
+
     MALE = "male"
     FEMALE = "female"
     NEUTRAL = "neutral"
@@ -34,6 +36,7 @@ class VoiceGender(StrEnum):
 @dataclass
 class VoiceProfile:
     """A voice profile for TTS generation."""
+
     voice_id: str
     name: str
     provider: TTSProvider
@@ -66,6 +69,7 @@ class VoiceProfile:
 @dataclass
 class SpeechGenerationResult:
     """Result from TTS generation."""
+
     success: bool
     audio_path: str | None = None
     audio_data: bytes | None = None
@@ -97,26 +101,87 @@ class VoiceCloningService:
 
     # Kokoro voice mappings (built-in voices)
     KOKORO_VOICES = [
-        VoiceProfile("af_heart", "Heart", TTSProvider.KOKORO, VoiceGender.FEMALE, "Warm, friendly female voice"),
-        VoiceProfile("af_alloy", "Alloy", TTSProvider.KOKORO, VoiceGender.FEMALE, "Clear, professional female voice"),
-        VoiceProfile("af_aoede", "Aoede", TTSProvider.KOKORO, VoiceGender.FEMALE, "Melodic female voice"),
-        VoiceProfile("af_bella", "Bella", TTSProvider.KOKORO, VoiceGender.FEMALE, "Expressive female voice"),
-        VoiceProfile("af_jessica", "Jessica", TTSProvider.KOKORO, VoiceGender.FEMALE, "Natural conversational female"),
-        VoiceProfile("af_kore", "Kore", TTSProvider.KOKORO, VoiceGender.FEMALE, "Youthful female voice"),
-        VoiceProfile("af_nicole", "Nicole", TTSProvider.KOKORO, VoiceGender.FEMALE, "Mature female voice"),
-        VoiceProfile("af_nova", "Nova", TTSProvider.KOKORO, VoiceGender.FEMALE, "Energetic female voice"),
-        VoiceProfile("af_river", "River", TTSProvider.KOKORO, VoiceGender.FEMALE, "Calm, soothing female voice"),
-        VoiceProfile("af_sarah", "Sarah", TTSProvider.KOKORO, VoiceGender.FEMALE, "Friendly female narrator"),
-        VoiceProfile("af_sky", "Sky", TTSProvider.KOKORO, VoiceGender.FEMALE, "Light, airy female voice"),
+        VoiceProfile(
+            "af_heart",
+            "Heart",
+            TTSProvider.KOKORO,
+            VoiceGender.FEMALE,
+            "Warm, friendly female voice",
+        ),
+        VoiceProfile(
+            "af_alloy",
+            "Alloy",
+            TTSProvider.KOKORO,
+            VoiceGender.FEMALE,
+            "Clear, professional female voice",
+        ),
+        VoiceProfile(
+            "af_aoede", "Aoede", TTSProvider.KOKORO, VoiceGender.FEMALE, "Melodic female voice"
+        ),
+        VoiceProfile(
+            "af_bella", "Bella", TTSProvider.KOKORO, VoiceGender.FEMALE, "Expressive female voice"
+        ),
+        VoiceProfile(
+            "af_jessica",
+            "Jessica",
+            TTSProvider.KOKORO,
+            VoiceGender.FEMALE,
+            "Natural conversational female",
+        ),
+        VoiceProfile(
+            "af_kore", "Kore", TTSProvider.KOKORO, VoiceGender.FEMALE, "Youthful female voice"
+        ),
+        VoiceProfile(
+            "af_nicole", "Nicole", TTSProvider.KOKORO, VoiceGender.FEMALE, "Mature female voice"
+        ),
+        VoiceProfile(
+            "af_nova", "Nova", TTSProvider.KOKORO, VoiceGender.FEMALE, "Energetic female voice"
+        ),
+        VoiceProfile(
+            "af_river",
+            "River",
+            TTSProvider.KOKORO,
+            VoiceGender.FEMALE,
+            "Calm, soothing female voice",
+        ),
+        VoiceProfile(
+            "af_sarah", "Sarah", TTSProvider.KOKORO, VoiceGender.FEMALE, "Friendly female narrator"
+        ),
+        VoiceProfile(
+            "af_sky", "Sky", TTSProvider.KOKORO, VoiceGender.FEMALE, "Light, airy female voice"
+        ),
         VoiceProfile("am_adam", "Adam", TTSProvider.KOKORO, VoiceGender.MALE, "Deep male voice"),
-        VoiceProfile("am_echo", "Echo", TTSProvider.KOKORO, VoiceGender.MALE, "Resonant male voice"),
-        VoiceProfile("am_eric", "Eric", TTSProvider.KOKORO, VoiceGender.MALE, "Professional male narrator"),
-        VoiceProfile("am_fenrir", "Fenrir", TTSProvider.KOKORO, VoiceGender.MALE, "Strong male voice"),
-        VoiceProfile("am_liam", "Liam", TTSProvider.KOKORO, VoiceGender.MALE, "Friendly male voice"),
-        VoiceProfile("am_michael", "Michael", TTSProvider.KOKORO, VoiceGender.MALE, "Natural male conversational"),
-        VoiceProfile("am_onyx", "Onyx", TTSProvider.KOKORO, VoiceGender.MALE, "Deep, authoritative male"),
+        VoiceProfile(
+            "am_echo", "Echo", TTSProvider.KOKORO, VoiceGender.MALE, "Resonant male voice"
+        ),
+        VoiceProfile(
+            "am_eric", "Eric", TTSProvider.KOKORO, VoiceGender.MALE, "Professional male narrator"
+        ),
+        VoiceProfile(
+            "am_fenrir", "Fenrir", TTSProvider.KOKORO, VoiceGender.MALE, "Strong male voice"
+        ),
+        VoiceProfile(
+            "am_liam", "Liam", TTSProvider.KOKORO, VoiceGender.MALE, "Friendly male voice"
+        ),
+        VoiceProfile(
+            "am_michael",
+            "Michael",
+            TTSProvider.KOKORO,
+            VoiceGender.MALE,
+            "Natural male conversational",
+        ),
+        VoiceProfile(
+            "am_onyx", "Onyx", TTSProvider.KOKORO, VoiceGender.MALE, "Deep, authoritative male"
+        ),
         VoiceProfile("am_puck", "Puck", TTSProvider.KOKORO, VoiceGender.MALE, "Playful male voice"),
-        VoiceProfile("am_santa", "Santa", TTSProvider.KOKORO, VoiceGender.MALE, "Jolly older male voice", age_category="senior"),
+        VoiceProfile(
+            "am_santa",
+            "Santa",
+            TTSProvider.KOKORO,
+            VoiceGender.MALE,
+            "Jolly older male voice",
+            age_category="senior",
+        ),
     ]
 
     def __init__(
@@ -221,6 +286,7 @@ class VoiceCloningService:
 
         # Match personality to voice descriptions
         if personality_traits:
+
             def score_voice(voice: VoiceProfile) -> int:
                 score = 0
                 desc = voice.description.lower()
@@ -292,9 +358,7 @@ class VoiceCloningService:
                 metadata={"matched_voice_id": best_match.voice_id},
             )
             self._cloned_voices[voice_id] = profile
-            logger.info(
-                f"Voice matched for '{voice_name}' → {best_match.name}"
-            )
+            logger.info(f"Voice matched for '{voice_name}' → {best_match.name}")
             return profile
 
         logger.error(f"All voice cloning methods failed for '{voice_name}'")
@@ -312,6 +376,7 @@ class VoiceCloningService:
         """
         try:
             import os
+
             api_key = os.environ.get("ELEVENLABS_API_KEY")
             if not api_key:
                 logger.debug("ElevenLabs API key not set, skipping API clone")
@@ -344,14 +409,11 @@ class VoiceCloningService:
                     metadata={"elevenlabs_voice_id": el_voice_id},
                 )
                 self._cloned_voices[voice_id] = profile
-                logger.info(
-                    f"ElevenLabs voice clone created: {voice_name} → {el_voice_id}"
-                )
+                logger.info(f"ElevenLabs voice clone created: {voice_name} → {el_voice_id}")
                 return profile
             else:
                 logger.warning(
-                    f"ElevenLabs clone failed ({response.status_code}): "
-                    f"{response.text[:200]}"
+                    f"ElevenLabs clone failed ({response.status_code}): {response.text[:200]}"
                 )
                 return None
 
@@ -438,6 +500,7 @@ class VoiceCloningService:
             if self._kokoro_pipeline is None:
                 try:
                     from kokoro import KPipeline
+
                     self._kokoro_pipeline = KPipeline(lang_code="a")  # American English
                 except ImportError:
                     logger.warning("Kokoro not installed, using mock TTS")
@@ -460,7 +523,7 @@ class VoiceCloningService:
             # Collect audio chunks
             audio_chunks = []
             for chunk in generator:
-                if hasattr(chunk, 'audio'):
+                if hasattr(chunk, "audio"):
                     audio_chunks.append(chunk.audio.numpy())
 
             if not audio_chunks:
@@ -470,6 +533,7 @@ class VoiceCloningService:
                 )
 
             import numpy as np
+
             audio = np.concatenate(audio_chunks)
 
             # Calculate duration
@@ -483,6 +547,7 @@ class VoiceCloningService:
 
                 # Save as WAV
                 import soundfile as sf
+
                 sf.write(str(output_path), audio, sample_rate)
 
                 return SpeechGenerationResult(
@@ -499,7 +564,7 @@ class VoiceCloningService:
                 import soundfile as sf
 
                 buffer = io.BytesIO()
-                sf.write(buffer, audio, sample_rate, format='WAV')
+                sf.write(buffer, audio, sample_rate, format="WAV")
                 audio_data = buffer.getvalue()
 
                 return SpeechGenerationResult(
@@ -540,12 +605,12 @@ class VoiceCloningService:
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Create a simple silent WAV file
-            with wave.open(str(output_path), 'w') as wav:
+            with wave.open(str(output_path), "w") as wav:
                 wav.setnchannels(1)
                 wav.setsampwidth(2)
                 wav.setframerate(sample_rate)
                 # Write silence
-                wav.writeframes(struct.pack('<' + 'h' * num_samples, *([0] * num_samples)))
+                wav.writeframes(struct.pack("<" + "h" * num_samples, *([0] * num_samples)))
 
             return SpeechGenerationResult(
                 success=True,

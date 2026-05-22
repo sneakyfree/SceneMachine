@@ -298,9 +298,7 @@ class TestAssemblyService:
             assert "bitrate" in preset
 
     @pytest.mark.asyncio
-    async def test_get_timeline_empty_project(
-        self, service, mock_session, mock_project
-    ):
+    async def test_get_timeline_empty_project(self, service, mock_session, mock_project):
         """Test getting timeline for project with no scenes."""
         mock_project.scenes = []
 

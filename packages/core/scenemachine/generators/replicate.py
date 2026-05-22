@@ -275,9 +275,7 @@ class ReplicateProvider(GenerationProvider):
             shot_dir = settings.output_dir / "shots" / str(request.shot_id)
             shot_dir.mkdir(parents=True, exist_ok=True)
 
-            await self._download_output(
-                output_url, shot_dir / "output.mp4"
-            )
+            await self._download_output(output_url, shot_dir / "output.mp4")
 
             # Generate thumbnail
             if progress_callback:
@@ -309,9 +307,7 @@ class ReplicateProvider(GenerationProvider):
             return GenerationResult(
                 success=True,
                 output_path=f"shots/{request.shot_id}/output.mp4",
-                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg"
-                if thumbnail_path
-                else None,
+                thumbnail_path=f"shots/{request.shot_id}/thumbnail.jpg" if thumbnail_path else None,
                 duration_seconds=generation_duration,
                 cost_usd=estimated_cost,
                 metadata={
@@ -378,17 +374,13 @@ class ReplicateProvider(GenerationProvider):
         elif model.id == "luma/ray":
             params["aspect_ratio"] = f"{request.width}:{request.height}"
             if request.character_references:
-                params["start_image_url"] = request.character_references[0].get(
-                    "image_url"
-                )
+                params["start_image_url"] = request.character_references[0].get("image_url")
             elif request.input_image_path:
                 params["start_image_url"] = request.input_image_path
 
         elif model.id == "kwaivgi/kling-v1":
             params["duration"] = min(request.duration_seconds, model.max_duration)
-            params["aspect_ratio"] = self._get_aspect_ratio(
-                request.width, request.height
-            )
+            params["aspect_ratio"] = self._get_aspect_ratio(request.width, request.height)
 
         # Add any extra parameters
         params.update(request.extra_params.get("model_params", {}))
@@ -438,9 +430,7 @@ class ReplicateProvider(GenerationProvider):
                 if isinstance(output, str):
                     return output
                 elif isinstance(output, list) and output:
-                    return (
-                        output[0] if isinstance(output[0], str) else output[0].get("url")
-                    )
+                    return output[0] if isinstance(output[0], str) else output[0].get("url")
                 elif isinstance(output, dict):
                     return output.get("video") or output.get("url")
                 return None

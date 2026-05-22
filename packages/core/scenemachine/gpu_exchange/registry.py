@@ -125,9 +125,7 @@ class GPUProviderRegistry:
             logger.error(f"Failed to instantiate GPU provider {provider_id}: {e}")
             return None
 
-    def get_provider_class(
-        self, provider_id: str
-    ) -> type[GPUExchangeProvider] | None:
+    def get_provider_class(self, provider_id: str) -> type[GPUExchangeProvider] | None:
         """Get provider class without instantiation."""
         return self._provider_classes.get(provider_id)
 

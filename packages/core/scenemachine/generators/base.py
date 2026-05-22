@@ -215,7 +215,7 @@ class GenerationProvider(ABC):
             return ProviderHealth(
                 available=available,
                 message="Provider available" if available else "Provider unavailable",
-                models_available=len(self.list_models()) if hasattr(self, 'list_models') else 0,
+                models_available=len(self.list_models()) if hasattr(self, "list_models") else 0,
             )
         except Exception as e:
             return ProviderHealth(
@@ -272,9 +272,7 @@ class GenerationProvider(ABC):
             )
 
         if request.fps not in caps.supported_fps:
-            errors.append(
-                f"FPS {request.fps} not in supported values: {caps.supported_fps}"
-            )
+            errors.append(f"FPS {request.fps} not in supported values: {caps.supported_fps}")
 
         return errors
 
@@ -380,14 +378,13 @@ class ProviderRegistry:
             return provider
         except Exception as e:
             import logging
+
             logging.getLogger(__name__).error(
                 f"Failed to instantiate provider {provider_type}: {e}"
             )
             return None
 
-    def get_provider_class(
-        self, provider_type: JobProvider
-    ) -> type[GenerationProvider] | None:
+    def get_provider_class(self, provider_type: JobProvider) -> type[GenerationProvider] | None:
         """Get provider class without instantiation."""
         return self._provider_classes.get(provider_type)
 

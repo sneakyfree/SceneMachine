@@ -16,10 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 
-def create_mock_character(
-    name: str = "John Doe",
-    project_id: str = None
-) -> dict[str, Any]:
+def create_mock_character(name: str = "John Doe", project_id: str = None) -> dict[str, Any]:
     """Create a mock character."""
     return {
         "id": str(uuid4()),
@@ -69,10 +66,7 @@ class MockCharactersRouter:
 
         @self.app.put("/api/v1/projects/{project_id}/characters/{character_id}")
         async def update_character(
-            project_id: str,
-            character_id: str,
-            name: str = None,
-            description: str = None
+            project_id: str, character_id: str, name: str = None, description: str = None
         ):
             if character_id not in self.characters:
                 raise HTTPException(status_code=404, detail="Character not found")
@@ -111,9 +105,7 @@ class MockCharactersRouter:
 
         @self.app.put("/api/v1/projects/{project_id}/characters/{character_id}/physical")
         async def update_physical_description(
-            project_id: str,
-            character_id: str,
-            physical_description: dict[str, str] = None
+            project_id: str, character_id: str, physical_description: dict[str, str] = None
         ):
             if character_id not in self.characters:
                 raise HTTPException(status_code=404, detail="Character not found")
@@ -143,7 +135,7 @@ class TestCharactersCRUD:
         """Test creating a new character."""
         response = client.post(
             f"/api/v1/projects/{project_id}/characters",
-            params={"name": "Sarah", "description": "The protagonist"}
+            params={"name": "Sarah", "description": "The protagonist"},
         )
 
         assert response.status_code == 200
@@ -156,10 +148,7 @@ class TestCharactersCRUD:
         """Test listing characters for a project."""
         # Create characters
         for name in ["John", "Sarah", "Mike"]:
-            client.post(
-                f"/api/v1/projects/{project_id}/characters",
-                params={"name": name}
-            )
+            client.post(f"/api/v1/projects/{project_id}/characters", params={"name": name})
 
         response = client.get(f"/api/v1/projects/{project_id}/characters")
 
@@ -170,8 +159,7 @@ class TestCharactersCRUD:
     def test_get_character(self, client, project_id):
         """Test getting a single character."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/characters",
-            params={"name": "Test Character"}
+            f"/api/v1/projects/{project_id}/characters", params={"name": "Test Character"}
         )
         char_id = create_response.json()["id"]
 
@@ -189,14 +177,12 @@ class TestCharactersCRUD:
     def test_update_character(self, client, project_id):
         """Test updating a character."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/characters",
-            params={"name": "Original Name"}
+            f"/api/v1/projects/{project_id}/characters", params={"name": "Original Name"}
         )
         char_id = create_response.json()["id"]
 
         response = client.put(
-            f"/api/v1/projects/{project_id}/characters/{char_id}",
-            params={"name": "Updated Name"}
+            f"/api/v1/projects/{project_id}/characters/{char_id}", params={"name": "Updated Name"}
         )
 
         assert response.status_code == 200
@@ -206,8 +192,7 @@ class TestCharactersCRUD:
     def test_delete_character(self, client, project_id):
         """Test deleting a character."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/characters",
-            params={"name": "To Delete"}
+            f"/api/v1/projects/{project_id}/characters", params={"name": "To Delete"}
         )
         char_id = create_response.json()["id"]
 
@@ -233,8 +218,7 @@ class TestCharacterLocking:
     def test_lock_character(self, client, project_id):
         """Test locking a character."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/characters",
-            params={"name": "Test"}
+            f"/api/v1/projects/{project_id}/characters", params={"name": "Test"}
         )
         char_id = create_response.json()["id"]
 
@@ -247,8 +231,7 @@ class TestCharacterLocking:
     def test_unlock_character(self, client, project_id):
         """Test unlocking a character."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/characters",
-            params={"name": "Test"}
+            f"/api/v1/projects/{project_id}/characters", params={"name": "Test"}
         )
         char_id = create_response.json()["id"]
 
@@ -263,8 +246,7 @@ class TestCharacterLocking:
     def test_cannot_update_locked_character(self, client, project_id):
         """Test that locked characters cannot be updated."""
         create_response = client.post(
-            f"/api/v1/projects/{project_id}/characters",
-            params={"name": "Test"}
+            f"/api/v1/projects/{project_id}/characters", params={"name": "Test"}
         )
         char_id = create_response.json()["id"]
 
@@ -273,8 +255,7 @@ class TestCharacterLocking:
 
         # Try to update
         response = client.put(
-            f"/api/v1/projects/{project_id}/characters/{char_id}",
-            params={"name": "New Name"}
+            f"/api/v1/projects/{project_id}/characters/{char_id}", params={"name": "New Name"}
         )
 
         assert response.status_code == 400
@@ -302,10 +283,7 @@ class TestCharacterPhysicalDescription:
 
     def test_character_has_physical_description(self, client, project_id):
         """Test that characters have physical descriptions."""
-        response = client.post(
-            f"/api/v1/projects/{project_id}/characters",
-            params={"name": "Test"}
-        )
+        response = client.post(f"/api/v1/projects/{project_id}/characters", params={"name": "Test"})
 
         data = response.json()
         assert "physical_description" in data
@@ -316,6 +294,7 @@ class TestCharacterValidation:
 
     def test_character_name_required(self):
         """Test character name is required."""
+
         def validate_name(name: str) -> bool:
             return name is not None and len(name.strip()) > 0
 

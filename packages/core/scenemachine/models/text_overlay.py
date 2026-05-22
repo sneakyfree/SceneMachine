@@ -209,7 +209,10 @@ class TextOverlay(Base, UUIDMixin, TimestampMixin):
             TextPosition.CENTER_RIGHT: (video_width - padding_x, video_height // 2),
             TextPosition.BOTTOM_LEFT: (padding_x, video_height - int(video_height * 0.1)),
             TextPosition.BOTTOM_CENTER: (video_width // 2, video_height - int(video_height * 0.1)),
-            TextPosition.BOTTOM_RIGHT: (video_width - padding_x, video_height - int(video_height * 0.1)),
+            TextPosition.BOTTOM_RIGHT: (
+                video_width - padding_x,
+                video_height - int(video_height * 0.1),
+            ),
             TextPosition.CUSTOM: (
                 int((self.custom_x or 50) / 100 * video_width),
                 int((self.custom_y or 50) / 100 * video_height),

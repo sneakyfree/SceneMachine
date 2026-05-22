@@ -107,7 +107,7 @@ Format suggestions as JSON objects with: id, type, title, description, confidenc
             Formatted prompt string
         """
         scenes_summary = "\n".join(
-            f"- Scene {s.get('sequence', i+1)}: {s.get('heading', 'Unknown')}"
+            f"- Scene {s.get('sequence', i + 1)}: {s.get('heading', 'Unknown')}"
             for i, s in enumerate(scenes[:20])  # Limit to 20 scenes
         )
 
@@ -118,8 +118,8 @@ Format suggestions as JSON objects with: id, type, title, description, confidenc
 
         return f"""Analyze this screenplay project comprehensively:
 
-Project: {project_context.get('name', 'Untitled')}
-Genre: {project_context.get('genre', 'Unknown')}
+Project: {project_context.get("name", "Untitled")}
+Genre: {project_context.get("genre", "Unknown")}
 Total Scenes: {len(scenes)}
 
 Scenes:
@@ -183,21 +183,23 @@ Provide analysis in JSON format with these sections:
         context = ""
         if adjacent_scenes:
             if adjacent_scenes.get("previous"):
-                context += f"Previous Scene: {adjacent_scenes['previous'].get('heading', 'Unknown')}\n"
+                context += (
+                    f"Previous Scene: {adjacent_scenes['previous'].get('heading', 'Unknown')}\n"
+                )
             if adjacent_scenes.get("next"):
                 context += f"Next Scene: {adjacent_scenes['next'].get('heading', 'Unknown')}\n"
 
         return f"""Analyze this scene and provide specific improvement suggestions:
 
-Scene: {scene.get('heading', 'Unknown')}
-Description: {scene.get('description', 'No description')}
-Mood: {scene.get('mood', 'Unknown')}
+Scene: {scene.get("heading", "Unknown")}
+Description: {scene.get("description", "No description")}
+Mood: {scene.get("mood", "Unknown")}
 Characters Present: {chars_in_scene}
 
 {context}
 
 Shots in Scene:
-{chr(10).join(f"- Shot {i+1}: {s.get('description', '')[:100]}" for i, s in enumerate(scene.get('shots', [])[:10]))}
+{chr(10).join(f"- Shot {i + 1}: {s.get('description', '')[:100]}" for i, s in enumerate(scene.get("shots", [])[:10]))}
 
 Provide 2-4 suggestions in JSON format:
 [
@@ -231,18 +233,20 @@ Provide 2-4 suggestions in JSON format:
             if adjacent_shots.get("previous"):
                 context += f"Previous Shot: {adjacent_shots['previous'].get('description', 'Unknown')[:100]}\n"
             if adjacent_shots.get("next"):
-                context += f"Next Shot: {adjacent_shots['next'].get('description', 'Unknown')[:100]}\n"
+                context += (
+                    f"Next Shot: {adjacent_shots['next'].get('description', 'Unknown')[:100]}\n"
+                )
 
         return f"""Analyze this shot and provide improvement suggestions:
 
-Scene: {scene_context.get('heading', 'Unknown')}
-Scene Mood: {scene_context.get('mood', 'Unknown')}
+Scene: {scene_context.get("heading", "Unknown")}
+Scene Mood: {scene_context.get("mood", "Unknown")}
 
 Shot Details:
-- Type: {shot.get('shot_type', 'Unknown')}
-- Camera Movement: {shot.get('camera_movement', 'None')}
-- Description: {shot.get('description', 'No description')}
-- Prompt: {shot.get('generation_prompt', 'No prompt')[:200]}
+- Type: {shot.get("shot_type", "Unknown")}
+- Camera Movement: {shot.get("camera_movement", "None")}
+- Description: {shot.get("description", "No description")}
+- Prompt: {shot.get("generation_prompt", "No prompt")[:200]}
 
 {context}
 
@@ -277,18 +281,18 @@ Provide 1-2 suggestions in JSON format:
         if style_preferences:
             style_str = f"""
 Style Preferences:
-- Aspect Ratio: {style_preferences.get('aspect_ratio', '16:9')}
-- Color Palette: {style_preferences.get('color_palette', 'natural')}
-- Lighting: {style_preferences.get('lighting', 'cinematic')}"""
+- Aspect Ratio: {style_preferences.get("aspect_ratio", "16:9")}
+- Color Palette: {style_preferences.get("color_palette", "natural")}
+- Lighting: {style_preferences.get("lighting", "cinematic")}"""
 
         return f"""Enhance this video generation prompt for better results:
 
 Original Prompt: {original_prompt}
 
 Shot Context:
-- Type: {shot_context.get('shot_type', 'Unknown')}
-- Camera: {shot_context.get('camera_movement', 'Static')}
-- Scene Mood: {shot_context.get('mood', 'neutral')}
+- Type: {shot_context.get("shot_type", "Unknown")}
+- Camera: {shot_context.get("camera_movement", "Static")}
+- Scene Mood: {shot_context.get("mood", "neutral")}
 {style_str}
 
 Provide an enhanced prompt that:
@@ -322,20 +326,20 @@ Return only the enhanced prompt text, no JSON or formatting."""
         if visual_style:
             style_str = f"""
 Visual Style:
-- Look: {visual_style.get('overall_look', 'cinematic')}
-- Lighting: {visual_style.get('lighting_style', 'natural')}
-- Camera Style: {visual_style.get('camera_movement', 'dynamic')}"""
+- Look: {visual_style.get("overall_look", "cinematic")}
+- Lighting: {visual_style.get("lighting_style", "natural")}
+- Camera Style: {visual_style.get("camera_movement", "dynamic")}"""
 
         return f"""Create a shot breakdown for this scene:
 
-Scene: {scene.get('heading', 'Unknown')}
-Description: {scene.get('description', 'No description')}
-Mood: {scene.get('mood', 'Unknown')}
+Scene: {scene.get("heading", "Unknown")}
+Description: {scene.get("description", "No description")}
+Mood: {scene.get("mood", "Unknown")}
 Characters: {chars_str}
 {style_str}
 
 Action/Dialogue:
-{scene.get('content', 'No content available')[:1000]}
+{scene.get("content", "No content available")[:1000]}
 
 Generate a shot breakdown in JSON format:
 {{

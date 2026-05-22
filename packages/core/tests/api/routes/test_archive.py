@@ -62,9 +62,7 @@ class TestExportEndpoint:
             manifest=mock_manifest,
         )
 
-        with patch(
-            "scenemachine.api.routes.archive.ProjectArchiveService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.archive.ProjectArchiveService") as MockService:
             mock_service = AsyncMock()
             mock_service.export_project.return_value = mock_result
             MockService.return_value = mock_service
@@ -73,6 +71,7 @@ class TestExportEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post(
@@ -99,9 +98,7 @@ class TestExportEndpoint:
             error="Project has no exportable data",
         )
 
-        with patch(
-            "scenemachine.api.routes.archive.ProjectArchiveService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.archive.ProjectArchiveService") as MockService:
             mock_service = AsyncMock()
             mock_service.export_project.return_value = mock_result
             MockService.return_value = mock_service
@@ -110,6 +107,7 @@ class TestExportEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post(
@@ -124,14 +122,11 @@ class TestImportEndpoint:
     """Tests for import endpoint."""
 
     @pytest.mark.asyncio
-    async def test_import_invalid_file_type(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_import_invalid_file_type(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test importing with invalid file type."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.post(
@@ -143,9 +138,7 @@ class TestImportEndpoint:
             assert "Invalid file type" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_import_project_success(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_import_project_success(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test importing a project successfully."""
         mock_result = ImportResult(
             success=True,
@@ -157,11 +150,10 @@ class TestImportEndpoint:
             assets_imported=10,
         )
 
-        with patch(
-            "scenemachine.api.routes.archive.ProjectArchiveService"
-        ) as MockService, patch(
-            "scenemachine.api.routes.archive.get_settings"
-        ) as mock_settings:
+        with (
+            patch("scenemachine.api.routes.archive.ProjectArchiveService") as MockService,
+            patch("scenemachine.api.routes.archive.get_settings") as mock_settings,
+        ):
             mock_service = AsyncMock()
             mock_service.import_project.return_value = mock_result
             MockService.return_value = mock_service
@@ -174,6 +166,7 @@ class TestImportEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post(
@@ -197,9 +190,7 @@ class TestListExportsEndpoint:
     """Tests for list exports endpoint."""
 
     @pytest.mark.asyncio
-    async def test_list_exports(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_list_exports(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test listing exported archives."""
         mock_archives = [
             {
@@ -222,9 +213,7 @@ class TestListExportsEndpoint:
             },
         ]
 
-        with patch(
-            "scenemachine.api.routes.archive.ProjectArchiveService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.archive.ProjectArchiveService") as MockService:
             mock_service = AsyncMock()
             mock_service.list_exports.return_value = mock_archives
             MockService.return_value = mock_service
@@ -233,6 +222,7 @@ class TestListExportsEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.get("/api/v1/archive/list")
@@ -246,26 +236,19 @@ class TestArchiveInfoEndpoint:
     """Tests for archive info endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_archive_info_not_found(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_get_archive_info_not_found(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test getting info for nonexistent archive."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
-            response = await client.get(
-                "/api/v1/archive/info?path=/nonexistent/path.smproject"
-            )
+            response = await client.get("/api/v1/archive/info?path=/nonexistent/path.smproject")
 
             assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_get_archive_info_success(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_get_archive_info_success(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test getting archive info successfully."""
         mock_manifest = ArchiveManifest(
             version="1.0.0",
@@ -283,9 +266,7 @@ class TestArchiveInfoEndpoint:
             f.write(b"test content")
 
         try:
-            with patch(
-                "scenemachine.api.routes.archive.ProjectArchiveService"
-            ) as MockService:
+            with patch("scenemachine.api.routes.archive.ProjectArchiveService") as MockService:
                 mock_service = AsyncMock()
                 mock_service.get_archive_info.return_value = mock_manifest
                 MockService.return_value = mock_service
@@ -294,11 +275,10 @@ class TestArchiveInfoEndpoint:
                     transport=ASGITransport(app=app), base_url="http://test"
                 ) as client:
                     from scenemachine.api.dependencies import get_db
+
                     app.dependency_overrides[get_db] = lambda: db_session
 
-                    response = await client.get(
-                        f"/api/v1/archive/info?path={temp_path}"
-                    )
+                    response = await client.get(f"/api/v1/archive/info?path={temp_path}")
 
                     assert response.status_code == 200
                     data = response.json()
@@ -311,14 +291,11 @@ class TestDeleteExportEndpoint:
     """Tests for delete export endpoint."""
 
     @pytest.mark.asyncio
-    async def test_delete_export_not_found(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_delete_export_not_found(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test deleting nonexistent export."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.delete(

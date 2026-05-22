@@ -64,9 +64,7 @@ class AccountLockedError(AuthServiceError):
     """Raised when account is locked due to too many failed login attempts."""
 
     def __init__(self, locked_until: datetime) -> None:
-        minutes_remaining = max(
-            1, int((locked_until - datetime.now(UTC)).total_seconds() / 60)
-        )
+        minutes_remaining = max(1, int((locked_until - datetime.now(UTC)).total_seconds() / 60))
         super().__init__(
             f"Account locked due to too many failed attempts. Try again in {minutes_remaining} minute(s).",
             code="account_locked",
@@ -114,16 +112,12 @@ class AuthService:
             UserExistsError: If email or username already exists
         """
         # Check for existing email
-        result = await self.session.execute(
-            select(User).where(User.email == email.lower())
-        )
+        result = await self.session.execute(select(User).where(User.email == email.lower()))
         if result.scalar_one_or_none():
             raise UserExistsError("email")
 
         # Check for existing username
-        result = await self.session.execute(
-            select(User).where(User.username == username.lower())
-        )
+        result = await self.session.execute(select(User).where(User.username == username.lower()))
         if result.scalar_one_or_none():
             raise UserExistsError("username")
 
@@ -141,9 +135,7 @@ class AuthService:
 
         return user
 
-    async def authenticate_user(
-        self, email: str, password: str
-    ) -> tuple[User, str, str]:
+    async def authenticate_user(self, email: str, password: str) -> tuple[User, str, str]:
         """Authenticate user and generate tokens.
 
         Args:
@@ -158,9 +150,7 @@ class AuthService:
             AccountLockedError: If account is locked due to too many failed attempts
         """
         # Find user
-        result = await self.session.execute(
-            select(User).where(User.email == email.lower())
-        )
+        result = await self.session.execute(select(User).where(User.email == email.lower()))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -175,18 +165,14 @@ class AuthService:
         if not verify_password(password, user.hashed_password):
             # Increment failed attempts
             user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-            logger.warning(
-                f"Failed login for {email}: attempt {user.failed_login_attempts}"
-            )
+            logger.warning(f"Failed login for {email}: attempt {user.failed_login_attempts}")
 
             # Lock account after MAX_LOGIN_ATTEMPTS failures
             if user.failed_login_attempts >= self.MAX_LOGIN_ATTEMPTS:
                 user.locked_until = datetime.now(UTC) + timedelta(
                     minutes=self.LOCKOUT_DURATION_MINUTES
                 )
-                logger.warning(
-                    f"Account locked for {email} until {user.locked_until}"
-                )
+                logger.warning(f"Account locked for {email} until {user.locked_until}")
 
             await self.session.commit()
             raise InvalidCredentialsError()
@@ -219,9 +205,7 @@ class AuthService:
 
         return user, access_token, refresh_token
 
-    async def refresh_tokens(
-        self, refresh_token: str
-    ) -> tuple[str, str]:
+    async def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         """Refresh access and refresh tokens.
 
         Args:
@@ -367,9 +351,7 @@ class AuthService:
         Returns:
             User object or None
         """
-        result = await self.session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
     async def get_user_by_email(self, email: str) -> User | None:
@@ -381,9 +363,7 @@ class AuthService:
         Returns:
             User object or None
         """
-        result = await self.session.execute(
-            select(User).where(User.email == email.lower())
-        )
+        result = await self.session.execute(select(User).where(User.email == email.lower()))
         return result.scalar_one_or_none()
 
     async def update_user(

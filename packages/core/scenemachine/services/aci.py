@@ -278,13 +278,10 @@ class ACIService:
         recency_cutoff = now - timedelta(days=BUZZ_RECENCY_WINDOW_DAYS)
 
         # Get public ratings with engagement
-        ratings_stmt = (
-            select(PerformerRating)
-            .where(
-                and_(
-                    PerformerRating.performer_id == performer_id,
-                    PerformerRating.is_public == True,  # noqa: E712
-                )
+        ratings_stmt = select(PerformerRating).where(
+            and_(
+                PerformerRating.performer_id == performer_id,
+                PerformerRating.is_public == True,  # noqa: E712
             )
         )
         ratings_result = await self._session.execute(ratings_stmt)
@@ -310,6 +307,7 @@ class ACIService:
             return DEFAULT_ACI_SCORE
 
         import math
+
         # Log scale: 100 votes = 50 points, 1000 votes = 75 points, 10000 votes = 100 points
         normalized = min(100, 25 * math.log10(total_weighted_engagement + 1))
 
@@ -322,14 +320,11 @@ class ACIService:
         Average quality_metrics.motion_score across all available takes.
         """
         # Get takes with quality metrics
-        takes_stmt = (
-            select(PerformanceTake)
-            .where(
-                and_(
-                    PerformanceTake.performer_id == performer_id,
-                    PerformanceTake.status == "available",
-                    PerformanceTake.quality_metrics.isnot(None),
-                )
+        takes_stmt = select(PerformanceTake).where(
+            and_(
+                PerformanceTake.performer_id == performer_id,
+                PerformanceTake.status == "available",
+                PerformanceTake.quality_metrics.isnot(None),
             )
         )
         takes_result = await self._session.execute(takes_stmt)

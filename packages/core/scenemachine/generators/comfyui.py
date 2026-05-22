@@ -480,9 +480,7 @@ class ComfyUIProvider(GenerationProvider):
             #   request.extra_params['expected_timeout_seconds']
             #     > model.extra_params['expected_timeout_seconds']
             #     > self.POLL_TIMEOUT
-            poll_timeout = self._p(
-                request, model, "expected_timeout_seconds", self.POLL_TIMEOUT
-            )
+            poll_timeout = self._p(request, model, "expected_timeout_seconds", self.POLL_TIMEOUT)
             output_files = await self._poll_completion(
                 prompt_id,
                 request.shot_id,
@@ -775,7 +773,7 @@ class ComfyUIProvider(GenerationProvider):
         default: Any,
     ) -> Any:
         """Resolve a workflow parameter with this priority:
-            request.extra_params[key]  >>  model.extra_params[key]  >>  default
+        request.extra_params[key]  >>  model.extra_params[key]  >>  default
         """
         if key in request.extra_params:
             return request.extra_params[key]
@@ -822,7 +820,11 @@ class ComfyUIProvider(GenerationProvider):
                 if not isinstance(input_spec, list) or not input_spec:
                     continue
                 choices = input_spec[0]
-                if isinstance(choices, list) and choices and all(isinstance(c, str) for c in choices):
+                if (
+                    isinstance(choices, list)
+                    and choices
+                    and all(isinstance(c, str) for c in choices)
+                ):
                     # This is an enum/dropdown — record its options.
                     out.setdefault(node_name, set()).update(choices)
         self._available_models_cache = out
@@ -1209,10 +1211,13 @@ class ComfyUIProvider(GenerationProvider):
         # Kijai FP8 quant (~14 GB) is preferred when present because the BF16
         # weight is 32 GB and tight on a 32 GB-VRAM card, but we fall back to
         # BF16 cleanly when the FP8 hasn't been downloaded yet.
-        animate_weight = self._resolve_first_available(
-            "WanVideoModelLoader",
-            [params.get("model_file_fp8"), params["model_file"]],
-        ) or params["model_file"]
+        animate_weight = (
+            self._resolve_first_available(
+                "WanVideoModelLoader",
+                [params.get("model_file_fp8"), params["model_file"]],
+            )
+            or params["model_file"]
+        )
 
         # Lightx2v 4-step distillation LoRA. When enabled this attaches a
         # WanVideoLoraSelect node and feeds its WANVIDLORA output into the
@@ -1220,18 +1225,14 @@ class ComfyUIProvider(GenerationProvider):
         # ~4 steps instead of 30, an ~7× speedup for the sampling phase.
         # Weight-load time is unchanged.
         use_speed_lora = self._should_use_speed_lora(request, model)
-        speed_lora_file = (
-            self._resolve_speed_lora_file(request, model) if use_speed_lora else None
-        )
+        speed_lora_file = self._resolve_speed_lora_file(request, model) if use_speed_lora else None
         speed_lora_active = use_speed_lora and bool(speed_lora_file)
 
         model_loader_inputs: dict[str, Any] = {
             "model": animate_weight,
             "base_precision": "fp16",
             "quantization": self._infer_wan_quantization(animate_weight),
-            "load_device": self._p(
-                request, model, "load_device", "main_device"
-            ),
+            "load_device": self._p(request, model, "load_device", "main_device"),
         }
         if speed_lora_active:
             # WanVideoLoraSelect → ModelLoader.lora (a WANVIDLORA link).
@@ -1257,9 +1258,7 @@ class ComfyUIProvider(GenerationProvider):
             sampler_steps = request.num_inference_steps or self._p(
                 request, model, "speed_lora_steps", 4
             )
-            sampler_cfg = request.guidance_scale or self._p(
-                request, model, "speed_lora_cfg", 1.0
-            )
+            sampler_cfg = request.guidance_scale or self._p(request, model, "speed_lora_cfg", 1.0)
         else:
             sampler_steps = request.num_inference_steps or model.default_steps
             sampler_cfg = request.guidance_scale or model.default_cfg_scale
@@ -1329,9 +1328,7 @@ class ComfyUIProvider(GenerationProvider):
                     "height": request.height,
                     "num_frames": num_frames,
                     "force_offload": True,
-                    "frame_window_size": int(
-                        self._p(request, model, "frame_window_size", 77)
-                    ),
+                    "frame_window_size": int(self._p(request, model, "frame_window_size", 77)),
                     "colormatch": "disabled",
                     "pose_strength": 1.0,
                     "face_strength": 1.0,
@@ -1383,9 +1380,7 @@ class ComfyUIProvider(GenerationProvider):
                 "class_type": "WanVideoLoraSelect",
                 "inputs": {
                     "lora": speed_lora_file,
-                    "strength": float(
-                        self._p(request, model, "speed_lora_strength", 1.0)
-                    ),
+                    "strength": float(self._p(request, model, "speed_lora_strength", 1.0)),
                 },
             }
 
@@ -1401,24 +1396,12 @@ class ComfyUIProvider(GenerationProvider):
                 "class_type": "WanVideoBlockSwap",
                 "inputs": {
                     "blocks_to_swap": blocks_to_swap,
-                    "offload_img_emb": bool(
-                        self._p(request, model, "offload_img_emb", False)
-                    ),
-                    "offload_txt_emb": bool(
-                        self._p(request, model, "offload_txt_emb", False)
-                    ),
-                    "use_non_blocking": bool(
-                        self._p(request, model, "use_non_blocking", False)
-                    ),
-                    "vace_blocks_to_swap": int(
-                        self._p(request, model, "vace_blocks_to_swap", 0)
-                    ),
-                    "prefetch_blocks": int(
-                        self._p(request, model, "prefetch_blocks", 0)
-                    ),
-                    "block_swap_debug": bool(
-                        self._p(request, model, "block_swap_debug", False)
-                    ),
+                    "offload_img_emb": bool(self._p(request, model, "offload_img_emb", False)),
+                    "offload_txt_emb": bool(self._p(request, model, "offload_txt_emb", False)),
+                    "use_non_blocking": bool(self._p(request, model, "use_non_blocking", False)),
+                    "vace_blocks_to_swap": int(self._p(request, model, "vace_blocks_to_swap", 0)),
+                    "prefetch_blocks": int(self._p(request, model, "prefetch_blocks", 0)),
+                    "block_swap_debug": bool(self._p(request, model, "block_swap_debug", False)),
                 },
             }
 

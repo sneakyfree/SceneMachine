@@ -142,20 +142,24 @@ class ReviewerAgent(BaseAgent):
         path_hash = hash(video_path) % 100
 
         if path_hash < 10:
-            issues.append({
-                "type": "physics",
-                "severity": "high",
-                "description": "Object appears to float",
-                "frame": 24,
-            })
+            issues.append(
+                {
+                    "type": "physics",
+                    "severity": "high",
+                    "description": "Object appears to float",
+                    "frame": 24,
+                }
+            )
 
         if path_hash < 5:
-            issues.append({
-                "type": "physics",
-                "severity": "medium",
-                "description": "Unnatural movement detected",
-                "frame": 48,
-            })
+            issues.append(
+                {
+                    "type": "physics",
+                    "severity": "medium",
+                    "description": "Unnatural movement detected",
+                    "frame": 48,
+                }
+            )
 
         return ActionResult(
             action_id=context.session_id,
@@ -181,20 +185,24 @@ class ReviewerAgent(BaseAgent):
         path_hash = hash(video_path) % 100
 
         if path_hash < 15:
-            artifacts.append({
-                "type": "blur",
-                "severity": "low",
-                "region": "edges",
-                "frame_range": [0, 10],
-            })
+            artifacts.append(
+                {
+                    "type": "blur",
+                    "severity": "low",
+                    "region": "edges",
+                    "frame_range": [0, 10],
+                }
+            )
 
         if path_hash < 8:
-            artifacts.append({
-                "type": "distortion",
-                "severity": "medium",
-                "region": "face",
-                "frame_range": [30, 35],
-            })
+            artifacts.append(
+                {
+                    "type": "distortion",
+                    "severity": "medium",
+                    "region": "face",
+                    "frame_range": [30, 35],
+                }
+            )
 
         return ActionResult(
             action_id=context.session_id,
@@ -221,23 +229,29 @@ class ReviewerAgent(BaseAgent):
             issue_type = issue.get("type", "unknown")
 
             if issue_type == "physics":
-                suggestions.append({
-                    "issue": issue,
-                    "suggestion": "Add negative prompt: 'floating, defying gravity'",
-                    "difficulty": "easy",
-                })
+                suggestions.append(
+                    {
+                        "issue": issue,
+                        "suggestion": "Add negative prompt: 'floating, defying gravity'",
+                        "difficulty": "easy",
+                    }
+                )
             elif issue_type == "blur":
-                suggestions.append({
-                    "issue": issue,
-                    "suggestion": "Increase inference steps or use higher resolution",
-                    "difficulty": "medium",
-                })
+                suggestions.append(
+                    {
+                        "issue": issue,
+                        "suggestion": "Increase inference steps or use higher resolution",
+                        "difficulty": "medium",
+                    }
+                )
             elif issue_type == "distortion":
-                suggestions.append({
-                    "issue": issue,
-                    "suggestion": "Use face restoration or regenerate shot",
-                    "difficulty": "medium",
-                })
+                suggestions.append(
+                    {
+                        "issue": issue,
+                        "suggestion": "Use face restoration or regenerate shot",
+                        "difficulty": "medium",
+                    }
+                )
 
         return ActionResult(
             action_id=context.session_id,

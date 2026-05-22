@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FaceDetection:
     """Detected face with bounding box and landmarks."""
+
     bbox: tuple[int, int, int, int]  # x1, y1, x2, y2
     confidence: float
     landmarks: list[tuple[float, float]] | None = None
@@ -28,6 +29,7 @@ class FaceDetection:
 @dataclass
 class FaceEmbeddingResult:
     """Result from face embedding extraction."""
+
     success: bool
     faces: list[FaceDetection]
     primary_embedding: np.ndarray | None = None
@@ -106,8 +108,7 @@ class FaceEmbeddingService:
             from insightface.app import FaceAnalysis
 
             self._app = FaceAnalysis(
-                name=self.model_name,
-                providers=['CUDAExecutionProvider', 'CPUExecutionProvider']
+                name=self.model_name, providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
             )
 
             # Prepare for specific GPU or CPU
@@ -186,13 +187,19 @@ class FaceEmbeddingService:
                     confidence=float(face.det_score),
                     landmarks=face.kps.tolist() if face.kps is not None else None,
                     embedding=face.embedding,
-                    age=int(face.age) if hasattr(face, 'age') and face.age else None,
-                    gender='male' if hasattr(face, 'gender') and face.gender == 1 else 'female' if hasattr(face, 'gender') else None,
+                    age=int(face.age) if hasattr(face, "age") and face.age else None,
+                    gender="male"
+                    if hasattr(face, "gender") and face.gender == 1
+                    else "female"
+                    if hasattr(face, "gender")
+                    else None,
                 )
                 faces.append(detection)
 
             # Sort by face size (largest first)
-            faces.sort(key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)
+            faces.sort(
+                key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True
+            )
 
             # Select primary embedding
             primary_embedding = None
@@ -270,12 +277,18 @@ class FaceEmbeddingService:
                     confidence=float(face.det_score),
                     landmarks=face.kps.tolist() if face.kps is not None else None,
                     embedding=face.embedding,
-                    age=int(face.age) if hasattr(face, 'age') and face.age else None,
-                    gender='male' if hasattr(face, 'gender') and face.gender == 1 else 'female' if hasattr(face, 'gender') else None,
+                    age=int(face.age) if hasattr(face, "age") and face.age else None,
+                    gender="male"
+                    if hasattr(face, "gender") and face.gender == 1
+                    else "female"
+                    if hasattr(face, "gender")
+                    else None,
                 )
                 faces.append(detection)
 
-            faces.sort(key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)
+            faces.sort(
+                key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True
+            )
 
             primary_embedding = faces[0].embedding if select_largest and faces else None
 
@@ -503,8 +516,8 @@ class FaceEmbeddingService:
             center_y = (y1 + y2) / 2
 
             # Distance from center as proportion
-            dx = abs(center_x - w/2) / (w/2)
-            dy = abs(center_y - h/2) / (h/2)
+            dx = abs(center_x - w / 2) / (w / 2)
+            dy = abs(center_y - h / 2) / (h / 2)
             position_score = 1.0 - (dx + dy) / 2
         else:
             position_score = 0.8  # Default if no image shape

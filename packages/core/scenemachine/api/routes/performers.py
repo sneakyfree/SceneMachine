@@ -189,14 +189,16 @@ def performer_to_detail_response(performer: Performer) -> PerformerDetailRespons
     if performer.takes:
         for take in performer.takes:
             if take.is_demo_reel and take.status == TakeStatus.AVAILABLE:
-                demo_takes.append({
-                    "id": str(take.id),
-                    "take_name": take.take_name,
-                    "duration_seconds": take.duration_seconds,
-                    "emotion_tags": take.emotion_tags or [],
-                    "thumbnail_url": take.thumbnail_path,
-                    "preview_video_url": take.preview_video_path,
-                })
+                demo_takes.append(
+                    {
+                        "id": str(take.id),
+                        "take_name": take.take_name,
+                        "duration_seconds": take.duration_seconds,
+                        "emotion_tags": take.emotion_tags or [],
+                        "thumbnail_url": take.thumbnail_path,
+                        "preview_video_url": take.preview_video_path,
+                    }
+                )
 
     return PerformerDetailResponse(
         id=str(performer.id),
@@ -322,10 +324,12 @@ async def get_featured_performers(
             and_(
                 Performer.is_active == True,  # noqa: E712
                 Performer.availability_status == PerformerAvailability.AVAILABLE,
-                Performer.verification_status.in_([
-                    PerformerVerification.VERIFIED,
-                    PerformerVerification.ELITE,
-                ]),
+                Performer.verification_status.in_(
+                    [
+                        PerformerVerification.VERIFIED,
+                        PerformerVerification.ELITE,
+                    ]
+                ),
             )
         )
         .order_by(Performer.aci_score.desc())
@@ -362,9 +366,7 @@ async def get_performer(
 ) -> PerformerDetailResponse:
     """Get detailed performer profile."""
     stmt = (
-        select(Performer)
-        .where(Performer.id == performer_id)
-        .options(selectinload(Performer.takes))
+        select(Performer).where(Performer.id == performer_id).options(selectinload(Performer.takes))
     )
     result = await session.execute(stmt)
     performer = result.scalar_one_or_none()
@@ -462,7 +464,9 @@ async def create_performer(
         bio=request.bio,
         specialties=request.specialties,
         pricing=request.pricing.model_dump() if request.pricing else None,
-        motion_capabilities=request.motion_capabilities.model_dump() if request.motion_capabilities else None,
+        motion_capabilities=request.motion_capabilities.model_dump()
+        if request.motion_capabilities
+        else None,
         availability_status=PerformerAvailability.OFFLINE,
         verification_status=PerformerVerification.UNVERIFIED,
         joined_at=datetime.now(UTC),
@@ -485,9 +489,7 @@ async def update_performer(
 ) -> PerformerDetailResponse:
     """Update performer profile."""
     stmt = (
-        select(Performer)
-        .where(Performer.id == performer_id)
-        .options(selectinload(Performer.takes))
+        select(Performer).where(Performer.id == performer_id).options(selectinload(Performer.takes))
     )
     result = await session.execute(stmt)
     performer = result.scalar_one_or_none()

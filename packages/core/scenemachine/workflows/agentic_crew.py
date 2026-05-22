@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class AgentState(StrEnum):
     """Agent execution states."""
+
     IDLE = "idle"
     RUNNING = "running"
     WAITING_APPROVAL = "waiting_approval"
@@ -36,17 +37,19 @@ class AgentState(StrEnum):
 
 class ApprovalType(StrEnum):
     """Types of human approval required."""
+
     NONE = "none"
-    HIGH_COST = "high_cost"           # Spend >$10
-    SENSITIVE_CONTENT = "sensitive"    # Potentially sensitive generation
-    REAL_PERSON = "real_person"        # Using real person likeness
-    FINAL_EXPORT = "final_export"      # Approve final output
-    QUALITY_ISSUE = "quality_issue"    # Quality gate failed
+    HIGH_COST = "high_cost"  # Spend >$10
+    SENSITIVE_CONTENT = "sensitive"  # Potentially sensitive generation
+    REAL_PERSON = "real_person"  # Using real person likeness
+    FINAL_EXPORT = "final_export"  # Approve final output
+    QUALITY_ISSUE = "quality_issue"  # Quality gate failed
 
 
 @dataclass
 class AgentAction:
     """Record of an agent action."""
+
     action_id: str
     agent_id: str
     action_type: str
@@ -101,6 +104,7 @@ class AgentAction:
 @dataclass
 class AgentContext:
     """Shared context between agents."""
+
     project_id: str | None = None
     screenplay_data: dict[str, Any] | None = None
     characters: list[dict[str, Any]] = field(default_factory=list)
@@ -235,7 +239,10 @@ class ParserAgent(BaseAgent):
             self.log_action(
                 "parse_screenplay",
                 {"file_path": file_path, "format": file_format},
-                {"scenes": len(result.get("scenes", [])), "characters": len(result.get("characters", []))},
+                {
+                    "scenes": len(result.get("scenes", [])),
+                    "characters": len(result.get("characters", [])),
+                },
             )
 
             self.state = AgentState.COMPLETED
@@ -267,9 +274,7 @@ class ParserAgent(BaseAgent):
 
             self.context.scenes = result.get("scenes", [])
             self.context.shots = [
-                shot
-                for scene in result.get("scenes", [])
-                for shot in scene.get("shots", [])
+                shot for scene in result.get("scenes", []) for shot in scene.get("shots", [])
             ]
 
             self.log_action(
@@ -344,12 +349,14 @@ class CharacterAgent(BaseAgent):
         # Build character list with metadata
         char_list = []
         for char_name in characters:
-            char_list.append({
-                "name": char_name,
-                "description": None,
-                "reference_image_id": None,
-                "voice_profile": None,
-            })
+            char_list.append(
+                {
+                    "name": char_name,
+                    "description": None,
+                    "reference_image_id": None,
+                    "voice_profile": None,
+                }
+            )
 
         self.context.characters = char_list
 
@@ -589,8 +596,7 @@ class Orchestrator:
         self.reviewer = ReviewerAgent()
 
         # Set shared context
-        for agent in [self.parser, self.character, self.generator,
-                      self.assembler, self.reviewer]:
+        for agent in [self.parser, self.character, self.generator, self.assembler, self.reviewer]:
             agent.set_context(self.context)
 
         self._agent_map = {
@@ -614,24 +620,30 @@ class Orchestrator:
         logger.info(f"Starting pipeline for {screenplay_path}")
 
         # Step 1: Parse screenplay
-        parse_result = await self.parser.execute({
-            "type": "parse_screenplay",
-            "file_path": screenplay_path,
-            "format": file_format,
-        })
+        parse_result = await self.parser.execute(
+            {
+                "type": "parse_screenplay",
+                "file_path": screenplay_path,
+                "format": file_format,
+            }
+        )
 
         if not parse_result.get("success"):
             return {"success": False, "stage": "parse", "error": parse_result.get("error")}
 
         # Step 2: Extract characters
-        await self.character.execute({
-            "type": "extract_characters",
-        })
+        await self.character.execute(
+            {
+                "type": "extract_characters",
+            }
+        )
 
         # Step 3: Generate shot list
-        shot_result = await self.parser.execute({
-            "type": "generate_shot_list",
-        })
+        shot_result = await self.parser.execute(
+            {
+                "type": "generate_shot_list",
+            }
+        )
 
         if not shot_result.get("success"):
             return {"success": False, "stage": "shot_list", "error": shot_result.get("error")}
@@ -734,8 +746,7 @@ class Orchestrator:
                 "blockers_count": len(self.context.blockers),
             },
             "agents": {
-                name: {"state": agent.state.value}
-                for name, agent in self._agent_map.items()
+                name: {"state": agent.state.value} for name, agent in self._agent_map.items()
             },
             "pending_approvals": len(self.context.get_pending_approvals()),
             "action_count": len(self.context.action_log),

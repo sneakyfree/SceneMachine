@@ -159,9 +159,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             request_token = self._get_token_from_request(request)
 
             if not request_token:
-                logger.warning(
-                    f"CSRF token missing for {request.method} {request.url.path}"
-                )
+                logger.warning(f"CSRF token missing for {request.method} {request.url.path}")
                 return Response(
                     content='{"error": "CSRF token missing", "code": "CSRF_MISSING"}',
                     status_code=403,
@@ -170,9 +168,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
             # Verify token matches cookie
             if not hmac.compare_digest(request_token, cookie_token):
-                logger.warning(
-                    f"CSRF token mismatch for {request.method} {request.url.path}"
-                )
+                logger.warning(f"CSRF token mismatch for {request.method} {request.url.path}")
                 return Response(
                     content='{"error": "CSRF token invalid", "code": "CSRF_INVALID"}',
                     status_code=403,

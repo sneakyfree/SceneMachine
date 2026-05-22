@@ -92,9 +92,9 @@ class LoadTestResult:
             "success_rate": f"{self.success_rate:.1f}%",
             "duration_s": f"{self.duration:.2f}",
             "rps": f"{self.requests_per_second:.1f}",
-            "avg_ms": f"{self.avg_response_time*1000:.2f}",
-            "p95_ms": f"{self.p95_response_time*1000:.2f}",
-            "p99_ms": f"{self.p99_response_time*1000:.2f}",
+            "avg_ms": f"{self.avg_response_time * 1000:.2f}",
+            "p95_ms": f"{self.p95_response_time * 1000:.2f}",
+            "p99_ms": f"{self.p99_response_time * 1000:.2f}",
         }
 
 
@@ -304,15 +304,13 @@ class TestQueueThroughput:
         # Process until empty
         processed = 0
         while processed < num_jobs:
-            results = await asyncio.gather(*[
-                queue.process_one() for _ in range(10)
-            ])
+            results = await asyncio.gather(*[queue.process_one() for _ in range(10)])
             processed += sum(1 for r in results if r)
             await asyncio.sleep(0.01)  # Small delay
 
         duration = time.time() - start
 
-        print(f"\nQueue throughput: {num_jobs/duration:.1f} jobs/sec")
+        print(f"\nQueue throughput: {num_jobs / duration:.1f} jobs/sec")
         assert queue.completed == num_jobs
 
     @pytest.mark.asyncio
@@ -325,9 +323,7 @@ class TestQueueThroughput:
             await queue.enqueue(f"job_{i}")
 
         # Try to process more than max concurrent
-        results = await asyncio.gather(*[
-            queue.process_one() for _ in range(10)
-        ])
+        results = await asyncio.gather(*[queue.process_one() for _ in range(10)])
 
         # Only max_concurrent should succeed immediately
         successful = sum(1 for r in results if r)
@@ -400,12 +396,14 @@ class TestMemoryUsage:
         # Create large dataset
         data = []
         for i in range(10000):
-            data.append({
-                "id": str(uuid4()),
-                "name": f"Item {i}",
-                "description": "A" * 100,
-                "metadata": {"key": f"value_{i}"},
-            })
+            data.append(
+                {
+                    "id": str(uuid4()),
+                    "name": f"Item {i}",
+                    "description": "A" * 100,
+                    "metadata": {"key": f"value_{i}"},
+                }
+            )
 
         size_mb = sys.getsizeof(data) / (1024 * 1024)
         print(f"\nLarge dataset size: {size_mb:.2f} MB")
@@ -415,7 +413,7 @@ class TestMemoryUsage:
         filtered = [d for d in data if d["metadata"]["key"].endswith("_5")]
         duration = time.time() - start
 
-        print(f"Filtered {len(filtered)} items in {duration*1000:.2f}ms")
+        print(f"Filtered {len(filtered)} items in {duration * 1000:.2f}ms")
 
     def test_many_small_objects(self):
         """Test handling many small objects."""
@@ -436,7 +434,7 @@ class TestMemoryUsage:
             _ = objects[key]
         duration = time.time() - start
 
-        print(f"1000 lookups in {duration*1000:.2f}ms")
+        print(f"1000 lookups in {duration * 1000:.2f}ms")
 
 
 # =============================================================================
@@ -515,9 +513,9 @@ class TestLoadSummary:
     @pytest.mark.asyncio
     async def test_generate_load_summary(self):
         """Generate comprehensive load test summary."""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("LOAD TEST SUMMARY")
-        print("="*70)
+        print("=" * 70)
 
         db = MockDatabase(latency_ms=1.0)
         results = []
@@ -550,11 +548,13 @@ class TestLoadSummary:
 
         # Print summary table
         print(f"\n{'Test':<25} {'Reqs':<8} {'RPS':<10} {'Avg(ms)':<10} {'P95(ms)':<10}")
-        print("-"*70)
+        print("-" * 70)
         for r in results:
-            print(f"{r.name:<25} {r.total_requests:<8} "
-                  f"{r.requests_per_second:>8.1f} "
-                  f"{r.avg_response_time*1000:>9.2f} "
-                  f"{r.p95_response_time*1000:>9.2f}")
+            print(
+                f"{r.name:<25} {r.total_requests:<8} "
+                f"{r.requests_per_second:>8.1f} "
+                f"{r.avg_response_time * 1000:>9.2f} "
+                f"{r.p95_response_time * 1000:>9.2f}"
+            )
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)

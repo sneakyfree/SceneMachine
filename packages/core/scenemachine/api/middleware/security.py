@@ -298,9 +298,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         allowed, limit_info = self.limiter.check(request)
 
         if not allowed:
-            logger.warning(
-                f"Rate limit exceeded for {request.url.path}: {limit_info}"
-            )
+            logger.warning(f"Rate limit exceeded for {request.url.path}: {limit_info}")
             return Response(
                 content='{"error": "Rate limit exceeded", "code": "RATE_LIMIT_EXCEEDED"}',
                 status_code=429,
@@ -309,7 +307,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "X-RateLimit-Limit": str(limit_info.get("limit", 0)),
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": str(int(limit_info.get("reset", 0))),
-                    "Retry-After": str(int(limit_info.get("retry_after", limit_info.get("reset", 60)))),
+                    "Retry-After": str(
+                        int(limit_info.get("retry_after", limit_info.get("reset", 60)))
+                    ),
                 },
             )
 

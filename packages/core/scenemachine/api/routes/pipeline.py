@@ -21,8 +21,10 @@ _orchestrators: dict[str, Orchestrator] = {}
 
 # --- Request/Response Models ---
 
+
 class StartPipelineRequest(BaseModel):
     """Request to start the screenplay-to-movie pipeline."""
+
     project_id: str = Field(..., description="Unique project identifier")
     screenplay_path: str = Field(..., description="Path to screenplay file")
     file_format: str = Field(..., description="File format: fountain, pdf, fdx")
@@ -31,6 +33,7 @@ class StartPipelineRequest(BaseModel):
 
 class StartPipelineResponse(BaseModel):
     """Response from starting pipeline."""
+
     success: bool
     project_id: str
     stage: str
@@ -42,6 +45,7 @@ class StartPipelineResponse(BaseModel):
 
 class ApproveActionRequest(BaseModel):
     """Request to approve a pending action."""
+
     project_id: str
     action_id: str
     approver_id: str
@@ -49,12 +53,14 @@ class ApproveActionRequest(BaseModel):
 
 class ApproveActionResponse(BaseModel):
     """Response from action approval."""
+
     success: bool
     message: str
 
 
 class RejectActionRequest(BaseModel):
     """Request to reject a pending action."""
+
     project_id: str
     action_id: str
     approver_id: str
@@ -63,6 +69,7 @@ class RejectActionRequest(BaseModel):
 
 class PipelineStatusResponse(BaseModel):
     """Current pipeline status."""
+
     project_id: str
     context: dict[str, Any]
     agents: dict[str, Any]
@@ -71,6 +78,7 @@ class PipelineStatusResponse(BaseModel):
 
 
 # --- Endpoints ---
+
 
 @router.post("/start", response_model=StartPipelineResponse)
 async def start_pipeline(request: StartPipelineRequest):
@@ -160,10 +168,7 @@ async def approve_action(request: ApproveActionRequest):
     orchestrator = _orchestrators.get(request.project_id)
 
     if not orchestrator:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Pipeline not found: {request.project_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Pipeline not found: {request.project_id}")
 
     success = orchestrator.approve_action(
         action_id=request.action_id,
@@ -171,10 +176,7 @@ async def approve_action(request: ApproveActionRequest):
     )
 
     if not success:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Action not found: {request.action_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Action not found: {request.action_id}")
 
     return ApproveActionResponse(
         success=True,
@@ -188,10 +190,7 @@ async def reject_action(request: RejectActionRequest):
     orchestrator = _orchestrators.get(request.project_id)
 
     if not orchestrator:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Pipeline not found: {request.project_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Pipeline not found: {request.project_id}")
 
     success = orchestrator.reject_action(
         action_id=request.action_id,
@@ -200,10 +199,7 @@ async def reject_action(request: RejectActionRequest):
     )
 
     if not success:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Action not found: {request.action_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Action not found: {request.action_id}")
 
     return ApproveActionResponse(
         success=True,
@@ -217,10 +213,7 @@ async def get_pending_approvals(project_id: str):
     orchestrator = _orchestrators.get(project_id)
 
     if not orchestrator:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Pipeline not found: {project_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Pipeline not found: {project_id}")
 
     pending = orchestrator.context.get_pending_approvals()
 

@@ -118,7 +118,9 @@ class AnalyticsService:
             status_counts[status] = result.scalar() or 0
 
         completed_jobs = status_counts.get(JobStatus.COMPLETED, 0)
-        failed_jobs = status_counts.get(JobStatus.FAILED, 0) + status_counts.get(JobStatus.TIMEOUT, 0)
+        failed_jobs = status_counts.get(JobStatus.FAILED, 0) + status_counts.get(
+            JobStatus.TIMEOUT, 0
+        )
         cancelled_jobs = status_counts.get(JobStatus.CANCELLED, 0)
         pending_jobs = status_counts.get(JobStatus.PENDING, 0)
 
@@ -132,11 +134,12 @@ class AnalyticsService:
         completed_jobs_list = time_result.scalars().all()
 
         generation_times = [
-            j.duration_seconds for j in completed_jobs_list
-            if j.duration_seconds is not None
+            j.duration_seconds for j in completed_jobs_list if j.duration_seconds is not None
         ]
 
-        avg_generation_time = sum(generation_times) / len(generation_times) if generation_times else 0.0
+        avg_generation_time = (
+            sum(generation_times) / len(generation_times) if generation_times else 0.0
+        )
         total_generation_time = sum(generation_times)
 
         return GenerationStats(
@@ -183,7 +186,9 @@ class AnalyticsService:
         cost_by_provider: dict[str, float] = {}
         for job in jobs:
             provider_name = job.provider.value
-            cost_by_provider[provider_name] = cost_by_provider.get(provider_name, 0) + (job.cost_usd or 0)
+            cost_by_provider[provider_name] = cost_by_provider.get(provider_name, 0) + (
+                job.cost_usd or 0
+            )
 
         # Cost by project (requires joining through shots)
         cost_by_project: dict[str, float] = {}
@@ -206,7 +211,9 @@ class AnalyticsService:
                         shot = shots.get(job.shot_id)
                         if shot:
                             project_name = projects.get(shot.project_id, "Unknown")
-                            cost_by_project[project_name] = cost_by_project.get(project_name, 0) + (job.cost_usd or 0)
+                            cost_by_project[project_name] = cost_by_project.get(project_name, 0) + (
+                                job.cost_usd or 0
+                            )
 
         # Average cost per completed shot
         completed_count = len([j for j in jobs if j.status == JobStatus.COMPLETED])
@@ -255,26 +262,25 @@ class AnalyticsService:
     async def get_performance_stats(self) -> PerformanceStats:
         """Get performance statistics."""
         # Get all completed jobs for wait/processing time
-        completed_query = select(GenerationJob).where(
-            GenerationJob.status == JobStatus.COMPLETED
-        ).order_by(GenerationJob.completed_at.desc()).limit(100)
+        completed_query = (
+            select(GenerationJob)
+            .where(GenerationJob.status == JobStatus.COMPLETED)
+            .order_by(GenerationJob.completed_at.desc())
+            .limit(100)
+        )
 
         result = await self.session.execute(completed_query)
         jobs = result.scalars().all()
 
         # Calculate average wait time
-        wait_times = [
-            j.wait_time_seconds for j in jobs
-            if j.wait_time_seconds is not None
-        ]
+        wait_times = [j.wait_time_seconds for j in jobs if j.wait_time_seconds is not None]
         avg_wait_time = sum(wait_times) / len(wait_times) if wait_times else 0.0
 
         # Calculate average processing time
-        processing_times = [
-            j.duration_seconds for j in jobs
-            if j.duration_seconds is not None
-        ]
-        avg_processing_time = sum(processing_times) / len(processing_times) if processing_times else 0.0
+        processing_times = [j.duration_seconds for j in jobs if j.duration_seconds is not None]
+        avg_processing_time = (
+            sum(processing_times) / len(processing_times) if processing_times else 0.0
+        )
 
         # Peak concurrent jobs (estimate from overlapping time ranges)
         # For simplicity, count max running jobs at any point
@@ -357,14 +363,16 @@ class AnalyticsService:
                 failed = len([j for j in jobs if j.status in (JobStatus.FAILED, JobStatus.TIMEOUT)])
                 total_cost = sum(j.cost_usd or 0 for j in jobs)
 
-                results.append({
-                    "provider": provider.value,
-                    "total_jobs": total_jobs,
-                    "completed_jobs": completed,
-                    "failed_jobs": failed,
-                    "success_rate": (completed / total_jobs * 100) if total_jobs > 0 else 0,
-                    "total_cost_usd": total_cost,
-                })
+                results.append(
+                    {
+                        "provider": provider.value,
+                        "total_jobs": total_jobs,
+                        "completed_jobs": completed,
+                        "failed_jobs": failed,
+                        "success_rate": (completed / total_jobs * 100) if total_jobs > 0 else 0,
+                        "total_cost_usd": total_cost,
+                    }
+                )
 
         return results
 
@@ -401,14 +409,16 @@ class AnalyticsService:
             failed = len([j for j in jobs if j.status in (JobStatus.FAILED, JobStatus.TIMEOUT)])
             total_cost = sum(j.cost_usd or 0 for j in jobs)
 
-            results.append({
-                "date": day_start.date().isoformat(),
-                "total_jobs": len(jobs),
-                "completed_jobs": completed,
-                "failed_jobs": failed,
-                "success_rate": (completed / len(jobs) * 100) if jobs else 0,
-                "total_cost_usd": total_cost,
-            })
+            results.append(
+                {
+                    "date": day_start.date().isoformat(),
+                    "total_jobs": len(jobs),
+                    "completed_jobs": completed,
+                    "failed_jobs": failed,
+                    "success_rate": (completed / len(jobs) * 100) if jobs else 0,
+                    "total_cost_usd": total_cost,
+                }
+            )
 
         # Reverse to get chronological order
         results.reverse()

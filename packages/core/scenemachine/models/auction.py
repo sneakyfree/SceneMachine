@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 class AuctionStatus(StrEnum):
     """Auction lifecycle status."""
+
     DRAFT = "draft"  # Being created
     SCHEDULED = "scheduled"  # Scheduled to open
     OPEN = "open"  # Accepting bids
@@ -33,6 +34,7 @@ class AuctionStatus(StrEnum):
 
 class BidStatus(StrEnum):
     """Auction bid status."""
+
     ACTIVE = "active"  # Currently active bid
     OUTBID = "outbid"  # Outbid by another
     WITHDRAWN = "withdrawn"  # Withdrawn by bidder
@@ -116,9 +118,7 @@ class Auction(Base, UUIDMixin, TimestampMixin):
 
     # Timing
     duration_hours: Mapped[int] = mapped_column(Integer, default=24, nullable=False)
-    scheduled_start: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    scheduled_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     opens_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

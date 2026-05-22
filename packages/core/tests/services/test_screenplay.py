@@ -1,6 +1,5 @@
 """Tests for Screenplay service."""
 
-
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,7 +84,9 @@ FADE OUT.
         # Should find JOHN and MARY
         if isinstance(result, dict) and "characters" in result:
             character_names = [c.upper() for c in result["characters"]]
-            assert "JOHN" in character_names or any("JOHN" in str(c).upper() for c in result.get("characters", []))
+            assert "JOHN" in character_names or any(
+                "JOHN" in str(c).upper() for c in result.get("characters", [])
+            )
 
     @pytest.mark.asyncio
     async def test_parse_screenplay_extracts_scenes(

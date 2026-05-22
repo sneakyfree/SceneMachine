@@ -32,8 +32,10 @@ router = APIRouter(prefix="/character-lab", tags=["character-lab"])
 
 # --- Request/Response Models ---
 
+
 class ExtractEmbeddingResponse(BaseModel):
     """Response from face embedding extraction."""
+
     success: bool
     face_count: int = 0
     faces: list[dict[str, Any]] = []
@@ -44,12 +46,14 @@ class ExtractEmbeddingResponse(BaseModel):
 
 class VoiceListResponse(BaseModel):
     """Response with available voices."""
+
     voices: list[dict[str, Any]]
     total: int
 
 
 class VoiceSuggestRequest(BaseModel):
     """Request to suggest voices for a character."""
+
     character_name: str
     gender: str | None = None
     age_range: list[int] | None = None
@@ -58,6 +62,7 @@ class VoiceSuggestRequest(BaseModel):
 
 class GenerateSpeechRequest(BaseModel):
     """Request to generate speech."""
+
     text: str
     voice_id: str = "am_adam"
     emotion: str = "neutral"
@@ -66,6 +71,7 @@ class GenerateSpeechRequest(BaseModel):
 
 class GenerateSpeechResponse(BaseModel):
     """Response from speech generation."""
+
     success: bool
     audio_path: str | None = None
     duration_seconds: float = 0.0
@@ -75,6 +81,7 @@ class GenerateSpeechResponse(BaseModel):
 
 class GenerateImagesRequest(BaseModel):
     """Request to generate character reference images."""
+
     character_name: str
     description: str = ""
     physical_description: dict[str, Any] | None = None
@@ -90,6 +97,7 @@ class GenerateImagesRequest(BaseModel):
 
 class GenerateImagesResponse(BaseModel):
     """Response from image generation."""
+
     success: bool
     images: list[dict[str, Any]] = []
     total_generated: int = 0
@@ -98,6 +106,7 @@ class GenerateImagesResponse(BaseModel):
 
 
 # --- Face Embedding Endpoints ---
+
 
 @router.post("/face/extract", response_model=ExtractEmbeddingResponse)
 async def extract_face_embedding(
@@ -120,6 +129,7 @@ async def extract_face_embedding(
         if save_embedding and result.success and result.primary_embedding is not None:
             # Save embedding to temp location
             import tempfile
+
             with tempfile.NamedTemporaryFile(suffix=".npy", delete=False) as tmp:
                 service.save_embedding(result.primary_embedding, tmp.name)
                 embedding_path = tmp.name
@@ -181,6 +191,7 @@ async def compare_faces(
 
 
 # --- Voice Endpoints ---
+
 
 @router.get("/voice/list", response_model=VoiceListResponse)
 async def list_voices(
@@ -305,6 +316,7 @@ async def generate_speech(request: GenerateSpeechRequest):
 
 # --- Image Generation Endpoints ---
 
+
 @router.post("/image/generate", response_model=GenerateImagesResponse)
 async def generate_character_images(request: GenerateImagesRequest):
     """Generate character reference images.
@@ -369,6 +381,7 @@ async def estimate_image_cost(
 
     # Convert provider string if provided
     from scenemachine.services.character_image_generator import ImageProvider
+
     img_provider = None
     if provider:
         with contextlib.suppress(ValueError):
@@ -408,6 +421,7 @@ async def get_capabilities():
     # Check InsightFace availability — import only to test installability.
     try:
         import insightface  # noqa: F401 — capability-detect probe
+
         capabilities["face_embedding"]["available"] = True
     except ImportError:
         pass
@@ -415,6 +429,7 @@ async def get_capabilities():
     # Check Kokoro availability — same pattern.
     try:
         import kokoro  # noqa: F401 — capability-detect probe
+
         capabilities["voice_cloning"]["native"] = True
     except ImportError:
         capabilities["voice_cloning"]["native"] = False

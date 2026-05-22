@@ -110,14 +110,17 @@ class ParserAgent(BaseAgent):
             # Use appropriate parser
             if file_type == "fountain":
                 from scenemachine.parsers.fountain import FountainParser
+
                 parser = FountainParser()
                 result = parser.parse(path.read_text())
             elif file_type == "fdx":
                 from scenemachine.parsers.fdx import FDXParser
+
                 parser = FDXParser()
                 result = parser.parse(path.read_text())
             elif file_type == "pdf":
                 from scenemachine.parsers.pdf import PDFParser
+
                 parser = PDFParser()
                 result = await parser.parse(file_path)
             else:
@@ -157,12 +160,14 @@ class ParserAgent(BaseAgent):
         # Extract from parsed data
         if "characters" in parsed_screenplay:
             for char in parsed_screenplay["characters"]:
-                characters.append({
-                    "name": char.get("name", "Unknown"),
-                    "description": char.get("description", ""),
-                    "dialogue_count": char.get("dialogue_count", 0),
-                    "first_appearance": char.get("first_scene", None),
-                })
+                characters.append(
+                    {
+                        "name": char.get("name", "Unknown"),
+                        "description": char.get("description", ""),
+                        "dialogue_count": char.get("dialogue_count", 0),
+                        "first_appearance": char.get("first_scene", None),
+                    }
+                )
 
         # Also scan scenes for character mentions
         seen_names = {c["name"].upper() for c in characters}
@@ -171,12 +176,14 @@ class ParserAgent(BaseAgent):
                 if element.get("type") == "character":
                     name = element.get("name", "").strip().upper()
                     if name and name not in seen_names:
-                        characters.append({
-                            "name": name,
-                            "description": "",
-                            "dialogue_count": 1,
-                            "first_appearance": scene.get("scene_number"),
-                        })
+                        characters.append(
+                            {
+                                "name": name,
+                                "description": "",
+                                "dialogue_count": 1,
+                                "first_appearance": scene.get("scene_number"),
+                            }
+                        )
                         seen_names.add(name)
 
         return ActionResult(
@@ -246,21 +253,24 @@ class ParserAgent(BaseAgent):
             if len(descriptions) > 1:
                 # Check for obvious contradictions
                 for i, d1 in enumerate(descriptions):
-                    for d2 in descriptions[i+1:]:
+                    for d2 in descriptions[i + 1 :]:
                         # Simple keyword check (would use LLM in production)
                         d1_lower = d1.lower()
                         d2_lower = d2.lower()
 
                         # Height contradictions
-                        if ("tall" in d1_lower and "short" in d2_lower) or \
-                           ("short" in d1_lower and "tall" in d2_lower):
-                            contradictions.append({
-                                "character": name,
-                                "type": "physical",
-                                "description1": d1,
-                                "description2": d2,
-                                "issue": "Height contradiction",
-                            })
+                        if ("tall" in d1_lower and "short" in d2_lower) or (
+                            "short" in d1_lower and "tall" in d2_lower
+                        ):
+                            contradictions.append(
+                                {
+                                    "character": name,
+                                    "type": "physical",
+                                    "description1": d1,
+                                    "description2": d2,
+                                    "issue": "Height contradiction",
+                                }
+                            )
 
                         # Hair color contradictions
                         hair_colors = ["blonde", "brunette", "redhead", "black", "gray"]
@@ -268,13 +278,15 @@ class ParserAgent(BaseAgent):
                             for color2 in hair_colors:
                                 if color1 != color2:
                                     if color1 in d1_lower and color2 in d2_lower:
-                                        contradictions.append({
-                                            "character": name,
-                                            "type": "physical",
-                                            "description1": d1,
-                                            "description2": d2,
-                                            "issue": f"Hair color contradiction ({color1} vs {color2})",
-                                        })
+                                        contradictions.append(
+                                            {
+                                                "character": name,
+                                                "type": "physical",
+                                                "description1": d1,
+                                                "description2": d2,
+                                                "issue": f"Hair color contradiction ({color1} vs {color2})",
+                                            }
+                                        )
 
         return ActionResult(
             action_id=context.session_id,

@@ -13,6 +13,7 @@ from typing import Any
 
 class PromptCategory(StrEnum):
     """Categories of LLM prompts."""
+
     SHOT_GENERATION = "shot_generation"
     CHARACTER_ANALYSIS = "character_analysis"
     SCENE_BREAKDOWN = "scene_breakdown"
@@ -24,6 +25,7 @@ class PromptCategory(StrEnum):
 @dataclass
 class PromptTemplate:
     """A prompt template with metadata."""
+
     name: str
     category: PromptCategory
     system_prompt: str
@@ -37,6 +39,7 @@ class PromptTemplate:
 @dataclass
 class ConfidenceScore:
     """Confidence scoring for LLM outputs."""
+
     overall: float  # 0.0 - 1.0
     completeness: float
     consistency: float
@@ -95,7 +98,7 @@ SARAH: (coldly) What do you want, John?""",
   ],
   "confidence": 0.92,
   "notes": "Scene establishes tension between characters through body language and cold dialogue."
-}"""
+}""",
     },
     {
         "input": """SCENE: EXT. ROOFTOP - NIGHT
@@ -142,7 +145,7 @@ MAYA: Alex, wait! Don't do this!""",
   ],
   "confidence": 0.88,
   "notes": "High-stakes emotional scene. Camera work emphasizes isolation and desperation."
-}"""
+}""",
     },
 ]
 
@@ -177,7 +180,7 @@ Appearances in script:
     }
   },
   "confidence": 0.91
-}"""
+}""",
     },
 ]
 
@@ -194,7 +197,7 @@ VISUAL_DESCRIPTION_EXAMPLES = [
     "aspect_ratio": "2.39:1"
   },
   "confidence": 0.94
-}"""
+}""",
     },
 ]
 
@@ -296,6 +299,7 @@ Visual style: {visual_style}""",
 # Prompt Cache
 # =============================================================================
 
+
 class PromptCache:
     """Cache for prompt results to avoid redundant LLM calls."""
 
@@ -345,6 +349,7 @@ class PromptCache:
 # =============================================================================
 # Confidence Scoring
 # =============================================================================
+
 
 def compute_confidence_score(
     output: dict[str, Any],
@@ -410,6 +415,7 @@ def compute_confidence_score(
 # Template Registry
 # =============================================================================
 
+
 class EnhancedPromptRegistry:
     """Registry of enhanced prompt templates."""
 
@@ -463,7 +469,9 @@ class EnhancedPromptRegistry:
         if include_examples and template.few_shot_examples:
             examples_text = "\n\n--- EXAMPLES ---\n"
             for i, example in enumerate(template.few_shot_examples, 1):
-                examples_text += f"\nExample {i}:\nInput:\n{example['input']}\n\nOutput:\n{example['output']}\n"
+                examples_text += (
+                    f"\nExample {i}:\nInput:\n{example['input']}\n\nOutput:\n{example['output']}\n"
+                )
             examples_text += "\n--- END EXAMPLES ---\n"
             system_prompt += examples_text
 

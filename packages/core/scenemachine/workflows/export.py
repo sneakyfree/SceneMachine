@@ -118,11 +118,13 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
 
         # Simulate validation
         for scene_id in scenes_to_include:
-            validated_assets.append({
-                "scene_id": str(scene_id),
-                "shots_ready": True,
-                "audio_ready": True,
-            })
+            validated_assets.append(
+                {
+                    "scene_id": str(scene_id),
+                    "shots_ready": True,
+                    "audio_ready": True,
+                }
+            )
 
         if missing_assets:
             raise ValueError(f"Missing assets: {missing_assets}")
@@ -147,12 +149,14 @@ class ExportWorkflow(Workflow[ExportWorkflowContext]):
         for asset in validated_assets:
             # Simulate clip data
             clip_duration = 30.0  # 30 seconds per scene average
-            timeline["clips"].append({
-                "scene_id": asset["scene_id"],
-                "start_time": current_time,
-                "end_time": current_time + clip_duration,
-                "duration": clip_duration,
-            })
+            timeline["clips"].append(
+                {
+                    "scene_id": asset["scene_id"],
+                    "start_time": current_time,
+                    "end_time": current_time + clip_duration,
+                    "duration": clip_duration,
+                }
+            )
             current_time += clip_duration
 
         timeline["duration_seconds"] = current_time

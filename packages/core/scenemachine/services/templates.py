@@ -375,8 +375,4 @@ class TemplatesService:
             "sci-fi-futuristic",
         ]
 
-        return [
-            self._templates[tid]
-            for tid in featured_ids[:limit]
-            if tid in self._templates
-        ]
+        return [self._templates[tid] for tid in featured_ids[:limit] if tid in self._templates]

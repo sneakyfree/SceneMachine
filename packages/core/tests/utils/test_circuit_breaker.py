@@ -184,7 +184,7 @@ class TestCircuitBreakerStateTransitions:
                 await cb.call(failing_func)
 
             if i < 2:
-                assert cb.is_closed, f"Should still be closed after {i+1} failures"
+                assert cb.is_closed, f"Should still be closed after {i + 1} failures"
 
         assert cb.is_open
 

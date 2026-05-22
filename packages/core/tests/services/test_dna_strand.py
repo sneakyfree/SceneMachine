@@ -10,7 +10,6 @@ Tests the core services implemented as part of the DNA Strand Master Plan:
 - Production Pipeline
 """
 
-
 import pytest
 
 
@@ -20,21 +19,26 @@ class TestShotListGenerator:
     def test_imports(self):
         """Verify all shot list generator imports work."""
         from scenemachine.services.shot_list_generator import ShotListGenerator
+
         assert ShotListGenerator is not None
 
     def test_generator_initialization(self):
         """Test generator can be initialized."""
         from scenemachine.services.shot_list_generator import ShotListGenerator
+
         generator = ShotListGenerator()
         assert generator is not None
 
     def test_prompt_building(self):
         """Test visual prompt generation."""
         from scenemachine.services.shot_list_generator import ShotListGenerator
+
         generator = ShotListGenerator()
 
         # Simple scene text
-        scene_text = "INT. COFFEE SHOP - DAY\n\nJOHN sits at a table, nervously tapping his fingers."
+        scene_text = (
+            "INT. COFFEE SHOP - DAY\n\nJOHN sits at a table, nervously tapping his fingers."
+        )
 
         # Should be able to build a prompt
         prompt = generator._build_visual_prompt(scene_text, "medium shot")
@@ -51,18 +55,21 @@ class TestBlockersEngine:
             BlockersEngine,
             BlockerSeverity,
         )
+
         assert BlockersEngine is not None
         assert BlockerSeverity.CRITICAL is not None
 
     def test_engine_initialization(self):
         """Test engine can be initialized."""
         from scenemachine.services.blockers_engine import BlockersEngine
+
         engine = BlockersEngine()
         assert engine is not None
 
     def test_analyze_empty_project(self):
         """Test analysis with empty data."""
         from scenemachine.services.blockers_engine import BlockersEngine
+
         engine = BlockersEngine()
 
         result = engine.analyze_project(
@@ -77,12 +84,11 @@ class TestBlockersEngine:
     def test_detect_missing_character(self):
         """Test detection of missing character reference."""
         from scenemachine.services.blockers_engine import BlockersEngine
+
         engine = BlockersEngine()
 
         # Character without reference image
-        characters = [
-            {"name": "JOHN", "has_reference_image": False}
-        ]
+        characters = [{"name": "JOHN", "has_reference_image": False}]
 
         result = engine.analyze_project(
             characters=characters,
@@ -105,6 +111,7 @@ class TestFaceEmbeddingService:
             FaceEmbeddingService,
             get_face_embedding_service,
         )
+
         assert FaceEmbeddingService is not None
         assert get_face_embedding_service is not None
 
@@ -122,7 +129,7 @@ class TestFaceEmbeddingService:
         from scenemachine.services.face_embedding import FaceEmbeddingService
 
         # Check class constant
-        assert hasattr(FaceEmbeddingService, 'SIMILARITY_THRESHOLD')
+        assert hasattr(FaceEmbeddingService, "SIMILARITY_THRESHOLD")
         assert 0.0 <= FaceEmbeddingService.SIMILARITY_THRESHOLD <= 1.0
 
 
@@ -135,6 +142,7 @@ class TestVoiceCloningService:
             VoiceCloningService,
             get_voice_cloning_service,
         )
+
         assert VoiceCloningService is not None
         assert get_voice_cloning_service is not None
 
@@ -168,7 +176,7 @@ class TestVoiceCloningService:
         if voices:
             voice = voices[0]
             # VoiceProfile is a dataclass with voice_id attribute
-            assert hasattr(voice, 'voice_id') or hasattr(voice, 'id')
+            assert hasattr(voice, "voice_id") or hasattr(voice, "id")
 
     def test_get_voice(self):
         """Test getting a specific voice."""
@@ -191,6 +199,7 @@ class TestCharacterImageGenerator:
             CharacterImageGenerator,
             get_character_image_generator,
         )
+
         assert CharacterImageGenerator is not None
         assert get_character_image_generator is not None
 
@@ -207,7 +216,7 @@ class TestCharacterImageGenerator:
         """Test style prompts are available."""
         from scenemachine.services.character_image_generator import CharacterImageGenerator
 
-        assert hasattr(CharacterImageGenerator, 'STYLE_PROMPTS')
+        assert hasattr(CharacterImageGenerator, "STYLE_PROMPTS")
         assert len(CharacterImageGenerator.STYLE_PROMPTS) > 0
 
     def test_cost_estimation(self):
@@ -220,8 +229,8 @@ class TestCharacterImageGenerator:
 
         # Returns a dict with cost breakdown
         assert isinstance(result, dict)
-        assert 'total_cost' in result
-        assert result['total_cost'] >= 0
+        assert "total_cost" in result
+        assert result["total_cost"] >= 0
 
 
 class TestVideoQualityReviewer:
@@ -233,6 +242,7 @@ class TestVideoQualityReviewer:
             VideoQualityReviewer,
             get_video_quality_reviewer,
         )
+
         assert VideoQualityReviewer is not None
         assert get_video_quality_reviewer is not None
 
@@ -280,6 +290,7 @@ class TestProductionPipeline:
             ProductionPipeline,
             create_production_pipeline,
         )
+
         assert ProductionPipeline is not None
         assert create_production_pipeline is not None
 
@@ -365,15 +376,9 @@ class TestIntegrationWorkflow:
 
         # Project with issues
         result = engine.analyze_project(
-            characters=[
-                {"name": "JOHN", "has_reference_image": False, "has_voice": False}
-            ],
-            scenes=[
-                {"scene_number": "1", "heading": "INT. OFFICE - DAY"}
-            ],
-            shots=[
-                {"shot_id": "1-1", "visual_prompt": "", "character": "JOHN"}
-            ],
+            characters=[{"name": "JOHN", "has_reference_image": False, "has_voice": False}],
+            scenes=[{"scene_number": "1", "heading": "INT. OFFICE - DAY"}],
+            shots=[{"shot_id": "1-1", "visual_prompt": "", "character": "JOHN"}],
         )
 
         blockers = result.get("blockers", [])

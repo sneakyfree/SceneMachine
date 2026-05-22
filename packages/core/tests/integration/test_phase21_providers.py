@@ -549,9 +549,7 @@ class TestComfyUIProvider:
         assert "WanVideoEmptyEmbeds" not in class_types
 
         # The LoadImage node must point at the request's input image
-        load_image = next(
-            n for n in wf.values() if n["class_type"] == "LoadImage"
-        )
+        load_image = next(n for n in wf.values() if n["class_type"] == "LoadImage")
         assert load_image["inputs"]["image"] == "some_starter_frame.png"
 
     def test_comfyui_wan_animate_requires_reference_image(self):
@@ -574,15 +572,11 @@ class TestComfyUIProvider:
         provider = ComfyUIProvider()
         model = provider.get_model("wan22-animate-14b")
         request = self._make_request(
-            character_references=[
-                {"character_id": "hero", "reference_image_path": "hero_ref.png"}
-            ]
+            character_references=[{"character_id": "hero", "reference_image_path": "hero_ref.png"}]
         )
 
         wf = provider._build_workflow(request, model)
-        load_image = next(
-            n for n in wf.values() if n["class_type"] == "LoadImage"
-        )
+        load_image = next(n for n in wf.values() if n["class_type"] == "LoadImage")
         assert load_image["inputs"]["image"] == "hero_ref.png"
 
     def test_comfyui_wan_animate_prefers_fp8_weight_when_registered_AND_available(self):
@@ -613,9 +607,7 @@ class TestComfyUIProvider:
         }
         request = self._make_request(input_image_path="ref.png")
         wf = provider._build_workflow(request, model)
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
         assert loader["inputs"]["model"] == synth_fp8
 
     def test_comfyui_wan_animate_falls_back_to_bf16_when_fp8_not_on_disk(self):
@@ -634,9 +626,7 @@ class TestComfyUIProvider:
         }
         request = self._make_request(input_image_path="ref.png")
         wf = provider._build_workflow(request, model)
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
         assert loader["inputs"]["model"] == bf16
 
     def test_comfyui_wan_animate_uses_animate_embeds_not_image_clip_encode(self):
@@ -697,15 +687,14 @@ class TestComfyUIProvider:
         }
         request = self._make_request(input_image_path="ref.png")
         wf = provider._build_workflow(request, model)
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
         assert loader["inputs"]["quantization"] == "disabled"
         assert loader["inputs"]["model"] == model.extra_params["model_file"]
 
         # When a synthetic FP8 weight is registered AND available,
         # quantization should infer to fp8_e4m3fn_scaled from the filename.
         from copy import deepcopy
+
         model2 = deepcopy(model)
         synth_fp8 = "wan2.2_animate_14B_fp8_e4m3fn_scaled_TEST.safetensors"
         model2.extra_params["model_file_fp8"] = synth_fp8
@@ -713,9 +702,7 @@ class TestComfyUIProvider:
             "WanVideoModelLoader": {model.extra_params["model_file"], synth_fp8},
         }
         wf2 = provider._build_workflow(request, model2)
-        loader2 = next(
-            n for n in wf2.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader2 = next(n for n in wf2.values() if n["class_type"] == "WanVideoModelLoader")
         assert loader2["inputs"]["quantization"] == "fp8_e4m3fn_scaled"
         assert loader2["inputs"]["model"] == synth_fp8
 
@@ -746,12 +733,8 @@ class TestComfyUIProvider:
         assert block_swap is not None, "Animate BF16 must attach WanVideoBlockSwap"
         assert block_swap["inputs"]["blocks_to_swap"] == model.extra_params["blocks_to_swap"]
         # And the ModelLoader must pull block_swap_args from that node
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
-        bs_node_id = next(
-            nid for nid, n in wf.items() if n["class_type"] == "WanVideoBlockSwap"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
+        bs_node_id = next(nid for nid, n in wf.items() if n["class_type"] == "WanVideoBlockSwap")
         assert loader["inputs"]["block_swap_args"] == [bs_node_id, 0]
 
     def test_comfyui_wan_animate_load_device_is_offload_by_default(self):
@@ -770,9 +753,7 @@ class TestComfyUIProvider:
 
         request = self._make_request(input_image_path="ref.png")
         wf = provider._build_workflow(request, model)
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
         assert loader["inputs"]["load_device"] == "offload_device"
 
     def test_comfyui_wan_animate_block_swap_disabled_via_request(self):
@@ -792,9 +773,7 @@ class TestComfyUIProvider:
         wf = provider._build_workflow(request, model)
         class_types = [n["class_type"] for n in wf.values()]
         assert "WanVideoBlockSwap" not in class_types
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
         assert "block_swap_args" not in loader["inputs"]
 
     def test_comfyui_wan_animate_block_swap_request_override(self):
@@ -811,9 +790,7 @@ class TestComfyUIProvider:
             extra_params={"blocks_to_swap": 32},
         )
         wf = provider._build_workflow(request, model)
-        block_swap = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoBlockSwap"
-        )
+        block_swap = next(n for n in wf.values() if n["class_type"] == "WanVideoBlockSwap")
         assert block_swap["inputs"]["blocks_to_swap"] == 32
 
     def test_comfyui_wan_animate_speed_lora_on_by_default(self):
@@ -847,17 +824,11 @@ class TestComfyUIProvider:
 
         class_types = [n["class_type"] for n in wf.values()]
         assert "WanVideoLoraSelect" in class_types
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
         # ModelLoader pulls WANVIDLORA from the LoRA node
-        lora_node_id = next(
-            nid for nid, n in wf.items() if n["class_type"] == "WanVideoLoraSelect"
-        )
+        lora_node_id = next(nid for nid, n in wf.items() if n["class_type"] == "WanVideoLoraSelect")
         assert loader["inputs"]["lora"] == [lora_node_id, 0]
-        sampler = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
-        )
+        sampler = next(n for n in wf.values() if n["class_type"] == "WanVideoSampler")
         # Lightx2v-calibrated 4 steps / cfg=1.0 (vs registry defaults of 30 / 6.0)
         assert sampler["inputs"]["steps"] == 4
         assert sampler["inputs"]["cfg"] == 1.0
@@ -878,13 +849,9 @@ class TestComfyUIProvider:
         wf = provider._build_workflow(request, model)
         class_types = [n["class_type"] for n in wf.values()]
         assert "WanVideoLoraSelect" not in class_types
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
         assert "lora" not in loader["inputs"]
-        sampler = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
-        )
+        sampler = next(n for n in wf.values() if n["class_type"] == "WanVideoSampler")
         assert sampler["inputs"]["steps"] == model.default_steps
         assert sampler["inputs"]["cfg"] == model.default_cfg_scale
 
@@ -926,19 +893,13 @@ class TestComfyUIProvider:
         assert lora_node["inputs"]["strength"] == 1.0
 
         # ModelLoader pulls WANVIDLORA from the LoRA node
-        loader = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoModelLoader"
-        )
+        loader = next(n for n in wf.values() if n["class_type"] == "WanVideoModelLoader")
         # Find the node id of the LoRA node so we can compare reference
-        lora_node_id = next(
-            nid for nid, n in wf.items() if n["class_type"] == "WanVideoLoraSelect"
-        )
+        lora_node_id = next(nid for nid, n in wf.items() if n["class_type"] == "WanVideoLoraSelect")
         assert loader["inputs"]["lora"] == [lora_node_id, 0]
 
         # Sampler runs at Lightx2v-calibrated settings
-        sampler = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
-        )
+        sampler = next(n for n in wf.values() if n["class_type"] == "WanVideoSampler")
         assert sampler["inputs"]["steps"] == 4
         assert sampler["inputs"]["cfg"] == 1.0
 
@@ -964,9 +925,7 @@ class TestComfyUIProvider:
             extra_params={"speed_lora": True},
         )
         wf = provider._build_workflow(request, model)
-        lora_node = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoLoraSelect"
-        )
+        lora_node = next(n for n in wf.values() if n["class_type"] == "WanVideoLoraSelect")
         assert lora_node["inputs"]["lora"] == candidates[1]
 
     def test_comfyui_wan_animate_speed_lora_file_override(self):
@@ -985,9 +944,7 @@ class TestComfyUIProvider:
             },
         )
         wf = provider._build_workflow(request, model)
-        lora_node = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoLoraSelect"
-        )
+        lora_node = next(n for n in wf.values() if n["class_type"] == "WanVideoLoraSelect")
         assert lora_node["inputs"]["lora"] == "custom_lightx2v_variant.safetensors"
 
     def test_comfyui_wan_animate_speed_lora_request_steps_cfg_still_win(self):
@@ -1006,9 +963,7 @@ class TestComfyUIProvider:
             guidance_scale=2.5,
         )
         wf = provider._build_workflow(request, model)
-        sampler = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
-        )
+        sampler = next(n for n in wf.values() if n["class_type"] == "WanVideoSampler")
         assert sampler["inputs"]["steps"] == 8
         assert sampler["inputs"]["cfg"] == 2.5
 
@@ -1055,13 +1010,9 @@ class TestComfyUIProvider:
         # Sanity: model defaults to unipc / shift=5.0
         assert model.extra_params.get("scheduler") == "unipc"
 
-        request = self._make_request(
-            extra_params={"shift": 8.0, "scheduler": "dpm++"}
-        )
+        request = self._make_request(extra_params={"shift": 8.0, "scheduler": "dpm++"})
         wf = provider._build_workflow(request, model)
-        sampler = next(
-            n for n in wf.values() if n["class_type"] == "WanVideoSampler"
-        )
+        sampler = next(n for n in wf.values() if n["class_type"] == "WanVideoSampler")
         assert sampler["inputs"]["shift"] == 8.0
         assert sampler["inputs"]["scheduler"] == "dpm++"
 

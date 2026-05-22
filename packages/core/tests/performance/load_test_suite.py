@@ -27,16 +27,21 @@ try:
     from locust.env import (
         Environment,  # noqa: F401 — Environment reserved for programmatic test runners
     )
+
     LOCUST_AVAILABLE = True
 except ImportError:
     LOCUST_AVAILABLE = False
+
     # Provide stubs for when Locust isn't installed
     class HttpUser:
         pass
+
     def task(weight=1):
         def decorator(func):
             return func
+
         return decorator
+
     def between(min_wait, max_wait):
         return min_wait
 
@@ -66,6 +71,7 @@ DEFAULT_CONFIG = {
 # =============================================================================
 # Base User Behavior
 # =============================================================================
+
 
 class SceneMachineUser(HttpUser):
     """Base user behavior for SceneMachine load testing."""
@@ -144,6 +150,7 @@ class SceneMachineUser(HttpUser):
 # =============================================================================
 # API Endpoint Tests
 # =============================================================================
+
 
 class HealthCheckUser(SceneMachineUser):
     """User that tests health and basic endpoints."""
@@ -336,6 +343,7 @@ class ExplainabilityUser(SceneMachineUser):
 # Combined Load Test User
 # =============================================================================
 
+
 class MixedWorkloadUser(SceneMachineUser):
     """Combined user simulating real-world mixed workload."""
 
@@ -420,6 +428,7 @@ class MixedWorkloadUser(SceneMachineUser):
 # Load Test Shapes
 # =============================================================================
 
+
 class SmokeTestShape(LoadTestShape if LOCUST_AVAILABLE else object):
     """Quick smoke test - minimal load."""
 
@@ -486,6 +495,7 @@ class SpikeTestShape(LoadTestShape if LOCUST_AVAILABLE else object):
 # Event Hooks for Reporting
 # =============================================================================
 
+
 class LoadTestReporter:
     """Collects and reports load test metrics."""
 
@@ -517,8 +527,8 @@ class LoadTestReporter:
         return {
             "total_requests": self.request_count,
             "failed_requests": self.failure_count,
-            "success_rate": f"{(1 - self.failure_count/max(1, self.request_count)) * 100:.1f}%",
-            "response_time_avg_ms": f"{sum(self.response_times)/len(self.response_times):.1f}",
+            "success_rate": f"{(1 - self.failure_count / max(1, self.request_count)) * 100:.1f}%",
+            "response_time_avg_ms": f"{sum(self.response_times) / len(self.response_times):.1f}",
             "response_time_p50_ms": f"{sorted_times[p50_idx]:.1f}",
             "response_time_p95_ms": f"{sorted_times[p95_idx]:.1f}",
             "response_time_p99_ms": f"{sorted_times[p99_idx]:.1f}",
@@ -528,6 +538,7 @@ class LoadTestReporter:
 # =============================================================================
 # Standalone Test Runner (for pytest integration)
 # =============================================================================
+
 
 def run_load_test_standalone(
     host: str = "http://localhost:8000",
@@ -596,10 +607,12 @@ def run_load_test_standalone(
 # Pytest Integration
 # =============================================================================
 
+
 def test_load_smoke():
     """Smoke test - quick verification."""
     if not LOCUST_AVAILABLE:
         import pytest
+
         pytest.skip("Locust not installed")
 
     results = run_load_test_standalone(
@@ -615,6 +628,7 @@ def test_load_standard():
     """Standard load test - 25 users."""
     if not LOCUST_AVAILABLE:
         import pytest
+
         pytest.skip("Locust not installed")
 
     results = run_load_test_standalone(
@@ -630,6 +644,7 @@ def test_load_stress():
     """Stress test - 50 concurrent users."""
     if not LOCUST_AVAILABLE:
         import pytest
+
         pytest.skip("Locust not installed")
 
     results = run_load_test_standalone(
@@ -644,7 +659,7 @@ def test_load_stress():
 
 if __name__ == "__main__":
     print("SceneMachine Load Test Suite")
-    print("="*50)
+    print("=" * 50)
     print("\nUsage with Locust CLI:")
     print("  locust -f load_test_suite.py --headless -u 50 -r 5 -t 5m")
     print("\nAvailable User Classes:")

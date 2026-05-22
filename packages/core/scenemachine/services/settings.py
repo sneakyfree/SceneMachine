@@ -533,24 +533,29 @@ class SettingsService:
         statuses = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                statuses.append(ProviderStatus(
-                    provider=providers[i],
-                    name=providers[i].title(),
-                    available=False,
-                    configured=False,
-                    message=f"Error: {str(result)}",
-                ))
+                statuses.append(
+                    ProviderStatus(
+                        provider=providers[i],
+                        name=providers[i].title(),
+                        available=False,
+                        configured=False,
+                        message=f"Error: {str(result)}",
+                    )
+                )
             else:
                 statuses.append(result)
 
         # Add local provider (always available)
-        statuses.insert(0, ProviderStatus(
-            provider="local",
-            name="Local (Mock)",
-            available=True,
-            configured=True,
-            message="Local generation available",
-        ))
+        statuses.insert(
+            0,
+            ProviderStatus(
+                provider="local",
+                name="Local (Mock)",
+                available=True,
+                configured=True,
+                message="Local generation available",
+            ),
+        )
 
         return statuses
 
@@ -560,6 +565,7 @@ class SettingsService:
         Returns:
             StorageStats with directory sizes
         """
+
         def get_dir_size(path: Path) -> int:
             """Calculate total size of directory."""
             total = 0

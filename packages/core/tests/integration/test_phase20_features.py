@@ -163,9 +163,7 @@ class TestRateLimiter:
         """Test that API key is used for client identification."""
         request = MagicMock()
         request.url.path = "/api/v1/projects"
-        request.headers.get.side_effect = lambda key: (
-            "test-api-key" if key == "X-API-Key" else None
-        )
+        request.headers.get.side_effect = lambda key: "test-api-key" if key == "X-API-Key" else None
         request.client.host = "127.0.0.1"
 
         allowed, info = limiter.check(request)

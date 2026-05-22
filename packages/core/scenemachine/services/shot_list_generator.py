@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class CameraAngle(StrEnum):
     """Camera angle/shot type options."""
+
     WIDE = "wide"
     MEDIUM = "medium"
     CLOSE_UP = "close_up"
@@ -28,6 +29,7 @@ class CameraAngle(StrEnum):
 
 class CameraMovement(StrEnum):
     """Camera movement types."""
+
     STATIC = "static"
     PAN_LEFT = "pan_left"
     PAN_RIGHT = "pan_right"
@@ -43,14 +45,16 @@ class CameraMovement(StrEnum):
 
 class ShotConfidence(StrEnum):
     """Confidence level for generated shots."""
-    HIGH = "high"      # >= 0.8
+
+    HIGH = "high"  # >= 0.8
     MEDIUM = "medium"  # >= 0.6
-    LOW = "low"        # < 0.6
+    LOW = "low"  # < 0.6
 
 
 @dataclass
 class DialogueLine:
     """Dialogue line within a shot."""
+
     character: str
     text: str
     emotion: str = "neutral"
@@ -60,6 +64,7 @@ class DialogueLine:
 @dataclass
 class GeneratedShot:
     """A generated shot from screenplay analysis."""
+
     shot_id: str
     visual_prompt: str
     negative_prompt: str = "blurry, low quality, distorted, artifacts"
@@ -77,6 +82,7 @@ class GeneratedShot:
 @dataclass
 class SceneBreakdown:
     """Complete breakdown of a scene into shots."""
+
     scene_id: str
     scene_number: str
     slug: str
@@ -92,6 +98,7 @@ class SceneBreakdown:
 @dataclass
 class Contradiction:
     """A detected contradiction in the screenplay."""
+
     contradiction_id: str
     type: str  # "character_description", "timeline", "location", "prop"
     description: str
@@ -103,6 +110,7 @@ class Contradiction:
 @dataclass
 class ShotListResult:
     """Result of shot list generation."""
+
     title: str | None
     scenes: list[SceneBreakdown]
     characters: list[dict[str, Any]]
@@ -125,18 +133,31 @@ class ShotListGenerator:
 
     # Camera angle inference patterns
     CLOSE_UP_KEYWORDS = [
-        "close on", "closeup", "close-up", "insert", "detail",
-        "eyes", "face", "hands", "mouth", "tears"
+        "close on",
+        "closeup",
+        "close-up",
+        "insert",
+        "detail",
+        "eyes",
+        "face",
+        "hands",
+        "mouth",
+        "tears",
     ]
 
     WIDE_KEYWORDS = [
-        "wide", "establishing", "master", "aerial", "panoramic",
-        "full shot", "enter", "exit", "entire room"
+        "wide",
+        "establishing",
+        "master",
+        "aerial",
+        "panoramic",
+        "full shot",
+        "enter",
+        "exit",
+        "entire room",
     ]
 
-    POV_KEYWORDS = [
-        "pov", "point of view", "through the eyes", "subjective"
-    ]
+    POV_KEYWORDS = ["pov", "point of view", "through the eyes", "subjective"]
 
     # Emotion inference from parentheticals
     EMOTION_MAP = {
@@ -167,7 +188,9 @@ class ShotListGenerator:
         self._character_appearances = {}
 
         # Extract title
-        title = parsed_screenplay.get("title") or parsed_screenplay.get("title_page", {}).get("title")
+        title = parsed_screenplay.get("title") or parsed_screenplay.get("title_page", {}).get(
+            "title"
+        )
 
         # Process scenes
         scenes = []
@@ -189,11 +212,9 @@ class ShotListGenerator:
 
         # Calculate overall confidence
         if total_shots > 0:
-            avg_confidence = sum(
-                shot.confidence
-                for scene in scenes
-                for shot in scene.shots
-            ) / total_shots
+            avg_confidence = (
+                sum(shot.confidence for scene in scenes for shot in scene.shots) / total_shots
+            )
         else:
             avg_confidence = 0.0
 
@@ -234,12 +255,14 @@ class ShotListGenerator:
         shots = self._generate_shots(scene_id, elements)
 
         # Get characters present
-        characters_present = list({
-            elem.get("character_name") or elem.get("character", "")
-            for elem in elements
-            if elem.get("type") in ("character", "Character", "dialogue", "Dialogue")
-            and (elem.get("character_name") or elem.get("character"))
-        })
+        characters_present = list(
+            {
+                elem.get("character_name") or elem.get("character", "")
+                for elem in elements
+                if elem.get("type") in ("character", "Character", "dialogue", "Dialogue")
+                and (elem.get("character_name") or elem.get("character"))
+            }
+        )
 
         # Track character appearances
         for char in characters_present:
@@ -280,9 +303,7 @@ class ShotListGenerator:
 
                 # Check for natural breakpoints
                 if self._is_shot_break(text) and current_action:
-                    shot = self._create_action_shot(
-                        scene_id, shot_index, " ".join(current_action)
-                    )
+                    shot = self._create_action_shot(scene_id, shot_index, " ".join(current_action))
                     shots.append(shot)
                     shot_index += 1
                     current_action = []
@@ -309,20 +330,20 @@ class ShotListGenerator:
 
         # Handle remaining action
         if current_action:
-            shot = self._create_action_shot(
-                scene_id, shot_index, " ".join(current_action)
-            )
+            shot = self._create_action_shot(scene_id, shot_index, " ".join(current_action))
             shots.append(shot)
 
         # Ensure at least one shot per scene
         if not shots:
-            shots.append(GeneratedShot(
-                shot_id=f"{scene_id}_001",
-                visual_prompt="Empty scene - add description",
-                confidence=0.3,
-                unknowns=["No content to generate shot from"],
-                source="inferred",
-            ))
+            shots.append(
+                GeneratedShot(
+                    shot_id=f"{scene_id}_001",
+                    visual_prompt="Empty scene - add description",
+                    confidence=0.3,
+                    unknowns=["No content to generate shot from"],
+                    source="inferred",
+                )
+            )
 
         return shots
 
@@ -370,7 +391,7 @@ class ShotListGenerator:
         scene_id: str,
         shot_index: int,
         dialogue_info: dict[str, Any],
-        preceding_action: list[str]
+        preceding_action: list[str],
     ) -> GeneratedShot:
         """Create a shot for dialogue."""
         shot_id = f"{scene_id}_{str(shot_index).zfill(3)}"
@@ -492,7 +513,7 @@ class ShotListGenerator:
                 characters.append(char)
 
         # Also look for capitalized names
-        words = re.findall(r'\b[A-Z][A-Z]+\b', text)
+        words = re.findall(r"\b[A-Z][A-Z]+\b", text)
         for word in words:
             if len(word) > 2 and word not in ["THE", "AND", "INT", "EXT"]:
                 if word not in characters:
@@ -585,8 +606,13 @@ class ShotListGenerator:
     def _is_shot_break(self, text: str) -> bool:
         """Determine if text indicates a natural shot break."""
         indicators = [
-            "cut to", "angle on", "close on", "wide shot",
-            "new angle", "reverse", "another angle"
+            "cut to",
+            "angle on",
+            "close on",
+            "wide shot",
+            "new angle",
+            "reverse",
+            "another angle",
         ]
 
         return any(ind in text.lower() for ind in indicators)
@@ -599,12 +625,14 @@ class ShotListGenerator:
         for char_name in raw_characters:
             appearances = self._character_appearances.get(char_name, [])
 
-            characters.append({
-                "name": char_name,
-                "scene_count": len(appearances),
-                "first_scene": appearances[0] if appearances else None,
-                "scenes": appearances,
-            })
+            characters.append(
+                {
+                    "name": char_name,
+                    "scene_count": len(appearances),
+                    "first_scene": appearances[0] if appearances else None,
+                    "scenes": appearances,
+                }
+            )
 
         # Sort by scene count (prominence)
         characters.sort(key=lambda c: c["scene_count"], reverse=True)
@@ -625,9 +653,7 @@ class ShotListGenerator:
                 # Look for character descriptions in prompts
                 for char in shot.characters_in_frame:
                     desc_matches = re.findall(
-                        rf'{char}[,\s]+([\w\s,]+)',
-                        shot.visual_prompt,
-                        re.IGNORECASE
+                        rf"{char}[,\s]+([\w\s,]+)", shot.visual_prompt, re.IGNORECASE
                     )
                     for match in desc_matches:
                         if char not in char_descriptions:
@@ -646,14 +672,16 @@ class ShotListGenerator:
                         heights_found.add((h, scene_num))
 
             if len(heights_found) > 1:
-                contradictions.append(Contradiction(
-                    contradiction_id=f"char_height_{char}",
-                    type="character_description",
-                    description=f"Character '{char}' has conflicting height descriptions",
-                    locations=[{"scene": s, "value": h} for h, s in heights_found],
-                    severity="warning",
-                    suggested_resolution=f"Clarify {char}'s height in Character Laboratory",
-                ))
+                contradictions.append(
+                    Contradiction(
+                        contradiction_id=f"char_height_{char}",
+                        type="character_description",
+                        description=f"Character '{char}' has conflicting height descriptions",
+                        locations=[{"scene": s, "value": h} for h, s in heights_found],
+                        severity="warning",
+                        suggested_resolution=f"Clarify {char}'s height in Character Laboratory",
+                    )
+                )
 
         return contradictions
 
@@ -685,7 +713,9 @@ class ShotListGenerator:
                                 "text": shot.dialogue.text,
                                 "emotion": shot.dialogue.emotion,
                                 "parenthetical": shot.dialogue.parenthetical,
-                            } if shot.dialogue else None,
+                            }
+                            if shot.dialogue
+                            else None,
                             "duration_estimate_seconds": shot.duration_estimate_seconds,
                             "confidence": shot.confidence,
                             "unknowns": shot.unknowns,

@@ -30,8 +30,10 @@ logger = logging.getLogger(__name__)
 # Configuration
 # =============================================================================
 
+
 class AlertChannel(StrEnum):
     """Alert notification channels."""
+
     SLACK = "slack"
     DISCORD = "discord"
     EMAIL = "email"
@@ -40,15 +42,17 @@ class AlertChannel(StrEnum):
 
 class AlertSeverity(StrEnum):
     """Alert severity levels."""
+
     CRITICAL = "critical"  # System down, data loss risk
-    ERROR = "error"        # Significant error affecting users
-    WARNING = "warning"    # Potential issue, degraded service
-    INFO = "info"          # Notable event, no action needed
+    ERROR = "error"  # Significant error affecting users
+    WARNING = "warning"  # Potential issue, degraded service
+    INFO = "info"  # Notable event, no action needed
 
 
 @dataclass
 class AlertConfig:
     """Configuration for alerts."""
+
     slack_webhook_url: str | None = None
     discord_webhook_url: str | None = None
     pagerduty_api_key: str | None = None
@@ -60,6 +64,7 @@ class AlertConfig:
 @dataclass
 class MonitoringConfig:
     """Configuration for monitoring."""
+
     sentry_dsn: str | None = None
     environment: str = "development"
     release: str | None = None
@@ -72,6 +77,7 @@ class MonitoringConfig:
 # =============================================================================
 # Structured Logging
 # =============================================================================
+
 
 class CorrelationIdFilter(logging.Filter):
     """Add correlation ID to log records."""
@@ -117,14 +123,31 @@ class StructuredFormatter(logging.Formatter):
         # Add extra fields
         for key, value in record.__dict__.items():
             if key not in (
-                "name", "msg", "args", "created", "filename", "funcName",
-                "levelname", "levelno", "lineno", "module", "msecs",
-                "pathname", "process", "processName", "relativeCreated",
-                "stack_info", "exc_info", "exc_text", "message", "correlation_id",
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "exc_info",
+                "exc_text",
+                "message",
+                "correlation_id",
             ):
                 log_data[key] = value
 
         import json
+
         return json.dumps(log_data)
 
 
@@ -152,6 +175,7 @@ def setup_logging(config: MonitoringConfig) -> logging.Logger:
 # =============================================================================
 # Sentry Integration
 # =============================================================================
+
 
 class SentryIntegration:
     """Sentry error tracking integration."""
@@ -246,6 +270,7 @@ class SentryIntegration:
 
         try:
             import sentry_sdk
+
             sentry_sdk.set_user({"id": user_id, "email": email})
         except ImportError:
             pass
@@ -261,6 +286,7 @@ T = TypeVar("T")
 @dataclass
 class TransactionContext:
     """Context for a performance transaction."""
+
     name: str
     op: str
     start_time: float = field(default_factory=time.time)
@@ -279,6 +305,7 @@ class TransactionContext:
 @dataclass
 class SpanContext:
     """Context for a performance span within a transaction."""
+
     name: str
     op: str
     start_time: float = field(default_factory=time.time)
@@ -326,7 +353,7 @@ class PerformanceTracer:
                     "duration_ms": transaction.duration_ms,
                     "status": transaction.status,
                     "span_count": len(transaction.spans),
-                }
+                },
             )
 
     @contextmanager
@@ -351,9 +378,11 @@ class PerformanceTracer:
 # Alerting
 # =============================================================================
 
+
 @dataclass
 class Alert:
     """An alert notification."""
+
     title: str
     message: str
     severity: AlertSeverity
@@ -388,6 +417,7 @@ class AlertManager:
                 tasks.append(self._send_pagerduty(alert))
 
         import asyncio
+
         await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _send_slack(self, alert: Alert) -> None:
@@ -403,19 +433,22 @@ class AlertManager:
         }
 
         payload = {
-            "attachments": [{
-                "color": color_map.get(alert.severity, "#808080"),
-                "title": f"[{alert.severity.value.upper()}] {alert.title}",
-                "text": alert.message,
-                "fields": [
-                    {"title": "Source", "value": alert.source, "short": True},
-                    {"title": "Time", "value": alert.timestamp.isoformat(), "short": True},
-                ] + [
-                    {"title": k, "value": str(v), "short": True}
-                    for k, v in list(alert.context.items())[:4]
-                ],
-                "footer": f"Alert ID: {alert.alert_id}",
-            }]
+            "attachments": [
+                {
+                    "color": color_map.get(alert.severity, "#808080"),
+                    "title": f"[{alert.severity.value.upper()}] {alert.title}",
+                    "text": alert.message,
+                    "fields": [
+                        {"title": "Source", "value": alert.source, "short": True},
+                        {"title": "Time", "value": alert.timestamp.isoformat(), "short": True},
+                    ]
+                    + [
+                        {"title": k, "value": str(v), "short": True}
+                        for k, v in list(alert.context.items())[:4]
+                    ],
+                    "footer": f"Alert ID: {alert.alert_id}",
+                }
+            ]
         }
 
         try:
@@ -440,17 +473,19 @@ class AlertManager:
         }
 
         payload = {
-            "embeds": [{
-                "title": f"[{alert.severity.value.upper()}] {alert.title}",
-                "description": alert.message,
-                "color": color_map.get(alert.severity, 0x808080),
-                "fields": [
-                    {"name": k, "value": str(v), "inline": True}
-                    for k, v in list(alert.context.items())[:6]
-                ],
-                "footer": {"text": f"Alert ID: {alert.alert_id}"},
-                "timestamp": alert.timestamp.isoformat(),
-            }]
+            "embeds": [
+                {
+                    "title": f"[{alert.severity.value.upper()}] {alert.title}",
+                    "description": alert.message,
+                    "color": color_map.get(alert.severity, 0x808080),
+                    "fields": [
+                        {"name": k, "value": str(v), "inline": True}
+                        for k, v in list(alert.context.items())[:6]
+                    ],
+                    "footer": {"text": f"Alert ID: {alert.alert_id}"},
+                    "timestamp": alert.timestamp.isoformat(),
+                }
+            ]
         }
 
         try:
@@ -501,9 +536,11 @@ class AlertManager:
 # Health Check
 # =============================================================================
 
+
 @dataclass
 class HealthCheckResult:
     """Result of a health check."""
+
     name: str
     healthy: bool
     latency_ms: float
@@ -529,6 +566,7 @@ class HealthChecker:
             start = time.time()
             try:
                 import asyncio
+
                 if asyncio.iscoroutinefunction(check_fn):
                     result = await check_fn()
                 else:
@@ -555,6 +593,7 @@ class HealthChecker:
 # =============================================================================
 # Monitoring Service
 # =============================================================================
+
 
 class MonitoringService:
     """Main monitoring service coordinating all monitoring features."""
@@ -590,7 +629,7 @@ class MonitoringService:
                 "environment": self.config.environment,
                 "sentry_enabled": self.config.sentry_dsn is not None,
                 "tracing_enabled": self.config.enable_tracing,
-            }
+            },
         )
 
     @contextmanager

@@ -412,29 +412,27 @@ class AssetService:
             Statistics dictionary
         """
         # Count by type
-        type_query = select(
-            Asset.asset_type, func.count(Asset.id)
-        ).where(
-            Asset.project_id == project_id
-        ).group_by(Asset.asset_type)
+        type_query = (
+            select(Asset.asset_type, func.count(Asset.id))
+            .where(Asset.project_id == project_id)
+            .group_by(Asset.asset_type)
+        )
 
         type_result = await self.session.execute(type_query)
         type_counts = {str(row[0].value): row[1] for row in type_result}
 
         # Count by status
-        status_query = select(
-            Asset.status, func.count(Asset.id)
-        ).where(
-            Asset.project_id == project_id
-        ).group_by(Asset.status)
+        status_query = (
+            select(Asset.status, func.count(Asset.id))
+            .where(Asset.project_id == project_id)
+            .group_by(Asset.status)
+        )
 
         status_result = await self.session.execute(status_query)
         status_counts = {str(row[0].value): row[1] for row in status_result}
 
         # Total size
-        size_query = select(
-            func.sum(Asset.file_size_bytes)
-        ).where(Asset.project_id == project_id)
+        size_query = select(func.sum(Asset.file_size_bytes)).where(Asset.project_id == project_id)
 
         size_result = await self.session.execute(size_query)
         total_size = size_result.scalar() or 0

@@ -208,9 +208,7 @@ class MoviePlanService:
         antagonist = self._identify_antagonist(characters, scenes, protagonist)
 
         # Analyze scenes
-        scene_analyses = [
-            self._analyze_scene(scene, characters, elements) for scene in scenes
-        ]
+        scene_analyses = [self._analyze_scene(scene, characters, elements) for scene in scenes]
 
         # Determine act structure
         act_structure = self._determine_act_structure(scenes)
@@ -331,9 +329,7 @@ class MoviePlanService:
 
         return f"An epic journey across {len(scenes)} scenes unfolds in this compelling story."
 
-    def _analyze_visual_style(
-        self, scenes: list[Scene], genre: str, tone: str
-    ) -> dict[str, Any]:
+    def _analyze_visual_style(self, scenes: list[Scene], genre: str, tone: str) -> dict[str, Any]:
         """Analyze and suggest visual style."""
         return {
             "overall_look": self._get_visual_look(genre),
@@ -405,8 +401,7 @@ class MoviePlanService:
         """Analyze a character for the movie plan."""
         # Find scenes character appears in
         character_scenes = [
-            s.scene_number for s in scenes
-            if character.name in (s.raw_content or "")
+            s.scene_number for s in scenes if character.name in (s.raw_content or "")
         ]
 
         return {
@@ -423,9 +418,7 @@ class MoviePlanService:
             ),
         }
 
-    def _identify_protagonist(
-        self, characters: list[Character], scenes: list[Scene]
-    ) -> str | None:
+    def _identify_protagonist(self, characters: list[Character], scenes: list[Scene]) -> str | None:
         """Identify the likely protagonist."""
         if not characters:
             return None
@@ -480,9 +473,7 @@ class MoviePlanService:
             "lighting_notes": f"Natural {scene.time_of_day.value.lower()} lighting",
         }
 
-    def _determine_act_structure(
-        self, scenes: list[Scene]
-    ) -> dict[str, list[str]]:
+    def _determine_act_structure(self, scenes: list[Scene]) -> dict[str, list[str]]:
         """Determine three-act structure."""
         total = len(scenes)
         if total == 0:
@@ -516,17 +507,25 @@ class MoviePlanService:
             locations[loc]["times_of_day"].add(scene.time_of_day.value)
 
         # Convert sets to lists for JSON serialization
-        return [
-            {**loc, "times_of_day": list(loc["times_of_day"])}
-            for loc in locations.values()
-        ]
+        return [{**loc, "times_of_day": list(loc["times_of_day"])} for loc in locations.values()]
 
     def _extract_props(self, elements: list[dict]) -> list[str]:
         """Extract potential prop requirements from action lines."""
         # Common prop indicators
         prop_words = [
-            "gun", "phone", "letter", "book", "knife", "car", "bag",
-            "drink", "glass", "bottle", "key", "door", "window",
+            "gun",
+            "phone",
+            "letter",
+            "book",
+            "knife",
+            "car",
+            "bag",
+            "drink",
+            "glass",
+            "bottle",
+            "key",
+            "door",
+            "window",
         ]
 
         props = set()
@@ -703,11 +702,7 @@ class MoviePlanService:
 
     async def _get_scenes(self, project_id: UUID) -> list[Scene]:
         """Get all scenes for a project, ordered by sequence."""
-        stmt = (
-            select(Scene)
-            .where(Scene.project_id == project_id)
-            .order_by(Scene.sequence_number)
-        )
+        stmt = select(Scene).where(Scene.project_id == project_id).order_by(Scene.sequence_number)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

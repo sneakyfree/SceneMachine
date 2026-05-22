@@ -31,6 +31,7 @@ def register_handlers(server: IPCServer) -> None:
     # local model option instead of the validated Wan22 / LTX-2 stacks.
     try:
         from scenemachine.generators.registry import setup_providers
+
         setup_providers()
         logger.info("Provider registry populated for IPC server")
     except Exception as e:
@@ -375,9 +376,7 @@ def register_handlers(server: IPCServer) -> None:
                 raise ValueError(f"Screenplay {screenplay_id} not found")
 
             # Get characters
-            chars_stmt = select(Character).where(
-                Character.project_id == screenplay.project_id
-            )
+            chars_stmt = select(Character).where(Character.project_id == screenplay.project_id)
             chars_result = await session.execute(chars_stmt)
             characters = chars_result.scalars().all()
 
@@ -653,18 +652,18 @@ def register_handlers(server: IPCServer) -> None:
             if character.reference_assets:
                 for asset in character.reference_assets:
                     is_primary = (
-                        asset.metadata.get("is_primary", False)
-                        if asset.metadata
-                        else False
+                        asset.metadata.get("is_primary", False) if asset.metadata else False
                     )
-                    references.append({
-                        "id": str(asset.id),
-                        "assetType": asset.asset_type.value,
-                        "originalFilename": asset.original_filename,
-                        "filePath": asset.file_path,
-                        "isPrimary": is_primary,
-                        "createdAt": asset.created_at.isoformat(),
-                    })
+                    references.append(
+                        {
+                            "id": str(asset.id),
+                            "assetType": asset.asset_type.value,
+                            "originalFilename": asset.original_filename,
+                            "filePath": asset.file_path,
+                            "isPrimary": is_primary,
+                            "createdAt": asset.created_at.isoformat(),
+                        }
+                    )
 
             return {
                 "id": str(character.id),
@@ -1173,7 +1172,9 @@ def register_handlers(server: IPCServer) -> None:
                         "state": s.state.value,
                     }
                     for s in sorted(scene.shots, key=lambda x: x.sequence_number)
-                ] if scene and scene.shots else [],
+                ]
+                if scene and scene.shots
+                else [],
             }
 
     @server.handler("scenes.approve")
@@ -1757,15 +1758,17 @@ def register_handlers(server: IPCServer) -> None:
             except Exception as e:
                 replicate_error = str(e)
 
-        providers.append({
-            "provider": "replicate",
-            "name": "Replicate",
-            "available": replicate_available,
-            "configured": replicate_configured,
-            "models": ReplicateProvider.list_models(),
-            "defaultModel": settings.replicate_video_model or "minimax",
-            "error": replicate_error,
-        })
+        providers.append(
+            {
+                "provider": "replicate",
+                "name": "Replicate",
+                "available": replicate_available,
+                "configured": replicate_configured,
+                "models": ReplicateProvider.list_models(),
+                "defaultModel": settings.replicate_video_model or "minimax",
+                "error": replicate_error,
+            }
+        )
 
         # Fal.ai
         fal_configured = bool(settings.fal_api_key)
@@ -1782,33 +1785,39 @@ def register_handlers(server: IPCServer) -> None:
             except Exception as e:
                 fal_error = str(e)
 
-        providers.append({
-            "provider": "fal",
-            "name": "Fal.ai",
-            "available": fal_available,
-            "configured": fal_configured,
-            "models": FalProvider.list_models(),
-            "defaultModel": settings.fal_video_model or "ltx",
-            "error": fal_error,
-        })
+        providers.append(
+            {
+                "provider": "fal",
+                "name": "Fal.ai",
+                "available": fal_available,
+                "configured": fal_configured,
+                "models": FalProvider.list_models(),
+                "defaultModel": settings.fal_video_model or "ltx",
+                "error": fal_error,
+            }
+        )
 
         # Local
-        providers.append({
-            "provider": "local",
-            "name": "Local (Development)",
-            "available": True,
-            "configured": True,
-            "models": [{
-                "id": "mock",
-                "name": "Mock Generator",
-                "cost_per_second": 0.0,
-                "supports_text_to_video": True,
-                "supports_image_to_video": True,
-                "max_duration": 10.0,
-            }],
-            "defaultModel": "mock",
-            "error": None,
-        })
+        providers.append(
+            {
+                "provider": "local",
+                "name": "Local (Development)",
+                "available": True,
+                "configured": True,
+                "models": [
+                    {
+                        "id": "mock",
+                        "name": "Mock Generator",
+                        "cost_per_second": 0.0,
+                        "supports_text_to_video": True,
+                        "supports_image_to_video": True,
+                        "max_duration": 10.0,
+                    }
+                ],
+                "defaultModel": "mock",
+                "error": None,
+            }
+        )
 
         return providers
 
@@ -1861,14 +1870,16 @@ def register_handlers(server: IPCServer) -> None:
         if provider_id == "fal":
             return FalProvider.list_models()
         if provider_id == "local":
-            return [{
-                "id": "mock",
-                "name": "Mock Generator",
-                "cost_per_second": 0.0,
-                "supports_text_to_video": True,
-                "supports_image_to_video": True,
-                "max_duration": 10.0,
-            }]
+            return [
+                {
+                    "id": "mock",
+                    "name": "Mock Generator",
+                    "cost_per_second": 0.0,
+                    "supports_text_to_video": True,
+                    "supports_image_to_video": True,
+                    "max_duration": 10.0,
+                }
+            ]
         raise ValueError(f"Unknown provider: {provider_id}")
 
     @server.handler("generation.estimateCost")
@@ -1993,22 +2004,24 @@ def register_handlers(server: IPCServer) -> None:
 
             scenes_data = []
             for scene in timeline.scenes:
-                scenes_data.append({
-                    "sceneId": str(scene.scene_id),
-                    "sceneNumber": scene.scene_number,
-                    "title": scene.title,
-                    "duration": scene.duration,
-                    "shots": [
-                        {
-                            "shotId": str(shot.shot_id),
-                            "shotNumber": shot.shot_number,
-                            "duration": shot.duration,
-                            "hasOutput": shot.output_path is not None,
-                            "thumbnail": shot.thumbnail_path,
-                        }
-                        for shot in scene.shots
-                    ],
-                })
+                scenes_data.append(
+                    {
+                        "sceneId": str(scene.scene_id),
+                        "sceneNumber": scene.scene_number,
+                        "title": scene.title,
+                        "duration": scene.duration,
+                        "shots": [
+                            {
+                                "shotId": str(shot.shot_id),
+                                "shotNumber": shot.shot_number,
+                                "duration": shot.duration,
+                                "hasOutput": shot.output_path is not None,
+                                "thumbnail": shot.thumbnail_path,
+                            }
+                            for shot in scene.shots
+                        ],
+                    }
+                )
 
             return {
                 "projectId": str(pid),
@@ -2177,11 +2190,7 @@ def register_handlers(server: IPCServer) -> None:
                 if updates:
                     from sqlalchemy import update
 
-                    stmt = (
-                        update(Shot)
-                        .where(Shot.id == shot_id)
-                        .values(**updates)
-                    )
+                    stmt = update(Shot).where(Shot.id == shot_id).values(**updates)
                     await session.execute(stmt)
                     updated_count += 1
 
@@ -2205,11 +2214,7 @@ def register_handlers(server: IPCServer) -> None:
             from sqlalchemy import select
             from sqlalchemy.orm import joinedload
 
-            stmt = (
-                select(Shot)
-                .options(joinedload(Shot.scene))
-                .where(Shot.id == sid)
-            )
+            stmt = select(Shot).options(joinedload(Shot.scene)).where(Shot.id == sid)
             result = await session.execute(stmt)
             shot = result.scalar_one_or_none()
 
@@ -2745,7 +2750,9 @@ def register_handlers(server: IPCServer) -> None:
             await service.initialize_providers()
 
             result = await service.generate_dialogue(
-                sid, emotion=emotion, speed=speed,
+                sid,
+                emotion=emotion,
+                speed=speed,
             )
 
             return {
@@ -2792,25 +2799,29 @@ def register_handlers(server: IPCServer) -> None:
             for shot in shots:
                 try:
                     result = await service.generate_dialogue(shot.id)
-                    results.append({
-                        "shotId": str(shot.id),
-                        "success": result.success,
-                        "audioPath": result.audio_path,
-                        "durationSeconds": result.duration_seconds,
-                        "errorMessage": result.error_message,
-                    })
+                    results.append(
+                        {
+                            "shotId": str(shot.id),
+                            "success": result.success,
+                            "audioPath": result.audio_path,
+                            "durationSeconds": result.duration_seconds,
+                            "errorMessage": result.error_message,
+                        }
+                    )
                     if result.success:
                         success_count += 1
                     if hasattr(result, "cost_usd") and result.cost_usd:
                         total_cost += result.cost_usd
                 except Exception as e:
-                    results.append({
-                        "shotId": str(shot.id),
-                        "success": False,
-                        "audioPath": None,
-                        "durationSeconds": 0,
-                        "errorMessage": str(e),
-                    })
+                    results.append(
+                        {
+                            "shotId": str(shot.id),
+                            "success": False,
+                            "audioPath": None,
+                            "durationSeconds": 0,
+                            "errorMessage": str(e),
+                        }
+                    )
 
             return {
                 "sceneId": scene_id,
@@ -2819,7 +2830,6 @@ def register_handlers(server: IPCServer) -> None:
                 "totalCostUsd": total_cost,
                 "results": results,
             }
-
 
     @server.handler("audio.assignVoice")
     async def handle_assign_voice(
@@ -3076,9 +3086,7 @@ def register_handlers(server: IPCServer) -> None:
         if strength is not None:
             f = float(strength)
             if not (0.0 <= f <= 1.0):
-                raise ValueError(
-                    f"IPAdapter strength must be in [0.0, 1.0], got {f}"
-                )
+                raise ValueError(f"IPAdapter strength must be in [0.0, 1.0], got {f}")
             _ip_adapter_state["strength"] = f
         return dict(_ip_adapter_state)
 
@@ -3127,19 +3135,25 @@ def register_handlers(server: IPCServer) -> None:
                 scene_dict = {
                     "scene_number": s.scene_number,
                     "location": s.location,
-                    "time_of_day": s.time_of_day.value if hasattr(s.time_of_day, "value") else str(s.time_of_day),
+                    "time_of_day": s.time_of_day.value
+                    if hasattr(s.time_of_day, "value")
+                    else str(s.time_of_day),
                     "raw_content": (s.raw_content or "")[:400],
                 }
                 scenes.append(scene_dict)
-                for sh in (s.shots or []):
-                    shots.append({
-                        "shot_id": str(sh.id),
-                        "scene_number": s.scene_number,
-                        "shot_type": sh.shot_type.value if hasattr(sh.shot_type, "value") else str(sh.shot_type),
-                        "description": sh.description,
-                        "duration_seconds": sh.duration_seconds,
-                        "characters_in_frame": list(sh.character_ids or []),
-                    })
+                for sh in s.shots or []:
+                    shots.append(
+                        {
+                            "shot_id": str(sh.id),
+                            "scene_number": s.scene_number,
+                            "shot_type": sh.shot_type.value
+                            if hasattr(sh.shot_type, "value")
+                            else str(sh.shot_type),
+                            "description": sh.description,
+                            "duration_seconds": sh.duration_seconds,
+                            "characters_in_frame": list(sh.character_ids or []),
+                        }
+                    )
 
         engine = BlockersEngine()
         analysis = engine.analyze_project(
@@ -3151,9 +3165,7 @@ def register_handlers(server: IPCServer) -> None:
         return analysis
 
     @server.handler("blockers.apply_fix")
-    async def handle_blockers_apply_fix(
-        blocker_id: str, fix_id: str
-    ) -> dict[str, Any]:
+    async def handle_blockers_apply_fix(blocker_id: str, fix_id: str) -> dict[str, Any]:
         """Acknowledge an unlocker action; mark the blocker as user-handled.
 
         Most unlocker actions are user-side ("upload a reference image",
@@ -3190,6 +3202,7 @@ def register_handlers(server: IPCServer) -> None:
             ParserAgent,
             ReviewerAgent,
         )
+
         orchestrator = OrchestratorAgent(name="Director")
         orchestrator.register_agent(ParserAgent(name="Parser"))
         orchestrator.register_agent(CharacterAgent(name="Character"))
@@ -3306,6 +3319,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_crew_total_cost() -> dict[str, float]:
         """Get total cost of all crew actions."""
         from scenemachine.agents import AgentActionLogger
+
         action_logger = AgentActionLogger()
         return {"total_cost_usd": action_logger.get_total_cost()}
 
@@ -3619,12 +3633,14 @@ def register_handlers(server: IPCServer) -> None:
             # Filter by status
             if not include_completed:
                 query = query.where(
-                    GenerationJob.status.in_([
-                        JobStatus.PENDING,
-                        JobStatus.PREPARING,
-                        JobStatus.RUNNING,
-                        JobStatus.POST_PROCESSING,
-                    ])
+                    GenerationJob.status.in_(
+                        [
+                            JobStatus.PENDING,
+                            JobStatus.PREPARING,
+                            JobStatus.RUNNING,
+                            JobStatus.POST_PROCESSING,
+                        ]
+                    )
                 )
 
             # Filter by project
@@ -3633,9 +3649,7 @@ def register_handlers(server: IPCServer) -> None:
                 query = query.join(Shot).where(Shot.project_id == pid)
 
             # Order by priority (in parameters) and queued_at
-            query = query.order_by(
-                GenerationJob.queued_at.asc()
-            ).limit(limit)
+            query = query.order_by(GenerationJob.queued_at.asc()).limit(limit)
 
             result = await session.execute(query)
             jobs = result.scalars().all()
@@ -3730,8 +3744,9 @@ def register_handlers(server: IPCServer) -> None:
 
             # Get highest priority
             max_priority = await session.execute(
-                select(func.max(GenerationJob.parameters["priority"].as_integer()))
-                .where(GenerationJob.status == JobStatus.PENDING)
+                select(func.max(GenerationJob.parameters["priority"].as_integer())).where(
+                    GenerationJob.status == JobStatus.PENDING
+                )
             )
             current_max = max_priority.scalar() or 0
 
@@ -3775,8 +3790,9 @@ def register_handlers(server: IPCServer) -> None:
 
             # Get lowest priority
             min_priority = await session.execute(
-                select(func.min(GenerationJob.parameters["priority"].as_integer()))
-                .where(GenerationJob.status == JobStatus.PENDING)
+                select(func.min(GenerationJob.parameters["priority"].as_integer())).where(
+                    GenerationJob.status == JobStatus.PENDING
+                )
             )
             current_min = min_priority.scalar() or 0
 
@@ -3807,9 +3823,7 @@ def register_handlers(server: IPCServer) -> None:
         db_manager = get_db_manager()
 
         async with db_manager.session() as session:
-            query = select(GenerationJob.id).where(
-                GenerationJob.status == JobStatus.PENDING
-            )
+            query = select(GenerationJob.id).where(GenerationJob.status == JobStatus.PENDING)
 
             if project_id:
                 pid = UUID(project_id)
@@ -3896,9 +3910,7 @@ def register_handlers(server: IPCServer) -> None:
             stats = {}
 
             for status in JobStatus:
-                query = select(func.count(GenerationJob.id)).where(
-                    GenerationJob.status == status
-                )
+                query = select(func.count(GenerationJob.id)).where(GenerationJob.status == status)
 
                 if pid:
                     query = query.join(Shot).where(Shot.project_id == pid)
@@ -3908,11 +3920,13 @@ def register_handlers(server: IPCServer) -> None:
 
             # Calculate totals
             pending_total = stats.get("pending", 0)
-            running_total = sum([
-                stats.get("preparing", 0),
-                stats.get("running", 0),
-                stats.get("post_processing", 0),
-            ])
+            running_total = sum(
+                [
+                    stats.get("preparing", 0),
+                    stats.get("running", 0),
+                    stats.get("post_processing", 0),
+                ]
+            )
             completed_total = stats.get("completed", 0)
             failed_total = stats.get("failed", 0) + stats.get("timeout", 0)
 
@@ -4379,11 +4393,15 @@ def register_handlers(server: IPCServer) -> None:
                     "failedJobs": generation_stats.failed_jobs,
                     "pendingJobs": generation_stats.pending_jobs,
                     "successRate": round(generation_stats.success_rate, 2),
-                    "avgGenerationTimeSeconds": round(generation_stats.avg_generation_time_seconds, 2),
+                    "avgGenerationTimeSeconds": round(
+                        generation_stats.avg_generation_time_seconds, 2
+                    ),
                 },
                 "costs": {
                     "totalCostUsd": round(cost_stats.total_cost_usd, 4),
-                    "costByProvider": {k: round(v, 4) for k, v in cost_stats.cost_by_provider.items()},
+                    "costByProvider": {
+                        k: round(v, 4) for k, v in cost_stats.cost_by_provider.items()
+                    },
                     "avgCostPerShot": round(cost_stats.avg_cost_per_shot, 4),
                 },
                 "projects": {
@@ -4395,7 +4413,9 @@ def register_handlers(server: IPCServer) -> None:
                 },
                 "performance": {
                     "avgWaitTimeSeconds": round(performance_stats.avg_wait_time_seconds, 2),
-                    "avgProcessingTimeSeconds": round(performance_stats.avg_processing_time_seconds, 2),
+                    "avgProcessingTimeSeconds": round(
+                        performance_stats.avg_processing_time_seconds, 2
+                    ),
                     "peakConcurrentJobs": performance_stats.peak_concurrent_jobs,
                     "currentQueueSize": performance_stats.current_queue_size,
                 },
@@ -4628,22 +4648,24 @@ def register_handlers(server: IPCServer) -> None:
             elif state == "half_open":
                 half_open_count += 1
 
-            circuits.append({
-                "name": name,
-                "state": state,
-                "totalCalls": stats.get("total_calls", 0),
-                "successfulCalls": stats.get("successful_calls", 0),
-                "failedCalls": stats.get("failed_calls", 0),
-                "rejectedCalls": stats.get("rejected_calls", 0),
-                "consecutiveFailures": stats.get("consecutive_failures", 0),
-                "consecutiveSuccesses": stats.get("consecutive_successes", 0),
-                "lastFailureTime": stats.get("last_failure"),
-                "lastSuccessTime": stats.get("last_success"),
-                "failureThreshold": config.get("failure_threshold", 5),
-                "recoveryTimeout": config.get("recovery_timeout", 30.0),
-                "remainingTimeout": status.get("remaining_timeout", 0.0),
-                "successRate": round(success_rate, 1),
-            })
+            circuits.append(
+                {
+                    "name": name,
+                    "state": state,
+                    "totalCalls": stats.get("total_calls", 0),
+                    "successfulCalls": stats.get("successful_calls", 0),
+                    "failedCalls": stats.get("failed_calls", 0),
+                    "rejectedCalls": stats.get("rejected_calls", 0),
+                    "consecutiveFailures": stats.get("consecutive_failures", 0),
+                    "consecutiveSuccesses": stats.get("consecutive_successes", 0),
+                    "lastFailureTime": stats.get("last_failure"),
+                    "lastSuccessTime": stats.get("last_success"),
+                    "failureThreshold": config.get("failure_threshold", 5),
+                    "recoveryTimeout": config.get("recovery_timeout", 30.0),
+                    "remainingTimeout": status.get("remaining_timeout", 0.0),
+                    "successRate": round(success_rate, 1),
+                }
+            )
 
         return {
             "circuits": circuits,
@@ -4716,7 +4738,7 @@ def register_handlers(server: IPCServer) -> None:
         if len(content) > MAX_FILE_SIZE:
             return {
                 "success": False,
-                "error": f"File too large. Maximum: {MAX_FILE_SIZE // (1024*1024)}MB",
+                "error": f"File too large. Maximum: {MAX_FILE_SIZE // (1024 * 1024)}MB",
             }
 
         # Generate unique filename
@@ -4983,9 +5005,21 @@ def register_handlers(server: IPCServer) -> None:
 
         return [
             {"type": "title", "label": "Title", "style": DEFAULT_STYLES[TextOverlayType.TITLE]},
-            {"type": "subtitle", "label": "Subtitle", "style": DEFAULT_STYLES[TextOverlayType.SUBTITLE]},
-            {"type": "lower_third", "label": "Lower Third", "style": DEFAULT_STYLES[TextOverlayType.LOWER_THIRD]},
-            {"type": "caption", "label": "Caption", "style": DEFAULT_STYLES[TextOverlayType.CAPTION]},
+            {
+                "type": "subtitle",
+                "label": "Subtitle",
+                "style": DEFAULT_STYLES[TextOverlayType.SUBTITLE],
+            },
+            {
+                "type": "lower_third",
+                "label": "Lower Third",
+                "style": DEFAULT_STYLES[TextOverlayType.LOWER_THIRD],
+            },
+            {
+                "type": "caption",
+                "label": "Caption",
+                "style": DEFAULT_STYLES[TextOverlayType.CAPTION],
+            },
             {"type": "custom", "label": "Custom", "style": DEFAULT_STYLES[TextOverlayType.CUSTOM]},
         ]
 
@@ -5001,9 +5035,7 @@ def register_handlers(server: IPCServer) -> None:
 
         async with db_manager.session() as session:
             stmt = (
-                select(TextOverlay)
-                .where(TextOverlay.shot_id == sid)
-                .order_by(TextOverlay.z_index)
+                select(TextOverlay).where(TextOverlay.shot_id == sid).order_by(TextOverlay.z_index)
             )
             result = await session.execute(stmt)
             overlays = result.scalars().all()
@@ -5022,9 +5054,7 @@ def register_handlers(server: IPCServer) -> None:
 
         async with db_manager.session() as session:
             stmt = (
-                select(TextOverlay)
-                .where(TextOverlay.scene_id == sid)
-                .order_by(TextOverlay.z_index)
+                select(TextOverlay).where(TextOverlay.scene_id == sid).order_by(TextOverlay.z_index)
             )
             result = await session.execute(stmt)
             overlays = result.scalars().all()
@@ -5089,7 +5119,10 @@ def register_handlers(server: IPCServer) -> None:
         project_uuid = UUID(project_id) if project_id else None
 
         if not any([shot_uuid, scene_uuid, project_uuid]):
-            return {"success": False, "error": "One of shot_id, scene_id, or project_id is required"}
+            return {
+                "success": False,
+                "error": "One of shot_id, scene_id, or project_id is required",
+            }
 
         # Get enums
         try:
@@ -5279,9 +5312,7 @@ def register_handlers(server: IPCServer) -> None:
 
         async with db_manager.session() as session:
             # Delete existing overlays
-            await session.execute(
-                delete(TextOverlay).where(TextOverlay.shot_id == sid)
-            )
+            await session.execute(delete(TextOverlay).where(TextOverlay.shot_id == sid))
 
             # Create new overlays
             new_overlays = []
@@ -5467,9 +5498,7 @@ def register_handlers(server: IPCServer) -> None:
             raise ValueError(f"Invalid GPU type: {gpuType}")
 
         pricing_service = get_pricing_service()
-        pricing = await pricing_service.get_pricing(
-            providerId, gpu, region or "us-east-1"
-        )
+        pricing = await pricing_service.get_pricing(providerId, gpu, region or "us-east-1")
 
         if not pricing:
             raise ValueError(f"Pricing not available for {providerId}/{gpuType}")
@@ -5588,9 +5617,7 @@ def register_handlers(server: IPCServer) -> None:
             }
         else:
             tier = PricingTier.BUDGET if useSpot else PricingTier.STANDARD
-            result = await pricing_service.get_optimal_provider(
-                gpu, durationSeconds, tier=tier
-            )
+            result = await pricing_service.get_optimal_provider(gpu, durationSeconds, tier=tier)
 
             if not result:
                 raise ValueError(f"No providers available for {gpuType}")
@@ -5660,9 +5687,7 @@ def register_handlers(server: IPCServer) -> None:
                 routing_config.allow_spot = config["allow_spot"]
 
         exchange = get_gpu_exchange()
-        selection = await exchange.select_provider(
-            gpu, durationSeconds, routing_config, capability
-        )
+        selection = await exchange.select_provider(gpu, durationSeconds, routing_config, capability)
 
         if not selection:
             raise ValueError("No suitable provider found")
@@ -5716,9 +5741,7 @@ def register_handlers(server: IPCServer) -> None:
         from scenemachine.gpu_exchange.pricing import get_pricing_service
 
         pricing_service = get_pricing_service()
-        allowed, warning = pricing_service.check_budget(
-            projectId, estimatedCost, currentSpent
-        )
+        allowed, warning = pricing_service.check_budget(projectId, estimatedCost, currentSpent)
 
         return {"allowed": allowed, "warning": warning}
 
@@ -5727,10 +5750,7 @@ def register_handlers(server: IPCServer) -> None:
         """List all GPU types."""
         from scenemachine.gpu_exchange.base import GPUType
 
-        return [
-            {"id": gpu.value, "name": gpu.name.replace("_", " ")}
-            for gpu in GPUType
-        ]
+        return [{"id": gpu.value, "name": gpu.name.replace("_", " ")} for gpu in GPUType]
 
     @server.handler("gpuExchange.listCapabilities")
     async def handle_list_gpu_capabilities() -> list[dict[str, str]]:
@@ -5827,6 +5847,7 @@ def register_handlers(server: IPCServer) -> None:
         if context and context.get("conversationHistory"):
             try:
                 import json
+
                 conversation_history = json.loads(context["conversationHistory"])
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -5877,18 +5898,22 @@ def register_handlers(server: IPCServer) -> None:
 
                     # Extract scenes
                     for scene in project.scenes:
-                        scenes.append({
-                            "sequence": scene.sequence,
-                            "heading": scene.heading,
-                            "description": scene.description or "",
-                        })
+                        scenes.append(
+                            {
+                                "sequence": scene.sequence,
+                                "heading": scene.heading,
+                                "description": scene.description or "",
+                            }
+                        )
 
                     # Extract characters
                     for char in project.characters:
-                        characters.append({
-                            "name": char.name,
-                            "description": char.description or "",
-                        })
+                        characters.append(
+                            {
+                                "name": char.name,
+                                "description": char.description or "",
+                            }
+                        )
         except Exception as e:
             logger.warning(f"Failed to load project data for analysis: {e}")
 
@@ -5925,9 +5950,7 @@ def register_handlers(server: IPCServer) -> None:
             scene_uuid = UUID(sceneId)
             async with db_manager.session() as session:
                 stmt = (
-                    select(Scene)
-                    .options(selectinload(Scene.shots))
-                    .where(Scene.id == scene_uuid)
+                    select(Scene).options(selectinload(Scene.shots)).where(Scene.id == scene_uuid)
                 )
                 result = await session.execute(stmt)
                 scene = result.scalar_one_or_none()
@@ -5937,10 +5960,7 @@ def register_handlers(server: IPCServer) -> None:
                         "heading": scene.heading,
                         "description": scene.description or "",
                         "mood": scene.mood.value if scene.mood else "Unknown",
-                        "shots": [
-                            {"description": s.description or ""}
-                            for s in scene.shots[:10]
-                        ],
+                        "shots": [{"description": s.description or ""} for s in scene.shots[:10]],
                     }
 
                     # Get adjacent scenes
@@ -5948,17 +5968,15 @@ def register_handlers(server: IPCServer) -> None:
                     seq = scene.sequence
 
                     # Previous scene
-                    prev_stmt = (
-                        select(Scene)
-                        .where(Scene.project_id == project_id, Scene.sequence == seq - 1)
+                    prev_stmt = select(Scene).where(
+                        Scene.project_id == project_id, Scene.sequence == seq - 1
                     )
                     prev_result = await session.execute(prev_stmt)
                     prev_scene = prev_result.scalar_one_or_none()
 
                     # Next scene
-                    next_stmt = (
-                        select(Scene)
-                        .where(Scene.project_id == project_id, Scene.sequence == seq + 1)
+                    next_stmt = select(Scene).where(
+                        Scene.project_id == project_id, Scene.sequence == seq + 1
                     )
                     next_result = await session.execute(next_stmt)
                     next_scene = next_result.scalar_one_or_none()
@@ -5979,10 +5997,7 @@ def register_handlers(server: IPCServer) -> None:
                     proj_result = await session.execute(project_stmt)
                     project = proj_result.scalar_one_or_none()
                     if project:
-                        characters = [
-                            {"name": c.name}
-                            for c in project.characters[:10]
-                        ]
+                        characters = [{"name": c.name} for c in project.characters[:10]]
         except Exception as e:
             logger.warning(f"Failed to load scene data: {e}")
 
@@ -6024,7 +6039,9 @@ def register_handlers(server: IPCServer) -> None:
                 if shot:
                     shot_data = {
                         "shot_type": shot.shot_type.value if shot.shot_type else "Unknown",
-                        "camera_movement": shot.camera_movement.value if shot.camera_movement else "None",
+                        "camera_movement": shot.camera_movement.value
+                        if shot.camera_movement
+                        else "None",
                         "description": shot.description or "",
                         "generation_prompt": shot.generation_prompt or "",
                     }
@@ -6043,16 +6060,14 @@ def register_handlers(server: IPCServer) -> None:
                     # Get adjacent shots
                     seq = shot.sequence
 
-                    prev_stmt = (
-                        select(Shot)
-                        .where(Shot.scene_id == shot.scene_id, Shot.sequence == seq - 1)
+                    prev_stmt = select(Shot).where(
+                        Shot.scene_id == shot.scene_id, Shot.sequence == seq - 1
                     )
                     prev_result = await session.execute(prev_stmt)
                     prev_shot = prev_result.scalar_one_or_none()
 
-                    next_stmt = (
-                        select(Shot)
-                        .where(Shot.scene_id == shot.scene_id, Shot.sequence == seq + 1)
+                    next_stmt = select(Shot).where(
+                        Shot.scene_id == shot.scene_id, Shot.sequence == seq + 1
                     )
                     next_result = await session.execute(next_stmt)
                     next_shot = next_result.scalar_one_or_none()
@@ -6060,7 +6075,9 @@ def register_handlers(server: IPCServer) -> None:
                     if prev_shot or next_shot:
                         adjacent_shots = {}
                         if prev_shot:
-                            adjacent_shots["previous"] = {"description": prev_shot.description or ""}
+                            adjacent_shots["previous"] = {
+                                "description": prev_shot.description or ""
+                            }
                         if next_shot:
                             adjacent_shots["next"] = {"description": next_shot.description or ""}
 
@@ -6137,16 +6154,36 @@ def register_handlers(server: IPCServer) -> None:
         ]
 
         if sceneId:
-            actions.extend([
-                {"id": "scene_suggest", "label": "Suggest Improvements", "action": "suggest_scene"},
-                {"id": "scene_visualize", "label": "Visualize Scene", "action": "visualize_scene"},
-            ])
+            actions.extend(
+                [
+                    {
+                        "id": "scene_suggest",
+                        "label": "Suggest Improvements",
+                        "action": "suggest_scene",
+                    },
+                    {
+                        "id": "scene_visualize",
+                        "label": "Visualize Scene",
+                        "action": "visualize_scene",
+                    },
+                ]
+            )
 
         if shotId:
-            actions.extend([
-                {"id": "shot_suggest", "label": "Suggest Shot Changes", "action": "suggest_shot"},
-                {"id": "shot_regenerate", "label": "Regenerate Prompt", "action": "regenerate_prompt"},
-            ])
+            actions.extend(
+                [
+                    {
+                        "id": "shot_suggest",
+                        "label": "Suggest Shot Changes",
+                        "action": "suggest_shot",
+                    },
+                    {
+                        "id": "shot_regenerate",
+                        "label": "Regenerate Prompt",
+                        "action": "regenerate_prompt",
+                    },
+                ]
+            )
 
         return actions
 
@@ -6178,7 +6215,9 @@ def register_handlers(server: IPCServer) -> None:
                 if shot:
                     shot_context = {
                         "shot_type": shot.shot_type.value if shot.shot_type else "Unknown",
-                        "camera_movement": shot.camera_movement.value if shot.camera_movement else "Static",
+                        "camera_movement": shot.camera_movement.value
+                        if shot.camera_movement
+                        else "Static",
                     }
 
                     # Load scene for mood
@@ -6244,10 +6283,7 @@ def register_handlers(server: IPCServer) -> None:
                     project = proj_result.scalar_one_or_none()
 
                     if project:
-                        characters = [
-                            {"name": c.name}
-                            for c in project.characters[:10]
-                        ]
+                        characters = [{"name": c.name} for c in project.characters[:10]]
 
         except Exception as e:
             logger.warning(f"Failed to load scene data for shot breakdown: {e}")
@@ -6928,7 +6964,9 @@ def register_handlers(server: IPCServer) -> None:
                     elif booking_mode == "deep":
                         price_usd = performer.pricing.get("deep", 25.0)
                     elif booking_mode == "epic":
-                        price_usd = performer.pricing.get("epic_per_minute", 10.0) * (duration_seconds / 60)
+                        price_usd = performer.pricing.get("epic_per_minute", 10.0) * (
+                            duration_seconds / 60
+                        )
 
             # Calculate duration-based pricing
             if booking_mode == "blink":
@@ -7054,9 +7092,7 @@ def register_handlers(server: IPCServer) -> None:
         return out
 
     @server.handler("snapshots.get")
-    async def handle_snapshots_get(
-        project_id: str, snapshot_id: str
-    ) -> dict[str, Any] | None:
+    async def handle_snapshots_get(project_id: str, snapshot_id: str) -> dict[str, Any] | None:
         """Load a specific snapshot's full payload (including all *_data)."""
         from scenemachine.services.snapshots import SnapshotService
 

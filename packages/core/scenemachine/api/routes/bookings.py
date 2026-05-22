@@ -226,7 +226,10 @@ async def find_available_performer(
         # Check specialties match emotions (basic matching)
         if emotion_requirements and performer.specialties:
             # Simple check: at least some overlap
-            if not any(e.lower() in [s.lower() for s in performer.specialties] for e in emotion_requirements):
+            if not any(
+                e.lower() in [s.lower() for s in performer.specialties]
+                for e in emotion_requirements
+            ):
                 continue
 
         return performer
@@ -288,11 +291,7 @@ async def get_booking(
     session: AsyncSession = Depends(get_session),
 ) -> BookingResponse:
     """Get booking details."""
-    stmt = (
-        select(Booking)
-        .where(Booking.id == booking_id)
-        .options(selectinload(Booking.performer))
-    )
+    stmt = select(Booking).where(Booking.id == booking_id).options(selectinload(Booking.performer))
     result = await session.execute(stmt)
     booking = result.scalar_one_or_none()
 
@@ -536,11 +535,7 @@ async def accept_booking(
     session: AsyncSession = Depends(get_session),
 ) -> BookingResponse:
     """Performer accepts a booking."""
-    stmt = (
-        select(Booking)
-        .where(Booking.id == booking_id)
-        .options(selectinload(Booking.performer))
-    )
+    stmt = select(Booking).where(Booking.id == booking_id).options(selectinload(Booking.performer))
     result = await session.execute(stmt)
     booking = result.scalar_one_or_none()
 
@@ -575,11 +570,7 @@ async def deliver_booking(
     session: AsyncSession = Depends(get_session),
 ) -> BookingResponse:
     """Performer delivers a take for the booking."""
-    stmt = (
-        select(Booking)
-        .where(Booking.id == booking_id)
-        .options(selectinload(Booking.performer))
-    )
+    stmt = select(Booking).where(Booking.id == booking_id).options(selectinload(Booking.performer))
     result = await session.execute(stmt)
     booking = result.scalar_one_or_none()
 
@@ -634,11 +625,7 @@ async def approve_booking(
     session: AsyncSession = Depends(get_session),
 ) -> BookingResponse:
     """Director approves the delivered take."""
-    stmt = (
-        select(Booking)
-        .where(Booking.id == booking_id)
-        .options(selectinload(Booking.performer))
-    )
+    stmt = select(Booking).where(Booking.id == booking_id).options(selectinload(Booking.performer))
     result = await session.execute(stmt)
     booking = result.scalar_one_or_none()
 
@@ -676,11 +663,7 @@ async def dispute_booking(
     session: AsyncSession = Depends(get_session),
 ) -> BookingResponse:
     """Director disputes the delivered take."""
-    stmt = (
-        select(Booking)
-        .where(Booking.id == booking_id)
-        .options(selectinload(Booking.performer))
-    )
+    stmt = select(Booking).where(Booking.id == booking_id).options(selectinload(Booking.performer))
     result = await session.execute(stmt)
     booking = result.scalar_one_or_none()
 
@@ -715,11 +698,7 @@ async def cancel_booking(
     session: AsyncSession = Depends(get_session),
 ) -> BookingResponse:
     """Cancel a booking."""
-    stmt = (
-        select(Booking)
-        .where(Booking.id == booking_id)
-        .options(selectinload(Booking.performer))
-    )
+    stmt = select(Booking).where(Booking.id == booking_id).options(selectinload(Booking.performer))
     result = await session.execute(stmt)
     booking = result.scalar_one_or_none()
 

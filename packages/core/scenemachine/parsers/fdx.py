@@ -82,8 +82,7 @@ class FDXParser:
 
     # Scene heading pattern
     SCENE_HEADING_PATTERN = re.compile(
-        r"^(INT|EXT|INT\./EXT\.|INT/EXT|I/E)\.?\s+(.+?)(?:\s*[-–—]\s*(.+))?$",
-        re.IGNORECASE
+        r"^(INT|EXT|INT\./EXT\.|INT/EXT|I/E)\.?\s+(.+?)(?:\s*[-–—]\s*(.+))?$", re.IGNORECASE
     )
 
     def __init__(self) -> None:
@@ -337,7 +336,7 @@ class FDXParser:
                     "location": scene.location,
                     "time_of_day": scene.time_of_day,
                     "slug": f"{scene.scene_type}. {scene.location}"
-                             + (f" - {scene.time_of_day}" if scene.time_of_day else ""),
+                    + (f" - {scene.time_of_day}" if scene.time_of_day else ""),
                     "elements": [
                         {
                             "type": elem.element_type,

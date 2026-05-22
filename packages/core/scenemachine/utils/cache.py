@@ -417,9 +417,7 @@ class LLMCache:
                 count += 1
 
         if count > 0:
-            logger.info(
-                f"Evicted {count} cache entries to reach target size of {target_size_mb}MB"
-            )
+            logger.info(f"Evicted {count} cache entries to reach target size of {target_size_mb}MB")
 
         return count
 
@@ -786,6 +784,7 @@ class RedisCache(Generic[T]):
             import redis.asyncio as redis
 
             from scenemachine.config import get_settings
+
             settings = get_settings()
 
             self._redis = redis.from_url(
@@ -1025,6 +1024,7 @@ def get_api_cache() -> RedisCache:
     global _api_cache
     if _api_cache is None:
         from scenemachine.config import get_settings
+
         settings = get_settings()
         _api_cache = RedisCache(
             namespace="scenemachine:api",

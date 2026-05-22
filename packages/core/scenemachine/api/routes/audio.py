@@ -153,13 +153,15 @@ async def get_sfx_categories() -> dict[str, Any]:
     }
 
     for cat_id, subcats in SOUND_EFFECT_CATEGORIES.items():
-        categories.append({
-            "id": cat_id,
-            "name": cat_id.replace("_", " ").title(),
-            "icon": icons.get(cat_id, "📁"),
-            "subcategories": subcats,
-            "count": 0,  # Would be filled with actual counts
-        })
+        categories.append(
+            {
+                "id": cat_id,
+                "name": cat_id.replace("_", " ").title(),
+                "icon": icons.get(cat_id, "📁"),
+                "subcategories": subcats,
+                "count": 0,  # Would be filled with actual counts
+            }
+        )
 
     return {"categories": categories}
 
@@ -205,7 +207,9 @@ async def upload_sound_effect(
 
     # Save uploaded file temporarily
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename or "audio.mp3").suffix) as tmp:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=Path(file.filename or "audio.mp3").suffix
+        ) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
@@ -329,7 +333,9 @@ async def upload_music_track(
 
     # Save uploaded file temporarily
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename or "audio.mp3").suffix) as tmp:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=Path(file.filename or "audio.mp3").suffix
+        ) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name

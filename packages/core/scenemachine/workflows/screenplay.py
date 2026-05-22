@@ -277,7 +277,11 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
             if stripped.startswith(("INT.", "EXT.", "INT/EXT", "I/E")):
                 elements.append({"type": "scene_heading", "text": stripped})
             # Character name (all caps before dialogue)
-            elif stripped.isupper() and len(stripped) < 50 and not stripped.startswith(("INT", "EXT")):
+            elif (
+                stripped.isupper()
+                and len(stripped) < 50
+                and not stripped.startswith(("INT", "EXT"))
+            ):
                 elements.append({"type": "character", "text": stripped})
             # Parenthetical
             elif stripped.startswith("(") and stripped.endswith(")"):

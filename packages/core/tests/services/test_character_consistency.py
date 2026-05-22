@@ -18,6 +18,7 @@ Strategy:
 Mock-based so the test suite stays fast and CI-portable. Real-model
 behavior is validated by the per-shot measurement script.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -97,6 +98,7 @@ class TestCharacterConsistencyConstants:
     @pytest.fixture
     def cls(self):
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
+
         return VideoQualityReviewer
 
     def test_drift_threshold_published(self, cls):
@@ -129,12 +131,14 @@ class TestCharacterConsistencyBranches:
     @pytest.fixture
     def reviewer(self):
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
+
         return VideoQualityReviewer()
 
     @pytest.fixture
     def fake_frame_paths(self, tmp_path):
         """Provide CHARACTER_FRAME_SAMPLES dummy frame paths."""
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
+
         n = VideoQualityReviewer.CHARACTER_FRAME_SAMPLES
         paths = []
         for i in range(n):
@@ -143,35 +147,38 @@ class TestCharacterConsistencyBranches:
             paths.append(p)
         return paths
 
-    def _run(self, reviewer, fake_frame_paths, frame_embeddings, ref_paths=None, ref_embeddings=None):
+    def _run(
+        self, reviewer, fake_frame_paths, frame_embeddings, ref_paths=None, ref_embeddings=None
+    ):
         """Invoke _check_character_consistency with patched frame extraction + face service."""
         import asyncio
 
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
 
         fake_svc = FakeFaceService(frame_embeddings, ref_embeddings)
-        with patch.object(
-            VideoQualityReviewer, "_sample_frame_paths",
-            staticmethod(lambda video_path, n=8: fake_frame_paths),
-        ), patch(
-            "scenemachine.services.face_embedding.get_face_embedding_service",
-            return_value=fake_svc,
+        with (
+            patch.object(
+                VideoQualityReviewer,
+                "_sample_frame_paths",
+                staticmethod(lambda video_path, n=8: fake_frame_paths),
+            ),
+            patch(
+                "scenemachine.services.face_embedding.get_face_embedding_service",
+                return_value=fake_svc,
+            ),
         ):
-            return asyncio.run(
-                reviewer._check_character_consistency(Path("/dev/null"), ref_paths)
-            )
+            return asyncio.run(reviewer._check_character_consistency(Path("/dev/null"), ref_paths))
 
     def test_zero_faces_high_score_low_confidence(self, reviewer, fake_frame_paths):
         """Non-character shot: no faces detected. High score, low conf."""
         from scenemachine.services.video_quality_reviewer import QualityIssue
+
         result = self._run(reviewer, fake_frame_paths, [None] * len(fake_frame_paths))
         assert result.score >= 0.9, (
             f"No faces should NOT penalize (legit non-character shots); "
             f"got score={result.score}, notes={result.notes}"
         )
-        assert result.confidence <= 0.4, (
-            "Confidence must be low when we have no data to measure on"
-        )
+        assert result.confidence <= 0.4, "Confidence must be low when we have no data to measure on"
         assert QualityIssue.CHARACTER_DRIFT not in result.issues
 
     def test_one_face_frame_no_refs_moderate(self, reviewer, fake_frame_paths):
@@ -184,6 +191,7 @@ class TestCharacterConsistencyBranches:
     def test_same_person_throughout_high_score(self, reviewer, fake_frame_paths):
         """Same identity in every frame → high drift score, no flag."""
         from scenemachine.services.video_quality_reviewer import QualityIssue
+
         # Use the SAME embedding for every frame → similarity = 1.0 for all pairs
         same = _make_embedding(seed=42)
         embs = [same] * len(fake_frame_paths)
@@ -203,6 +211,7 @@ class TestCharacterConsistencyBranches:
         face into a different identity every frame.
         """
         from scenemachine.services.video_quality_reviewer import QualityIssue
+
         base = _make_embedding(seed=1)
         embs = []
         for i in range(len(fake_frame_paths)):
@@ -219,6 +228,7 @@ class TestCharacterConsistencyBranches:
         which is below threshold 0.55, so flag should fire. This is the
         common slop case: the model picks a different person each frame."""
         from scenemachine.services.video_quality_reviewer import QualityIssue
+
         embs = [_make_embedding(seed=i * 1000 + 1) for i in range(len(fake_frame_paths))]
         result = self._run(reviewer, fake_frame_paths, embs)
         # 512-dim random embeddings have cos sim ~0 (within noise);
@@ -237,8 +247,11 @@ class TestCharacterConsistencyBranches:
         # Final score should also be ~1.0
         embs = [ref] * len(fake_frame_paths)
         result = self._run(
-            reviewer, fake_frame_paths, embs,
-            ref_paths=["/tmp/ref_jack.png"], ref_embeddings=[ref],
+            reviewer,
+            fake_frame_paths,
+            embs,
+            ref_paths=["/tmp/ref_jack.png"],
+            ref_embeddings=[ref],
         )
         assert result.score >= 0.95
         assert "refmatch=" in result.notes
@@ -251,8 +264,11 @@ class TestCharacterConsistencyBranches:
         # Re-derive: same seed = same embedding = exact match
         embs = [None] * (len(fake_frame_paths) - 1) + [face_emb]
         result = self._run(
-            reviewer, fake_frame_paths, embs,
-            ref_paths=["/tmp/ref_jack.png"], ref_embeddings=[ref],
+            reviewer,
+            fake_frame_paths,
+            embs,
+            ref_paths=["/tmp/ref_jack.png"],
+            ref_embeddings=[ref],
         )
         assert "refmatch=" in result.notes
         assert "drift=" not in result.notes
@@ -266,12 +282,11 @@ class TestCharacterConsistencyBranches:
         from scenemachine.services.video_quality_reviewer import VideoQualityReviewer
 
         with patch.object(
-            VideoQualityReviewer, "_sample_frame_paths",
+            VideoQualityReviewer,
+            "_sample_frame_paths",
             staticmethod(lambda video_path, n=8: []),
         ):
-            result = asyncio.run(
-                reviewer._check_character_consistency(Path("/dev/null"))
-            )
+            result = asyncio.run(reviewer._check_character_consistency(Path("/dev/null")))
         assert result.confidence <= 0.2
         assert "Could not extract" in result.notes
 
@@ -279,6 +294,7 @@ class TestCharacterConsistencyBranches:
         """Public signature must allow calling without reference_paths
         (PR #60 changed it from required to Optional[List[str]]=None)."""
         import inspect
+
         sig = inspect.signature(reviewer._check_character_consistency)
         assert sig.parameters["reference_paths"].default is None
 
@@ -291,6 +307,7 @@ class TestCharacterConsistencyBranches:
 def test_character_drift_issue_enum_exists():
     """PR #60 adds QualityIssue.CHARACTER_DRIFT."""
     from scenemachine.services.video_quality_reviewer import QualityIssue
+
     assert QualityIssue.CHARACTER_DRIFT.value == "character_drift", (
         "CHARACTER_DRIFT must be a string-valued enum member so it "
         "round-trips through JSON for the per-shot baseline."

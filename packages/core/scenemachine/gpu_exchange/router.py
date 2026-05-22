@@ -164,18 +164,14 @@ class GPUExchangeRouter:
         get_pricing_service()
 
         # Phase 1: Filter by capability and circuit breaker
-        candidates = await self._filter_candidates(
-            gpu_type, required_capability, config
-        )
+        candidates = await self._filter_candidates(gpu_type, required_capability, config)
 
         if not candidates:
             logger.warning(f"No eligible providers for {gpu_type}")
             return None
 
         # Phase 2: Get pricing and score all candidates
-        scores = await self._score_candidates(
-            candidates, gpu_type, duration_seconds, config
-        )
+        scores = await self._score_candidates(candidates, gpu_type, duration_seconds, config)
 
         # Filter out ineligible providers
         eligible_scores = [s for s in scores if s.is_eligible]
@@ -204,9 +200,7 @@ class GPUExchangeRouter:
         )
 
         if use_spot and best_score.pricing.spot_price_per_hour:
-            estimated_cost = (
-                best_score.pricing.spot_price_per_hour / 3600
-            ) * duration_seconds
+            estimated_cost = (best_score.pricing.spot_price_per_hour / 3600) * duration_seconds
 
         return ProviderSelection(
             provider_id=best_score.provider_id,
@@ -273,9 +267,7 @@ class GPUExchangeRouter:
         scores = []
 
         # Get all pricing in parallel
-        pricing_tasks = [
-            pricing_service.get_pricing(p, gpu_type) for p in candidates
-        ]
+        pricing_tasks = [pricing_service.get_pricing(p, gpu_type) for p in candidates]
         pricing_results = await asyncio.gather(*pricing_tasks, return_exceptions=True)
 
         # Get health in parallel
@@ -290,11 +282,7 @@ class GPUExchangeRouter:
         health_results = await asyncio.gather(*health_tasks, return_exceptions=True)
 
         # Find price range for normalization
-        valid_prices = [
-            p.price_per_hour
-            for p in pricing_results
-            if isinstance(p, GPUPricing)
-        ]
+        valid_prices = [p.price_per_hour for p in pricing_results if isinstance(p, GPUPricing)]
         min_price = min(valid_prices) if valid_prices else 1.0
         max_price = max(valid_prices) if valid_prices else 2.0
         price_range = max_price - min_price if max_price > min_price else 1.0
@@ -324,7 +312,9 @@ class GPUExchangeRouter:
             job_cost = (pricing.price_per_hour / 3600) * duration_seconds
             if config.max_price_usd and job_cost > config.max_price_usd:
                 score.is_eligible = False
-                score.disqualification_reason = f"Exceeds budget (${job_cost:.2f} > ${config.max_price_usd:.2f})"
+                score.disqualification_reason = (
+                    f"Exceeds budget (${job_cost:.2f} > ${config.max_price_usd:.2f})"
+                )
                 scores.append(score)
                 continue
 
@@ -543,8 +533,7 @@ class GPUExchangeRouter:
             "failovers_used": failovers,
             "by_provider": by_provider,
             "circuit_breakers": {
-                p: b.get("state", "closed")
-                for p, b in self._circuit_breakers.items()
+                p: b.get("state", "closed") for p, b in self._circuit_breakers.items()
             },
             "reliability_scores": dict(self._provider_reliability),
         }

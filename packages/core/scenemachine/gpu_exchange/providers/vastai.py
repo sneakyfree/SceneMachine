@@ -312,8 +312,7 @@ class VastAIProvider(GPUExchangeProvider):
 
             # Filter by price and sort by best value
             matching = [
-                i for i in instances
-                if i.pricing and i.pricing.price_per_hour <= max_price_per_hour
+                i for i in instances if i.pricing and i.pricing.price_per_hour <= max_price_per_hour
             ]
 
             if not matching:
@@ -324,7 +323,7 @@ class VastAIProvider(GPUExchangeProvider):
                 )
 
             # Sort by price (cheapest first)
-            matching.sort(key=lambda x: x.pricing.price_per_hour if x.pricing else float('inf'))
+            matching.sort(key=lambda x: x.pricing.price_per_hour if x.pricing else float("inf"))
             best_offer = matching[0]
 
             # Create instance via Vast.ai API

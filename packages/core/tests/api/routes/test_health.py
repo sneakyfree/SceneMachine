@@ -7,7 +7,6 @@ Tests cover:
 - Database connectivity check
 """
 
-
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -24,11 +23,7 @@ class MockHealthRouter:
     def _setup_routes(self):
         @self.app.get("/health")
         async def health_check():
-            return {
-                "status": "healthy",
-                "version": "1.0.0",
-                "environment": "test"
-            }
+            return {"status": "healthy", "version": "1.0.0", "environment": "test"}
 
         @self.app.get("/health/detailed")
         async def detailed_health():
@@ -39,7 +34,7 @@ class MockHealthRouter:
                     "database": {"status": "healthy", "latency_ms": 5.2},
                     "storage": {"status": "healthy", "free_space_gb": 100},
                     "memory": {"status": "healthy", "used_percent": 45},
-                }
+                },
             }
 
         @self.app.get("/health/providers")
@@ -60,7 +55,7 @@ class MockHealthRouter:
                         "status": "unavailable",
                         "available": False,
                         "error": "Not configured",
-                    }
+                    },
                 }
             }
 

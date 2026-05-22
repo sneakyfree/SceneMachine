@@ -44,15 +44,11 @@ class WorkerStats:
             "jobs_succeeded": self.jobs_succeeded,
             "jobs_failed": self.jobs_failed,
             "success_rate": (
-                self.jobs_succeeded / self.jobs_processed
-                if self.jobs_processed > 0
-                else 0.0
+                self.jobs_succeeded / self.jobs_processed if self.jobs_processed > 0 else 0.0
             ),
             "current_job_id": self.current_job_id,
             "last_job_completed_at": (
-                self.last_job_completed_at.isoformat()
-                if self.last_job_completed_at
-                else None
+                self.last_job_completed_at.isoformat() if self.last_job_completed_at else None
             ),
             "is_running": self.is_running,
             "is_paused": self.is_paused,
@@ -176,7 +172,9 @@ class QueueWorker:
                     timeout=timeout,
                 )
             except TimeoutError:
-                logger.warning(f"Timeout waiting for jobs, cancelling {len(self._active_tasks)} tasks")
+                logger.warning(
+                    f"Timeout waiting for jobs, cancelling {len(self._active_tasks)} tasks"
+                )
                 for task in self._active_tasks.values():
                     task.cancel()
 
@@ -273,9 +271,7 @@ class QueueWorker:
                             logger.error(f"Error in job complete callback: {e}")
                 else:
                     self._stats.jobs_failed += 1
-                    logger.warning(
-                        f"Job {job_id} failed: {result.error_message}"
-                    )
+                    logger.warning(f"Job {job_id} failed: {result.error_message}")
 
                     if self._on_job_failed:
                         try:
@@ -290,6 +286,7 @@ class QueueWorker:
             if self._on_job_failed:
                 try:
                     from scenemachine.services.generation import GenerationResult
+
                     await self._on_job_failed(
                         job_id,
                         GenerationResult(
@@ -308,11 +305,7 @@ class QueueWorker:
 
     def _cleanup_completed_tasks(self) -> None:
         """Remove completed tasks from active list."""
-        completed = [
-            job_id
-            for job_id, task in self._active_tasks.items()
-            if task.done()
-        ]
+        completed = [job_id for job_id, task in self._active_tasks.items() if task.done()]
         for job_id in completed:
             del self._active_tasks[job_id]
 

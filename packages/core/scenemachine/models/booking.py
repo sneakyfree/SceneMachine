@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 class BookingMode(StrEnum):
     """Types of bookings in ActForge."""
+
     BLINK = "blink"  # 10-second auto-match
     DEEP = "deep"  # 120-second method acting
     EPIC = "epic"  # 5-20 minute continuous
@@ -33,6 +34,7 @@ class BookingMode(StrEnum):
 
 class BookingStatus(StrEnum):
     """Booking lifecycle status."""
+
     REQUESTED = "requested"  # Initial request created
     MATCHING = "matching"  # Auto-matching in progress (Blink mode)
     MATCHED = "matched"  # Performer matched (Blink) or selected
@@ -48,6 +50,7 @@ class BookingStatus(StrEnum):
 
 class PaymentStatus(StrEnum):
     """Payment status for booking."""
+
     PENDING = "pending"  # Awaiting payment
     ESCROWED = "escrowed"  # Payment held in escrow
     RELEASED = "released"  # Payment released to performer
@@ -277,10 +280,7 @@ class Booking(Base, UUIDMixin, TimestampMixin):
     @property
     def can_retry(self) -> bool:
         """Check if booking allows retry."""
-        return (
-            self.status == BookingStatus.DISPUTED
-            and self.retry_count < self.max_retries
-        )
+        return self.status == BookingStatus.DISPUTED and self.retry_count < self.max_retries
 
     @property
     def turnaround_seconds(self) -> float | None:

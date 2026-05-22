@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # TEST RESULT TYPES
 # ============================================================================
 
+
 class TestStatus(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
@@ -45,6 +46,7 @@ class TestStatus(StrEnum):
 @dataclass
 class TestResult:
     """Result of a single test."""
+
     name: str
     category: str
     subcategory: str
@@ -60,6 +62,7 @@ class TestResult:
 @dataclass
 class TestSuiteReport:
     """Complete test suite report."""
+
     start_time: datetime
     end_time: datetime | None = None
     total_tests: int = 0
@@ -110,7 +113,9 @@ class TestSuiteReport:
             "",
             f"Start Time: {self.start_time.isoformat()}",
             f"End Time: {self.end_time.isoformat() if self.end_time else 'N/A'}",
-            f"Duration: {(self.end_time - self.start_time).total_seconds():.2f}s" if self.end_time else "",
+            f"Duration: {(self.end_time - self.start_time).total_seconds():.2f}s"
+            if self.end_time
+            else "",
             "",
             "-" * 40,
             "SUMMARY",
@@ -124,11 +129,13 @@ class TestSuiteReport:
         ]
 
         # Coverage by category
-        lines.extend([
-            "-" * 40,
-            "COVERAGE BY CATEGORY",
-            "-" * 40,
-        ])
+        lines.extend(
+            [
+                "-" * 40,
+                "COVERAGE BY CATEGORY",
+                "-" * 40,
+            ]
+        )
         for category, subcats in sorted(self.coverage.items()):
             cat_passed = sum(s["passed"] for s in subcats.values())
             cat_total = sum(s["total"] for s in subcats.values())
@@ -139,14 +146,18 @@ class TestSuiteReport:
                 lines.append(f"  [{status}] {subcat}: {stats['passed']}/{stats['total']}")
 
         # Failed tests
-        failed_tests = [r for r in self.results if r.status in [TestStatus.FAILED, TestStatus.ERROR]]
+        failed_tests = [
+            r for r in self.results if r.status in [TestStatus.FAILED, TestStatus.ERROR]
+        ]
         if failed_tests:
-            lines.extend([
-                "",
-                "-" * 40,
-                "FAILED TESTS",
-                "-" * 40,
-            ])
+            lines.extend(
+                [
+                    "",
+                    "-" * 40,
+                    "FAILED TESTS",
+                    "-" * 40,
+                ]
+            )
             for result in failed_tests:
                 lines.append(f"\n  [{result.status.value.upper()}] {result.name}")
                 lines.append(f"    Category: {result.category} / {result.subcategory}")
@@ -157,12 +168,14 @@ class TestSuiteReport:
                 if result.error_message:
                     lines.append(f"    Error: {result.error_message[:200]}")
 
-        lines.extend([
-            "",
-            "=" * 80,
-            f"OVERALL STATUS: {'PASS' if self.failed == 0 and self.errors == 0 else 'FAIL'}",
-            "=" * 80,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                f"OVERALL STATUS: {'PASS' if self.failed == 0 and self.errors == 0 else 'FAIL'}",
+                "=" * 80,
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -170,6 +183,7 @@ class TestSuiteReport:
 # ============================================================================
 # E2E TEST SUITE
 # ============================================================================
+
 
 class E2ETestSuite:
     """Comprehensive E2E test suite for SceneMachine."""
@@ -322,8 +336,9 @@ class E2ETestSuite:
     async def api_get(self, path: str, expected_status: int = 200) -> dict[str, Any]:
         """Make GET request and verify status."""
         response = await self.client.get(path)
-        assert response.status_code == expected_status, \
+        assert response.status_code == expected_status, (
             f"Expected {expected_status}, got {response.status_code}: {response.text[:200]}"
+        )
         return {
             "request_method": "GET",
             "request_path": path,
@@ -339,8 +354,9 @@ class E2ETestSuite:
     ) -> dict[str, Any]:
         """Make POST request and verify status."""
         response = await self.client.post(path, json=json_data)
-        assert response.status_code == expected_status, \
+        assert response.status_code == expected_status, (
             f"Expected {expected_status}, got {response.status_code}: {response.text[:200]}"
+        )
         return {
             "request_method": "POST",
             "request_path": path,
@@ -356,8 +372,9 @@ class E2ETestSuite:
     ) -> dict[str, Any]:
         """Make PATCH request and verify status."""
         response = await self.client.patch(path, json=json_data)
-        assert response.status_code == expected_status, \
+        assert response.status_code == expected_status, (
             f"Expected {expected_status}, got {response.status_code}: {response.text[:200]}"
+        )
         return {
             "request_method": "PATCH",
             "request_path": path,
@@ -368,8 +385,9 @@ class E2ETestSuite:
     async def api_delete(self, path: str, expected_status: int = 200) -> dict[str, Any]:
         """Make DELETE request and verify status."""
         response = await self.client.delete(path)
-        assert response.status_code == expected_status, \
+        assert response.status_code == expected_status, (
             f"Expected {expected_status}, got {response.status_code}: {response.text[:200]}"
+        )
         return {
             "request_method": "DELETE",
             "request_path": path,
@@ -803,55 +821,97 @@ class E2ETestSuite:
             await self.run_test("Create Project", "API", "Projects", self.test_projects_create)
             await self.run_test("Get Project", "API", "Projects", self.test_projects_get)
             await self.run_test("Update Project", "API", "Projects", self.test_projects_update)
-            await self.run_test("List Projects Paginated", "API", "Projects", self.test_projects_list_with_pagination)
+            await self.run_test(
+                "List Projects Paginated",
+                "API",
+                "Projects",
+                self.test_projects_list_with_pagination,
+            )
 
             # Character API Tests
             await self.run_test("List Characters", "API", "Characters", self.test_characters_list)
             await self.run_test("Get Character", "API", "Characters", self.test_characters_get)
-            await self.run_test("Update Character", "API", "Characters", self.test_characters_update)
+            await self.run_test(
+                "Update Character", "API", "Characters", self.test_characters_update
+            )
 
             # Scene API Tests
             await self.run_test("List Scenes", "API", "Scenes", self.test_scenes_list)
             await self.run_test("Get Scene", "API", "Scenes", self.test_scenes_get)
             await self.run_test("Get Scene Shots", "API", "Scenes", self.test_scenes_shots)
-            await self.run_test("Shot Types Reference", "API", "Scenes", self.test_scenes_reference_shot_types)
-            await self.run_test("Camera Movements Reference", "API", "Scenes", self.test_scenes_reference_camera_movements)
+            await self.run_test(
+                "Shot Types Reference", "API", "Scenes", self.test_scenes_reference_shot_types
+            )
+            await self.run_test(
+                "Camera Movements Reference",
+                "API",
+                "Scenes",
+                self.test_scenes_reference_camera_movements,
+            )
 
             # Shot API Tests
             await self.run_test("Get Shot", "API", "Shots", self.test_shots_get)
             await self.run_test("Update Shot", "API", "Shots", self.test_shots_update)
 
             # Generation API Tests
-            await self.run_test("List Providers", "API", "Generation", self.test_generation_providers)
-            await self.run_test("Queue Status", "API", "Generation", self.test_generation_queue_status)
-            await self.run_test("Pending Jobs", "API", "Generation", self.test_generation_pending_jobs)
-            await self.run_test("Worker Status", "API", "Generation", self.test_generation_worker_status)
-            await self.run_test("Providers Health", "API", "Generation", self.test_generation_providers_health)
-            await self.run_test("Cost Estimate", "API", "Generation", self.test_generation_cost_estimate)
+            await self.run_test(
+                "List Providers", "API", "Generation", self.test_generation_providers
+            )
+            await self.run_test(
+                "Queue Status", "API", "Generation", self.test_generation_queue_status
+            )
+            await self.run_test(
+                "Pending Jobs", "API", "Generation", self.test_generation_pending_jobs
+            )
+            await self.run_test(
+                "Worker Status", "API", "Generation", self.test_generation_worker_status
+            )
+            await self.run_test(
+                "Providers Health", "API", "Generation", self.test_generation_providers_health
+            )
+            await self.run_test(
+                "Cost Estimate", "API", "Generation", self.test_generation_cost_estimate
+            )
 
             # Assembly API Tests
             await self.run_test("Export Formats", "API", "Assembly", self.test_assembly_formats)
-            await self.run_test("Quality Presets", "API", "Assembly", self.test_assembly_quality_presets)
+            await self.run_test(
+                "Quality Presets", "API", "Assembly", self.test_assembly_quality_presets
+            )
             await self.run_test("Assembly Status", "API", "Assembly", self.test_assembly_status)
             await self.run_test("Timeline", "API", "Assembly", self.test_assembly_timeline)
-            await self.run_test("Export History", "API", "Assembly", self.test_assembly_export_history)
+            await self.run_test(
+                "Export History", "API", "Assembly", self.test_assembly_export_history
+            )
 
             # Settings API Tests
             await self.run_test("Get Settings", "API", "Settings", self.test_settings_get)
             await self.run_test("Update Settings", "API", "Settings", self.test_settings_update)
             await self.run_test("Storage Stats", "API", "Settings", self.test_settings_storage)
-            await self.run_test("Provider Status", "API", "Settings", self.test_settings_providers_status)
-            await self.run_test("LLM Providers", "API", "Settings", self.test_settings_llm_providers)
-            await self.run_test("Video Providers", "API", "Settings", self.test_settings_video_providers)
+            await self.run_test(
+                "Provider Status", "API", "Settings", self.test_settings_providers_status
+            )
+            await self.run_test(
+                "LLM Providers", "API", "Settings", self.test_settings_llm_providers
+            )
+            await self.run_test(
+                "Video Providers", "API", "Settings", self.test_settings_video_providers
+            )
             await self.run_test("Themes", "API", "Settings", self.test_settings_themes)
 
             # Analytics API Tests
             await self.run_test("Dashboard", "API", "Analytics", self.test_analytics_dashboard)
-            await self.run_test("Generation Stats", "API", "Analytics", self.test_analytics_generation_stats)
+            await self.run_test(
+                "Generation Stats", "API", "Analytics", self.test_analytics_generation_stats
+            )
             await self.run_test("Cost Stats", "API", "Analytics", self.test_analytics_cost_stats)
-            await self.run_test("Project Stats", "API", "Analytics", self.test_analytics_project_stats)
+            await self.run_test(
+                "Project Stats", "API", "Analytics", self.test_analytics_project_stats
+            )
             await self.run_test("Daily Stats", "API", "Analytics", self.test_analytics_daily_stats)
-            await self.run_test("Provider Usage", "API", "Analytics", self.test_analytics_provider_usage)
+            await self.run_test(
+                "Provider Usage", "API", "Analytics", self.test_analytics_provider_usage
+            )
 
             # Audio API Tests
             await self.run_test("List SFX", "API", "Audio", self.test_audio_sfx_list)
@@ -861,12 +921,20 @@ class E2ETestSuite:
             await self.run_test("Music Moods", "API", "Audio", self.test_audio_music_moods)
 
             # Sharing API Tests
-            await self.run_test("Project Shares", "API", "Sharing", self.test_sharing_project_shares)
-            await self.run_test("Project Comments", "API", "Sharing", self.test_sharing_project_comments)
+            await self.run_test(
+                "Project Shares", "API", "Sharing", self.test_sharing_project_shares
+            )
+            await self.run_test(
+                "Project Comments", "API", "Sharing", self.test_sharing_project_comments
+            )
 
             # Text Overlays API Tests
-            await self.run_test("Overlay Presets", "API", "TextOverlays", self.test_overlays_presets)
-            await self.run_test("Project Overlays", "API", "TextOverlays", self.test_overlays_for_project)
+            await self.run_test(
+                "Overlay Presets", "API", "TextOverlays", self.test_overlays_presets
+            )
+            await self.run_test(
+                "Project Overlays", "API", "TextOverlays", self.test_overlays_for_project
+            )
 
             # Archive API Tests
             await self.run_test("List Archives", "API", "Archive", self.test_archive_list)
@@ -876,9 +944,15 @@ class E2ETestSuite:
 
             # Error Handling Tests
             await self.run_test("404 Handling", "API", "ErrorHandling", self.test_404_handling)
-            await self.run_test("Invalid UUID", "API", "ErrorHandling", self.test_invalid_uuid_handling)
-            await self.run_test("Invalid JSON", "API", "ErrorHandling", self.test_invalid_json_handling)
-            await self.run_test("Missing Fields", "API", "ErrorHandling", self.test_missing_required_fields)
+            await self.run_test(
+                "Invalid UUID", "API", "ErrorHandling", self.test_invalid_uuid_handling
+            )
+            await self.run_test(
+                "Invalid JSON", "API", "ErrorHandling", self.test_invalid_json_handling
+            )
+            await self.run_test(
+                "Missing Fields", "API", "ErrorHandling", self.test_missing_required_fields
+            )
 
         finally:
             await self.teardown()
@@ -892,6 +966,7 @@ class E2ETestSuite:
 # ============================================================================
 # CLI ENTRY POINT
 # ============================================================================
+
 
 async def main():
     """Main entry point."""

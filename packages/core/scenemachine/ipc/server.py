@@ -311,9 +311,7 @@ def create_ipc_server(
         Configured IPCServer instance
     """
     if socket_path is None:
-        socket_path = os.environ.get(
-            "SCENEMACHINE_SOCKET_PATH", "/tmp/scenemachine.sock"
-        )
+        socket_path = os.environ.get("SCENEMACHINE_SOCKET_PATH", "/tmp/scenemachine.sock")
 
     if host is None:
         host = os.environ.get("SCENEMACHINE_IPC_HOST", DEFAULT_TCP_HOST)
@@ -351,13 +349,9 @@ class IPCClient:
     async def connect(self) -> None:
         """Connect to the IPC server."""
         if self._is_windows:
-            self.reader, self.writer = await asyncio.open_connection(
-                self.host, self.port
-            )
+            self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
         else:
-            self.reader, self.writer = await asyncio.open_unix_connection(
-                self.socket_path
-            )
+            self.reader, self.writer = await asyncio.open_unix_connection(self.socket_path)
 
     async def disconnect(self) -> None:
         """Disconnect from the IPC server."""
@@ -405,7 +399,9 @@ class IPCClient:
         response = IPCMessage.from_json(response_data.decode("utf-8"))
 
         if response.error:
-            raise Exception(f"IPC Error [{response.error.get('code')}]: {response.error.get('message')}")
+            raise Exception(
+                f"IPC Error [{response.error.get('code')}]: {response.error.get('message')}"
+            )
 
         return response.result
 

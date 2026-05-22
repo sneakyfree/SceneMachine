@@ -3,6 +3,7 @@
 Routing must be deterministic and side-effect-free — these tests don't
 touch any ComfyUI, model file, or filesystem state.
 """
+
 from uuid import uuid4
 
 
@@ -158,6 +159,5 @@ class TestStackRouter:
             ({"character_ids": []}, "prev.png", None),
             ({"character_ids": ["x"]}, None, {"x": "x.png"}),
         ]:
-            d = route_shot(shot_data, prev_shot_last_frame=prev,
-                           character_ref_paths=refs)
+            d = route_shot(shot_data, prev_shot_last_frame=prev, character_ref_paths=refs)
             assert d.reason, f"empty reason for inputs {shot_data}, {prev}, {refs}"

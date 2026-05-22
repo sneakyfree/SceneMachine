@@ -465,9 +465,7 @@ class PDFParser:
 
         return result
 
-    def _is_character_line(
-        self, line: str, all_lines: list[str], index: int
-    ) -> bool:
+    def _is_character_line(self, line: str, all_lines: list[str], index: int) -> bool:
         """Determine if a line is a character cue."""
         stripped = line.strip()
 

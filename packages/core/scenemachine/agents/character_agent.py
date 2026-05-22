@@ -164,10 +164,7 @@ class CharacterAgent(BaseAgent):
         voices = await provider.get_voices()
 
         # Filter by gender
-        matching = [
-            v for v in voices
-            if gender == "neutral" or v.gender.value == gender
-        ]
+        matching = [v for v in voices if gender == "neutral" or v.gender.value == gender]
 
         if not matching:
             matching = voices
@@ -201,12 +198,18 @@ class CharacterAgent(BaseAgent):
         for path in shot_paths:
             # Mock: random-ish score based on path hash
             score = 0.7 + (hash(path) % 30) / 100
-            consistency_scores.append({
-                "path": path,
-                "score": min(score, 1.0),
-            })
+            consistency_scores.append(
+                {
+                    "path": path,
+                    "score": min(score, 1.0),
+                }
+            )
 
-        avg_score = sum(s["score"] for s in consistency_scores) / len(consistency_scores) if consistency_scores else 0
+        avg_score = (
+            sum(s["score"] for s in consistency_scores) / len(consistency_scores)
+            if consistency_scores
+            else 0
+        )
 
         return ActionResult(
             action_id=context.session_id,
@@ -227,9 +230,9 @@ class CharacterAgent(BaseAgent):
     # ============================================================
 
     # Concurrency settings
-    MAX_CONCURRENT_GENERATIONS = 4    # Max simultaneous image generations
-    MAX_CONCURRENT_EMBEDDINGS = 8     # Max simultaneous embedding extractions
-    BATCH_SIZE = 10                   # Characters per batch
+    MAX_CONCURRENT_GENERATIONS = 4  # Max simultaneous image generations
+    MAX_CONCURRENT_EMBEDDINGS = 8  # Max simultaneous embedding extractions
+    BATCH_SIZE = 10  # Characters per batch
 
     async def process_characters_parallel(
         self,
@@ -268,7 +271,7 @@ class CharacterAgent(BaseAgent):
 
         # Process in batches to avoid overwhelming resources
         for batch_start in range(0, len(characters), self.BATCH_SIZE):
-            batch = characters[batch_start:batch_start + self.BATCH_SIZE]
+            batch = characters[batch_start : batch_start + self.BATCH_SIZE]
             batch_results = await self._process_batch(context, batch, actions)
 
             for char_result in batch_results:
@@ -330,13 +333,19 @@ class CharacterAgent(BaseAgent):
                             char_result["success"] = False
 
                 # Extract embedding (can run with higher concurrency)
-                if "extract_embedding" in actions and char_result["actions"].get("generate_reference", {}).get("success"):
-                    image_path = char_result["actions"]["generate_reference"]["output"].get("image_path")
+                if "extract_embedding" in actions and char_result["actions"].get(
+                    "generate_reference", {}
+                ).get("success"):
+                    image_path = char_result["actions"]["generate_reference"]["output"].get(
+                        "image_path"
+                    )
                     if image_path:
                         result = await self._extract_embedding(context, image_path)
                         char_result["actions"]["extract_embedding"] = {
                             "success": result.success,
-                            "has_embedding": result.output.get("embedding") is not None if result.output else False,
+                            "has_embedding": result.output.get("embedding") is not None
+                            if result.output
+                            else False,
                         }
 
                 # Select voice (lightweight, no limit needed)
@@ -391,7 +400,9 @@ class CharacterAgent(BaseAgent):
                 return {
                     "path": path,
                     "success": result.success,
-                    "has_embedding": result.output.get("embedding") is not None if result.output else False,
+                    "has_embedding": result.output.get("embedding") is not None
+                    if result.output
+                    else False,
                     "confidence": result.confidence,
                 }
 
@@ -435,17 +446,13 @@ class CharacterAgent(BaseAgent):
                 "success": result.success,
             }
 
-        tasks = [
-            check_one(char_id, paths)
-            for char_id, paths in character_shot_map.items()
-        ]
+        tasks = [check_one(char_id, paths) for char_id, paths in character_shot_map.items()]
 
         check_results = await asyncio.gather(*tasks)
 
         # Aggregate stats
         consistent_count = sum(
-            1 for r in check_results
-            if r.get("result", {}).get("is_consistent", False)
+            1 for r in check_results if r.get("result", {}).get("is_consistent", False)
         )
 
         return {

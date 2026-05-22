@@ -23,9 +23,7 @@ class UserRegisterRequest(BaseModel):
     def validate_username(cls, v: str) -> str:
         """Validate username format."""
         if not v.replace("_", "").replace("-", "").isalnum():
-            raise ValueError(
-                "Username can only contain letters, numbers, underscores, and hyphens"
-            )
+            raise ValueError("Username can only contain letters, numbers, underscores, and hyphens")
         if v.startswith("_") or v.startswith("-"):
             raise ValueError("Username cannot start with underscore or hyphen")
         return v.lower()

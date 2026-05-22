@@ -24,9 +24,7 @@ security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: Annotated[
-        HTTPAuthorizationCredentials | None, Depends(security)
-    ],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> User:
     """Get the current authenticated user from JWT token.
@@ -60,9 +58,7 @@ async def get_current_user(
             )
 
         # Get user from database
-        result = await session.execute(
-            select(User).where(User.id == token_data.user_id)
-        )
+        result = await session.execute(select(User).where(User.id == token_data.user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -105,9 +101,7 @@ async def get_current_active_user(
 
 
 async def get_optional_user(
-    credentials: Annotated[
-        HTTPAuthorizationCredentials | None, Depends(security)
-    ],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> User | None:
     """Get the current user if authenticated, or None if not.
@@ -130,9 +124,7 @@ async def get_optional_user(
         if token_data.token_type != TokenType.ACCESS:
             return None
 
-        result = await session.execute(
-            select(User).where(User.id == token_data.user_id)
-        )
+        result = await session.execute(select(User).where(User.id == token_data.user_id))
         user = result.scalar_one_or_none()
 
         if user and user.is_active:

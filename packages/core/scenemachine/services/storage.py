@@ -60,9 +60,7 @@ class StorageService:
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    def _get_shot_dir(
-        self, project_id: UUID, scene_id: UUID, shot_id: UUID
-    ) -> Path:
+    def _get_shot_dir(self, project_id: UUID, scene_id: UUID, shot_id: UUID) -> Path:
         """Get or create shot directory."""
         path = self._get_scene_dir(project_id, scene_id) / str(shot_id)
         path.mkdir(parents=True, exist_ok=True)

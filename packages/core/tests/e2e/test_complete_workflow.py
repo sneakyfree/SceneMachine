@@ -81,7 +81,7 @@ class MockScreenplayParser:
                         {"type": "action", "content": "A cozy coffee shop..."},
                         {"type": "character", "name": "SARAH"},
                         {"type": "dialogue", "content": "I can't believe..."},
-                    ]
+                    ],
                 },
                 {
                     "scene_number": 2,
@@ -91,8 +91,8 @@ class MockScreenplayParser:
                     "int_ext": "EXT",
                     "elements": [
                         {"type": "action", "content": "Rain falls heavily..."},
-                    ]
-                }
+                    ],
+                },
             ],
             "characters": ["SARAH", "JOHN"],
         }
@@ -108,6 +108,7 @@ class MockGenerationProvider:
     async def generate(self, prompt: str, **kwargs) -> dict[str, Any]:
         """Generate a mock video."""
         import random
+
         self.call_count += 1
 
         if random.random() < self.fail_rate:
@@ -129,11 +130,7 @@ class MockAssemblyService:
     """Mock video assembly service."""
 
     async def assemble(
-        self,
-        project_id: str,
-        shots: list[dict],
-        output_path: str,
-        settings: dict = None
+        self, project_id: str, shots: list[dict], output_path: str, settings: dict = None
     ) -> dict[str, Any]:
         """Assemble shots into final video."""
         # Create a mock output file
@@ -200,9 +197,7 @@ class TestCompleteWorkflow:
         provider = MockGenerationProvider(fail_rate=0.0)
 
         result = await provider.generate(
-            prompt="A cozy coffee shop with warm lighting",
-            duration=5.0,
-            aspect_ratio="16:9"
+            prompt="A cozy coffee shop with warm lighting", duration=5.0, aspect_ratio="16:9"
         )
 
         assert result["status"] == "completed"
@@ -216,10 +211,7 @@ class TestCompleteWorkflow:
         provider = MockGenerationProvider(fail_rate=1.0)
 
         with pytest.raises(RuntimeError, match="Mock generation failure"):
-            await provider.generate(
-                prompt="Test prompt",
-                duration=5.0
-            )
+            await provider.generate(prompt="Test prompt", duration=5.0)
 
     @pytest.mark.asyncio
     async def test_multiple_shots_generation(self):
@@ -270,9 +262,7 @@ class TestCompleteWorkflow:
             ]
 
             result = await assembler.assemble(
-                project_id="test-project",
-                shots=shots,
-                output_path=output_path
+                project_id="test-project", shots=shots, output_path=output_path
             )
 
             assert os.path.exists(output_path)
@@ -374,7 +364,7 @@ class TestProjectLifecycle:
             "generating",
             "assembly_in_progress",
             "complete",
-            "exported"
+            "exported",
         ]
         assert states_visited == expected
 
@@ -407,7 +397,6 @@ class TestErrorRecovery:
         for i in range(2):
             result = await provider.generate(prompt=f"Shot {i}")
             successful_shots.append(result)
-
 
         # Retry the failed shot
         retry_result = await provider.generate(prompt="Shot 3 retry")
@@ -512,8 +501,9 @@ class TestDataIntegrity:
 
         for scene_id, shots in scenes_shots.items():
             shot_numbers = [s["shot_number"] for s in shots]
-            assert len(shot_numbers) == len(set(shot_numbers)), \
+            assert len(shot_numbers) == len(set(shot_numbers)), (
                 f"Duplicate shot numbers in {scene_id}"
+            )
 
 
 class TestQueueManagement:
@@ -603,9 +593,7 @@ class TestExportWorkflow:
             ]
 
             result = await assembler.assemble(
-                project_id="test",
-                shots=shots,
-                output_path=output_path
+                project_id="test", shots=shots, output_path=output_path
             )
 
             assert os.path.exists(output_path)
@@ -638,6 +626,7 @@ class TestProgressTracking:
 
     def test_overall_progress_calculation(self):
         """Test calculating overall project progress."""
+
         def calculate_progress(project: dict) -> float:
             """Calculate overall project progress as percentage."""
             weights = {
@@ -692,10 +681,11 @@ class TestProgressTracking:
 
     def test_time_estimation(self):
         """Test estimating remaining time."""
+
         def estimate_time(completed: int, total: int, elapsed_seconds: float) -> float:
             """Estimate remaining time based on current progress."""
             if completed == 0:
-                return float('inf')
+                return float("inf")
 
             rate = completed / elapsed_seconds  # items per second
             remaining = total - completed

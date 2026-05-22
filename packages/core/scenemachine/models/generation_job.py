@@ -164,9 +164,7 @@ class GenerationJob(Base, UUIDMixin, TimestampMixin):
     # Input parameters
     input_params: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Alias for input_params - used by generation service
-    parameters: Mapped[dict | None] = mapped_column(
-        "parameters", JSONType, nullable=True
-    )
+    parameters: Mapped[dict | None] = mapped_column("parameters", JSONType, nullable=True)
     # Structure varies by job_type:
     #
     # For SHOT_VIDEO:

@@ -241,9 +241,7 @@ class TestElevenLabsProvider:
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 401
-            mock_response.json.return_value = {
-                "detail": {"message": "Invalid API key"}
-            }
+            mock_response.json.return_value = {"detail": {"message": "Invalid API key"}}
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                 return_value=mock_response
             )
@@ -431,10 +429,7 @@ class TestAudioService:
         providers = await audio_service.get_available_providers()
 
         assert len(providers) >= 1
-        mock_provider = next(
-            (p for p in providers if p["provider"] == "mock"),
-            None
-        )
+        mock_provider = next((p for p in providers if p["provider"] == "mock"), None)
         assert mock_provider is not None
         assert mock_provider["available"] is True
 

@@ -37,6 +37,7 @@ router = APIRouter(prefix="/gpu-exchange")
 
 class GPUTypeEnum(str):
     """String representation of GPU types for API."""
+
     pass
 
 
@@ -132,9 +133,7 @@ class SelectProviderRequest(BaseModel):
     """Request to select optimal provider."""
 
     gpu_type: str = Field(..., description="GPU type required (e.g., 'a100_80gb')")
-    duration_seconds: float = Field(
-        ..., description="Estimated job duration in seconds"
-    )
+    duration_seconds: float = Field(..., description="Estimated job duration in seconds")
     config: RoutingConfigRequest | None = Field(
         default=None,
         description="Routing configuration",
@@ -552,9 +551,7 @@ async def select_provider(request: SelectProviderRequest) -> ProviderSelectionRe
 
     # Select provider
     exchange = get_gpu_exchange()
-    selection = await exchange.select_provider(
-        gpu, request.duration_seconds, config, capability
-    )
+    selection = await exchange.select_provider(gpu, request.duration_seconds, config, capability)
 
     if not selection:
         raise HTTPException(
@@ -633,18 +630,14 @@ async def check_budget(request: BudgetCheckRequest) -> BudgetCheckResponse:
 @router.get("/gpu-types", response_model=list[dict[str, str]])
 async def list_gpu_types() -> list[dict[str, str]]:
     """List all supported GPU types."""
-    return [
-        {"id": gpu.value, "name": gpu.name.replace("_", " ")}
-        for gpu in GPUType
-    ]
+    return [{"id": gpu.value, "name": gpu.name.replace("_", " ")} for gpu in GPUType]
 
 
 @router.get("/capabilities", response_model=list[dict[str, str]])
 async def list_capabilities() -> list[dict[str, str]]:
     """List all provider capabilities."""
     return [
-        {"id": cap.value, "name": cap.name.replace("_", " ").title()}
-        for cap in ProviderCapability
+        {"id": cap.value, "name": cap.name.replace("_", " ").title()} for cap in ProviderCapability
     ]
 
 

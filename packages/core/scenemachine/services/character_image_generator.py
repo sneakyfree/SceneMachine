@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class ImageProvider(StrEnum):
     """Available image generation providers."""
+
     FLUX_LOCAL = "flux_local"
     FLUX_FAL = "flux_fal"
     FLUX_REPLICATE = "flux_replicate"
@@ -27,6 +28,7 @@ class ImageProvider(StrEnum):
 
 class ImageStyle(StrEnum):
     """Image generation styles."""
+
     PHOTOREALISTIC = "photorealistic"
     CINEMATIC = "cinematic"
     ANIME = "anime"
@@ -37,6 +39,7 @@ class ImageStyle(StrEnum):
 @dataclass
 class GeneratedImage:
     """Result of image generation."""
+
     image_id: str
     success: bool
     image_path: str | None = None
@@ -75,6 +78,7 @@ class GeneratedImage:
 @dataclass
 class CharacterImageRequest:
     """Request to generate a character reference image."""
+
     character_name: str
     description: str
     physical_description: dict[str, Any] | None = None
@@ -89,6 +93,7 @@ class CharacterImageRequest:
 
 class CameraAngle(StrEnum):
     """Camera angles for multi-angle character generation."""
+
     FRONT = "front"
     THREE_QUARTER_LEFT = "three_quarter_left"
     THREE_QUARTER_RIGHT = "three_quarter_right"
@@ -327,6 +332,7 @@ class CharacterImageGenerator:
             if image_url:
                 # Download and save locally
                 import httpx
+
                 async with httpx.AsyncClient() as client:
                     response = await client.get(image_url)
                     image_data = response.content
@@ -402,6 +408,7 @@ class CharacterImageGenerator:
 
                 # Download and save
                 import httpx
+
                 async with httpx.AsyncClient() as client:
                     response = await client.get(image_url)
                     image_data = response.content
@@ -461,12 +468,12 @@ class CharacterImageGenerator:
             )
 
             # Create gradient background
-            img = Image.new('RGB', (width, height), color='#2a2a3e')
+            img = Image.new("RGB", (width, height), color="#2a2a3e")
             draw = ImageDraw.Draw(img)
 
             # Add text
             text = f"Character Reference\n{prompt[:50]}..."
-            draw.text((width // 4, height // 2), text, fill='#ffffff')
+            draw.text((width // 4, height // 2), text, fill="#ffffff")
 
             output_path = self.output_dir / f"{image_id}.png"
             img.save(output_path)
@@ -695,9 +702,7 @@ class CharacterImageGenerator:
         # For now, return mock
         logger.info(f"Regenerating with face from {reference_image_path}")
 
-        return await self._generate_mock(
-            prompt, "", width, height, None
-        )
+        return await self._generate_mock(prompt, "", width, height, None)
 
     def estimate_cost(
         self,

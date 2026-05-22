@@ -92,9 +92,7 @@ class TestBlinkBookingHandler:
     """Tests for bookings.blink handler."""
 
     @pytest.mark.asyncio
-    async def test_blink_creates_booking_without_performer(
-        self, ipc_server, sample_project
-    ):
+    async def test_blink_creates_booking_without_performer(self, ipc_server, sample_project):
         """Test creating a Blink booking without specifying a performer."""
         handler = ipc_server.handlers.get("bookings.blink")
         assert handler is not None
@@ -164,9 +162,7 @@ class TestDeepBookingHandler:
         assert result["requirements"]["duration_seconds"] == 120
 
     @pytest.mark.asyncio
-    async def test_deep_with_emotion_markers(
-        self, ipc_server, sample_project, sample_performer
-    ):
+    async def test_deep_with_emotion_markers(self, ipc_server, sample_project, sample_performer):
         """Test creating a Deep booking with emotion markers."""
         handler = ipc_server.handlers.get("bookings.deep")
 
@@ -217,9 +213,7 @@ class TestEpicBookingHandler:
         assert result["requirements"]["duration_seconds"] == 300
 
     @pytest.mark.asyncio
-    async def test_epic_price_by_minute(
-        self, ipc_server, sample_project, sample_performer
-    ):
+    async def test_epic_price_by_minute(self, ipc_server, sample_project, sample_performer):
         """Test Epic booking price uses per-minute rate."""
         handler = ipc_server.handlers.get("bookings.epic")
 
@@ -274,9 +268,7 @@ class TestListProjectBookingsHandler:
     """Tests for bookings.listByProject handler."""
 
     @pytest.mark.asyncio
-    async def test_list_returns_project_bookings(
-        self, ipc_server, sample_project, sample_booking
-    ):
+    async def test_list_returns_project_bookings(self, ipc_server, sample_project, sample_booking):
         """Test listing bookings for a project."""
         handler = ipc_server.handlers.get("bookings.listByProject")
         assert handler is not None
@@ -509,9 +501,7 @@ class TestRateBookingHandler:
         assert result["review"] == "Excellent performance!"
 
     @pytest.mark.asyncio
-    async def test_rate_updates_existing_rating(
-        self, ipc_server, db_session, sample_booking
-    ):
+    async def test_rate_updates_existing_rating(self, ipc_server, db_session, sample_booking):
         """Test rating can be updated."""
         from scenemachine.models import PerformerRating
 

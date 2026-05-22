@@ -604,7 +604,11 @@ def _generate_motion_capabilities(performer_type: PerformerType, aci_score: floa
     base_capabilities = {
         "supports_liveportrait": True,
         "supports_roop_gs_anim": aci_score > 75,
-        "face_tracking_quality": "high" if aci_score > 85 else "medium" if aci_score > 70 else "standard",
+        "face_tracking_quality": "high"
+        if aci_score > 85
+        else "medium"
+        if aci_score > 70
+        else "standard",
         "hand_tracking": aci_score > 65,
         "body_tracking": aci_score > 80,
     }
@@ -636,24 +640,30 @@ def _get_availability(total_bookings: int) -> PerformerAvailability:
     """Determine availability status based on activity."""
     if total_bookings > 500:
         # Busy performers are sometimes unavailable
-        return random.choice([
-            PerformerAvailability.AVAILABLE,
-            PerformerAvailability.AVAILABLE,
-            PerformerAvailability.BUSY,
-        ])
+        return random.choice(
+            [
+                PerformerAvailability.AVAILABLE,
+                PerformerAvailability.AVAILABLE,
+                PerformerAvailability.BUSY,
+            ]
+        )
     elif total_bookings > 100:
         return PerformerAvailability.AVAILABLE
     elif total_bookings > 20:
-        return random.choice([
-            PerformerAvailability.AVAILABLE,
-            PerformerAvailability.OFFLINE,
-        ])
+        return random.choice(
+            [
+                PerformerAvailability.AVAILABLE,
+                PerformerAvailability.OFFLINE,
+            ]
+        )
     else:
-        return random.choice([
-            PerformerAvailability.AVAILABLE,
-            PerformerAvailability.OFFLINE,
-            PerformerAvailability.OFFLINE,
-        ])
+        return random.choice(
+            [
+                PerformerAvailability.AVAILABLE,
+                PerformerAvailability.OFFLINE,
+                PerformerAvailability.OFFLINE,
+            ]
+        )
 
 
 async def seed_performers(session: AsyncSession, force: bool = False) -> list[Performer]:

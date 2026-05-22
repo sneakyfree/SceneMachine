@@ -323,23 +323,33 @@ class UserSettings(Base, UUIDMixin, TimestampMixin):
             result["apiKeys"] = {
                 "anthropic": {
                     "configured": self.has_api_key("anthropic"),
-                    "masked": self.mask_api_key(self.anthropic_api_key) if self.has_api_key("anthropic") else None,
+                    "masked": self.mask_api_key(self.anthropic_api_key)
+                    if self.has_api_key("anthropic")
+                    else None,
                 },
                 "openai": {
                     "configured": self.has_api_key("openai"),
-                    "masked": self.mask_api_key(self.openai_api_key) if self.has_api_key("openai") else None,
+                    "masked": self.mask_api_key(self.openai_api_key)
+                    if self.has_api_key("openai")
+                    else None,
                 },
                 "replicate": {
                     "configured": self.has_api_key("replicate"),
-                    "masked": self.mask_api_key(self.replicate_api_key) if self.has_api_key("replicate") else None,
+                    "masked": self.mask_api_key(self.replicate_api_key)
+                    if self.has_api_key("replicate")
+                    else None,
                 },
                 "fal": {
                     "configured": self.has_api_key("fal"),
-                    "masked": self.mask_api_key(self.fal_api_key) if self.has_api_key("fal") else None,
+                    "masked": self.mask_api_key(self.fal_api_key)
+                    if self.has_api_key("fal")
+                    else None,
                 },
                 "runwayml": {
                     "configured": self.has_api_key("runwayml"),
-                    "masked": self.mask_api_key(self.runwayml_api_key) if self.has_api_key("runwayml") else None,
+                    "masked": self.mask_api_key(self.runwayml_api_key)
+                    if self.has_api_key("runwayml")
+                    else None,
                 },
             }
 

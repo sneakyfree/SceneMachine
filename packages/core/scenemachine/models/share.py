@@ -58,9 +58,7 @@ class ProjectShare(Base):
     )
 
     # Status
-    status: Mapped[ShareStatus] = mapped_column(
-        Enum(ShareStatus), default=ShareStatus.PENDING
-    )
+    status: Mapped[ShareStatus] = mapped_column(Enum(ShareStatus), default=ShareStatus.PENDING)
 
     # Optional message from sharer
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -163,9 +161,7 @@ class ProjectComment(Base):
 
     # Status
     is_resolved: Mapped[bool] = mapped_column(Boolean, default=False)
-    resolved_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

@@ -87,9 +87,7 @@ class ShotBreakdownRequest(BaseSchema):
     style_preference: str | None = Field(
         None, description="Preferred coverage style (e.g., 'classical', 'modern', 'minimal')"
     )
-    target_shot_count: int | None = Field(
-        None, ge=1, le=50, description="Target number of shots"
-    )
+    target_shot_count: int | None = Field(None, ge=1, le=50, description="Target number of shots")
     focus_characters: list[UUID] | None = Field(
         None, description="Character IDs to prioritize in coverage"
     )

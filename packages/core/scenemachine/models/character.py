@@ -121,9 +121,7 @@ class Character(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Personality and voice (for AI understanding)
-    personality_traits: Mapped[list[str] | None] = mapped_column(
-        ArrayType(String), nullable=True
-    )
+    personality_traits: Mapped[list[str] | None] = mapped_column(ArrayType(String), nullable=True)
     voice_description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Lock state
@@ -272,16 +270,10 @@ class Character(Base, UUIDMixin, TimestampMixin):
                 CharacterLockState.GENERATING,
                 CharacterLockState.DRAFT,
             ],
-            CharacterLockState.LOCKED: [
-                CharacterLockState.DRAFT
-            ],  # Can unlock to make changes
+            CharacterLockState.LOCKED: [CharacterLockState.DRAFT],  # Can unlock to make changes
         }
         return new_state in valid_transitions.get(self.lock_state, [])
 
     def __repr__(self) -> str:
         """String representation."""
-        return (
-            f"<Character(id={self.id}, "
-            f"name='{self.name}', "
-            f"lock_state={self.lock_state.value})>"
-        )
+        return f"<Character(id={self.id}, name='{self.name}', lock_state={self.lock_state.value})>"

@@ -88,9 +88,7 @@ class ProjectDuplicator:
 
         # Copy screenplay if exists
         if source_project.screenplay:
-            new_screenplay = await self._copy_screenplay(
-                source_project.screenplay, new_project.id
-            )
+            new_screenplay = await self._copy_screenplay(source_project.screenplay, new_project.id)
             self.session.add(new_screenplay)
 
         # Copy characters
@@ -109,9 +107,7 @@ class ProjectDuplicator:
 
             # Copy shots for this scene
             for shot in scene.shots:
-                new_shot = await self._copy_shot(
-                    shot, new_scene.id, include_generated_videos
-                )
+                new_shot = await self._copy_shot(shot, new_scene.id, include_generated_videos)
                 self.session.add(new_shot)
 
         # Copy reference images (files)
@@ -127,9 +123,7 @@ class ProjectDuplicator:
 
         return new_project
 
-    async def _load_project_with_relations(
-        self, project_id: UUID
-    ) -> Project | None:
+    async def _load_project_with_relations(self, project_id: UUID) -> Project | None:
         """Load project with all relationships eagerly loaded.
 
         Args:
@@ -150,9 +144,7 @@ class ProjectDuplicator:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _copy_screenplay(
-        self, source: Screenplay, new_project_id: UUID
-    ) -> Screenplay:
+    async def _copy_screenplay(self, source: Screenplay, new_project_id: UUID) -> Screenplay:
         """Create a copy of a screenplay.
 
         Args:
@@ -197,7 +189,9 @@ class ProjectDuplicator:
             first_appearance=source.first_appearance,
             role=source.role,
             lock_state=CharacterLockState.UNLOCKED,  # Reset lock state
-            physical_description=source.physical_description.copy() if source.physical_description else None,
+            physical_description=source.physical_description.copy()
+            if source.physical_description
+            else None,
             voice_id=source.voice_id,
             voice_provider=source.voice_provider,
             reference_image_paths=None,  # Will copy files separately
@@ -242,9 +236,7 @@ class ProjectDuplicator:
         )
         return new_scene, source.id
 
-    async def _copy_shot(
-        self, source: Shot, new_scene_id: UUID, include_videos: bool
-    ) -> Shot:
+    async def _copy_shot(self, source: Shot, new_scene_id: UUID, include_videos: bool) -> Shot:
         """Create a copy of a shot.
 
         Args:
@@ -282,9 +274,7 @@ class ProjectDuplicator:
             updated_at=datetime.utcnow(),
         )
 
-    async def _copy_reference_images(
-        self, source_project: Project, new_project: Project
-    ) -> None:
+    async def _copy_reference_images(self, source_project: Project, new_project: Project) -> None:
         """Copy character reference images to new project folder.
 
         Args:

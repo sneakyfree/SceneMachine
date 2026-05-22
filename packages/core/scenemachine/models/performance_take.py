@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 class TakeMode(StrEnum):
     """Booking mode the take was created for."""
+
     BLINK = "blink"  # 10-second quick take
     DEEP = "deep"  # 120-second method acting
     EPIC = "epic"  # 5-20 minute continuous take
@@ -32,6 +33,7 @@ class TakeMode(StrEnum):
 
 class TakeStatus(StrEnum):
     """Status of the performance take."""
+
     UPLOADING = "uploading"  # Being uploaded
     PROCESSING = "processing"  # Processing motion data
     AVAILABLE = "available"  # Ready for use
@@ -131,9 +133,7 @@ class PerformanceTake(Base, UUIDMixin, TimestampMixin):
 
     # Usage statistics
     usage_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    last_used_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Storage
     storage_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -142,9 +142,7 @@ class PerformanceTake(Base, UUIDMixin, TimestampMixin):
     preview_video_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Processing info
-    processed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     processing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
@@ -181,6 +179,7 @@ class PerformanceTake(Base, UUIDMixin, TimestampMixin):
     def increment_usage(self) -> None:
         """Increment usage counter."""
         from datetime import datetime
+
         self.usage_count += 1
         self.last_used_at = datetime.now(UTC)
 

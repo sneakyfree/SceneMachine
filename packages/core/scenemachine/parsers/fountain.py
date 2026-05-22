@@ -121,9 +121,7 @@ class FountainParser:
     TRANSITION_PATTERN = re.compile(r"^[A-Z\s]+TO:$")
 
     # Character name pattern (all caps, may have extension)
-    CHARACTER_PATTERN = re.compile(
-        r"^([A-Z][A-Z0-9\s\-\'\.]+?)(\s*\([^)]+\))?(\s*\^)?$"
-    )
+    CHARACTER_PATTERN = re.compile(r"^([A-Z][A-Z0-9\s\-\'\.]+?)(\s*\([^)]+\))?(\s*\^)?$")
 
     # Parenthetical pattern
     PARENTHETICAL_PATTERN = re.compile(r"^\([^)]+\)$")
@@ -250,9 +248,7 @@ class FountainParser:
             if not line.strip():
                 # Save last entry
                 if current_key:
-                    self._set_title_page_value(
-                        title_page, current_key, "\n".join(current_value)
-                    )
+                    self._set_title_page_value(title_page, current_key, "\n".join(current_value))
                 self._current_index += 1
                 break
 
@@ -260,9 +256,7 @@ class FountainParser:
             if ":" in line and not line.startswith(" ") and not line.startswith("\t"):
                 # Save previous entry
                 if current_key:
-                    self._set_title_page_value(
-                        title_page, current_key, "\n".join(current_value)
-                    )
+                    self._set_title_page_value(title_page, current_key, "\n".join(current_value))
 
                 # Parse new entry
                 key, _, value = line.partition(":")
@@ -277,9 +271,7 @@ class FountainParser:
 
         return title_page
 
-    def _set_title_page_value(
-        self, title_page: TitlePage, key: str, value: str
-    ) -> None:
+    def _set_title_page_value(self, title_page: TitlePage, key: str, value: str) -> None:
         """Set a title page value based on key."""
         key_mapping = {
             "title": "title",
@@ -434,9 +426,7 @@ class FountainParser:
                     return True
         return False
 
-    def _parse_scene_heading(
-        self, text: str, raw_line: str, forced: bool = False
-    ) -> Element:
+    def _parse_scene_heading(self, text: str, raw_line: str, forced: bool = False) -> Element:
         """Parse a scene heading into its components."""
         # Extract scene number if present
         scene_number = None
@@ -519,9 +509,7 @@ class FountainParser:
 
         return False
 
-    def _parse_character(
-        self, text: str, raw_line: str, forced: bool = False
-    ) -> Element:
+    def _parse_character(self, text: str, raw_line: str, forced: bool = False) -> Element:
         """Parse a character element."""
         match = self.CHARACTER_PATTERN.match(text)
 

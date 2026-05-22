@@ -16,14 +16,16 @@ logger = logging.getLogger(__name__)
 
 class BlockerSeverity(StrEnum):
     """Severity levels for blockers."""
+
     CRITICAL = "critical"  # Blocks generation entirely
-    HIGH = "high"          # Major quality risk
-    MEDIUM = "medium"      # Notable issue
-    LOW = "low"            # Minor polish item
+    HIGH = "high"  # Major quality risk
+    MEDIUM = "medium"  # Notable issue
+    LOW = "low"  # Minor polish item
 
 
 class BlockerCategory(StrEnum):
     """Categories of blockers."""
+
     CHARACTER_MISSING = "character_missing"
     CHARACTER_INCOMPLETE = "character_incomplete"
     FORMAT_ERROR = "format_error"
@@ -37,13 +39,15 @@ class BlockerCategory(StrEnum):
 
 class UnlockerPriority(StrEnum):
     """Priority levels for fixing blockers."""
+
     QUICK_WIN = "quick_win"  # < 5 minutes
-    THIRTY_DAYS = "30_days"   # Moderate effort
-    NINETY_DAYS = "90_days"   # Major effort
+    THIRTY_DAYS = "30_days"  # Moderate effort
+    NINETY_DAYS = "90_days"  # Major effort
 
 
 class UnlockerEffort(StrEnum):
     """Effort levels for fixes."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -52,6 +56,7 @@ class UnlockerEffort(StrEnum):
 @dataclass
 class Unlocker:
     """A suggested fix for a blocker."""
+
     action: str
     priority: UnlockerPriority
     effort: UnlockerEffort
@@ -73,6 +78,7 @@ class Unlocker:
 @dataclass
 class Blocker:
     """A blocker that prevents or risks generation quality."""
+
     blocker_id: str
     severity: BlockerSeverity
     category: BlockerCategory
@@ -100,6 +106,7 @@ class Blocker:
 @dataclass
 class BlockerAnalysis:
     """Complete blocker analysis for a project."""
+
     project_id: str | None
     blockers: list[Blocker] = field(default_factory=list)
     critical_count: int = 0
@@ -123,9 +130,13 @@ class BlockerAnalysis:
                 "estimated_fix_time_minutes": self.estimated_fix_time_minutes,
             },
             "blockers_by_severity": {
-                "critical": [b.to_dict() for b in self.blockers if b.severity == BlockerSeverity.CRITICAL],
+                "critical": [
+                    b.to_dict() for b in self.blockers if b.severity == BlockerSeverity.CRITICAL
+                ],
                 "high": [b.to_dict() for b in self.blockers if b.severity == BlockerSeverity.HIGH],
-                "medium": [b.to_dict() for b in self.blockers if b.severity == BlockerSeverity.MEDIUM],
+                "medium": [
+                    b.to_dict() for b in self.blockers if b.severity == BlockerSeverity.MEDIUM
+                ],
                 "low": [b.to_dict() for b in self.blockers if b.severity == BlockerSeverity.LOW],
             },
         }
@@ -187,9 +198,15 @@ class BlockersEngine:
             analysis.blockers.extend(tech_blockers)
 
         # Calculate counts
-        analysis.critical_count = sum(1 for b in analysis.blockers if b.severity == BlockerSeverity.CRITICAL)
-        analysis.high_count = sum(1 for b in analysis.blockers if b.severity == BlockerSeverity.HIGH)
-        analysis.medium_count = sum(1 for b in analysis.blockers if b.severity == BlockerSeverity.MEDIUM)
+        analysis.critical_count = sum(
+            1 for b in analysis.blockers if b.severity == BlockerSeverity.CRITICAL
+        )
+        analysis.high_count = sum(
+            1 for b in analysis.blockers if b.severity == BlockerSeverity.HIGH
+        )
+        analysis.medium_count = sum(
+            1 for b in analysis.blockers if b.severity == BlockerSeverity.MEDIUM
+        )
         analysis.low_count = sum(1 for b in analysis.blockers if b.severity == BlockerSeverity.LOW)
 
         # Determine if can proceed
@@ -197,16 +214,13 @@ class BlockersEngine:
 
         # Estimate fix time
         analysis.estimated_fix_time_minutes = sum(
-            b.unlocker.estimated_minutes if b.unlocker else 10
-            for b in analysis.blockers
+            b.unlocker.estimated_minutes if b.unlocker else 10 for b in analysis.blockers
         )
 
         return analysis.to_dict()
 
     def _check_character_blockers(
-        self,
-        characters: list[dict[str, Any]],
-        shots: list[dict[str, Any]]
+        self, characters: list[dict[str, Any]], shots: list[dict[str, Any]]
     ) -> list[Blocker]:
         """Check for character-related blockers."""
         blockers = []
@@ -232,47 +246,51 @@ class BlockersEngine:
                     or (shot.get("dialogue", {}).get("character", "").upper() == char_name)
                 ]
 
-                blockers.append(Blocker(
-                    blocker_id=f"char_missing_{char_name.lower()}",
-                    severity=BlockerSeverity.CRITICAL,
-                    category=BlockerCategory.CHARACTER_MISSING,
-                    description=f"Character '{char_name}' is referenced but not defined",
-                    affected_shots=affected_shots,
-                    affected_characters=[char_name],
-                    unlocker=Unlocker(
-                        action=f"Add character '{char_name}' in Character Laboratory",
-                        priority=UnlockerPriority.QUICK_WIN,
-                        effort=UnlockerEffort.LOW,
-                        impact_description="Required for generation to proceed",
-                        estimated_minutes=2,
-                    ),
-                ))
+                blockers.append(
+                    Blocker(
+                        blocker_id=f"char_missing_{char_name.lower()}",
+                        severity=BlockerSeverity.CRITICAL,
+                        category=BlockerCategory.CHARACTER_MISSING,
+                        description=f"Character '{char_name}' is referenced but not defined",
+                        affected_shots=affected_shots,
+                        affected_characters=[char_name],
+                        unlocker=Unlocker(
+                            action=f"Add character '{char_name}' in Character Laboratory",
+                            priority=UnlockerPriority.QUICK_WIN,
+                            effort=UnlockerEffort.LOW,
+                            impact_description="Required for generation to proceed",
+                            estimated_minutes=2,
+                        ),
+                    )
+                )
 
         # Check for characters without reference images
         for char_name, char_data in defined_characters.items():
             if char_name in shot_characters:
                 has_reference = (
-                    char_data.get("reference_image_id") or
-                    char_data.get("face_embedding_path") or
-                    char_data.get("appearance_locked")
+                    char_data.get("reference_image_id")
+                    or char_data.get("face_embedding_path")
+                    or char_data.get("appearance_locked")
                 )
 
                 if not has_reference:
-                    blockers.append(Blocker(
-                        blocker_id=f"char_no_ref_{char_name.lower()}",
-                        severity=BlockerSeverity.HIGH,
-                        category=BlockerCategory.CHARACTER_INCOMPLETE,
-                        description=f"Character '{char_name}' has no reference image",
-                        affected_characters=[char_name],
-                        unlocker=Unlocker(
-                            action=f"Upload reference image OR generate with AI for '{char_name}'",
-                            priority=UnlockerPriority.QUICK_WIN,
-                            effort=UnlockerEffort.LOW,
-                            impact_description="Improves character consistency across shots",
-                            auto_suggest=True,
-                            estimated_minutes=2,
-                        ),
-                    ))
+                    blockers.append(
+                        Blocker(
+                            blocker_id=f"char_no_ref_{char_name.lower()}",
+                            severity=BlockerSeverity.HIGH,
+                            category=BlockerCategory.CHARACTER_INCOMPLETE,
+                            description=f"Character '{char_name}' has no reference image",
+                            affected_characters=[char_name],
+                            unlocker=Unlocker(
+                                action=f"Upload reference image OR generate with AI for '{char_name}'",
+                                priority=UnlockerPriority.QUICK_WIN,
+                                effort=UnlockerEffort.LOW,
+                                impact_description="Improves character consistency across shots",
+                                auto_suggest=True,
+                                estimated_minutes=2,
+                            ),
+                        )
+                    )
 
         return blockers
 
@@ -285,38 +303,42 @@ class BlockersEngine:
 
             # Check for missing location
             if not scene.get("location"):
-                blockers.append(Blocker(
-                    blocker_id=f"scene_no_location_{scene_id}",
-                    severity=BlockerSeverity.MEDIUM,
-                    category=BlockerCategory.FORMAT_ERROR,
-                    description=f"Scene {scene_id} has no location specified",
-                    affected_scenes=[scene_id],
-                    unlocker=Unlocker(
-                        action="Specify location in scene heading",
-                        priority=UnlockerPriority.QUICK_WIN,
-                        effort=UnlockerEffort.LOW,
-                        impact_description="Improves visual prompt generation",
-                        estimated_minutes=1,
-                    ),
-                ))
+                blockers.append(
+                    Blocker(
+                        blocker_id=f"scene_no_location_{scene_id}",
+                        severity=BlockerSeverity.MEDIUM,
+                        category=BlockerCategory.FORMAT_ERROR,
+                        description=f"Scene {scene_id} has no location specified",
+                        affected_scenes=[scene_id],
+                        unlocker=Unlocker(
+                            action="Specify location in scene heading",
+                            priority=UnlockerPriority.QUICK_WIN,
+                            effort=UnlockerEffort.LOW,
+                            impact_description="Improves visual prompt generation",
+                            estimated_minutes=1,
+                        ),
+                    )
+                )
 
             # Check for empty scenes
             shots = scene.get("shots", [])
             if not shots:
-                blockers.append(Blocker(
-                    blocker_id=f"scene_empty_{scene_id}",
-                    severity=BlockerSeverity.HIGH,
-                    category=BlockerCategory.FORMAT_ERROR,
-                    description=f"Scene {scene_id} has no shots",
-                    affected_scenes=[scene_id],
-                    unlocker=Unlocker(
-                        action="Add action or dialogue to scene",
-                        priority=UnlockerPriority.QUICK_WIN,
-                        effort=UnlockerEffort.MEDIUM,
-                        impact_description="Required for scene to generate",
-                        estimated_minutes=5,
-                    ),
-                ))
+                blockers.append(
+                    Blocker(
+                        blocker_id=f"scene_empty_{scene_id}",
+                        severity=BlockerSeverity.HIGH,
+                        category=BlockerCategory.FORMAT_ERROR,
+                        description=f"Scene {scene_id} has no shots",
+                        affected_scenes=[scene_id],
+                        unlocker=Unlocker(
+                            action="Add action or dialogue to scene",
+                            priority=UnlockerPriority.QUICK_WIN,
+                            effort=UnlockerEffort.MEDIUM,
+                            impact_description="Required for scene to generate",
+                            estimated_minutes=5,
+                        ),
+                    )
+                )
 
         return blockers
 
@@ -335,63 +357,67 @@ class BlockersEngine:
 
             # Check for missing visual prompt
             if not shot.get("visual_prompt"):
-                blockers.append(Blocker(
-                    blocker_id=f"shot_no_prompt_{shot_id}",
-                    severity=BlockerSeverity.CRITICAL,
-                    category=BlockerCategory.FORMAT_ERROR,
-                    description=f"Shot {shot_id} has no visual description",
-                    affected_shots=[shot_id],
-                    unlocker=Unlocker(
-                        action="Add visual description for shot",
-                        priority=UnlockerPriority.QUICK_WIN,
-                        effort=UnlockerEffort.LOW,
-                        impact_description="Required for video generation",
-                        estimated_minutes=2,
-                    ),
-                ))
+                blockers.append(
+                    Blocker(
+                        blocker_id=f"shot_no_prompt_{shot_id}",
+                        severity=BlockerSeverity.CRITICAL,
+                        category=BlockerCategory.FORMAT_ERROR,
+                        description=f"Shot {shot_id} has no visual description",
+                        affected_shots=[shot_id],
+                        unlocker=Unlocker(
+                            action="Add visual description for shot",
+                            priority=UnlockerPriority.QUICK_WIN,
+                            effort=UnlockerEffort.LOW,
+                            impact_description="Required for video generation",
+                            estimated_minutes=2,
+                        ),
+                    )
+                )
 
             # Check for unknowns
             unknowns = shot.get("unknowns", [])
             if unknowns:
-                blockers.append(Blocker(
-                    blocker_id=f"shot_unknowns_{shot_id}",
-                    severity=BlockerSeverity.LOW,
-                    category=BlockerCategory.QUALITY_RISK,
-                    description=f"Shot {shot_id} has unresolved details: {', '.join(unknowns)}",
-                    affected_shots=[shot_id],
-                    metadata={"unknowns": unknowns},
-                    unlocker=Unlocker(
-                        action="Review and clarify shot details",
-                        priority=UnlockerPriority.QUICK_WIN,
-                        effort=UnlockerEffort.LOW,
-                        impact_description="Improves generation quality",
-                        estimated_minutes=2,
-                    ),
-                ))
+                blockers.append(
+                    Blocker(
+                        blocker_id=f"shot_unknowns_{shot_id}",
+                        severity=BlockerSeverity.LOW,
+                        category=BlockerCategory.QUALITY_RISK,
+                        description=f"Shot {shot_id} has unresolved details: {', '.join(unknowns)}",
+                        affected_shots=[shot_id],
+                        metadata={"unknowns": unknowns},
+                        unlocker=Unlocker(
+                            action="Review and clarify shot details",
+                            priority=UnlockerPriority.QUICK_WIN,
+                            effort=UnlockerEffort.LOW,
+                            impact_description="Improves generation quality",
+                            estimated_minutes=2,
+                        ),
+                    )
+                )
 
         # Aggregate low confidence shots
         if low_confidence_shots:
-            blockers.append(Blocker(
-                blocker_id="shots_low_confidence",
-                severity=BlockerSeverity.MEDIUM,
-                category=BlockerCategory.QUALITY_RISK,
-                description=f"{len(low_confidence_shots)} shots have low confidence (<0.6) prompts",
-                affected_shots=low_confidence_shots,
-                unlocker=Unlocker(
-                    action="Review and refine low-confidence shot prompts",
-                    priority=UnlockerPriority.THIRTY_DAYS,
-                    effort=UnlockerEffort.MEDIUM,
-                    impact_description="Reduces generation failures",
-                    estimated_minutes=30,
-                ),
-            ))
+            blockers.append(
+                Blocker(
+                    blocker_id="shots_low_confidence",
+                    severity=BlockerSeverity.MEDIUM,
+                    category=BlockerCategory.QUALITY_RISK,
+                    description=f"{len(low_confidence_shots)} shots have low confidence (<0.6) prompts",
+                    affected_shots=low_confidence_shots,
+                    unlocker=Unlocker(
+                        action="Review and refine low-confidence shot prompts",
+                        priority=UnlockerPriority.THIRTY_DAYS,
+                        effort=UnlockerEffort.MEDIUM,
+                        impact_description="Reduces generation failures",
+                        estimated_minutes=30,
+                    ),
+                )
+            )
 
         return blockers
 
     def _check_audio_blockers(
-        self,
-        characters: list[dict[str, Any]],
-        shots: list[dict[str, Any]]
+        self, characters: list[dict[str, Any]], shots: list[dict[str, Any]]
     ) -> list[Blocker]:
         """Check for audio/voice-related blockers."""
         blockers = []
@@ -411,20 +437,22 @@ class BlockersEngine:
                 has_voice = char.get("voice_profile") or char.get("voice_clone_path")
 
                 if not has_voice:
-                    blockers.append(Blocker(
-                        blocker_id=f"char_no_voice_{char_name.lower()}",
-                        severity=BlockerSeverity.HIGH,
-                        category=BlockerCategory.AUDIO,
-                        description=f"Character '{char_name}' has dialogue but no voice profile",
-                        affected_characters=[char_name],
-                        unlocker=Unlocker(
-                            action=f"Select voice profile OR upload sample for '{char_name}'",
-                            priority=UnlockerPriority.QUICK_WIN,
-                            effort=UnlockerEffort.LOW,
-                            impact_description="Required for dialogue generation",
-                            estimated_minutes=5,
-                        ),
-                    ))
+                    blockers.append(
+                        Blocker(
+                            blocker_id=f"char_no_voice_{char_name.lower()}",
+                            severity=BlockerSeverity.HIGH,
+                            category=BlockerCategory.AUDIO,
+                            description=f"Character '{char_name}' has dialogue but no voice profile",
+                            affected_characters=[char_name],
+                            unlocker=Unlocker(
+                                action=f"Select voice profile OR upload sample for '{char_name}'",
+                                priority=UnlockerPriority.QUICK_WIN,
+                                effort=UnlockerEffort.LOW,
+                                impact_description="Required for dialogue generation",
+                                estimated_minutes=5,
+                            ),
+                        )
+                    )
 
         return blockers
 
@@ -437,19 +465,21 @@ class BlockersEngine:
         if compute_mode == "local":
             gpu_vram = settings.get("gpu_vram_gb", 0)
             if gpu_vram < 8:
-                blockers.append(Blocker(
-                    blocker_id="tech_low_vram",
-                    severity=BlockerSeverity.HIGH,
-                    category=BlockerCategory.RESOURCE_INSUFFICIENT,
-                    description=f"Local GPU has {gpu_vram}GB VRAM, minimum 8GB required",
-                    unlocker=Unlocker(
-                        action="Switch to cloud compute or upgrade GPU",
-                        priority=UnlockerPriority.NINETY_DAYS,
-                        effort=UnlockerEffort.HIGH,
-                        impact_description="Required for local video generation",
-                        estimated_minutes=0,
-                    ),
-                ))
+                blockers.append(
+                    Blocker(
+                        blocker_id="tech_low_vram",
+                        severity=BlockerSeverity.HIGH,
+                        category=BlockerCategory.RESOURCE_INSUFFICIENT,
+                        description=f"Local GPU has {gpu_vram}GB VRAM, minimum 8GB required",
+                        unlocker=Unlocker(
+                            action="Switch to cloud compute or upgrade GPU",
+                            priority=UnlockerPriority.NINETY_DAYS,
+                            effort=UnlockerEffort.HIGH,
+                            impact_description="Required for local video generation",
+                            estimated_minutes=0,
+                        ),
+                    )
+                )
 
         return blockers
 
@@ -466,22 +496,26 @@ class BlockersEngine:
 
         for blocker in analysis.get("blockers", []):
             if blocker.get("unlocker"):
-                fixes.append({
-                    "blocker_id": blocker["blocker_id"],
-                    "severity": blocker["severity"],
-                    "category": blocker["category"],
-                    "description": blocker["description"],
-                    "fix": blocker["unlocker"],
-                })
+                fixes.append(
+                    {
+                        "blocker_id": blocker["blocker_id"],
+                        "severity": blocker["severity"],
+                        "category": blocker["category"],
+                        "description": blocker["description"],
+                        "fix": blocker["unlocker"],
+                    }
+                )
 
         # Sort by severity then by priority
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         priority_order = {"quick_win": 0, "30_days": 1, "90_days": 2}
 
-        fixes.sort(key=lambda f: (
-            severity_order.get(f["severity"], 99),
-            priority_order.get(f["fix"]["priority"], 99),
-        ))
+        fixes.sort(
+            key=lambda f: (
+                severity_order.get(f["severity"], 99),
+                priority_order.get(f["fix"]["priority"], 99),
+            )
+        )
 
         return fixes
 

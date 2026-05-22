@@ -21,6 +21,7 @@ This file pins:
 Structural source-level assertions on the same file pattern as PR #54's
 test_overnight_fixes_regression.py — fast, deterministic, no GPU.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,8 +30,7 @@ import pytest
 
 # Resolve the production_pipeline source path once
 _PRODUCTION_PIPELINE_SRC = (
-    Path(__file__).resolve().parents[2]
-    / "scenemachine" / "services" / "production_pipeline.py"
+    Path(__file__).resolve().parents[2] / "scenemachine" / "services" / "production_pipeline.py"
 )
 
 
@@ -70,6 +70,7 @@ class TestPR63ShotStatusQualityReviewField:
 
     def test_field_exists_on_dataclass(self):
         from scenemachine.services.production_pipeline import ShotGenerationStatus
+
         # Dataclass instance with required positional/keyword args
         s = ShotGenerationStatus(shot_id="s1", scene_id="sc1", status="queued")
         assert hasattr(s, "quality_review"), (
@@ -80,6 +81,7 @@ class TestPR63ShotStatusQualityReviewField:
 
     def test_field_assignable_with_dict(self):
         from scenemachine.services.production_pipeline import ShotGenerationStatus
+
         s = ShotGenerationStatus(shot_id="s1", scene_id="sc1", status="queued")
         s.quality_review = {"overall_score": 0.42, "dimension_scores": []}
         assert s.quality_review["overall_score"] == 0.42
@@ -119,8 +121,7 @@ class TestPR63FailureLoggingNotSilent:
         # Find the except block in the review path
         # (proximity check — the WARNING log must follow the except)
         assert "quality review failed" in src, (
-            "Failure log message must be present so operators can grep "
-            "for review failures."
+            "Failure log message must be present so operators can grep for review failures."
         )
         assert "logger.warning" in src, (
             "Quality review failure path must log at WARNING, not DEBUG. "
@@ -139,6 +140,7 @@ class TestPR63NoBreakingExistingCallers:
 
     def test_dataclass_constructible_without_quality_review(self):
         from scenemachine.services.production_pipeline import ShotGenerationStatus
+
         # Should not raise
         ShotGenerationStatus(shot_id="x", scene_id="y", status="queued")
 
@@ -148,6 +150,7 @@ class TestPR63NoBreakingExistingCallers:
         from dataclasses import asdict
 
         from scenemachine.services.production_pipeline import ShotGenerationStatus
+
         s = ShotGenerationStatus(shot_id="x", scene_id="y", status="completed")
         s.quality_review = {"overall_score": 0.5}
         d = asdict(s)

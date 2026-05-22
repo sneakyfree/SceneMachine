@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class PipelineStage(StrEnum):
     """Pipeline processing stages."""
+
     INITIALIZED = "initialized"
     PARSING = "parsing"
     SHOT_BREAKDOWN = "shot_breakdown"
@@ -43,6 +44,7 @@ class PipelineStage(StrEnum):
 
 class PipelineMode(StrEnum):
     """Pipeline execution modes."""
+
     FULL_AUTO = "full_auto"  # Run everything automatically
     STEP_BY_STEP = "step_by_step"  # Pause after each stage
     PREVIEW = "preview"  # Generate first scene only
@@ -52,6 +54,7 @@ class PipelineMode(StrEnum):
 @dataclass
 class ShotGenerationStatus:
     """Status of individual shot generation."""
+
     shot_id: str
     scene_id: str
     status: str  # queued, generating, reviewing, completed, failed
@@ -70,6 +73,7 @@ class ShotGenerationStatus:
 @dataclass
 class PipelineProgress:
     """Progress update for pipeline execution."""
+
     stage: PipelineStage
     percent: float
     message: str
@@ -82,6 +86,7 @@ class PipelineProgress:
 @dataclass
 class PipelineResult:
     """Final result of pipeline execution."""
+
     project_id: str
     success: bool
     stage: PipelineStage
@@ -197,7 +202,9 @@ class ProductionPipeline:
                 percent=percent,
                 message=message,
                 current_shot=current_shot,
-                shots_completed=sum(1 for s in self.shot_statuses.values() if s.status == "completed"),
+                shots_completed=sum(
+                    1 for s in self.shot_statuses.values() if s.status == "completed"
+                ),
                 shots_total=len(self.shot_statuses),
             )
             await self._progress_callback(progress)
@@ -231,7 +238,9 @@ class ProductionPipeline:
             await self._snapshot_stage("after_parse", "Screenplay parsed and structured")
 
             # Stage 2: Generate shot breakdown
-            await self._emit_progress(PipelineStage.SHOT_BREAKDOWN, 15, "Generating shot breakdown...")
+            await self._emit_progress(
+                PipelineStage.SHOT_BREAKDOWN, 15, "Generating shot breakdown..."
+            )
             self.stage = PipelineStage.SHOT_BREAKDOWN
 
             shot_result = await self._generate_shot_list()
@@ -263,7 +272,11 @@ class ProductionPipeline:
                     success=True,
                     stage=PipelineStage.BLOCKER_CHECK,
                     total_shots=len(self.shot_statuses),
-                    warnings=[b.get("description", "") for b in self.blockers if b.get("severity") in ("high", "medium")],
+                    warnings=[
+                        b.get("description", "")
+                        for b in self.blockers
+                        if b.get("severity") in ("high", "medium")
+                    ],
                 )
 
             # Stage 4: Prepare characters
@@ -316,7 +329,9 @@ class ProductionPipeline:
                 stage=PipelineStage.COMPLETED,
                 output_path=output_path,
                 total_shots=len(self.shot_statuses),
-                completed_shots=sum(1 for s in self.shot_statuses.values() if s.status == "completed"),
+                completed_shots=sum(
+                    1 for s in self.shot_statuses.values() if s.status == "completed"
+                ),
                 failed_shots=sum(1 for s in self.shot_statuses.values() if s.status == "failed"),
                 total_cost_usd=self.total_cost,
                 processing_time_seconds=processing_time,
@@ -358,15 +373,17 @@ class ProductionPipeline:
 
             shots_data: list[dict[str, Any]] = []
             for s in self.shot_statuses.values():
-                shots_data.append({
-                    "shot_id": s.shot_id,
-                    "scene_id": s.scene_id,
-                    "status": s.status,
-                    "quality_score": s.quality_score,
-                    "video_path": s.video_path,
-                    "audio_path": s.audio_path,
-                    "error": s.error,
-                })
+                shots_data.append(
+                    {
+                        "shot_id": s.shot_id,
+                        "scene_id": s.scene_id,
+                        "status": s.status,
+                        "quality_score": s.quality_score,
+                        "video_path": s.video_path,
+                        "audio_path": s.audio_path,
+                        "error": s.error,
+                    }
+                )
 
             service = SnapshotService()
             snap = await service.create_snapshot(
@@ -384,7 +401,9 @@ class ProductionPipeline:
             )
             logger.info(
                 "snapshot %s: %s (%d shots, %d chars, %d scenes)",
-                snap.id, label, len(shots_data),
+                snap.id,
+                label,
+                len(shots_data),
                 len(self.characters or []),
                 len((self.shot_list or {}).get("scenes", [])),
             )
@@ -393,7 +412,9 @@ class ProductionPipeline:
             logger.exception(
                 "snapshot creation failed at stage %s (label=%s): %s "
                 "— pipeline continues; audit history will be incomplete",
-                self.stage.value, label, e,
+                self.stage.value,
+                label,
+                e,
             )
 
     def _failure(self, error: str) -> PipelineResult:
@@ -555,7 +576,7 @@ class ProductionPipeline:
         # Build a stable character_id -> reference_image_path map from
         # whatever the earlier pipeline stage prepared.
         character_ref_paths: dict[str, str] = {}
-        for c in (self.characters or []):
+        for c in self.characters or []:
             cid = c.get("id") or c.get("character_id")
             ref = c.get("reference_image_path") or c.get("ref_image")
             if cid and ref:
@@ -567,8 +588,9 @@ class ProductionPipeline:
         )
         comfyui_input_dir.mkdir(parents=True, exist_ok=True)
 
-        async def extract_last_frame(video_path: str, shot_id: str,
-                                     duration_s: float) -> str | None:
+        async def extract_last_frame(
+            video_path: str, shot_id: str, duration_s: float
+        ) -> str | None:
             """Extract the last frame of the shot's mp4 into ComfyUI's input
             dir. Returns the filename (relative to ComfyUI input dir) on
             success, None on failure. Failure is logged but never raised —
@@ -577,6 +599,7 @@ class ProductionPipeline:
             """
             try:
                 from scenemachine.utils.ffmpeg import get_ffmpeg
+
                 ffmpeg = get_ffmpeg()
                 vp = Path(video_path)
                 if not vp.exists():
@@ -606,7 +629,8 @@ class ProductionPipeline:
                 logger.warning(
                     "continuity frame extraction failed for shot %s: %s "
                     "(next shot will route T2V instead of I2V)",
-                    shot_id, e,
+                    shot_id,
+                    e,
                 )
                 return None
 
@@ -691,7 +715,9 @@ class ProductionPipeline:
 
                 logger.info(
                     "shot %s -> %s (%s)",
-                    shot.shot_id, decision.model_id, decision.reason,
+                    shot.shot_id,
+                    decision.model_id,
+                    decision.reason,
                 )
 
                 # Real provider call — no silent fallback. If the provider
@@ -701,12 +727,12 @@ class ProductionPipeline:
                 if not result.success:
                     shot.status = "failed"
                     shot.error = result.error_message or (
-                        f"provider returned success=False "
-                        f"(code={result.error_code})"
+                        f"provider returned success=False (code={result.error_code})"
                     )
                     logger.warning(
                         "shot %s generation failed: %s",
-                        shot.shot_id, shot.error,
+                        shot.shot_id,
+                        shot.error,
                     )
                     return None
 
@@ -716,9 +742,7 @@ class ProductionPipeline:
                     abs_path = settings.output_dir / result.output_path
                     shot.video_path = str(abs_path)
                 self.total_cost += float(result.cost_usd or 0.0)
-                shot.quality_score = (
-                    (result.metadata or {}).get("quality_score", 0.8)
-                )
+                shot.quality_score = (result.metadata or {}).get("quality_score", 0.8)
 
                 # Quality review (regeneration loop). Pre-2026-05-14 this
                 # path was a silent no-op: review_video returns a
@@ -756,7 +780,8 @@ class ProductionPipeline:
                             logger.info(
                                 "shot %s quality %.3f below threshold %.3f, "
                                 "regenerating (attempt %s, issues=%s)",
-                                shot.shot_id, shot.quality_score,
+                                shot.shot_id,
+                                shot.quality_score,
                                 self.quality_threshold,
                                 shot.regeneration_count,
                                 [i.get("issue") for i in (review.issues or [])][:5],
@@ -771,7 +796,9 @@ class ProductionPipeline:
                         logger.warning(
                             "quality review failed for shot %s: %s; "
                             "falling back to provider-reported score %.3f",
-                            shot.shot_id, review_err, shot.quality_score,
+                            shot.shot_id,
+                            review_err,
+                            shot.quality_score,
                             exc_info=True,
                         )
 
@@ -806,10 +833,12 @@ class ProductionPipeline:
                 for shot in scene_shots:
                     prev_frame = await generate_shot(shot, prev_frame)
 
-        await asyncio.gather(*[
-            generate_scene(scene_id, scene_shots)
-            for scene_id, scene_shots in scenes_to_shots.items()
-        ])
+        await asyncio.gather(
+            *[
+                generate_scene(scene_id, scene_shots)
+                for scene_id, scene_shots in scenes_to_shots.items()
+            ]
+        )
 
     async def _generate_audio(
         self,
@@ -862,7 +891,9 @@ class ProductionPipeline:
                                 shot.audio_path = result.audio_path
                                 self.total_cost += result.cost_usd or 0.0
                             else:
-                                logger.warning(f"TTS failed for shot {shot.shot_id}: {result.error_message}")
+                                logger.warning(
+                                    f"TTS failed for shot {shot.shot_id}: {result.error_message}"
+                                )
                         except Exception as tts_err:
                             logger.warning(f"TTS error for shot {shot.shot_id}: {tts_err}")
 
@@ -896,7 +927,8 @@ class ProductionPipeline:
                 if shot.audio_path and shot.video_path:
                     try:
                         output_path = str(
-                            Path(shot.video_path).parent / f"{Path(shot.video_path).stem}_lipsync.mp4"
+                            Path(shot.video_path).parent
+                            / f"{Path(shot.video_path).stem}_lipsync.mp4"
                         )
 
                         result = await service.apply_to_video(
@@ -910,7 +942,9 @@ class ProductionPipeline:
                             shot.video_path = result.output_video_path
                             logger.info(f"Applied lip sync to shot {shot.shot_id}")
                         else:
-                            logger.warning(f"Lip sync failed for {shot.shot_id}: {result.error_message}")
+                            logger.warning(
+                                f"Lip sync failed for {shot.shot_id}: {result.error_message}"
+                            )
                     except Exception as ls_err:
                         logger.warning(f"Lip sync error for {shot.shot_id}: {ls_err}")
 
@@ -957,6 +991,7 @@ class ProductionPipeline:
 
         if len(video_paths) == 1:
             import shutil
+
             shutil.copy2(video_paths[0], output_path)
             logger.info(f"Single shot assembled: {output_path}")
             return str(output_path)
@@ -970,16 +1005,22 @@ class ProductionPipeline:
                     f.write(f"file '{escaped}'\n")
 
             demuxer_cmd = [
-                "ffmpeg", "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(concat_file),
-                "-c", "copy",
+                "ffmpeg",
+                "-y",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_file),
+                "-c",
+                "copy",
                 str(output_path),
             ]
             logger.info(
                 "assembling %d shots via concat demuxer (-c copy) -> %s",
-                len(video_paths), output_path,
+                len(video_paths),
+                output_path,
             )
             proc = await asyncio.create_subprocess_exec(
                 *demuxer_cmd,
@@ -991,14 +1032,16 @@ class ProductionPipeline:
             if proc.returncode == 0:
                 logger.info(
                     "assembled %d shots into %s (concat demuxer)",
-                    len(video_paths), output_path,
+                    len(video_paths),
+                    output_path,
                 )
                 return str(output_path)
 
             stderr_text = stderr.decode(errors="replace")
             logger.error(
                 "concat demuxer FAILED (rc=%s); full stderr (last 4 KB):\n%s",
-                proc.returncode, stderr_text[-4096:],
+                proc.returncode,
+                stderr_text[-4096:],
             )
 
             # Strategy 2: concat FILTER with libx264 re-encode (slow but
@@ -1012,14 +1055,21 @@ class ProductionPipeline:
             stream_specs = "".join(f"[{i}:v:0]" for i in range(n))
             filter_complex = f"{stream_specs}concat=n={n}:v=1:a=0[outv]"
             filter_cmd = [
-                "ffmpeg", "-y",
+                "ffmpeg",
+                "-y",
                 *input_args,
-                "-filter_complex", filter_complex,
-                "-map", "[outv]",
-                "-c:v", "libx264",
-                "-preset", "veryfast",
-                "-crf", "23",
-                "-pix_fmt", "yuv420p",
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                "[outv]",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "23",
+                "-pix_fmt",
+                "yuv420p",
                 str(output_path),
             ]
             logger.info(
@@ -1036,13 +1086,15 @@ class ProductionPipeline:
             if proc2.returncode == 0:
                 logger.info(
                     "assembled %d shots into %s (concat filter re-encode)",
-                    len(video_paths), output_path,
+                    len(video_paths),
+                    output_path,
                 )
                 return str(output_path)
 
             logger.error(
                 "concat filter re-encode ALSO failed (rc=%s); stderr (last 4 KB):\n%s",
-                proc2.returncode, stderr2.decode(errors="replace")[-4096:],
+                proc2.returncode,
+                stderr2.decode(errors="replace")[-4096:],
             )
             # No silent first-shot fallback — write an empty placeholder so
             # the caller sees the failure clearly instead of getting a 3-sec

@@ -26,8 +26,10 @@ router = APIRouter(prefix="/timeline", tags=["timeline"])
 
 # ==================== Schemas ====================
 
+
 class TrackResponse(BaseModel):
     """Track response model."""
+
     id: UUID
     project_id: UUID
     name: str
@@ -49,6 +51,7 @@ class TrackResponse(BaseModel):
 
 class ClipResponse(BaseModel):
     """Clip response model."""
+
     id: UUID
     track_id: UUID
     source_id: UUID
@@ -71,11 +74,13 @@ class ClipResponse(BaseModel):
 
 class TrackWithClipsResponse(TrackResponse):
     """Track with clips included."""
+
     clips: list[ClipResponse] = []
 
 
 class CreateTrackRequest(BaseModel):
     """Request to create a track."""
+
     name: str = Field(..., min_length=1, max_length=100)
     track_type: TrackType
     order: int | None = None
@@ -84,6 +89,7 @@ class CreateTrackRequest(BaseModel):
 
 class UpdateTrackRequest(BaseModel):
     """Request to update a track."""
+
     name: str | None = Field(None, min_length=1, max_length=100)
     color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
     is_visible: bool | None = None
@@ -96,11 +102,13 @@ class UpdateTrackRequest(BaseModel):
 
 class ReorderTracksRequest(BaseModel):
     """Request to reorder tracks."""
+
     track_ids: list[UUID]
 
 
 class CreateClipRequest(BaseModel):
     """Request to create a clip."""
+
     source_id: UUID
     source_type: str = Field(..., min_length=1, max_length=50)
     start_time: float = Field(..., ge=0.0)
@@ -111,6 +119,7 @@ class CreateClipRequest(BaseModel):
 
 class UpdateClipRequest(BaseModel):
     """Request to update a clip."""
+
     start_time: float | None = Field(None, ge=0.0)
     duration: float | None = Field(None, gt=0.0)
     trim_start: float | None = Field(None, ge=0.0)
@@ -123,28 +132,33 @@ class UpdateClipRequest(BaseModel):
 
 class TrimClipRequest(BaseModel):
     """Request to trim a clip."""
+
     trim_start: float = Field(..., ge=0.0)
     trim_end: float = Field(..., ge=0.0)
 
 
 class SplitClipRequest(BaseModel):
     """Request to split a clip."""
+
     split_time: float = Field(..., gt=0.0)
 
 
 class SplitClipResponse(BaseModel):
     """Response for split clip."""
+
     first_clip: ClipResponse
     second_clip: ClipResponse
 
 
 class MoveClipRequest(BaseModel):
     """Request to move clip to another track."""
+
     target_track_id: UUID
     start_time: float | None = None
 
 
 # ==================== Dependencies ====================
+
 
 def get_timeline_service(
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -154,6 +168,7 @@ def get_timeline_service(
 
 
 # ==================== Track Routes ====================
+
 
 @router.get(
     "/projects/{project_id}/tracks",
@@ -170,7 +185,7 @@ async def get_tracks(
     return [
         TrackWithClipsResponse(
             **TrackResponse.model_validate(t).model_dump(),
-            clips=[ClipResponse.model_validate(c) for c in t.clips]
+            clips=[ClipResponse.model_validate(c) for c in t.clips],
         )
         for t in tracks
     ]
@@ -262,6 +277,7 @@ async def reorder_tracks(
 
 
 # ==================== Clip Routes ====================
+
 
 @router.post(
     "/tracks/{track_id}/clips",

@@ -94,53 +94,41 @@ async def start_lip_sync(
     try:
         video_uuid = UUID(request.video_id)
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid video_id format: {request.video_id}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid video_id format: {request.video_id}")
 
-    video_result = await db.execute(
-        select(Asset).where(Asset.id == video_uuid)
-    )
+    video_result = await db.execute(select(Asset).where(Asset.id == video_uuid))
     video_asset = video_result.scalar_one_or_none()
 
     if not video_asset:
         raise HTTPException(
-            status_code=404,
-            detail=f"Video asset with id {request.video_id} not found"
+            status_code=404, detail=f"Video asset with id {request.video_id} not found"
         )
 
     if not video_asset.is_video:
         raise HTTPException(
             status_code=400,
-            detail=f"Asset {request.video_id} is not a video (type: {video_asset.asset_type.value})"
+            detail=f"Asset {request.video_id} is not a video (type: {video_asset.asset_type.value})",
         )
 
     # Validate audio_id exists and is an audio asset
     try:
         audio_uuid = UUID(request.audio_id)
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid audio_id format: {request.audio_id}"
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid audio_id format: {request.audio_id}")
 
-    audio_result = await db.execute(
-        select(Asset).where(Asset.id == audio_uuid)
-    )
+    audio_result = await db.execute(select(Asset).where(Asset.id == audio_uuid))
     audio_asset = audio_result.scalar_one_or_none()
 
     if not audio_asset:
         raise HTTPException(
-            status_code=404,
-            detail=f"Audio asset with id {request.audio_id} not found"
+            status_code=404, detail=f"Audio asset with id {request.audio_id} not found"
         )
 
     # Accept SHOT_AUDIO type for audio assets
     if audio_asset.asset_type != AssetType.SHOT_AUDIO:
         raise HTTPException(
             status_code=400,
-            detail=f"Asset {request.audio_id} is not an audio file (type: {audio_asset.asset_type.value})"
+            detail=f"Asset {request.audio_id} is not an audio file (type: {audio_asset.asset_type.value})",
         )
 
     # Create job record in database
@@ -158,6 +146,7 @@ async def start_lip_sync(
 
     # Start processing in background
     import asyncio
+
     asyncio.create_task(_process_lip_sync_job(str(job.id)))
 
     # Return job response
@@ -181,9 +170,7 @@ async def _process_lip_sync_job(job_id: str) -> None:
     # Get job from database
     db_manager = get_db_manager()
     async with db_manager.session() as db:
-        result = await db.execute(
-            select(LipsyncJob).where(LipsyncJob.id == UUID(job_id))
-        )
+        result = await db.execute(select(LipsyncJob).where(LipsyncJob.id == UUID(job_id)))
         job = result.scalar_one_or_none()
 
         if not job:
@@ -200,9 +187,7 @@ async def _process_lip_sync_job(job_id: str) -> None:
         # Update job status to processing
         async with db_manager.session() as db:
             await db.execute(
-                select(LipsyncJob)
-                .where(LipsyncJob.id == UUID(job_id))
-                .with_for_update()
+                select(LipsyncJob).where(LipsyncJob.id == UUID(job_id)).with_for_update()
             )
             job.status = LipsyncJobStatus.PROCESSING
             db.add(job)
@@ -215,28 +200,20 @@ async def _process_lip_sync_job(job_id: str) -> None:
         # Progress callback to update job in database
         async def progress_callback(progress: LipSyncProgress) -> None:
             async with db_manager.session() as db:
-                result = await db.execute(
-                    select(LipsyncJob).where(LipsyncJob.id == UUID(job_id))
-                )
+                result = await db.execute(select(LipsyncJob).where(LipsyncJob.id == UUID(job_id)))
                 job_update = result.scalar_one_or_none()
                 if job_update:
                     job_update.progress_percent = progress.percent
                     job_update.progress_message = progress.message
                     await db.commit()
-            logger.info(
-                f"Lip sync job {job_id}: {progress.percent}% - {progress.message}"
-            )
+            logger.info(f"Lip sync job {job_id}: {progress.percent}% - {progress.message}")
 
         # Get actual video and audio paths from database
         async with db_manager.session() as db:
-            video_result = await db.execute(
-                select(Asset).where(Asset.id == job.video_asset_id)
-            )
+            video_result = await db.execute(select(Asset).where(Asset.id == job.video_asset_id))
             video_asset = video_result.scalar_one_or_none()
 
-            audio_result = await db.execute(
-                select(Asset).where(Asset.id == job.audio_asset_id)
-            )
+            audio_result = await db.execute(select(Asset).where(Asset.id == job.audio_asset_id))
             audio_asset = audio_result.scalar_one_or_none()
 
             if not video_asset or not audio_asset:
@@ -268,6 +245,7 @@ async def _process_lip_sync_job(job_id: str) -> None:
 
         if result.success:
             from datetime import datetime
+
             # Update job in database
             async with db_manager.session() as db:
                 result_obj = await db.execute(
@@ -298,9 +276,7 @@ async def _process_lip_sync_job(job_id: str) -> None:
     except FileNotFoundError as e:
         logger.error(f"Lip sync job {job_id} failed - file not found: {e}")
         async with db_manager.session() as db:
-            result = await db.execute(
-                select(LipsyncJob).where(LipsyncJob.id == UUID(job_id))
-            )
+            result = await db.execute(select(LipsyncJob).where(LipsyncJob.id == UUID(job_id)))
             job_update = result.scalar_one_or_none()
             if job_update:
                 job_update.status = LipsyncJobStatus.FAILED
@@ -309,9 +285,7 @@ async def _process_lip_sync_job(job_id: str) -> None:
     except ValueError as e:
         logger.error(f"Lip sync job {job_id} failed - validation error: {e}")
         async with db_manager.session() as db:
-            result = await db.execute(
-                select(LipsyncJob).where(LipsyncJob.id == UUID(job_id))
-            )
+            result = await db.execute(select(LipsyncJob).where(LipsyncJob.id == UUID(job_id)))
             job_update = result.scalar_one_or_none()
             if job_update:
                 job_update.status = LipsyncJobStatus.FAILED
@@ -320,9 +294,7 @@ async def _process_lip_sync_job(job_id: str) -> None:
     except Exception as e:
         logger.exception(f"Lip sync job {job_id} failed with unexpected error")
         async with db_manager.session() as db:
-            result = await db.execute(
-                select(LipsyncJob).where(LipsyncJob.id == UUID(job_id))
-            )
+            result = await db.execute(select(LipsyncJob).where(LipsyncJob.id == UUID(job_id)))
             job_update = result.scalar_one_or_none()
             if job_update:
                 job_update.status = LipsyncJobStatus.FAILED
@@ -355,19 +327,14 @@ async def list_jobs(db: AsyncSession = Depends(get_db)) -> list[dict[str, Any]]:
 
 
 @router.get("/jobs/{job_id}", response_model=LipSyncJobResponse)
-async def get_job(
-    job_id: str,
-    db: AsyncSession = Depends(get_db)
-) -> dict[str, Any]:
+async def get_job(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """Get lip sync job by ID."""
     try:
         job_uuid = UUID(job_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
 
-    result = await db.execute(
-        select(LipsyncJob).where(LipsyncJob.id == job_uuid)
-    )
+    result = await db.execute(select(LipsyncJob).where(LipsyncJob.id == job_uuid))
     job = result.scalar_one_or_none()
 
     if not job:
@@ -389,19 +356,14 @@ async def get_job(
 
 
 @router.delete("/jobs/{job_id}")
-async def cancel_job(
-    job_id: str,
-    db: AsyncSession = Depends(get_db)
-) -> dict[str, str]:
+async def cancel_job(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     """Cancel a lip sync job."""
     try:
         job_uuid = UUID(job_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
 
-    result = await db.execute(
-        select(LipsyncJob).where(LipsyncJob.id == job_uuid)
-    )
+    result = await db.execute(select(LipsyncJob).where(LipsyncJob.id == job_uuid))
     job = result.scalar_one_or_none()
 
     if not job:
@@ -430,6 +392,7 @@ async def get_providers() -> dict[str, list[dict[str, Any]]]:
 # FEAT-069: Phoneme Visualization Data
 # ---------------------------------------------------------------------------
 
+
 @router.get("/jobs/{job_id}/phonemes")
 async def get_phoneme_data(
     job_id: str,
@@ -451,9 +414,7 @@ async def get_phoneme_data(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
 
-    result = await db.execute(
-        select(LipsyncJob).where(LipsyncJob.id == job_uuid)
-    )
+    result = await db.execute(select(LipsyncJob).where(LipsyncJob.id == job_uuid))
     job = result.scalar_one_or_none()
 
     if not job:
@@ -470,16 +431,11 @@ async def get_phoneme_data(
 
     try:
         # Fetch the audio asset path
-        audio_result = await db.execute(
-            select(Asset).where(Asset.id == job.audio_asset_id)
-        )
+        audio_result = await db.execute(select(Asset).where(Asset.id == job.audio_asset_id))
         audio_asset = audio_result.scalar_one_or_none()
 
         if not audio_asset or not os.path.exists(audio_asset.file_path):
-            raise HTTPException(
-                status_code=404,
-                detail="Audio file no longer available"
-            )
+            raise HTTPException(status_code=404, detail="Audio file no longer available")
 
         # Analyze audio for phoneme data
         analysis = await service.analyze_audio(audio_asset.file_path)
@@ -492,10 +448,16 @@ async def get_phoneme_data(
             "A": {"description": "Wide open mouth (AH, AA)", "svg_hint": "wide_open"},
             "B": {"description": "Closed mouth (M, B, P)", "svg_hint": "closed"},
             "C": {"description": "Open mouth, teeth showing (EH, AE)", "svg_hint": "open_teeth"},
-            "D": {"description": "Wide mouth, teeth together (D, T, N, L)", "svg_hint": "wide_teeth"},
+            "D": {
+                "description": "Wide mouth, teeth together (D, T, N, L)",
+                "svg_hint": "wide_teeth",
+            },
             "E": {"description": "Rounded mouth (OH, OO)", "svg_hint": "rounded"},
             "F": {"description": "Bottom lip under teeth (F, V)", "svg_hint": "lip_bite"},
-            "G": {"description": "Open mouth, tongue visible (K, G, NG)", "svg_hint": "open_tongue"},
+            "G": {
+                "description": "Open mouth, tongue visible (K, G, NG)",
+                "svg_hint": "open_tongue",
+            },
             "H": {"description": "Wide smile (EE, IY)", "svg_hint": "smile"},
             "X": {"description": "Silence / rest position", "svg_hint": "rest"},
         }
@@ -503,13 +465,19 @@ async def get_phoneme_data(
         phonemes = []
         if analysis and hasattr(analysis, "phonemes"):
             for pe in analysis.phonemes:
-                phonemes.append({
-                    "phoneme": pe.phoneme.value if isinstance(pe.phoneme, Phoneme) else str(pe.phoneme),
-                    "mouth_shape": pe.phoneme.value[0] if isinstance(pe.phoneme, Phoneme) else "X",
-                    "start": pe.start_time,
-                    "end": pe.end_time,
-                    "confidence": getattr(pe, "confidence", 0.9),
-                })
+                phonemes.append(
+                    {
+                        "phoneme": pe.phoneme.value
+                        if isinstance(pe.phoneme, Phoneme)
+                        else str(pe.phoneme),
+                        "mouth_shape": pe.phoneme.value[0]
+                        if isinstance(pe.phoneme, Phoneme)
+                        else "X",
+                        "start": pe.start_time,
+                        "end": pe.end_time,
+                        "confidence": getattr(pe, "confidence", 0.9),
+                    }
+                )
 
         return {
             "job_id": job_id,
@@ -524,10 +492,7 @@ async def get_phoneme_data(
         raise
     except Exception as e:
         logger.exception(f"Failed to extract phoneme data for job {job_id}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Phoneme extraction failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Phoneme extraction failed: {str(e)}")
 
 
 @router.websocket("/ws/{job_id}")
@@ -570,17 +535,19 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str) -> None:
                 await websocket.send_json({"error": "Job not found"})
                 break
 
-            await websocket.send_json({
-                "type": "job_update",
-                "data": {
-                    "id": str(job.id),
-                    "status": job.status.value if hasattr(job.status, "value") else job.status,
-                    "shot_id": str(job.shot_id) if job.shot_id else None,
-                    "started_at": job.started_at.isoformat() if job.started_at else None,
-                    "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-                    "error_info": job.error_info,
-                },
-            })
+            await websocket.send_json(
+                {
+                    "type": "job_update",
+                    "data": {
+                        "id": str(job.id),
+                        "status": job.status.value if hasattr(job.status, "value") else job.status,
+                        "shot_id": str(job.shot_id) if job.shot_id else None,
+                        "started_at": job.started_at.isoformat() if job.started_at else None,
+                        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+                        "error_info": job.error_info,
+                    },
+                }
+            )
 
             if job.status in terminal_states:
                 break

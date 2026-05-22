@@ -121,11 +121,7 @@ def _character_to_response(character: Any) -> CharacterResponse:
     reference_assets = []
     if hasattr(character, "reference_assets") and character.reference_assets:
         for asset in character.reference_assets:
-            is_primary = (
-                asset.metadata.get("is_primary", False)
-                if asset.metadata
-                else False
-            )
+            is_primary = asset.metadata.get("is_primary", False) if asset.metadata else False
             reference_assets.append(
                 AssetResponse(
                     id=str(asset.id),
@@ -226,9 +222,7 @@ async def update_character(
             age_range_max=request.age_range_max,
             gender=request.gender,
             physical_description=(
-                request.physical_description.model_dump()
-                if request.physical_description
-                else None
+                request.physical_description.model_dump() if request.physical_description else None
             ),
             personality_traits=request.personality_traits,
             voice_description=request.voice_description,
@@ -358,9 +352,7 @@ async def lock_character(
 
     try:
         primary_ref_id = (
-            UUID(request.primary_reference_id)
-            if request.primary_reference_id
-            else None
+            UUID(request.primary_reference_id) if request.primary_reference_id else None
         )
 
         character = await service.lock_character(
@@ -628,9 +620,9 @@ async def compare_face_similarity(
 
         from scenemachine.models import Shot
 
-        shot_stmt = select(Shot).where(
-            Shot.state.in_(["generated", "approved", "completed"])
-        ).limit(20)
+        shot_stmt = (
+            select(Shot).where(Shot.state.in_(["generated", "approved", "completed"])).limit(20)
+        )
         shot_result = await session.execute(shot_stmt)
         shots = shot_result.scalars().all()
 
@@ -638,25 +630,29 @@ async def compare_face_similarity(
         total_score = 0.0
 
         for shot in shots:
-            output_path = getattr(shot, "output_path", None) or getattr(shot, "thumbnail_path", None)
+            output_path = getattr(shot, "output_path", None) or getattr(
+                shot, "thumbnail_path", None
+            )
             if not output_path:
                 continue
 
             # Compute similarity between reference and shot frame
             try:
-                similarity = await face_service.compute_similarity(
-                    ref_paths[0], output_path
+                similarity = await face_service.compute_similarity(ref_paths[0], output_path)
+                score = (
+                    similarity if isinstance(similarity, float) else similarity.get("score", 0.0)
                 )
-                score = similarity if isinstance(similarity, float) else similarity.get("score", 0.0)
             except Exception:
                 score = 0.0
 
-            comparisons.append(FaceSimilarityComparisonItem(
-                shot_id=str(shot.id),
-                similarity_score=round(score, 3),
-                is_same_person=score >= 0.7,
-                thumbnail_url=getattr(shot, "thumbnail_path", None),
-            ))
+            comparisons.append(
+                FaceSimilarityComparisonItem(
+                    shot_id=str(shot.id),
+                    similarity_score=round(score, 3),
+                    is_same_person=score >= 0.7,
+                    thumbnail_url=getattr(shot, "thumbnail_path", None),
+                )
+            )
             total_score += score
 
         avg = total_score / len(comparisons) if comparisons else 0.0
@@ -682,4 +678,3 @@ async def compare_face_similarity(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Face similarity comparison failed: {str(e)}",
         ) from e
-

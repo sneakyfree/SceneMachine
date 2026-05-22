@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class ProviderType(StrEnum):
     """Provider category types."""
+
     LLM = "llm"
     VIDEO = "video"
     IMAGE = "image"
@@ -27,6 +28,7 @@ class ProviderType(StrEnum):
 
 class ProviderStatus(StrEnum):
     """Provider availability status."""
+
     AVAILABLE = "available"
     UNAVAILABLE = "unavailable"
     DEGRADED = "degraded"
@@ -36,6 +38,7 @@ class ProviderStatus(StrEnum):
 @dataclass
 class ProviderConfig:
     """Configuration for a single provider."""
+
     name: str
     provider_type: ProviderType
     api_key_env: str
@@ -69,136 +72,144 @@ class ProvidersRegistry:
     """Registry of all available providers."""
 
     # LLM Providers
-    LLM_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
-        ProviderConfig(
-            name="anthropic",
-            provider_type=ProviderType.LLM,
-            api_key_env="ANTHROPIC_API_KEY",
-            default_model="claude-sonnet-4-20250514",
-        ),
-        ProviderConfig(
-            name="openai",
-            provider_type=ProviderType.LLM,
-            api_key_env="OPENAI_API_KEY",
-            default_model="gpt-4o",
-        ),
-    ])
+    LLM_PROVIDERS: list[ProviderConfig] = field(
+        default_factory=lambda: [
+            ProviderConfig(
+                name="anthropic",
+                provider_type=ProviderType.LLM,
+                api_key_env="ANTHROPIC_API_KEY",
+                default_model="claude-sonnet-4-20250514",
+            ),
+            ProviderConfig(
+                name="openai",
+                provider_type=ProviderType.LLM,
+                api_key_env="OPENAI_API_KEY",
+                default_model="gpt-4o",
+            ),
+        ]
+    )
 
     # Video Providers
-    VIDEO_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
-        ProviderConfig(
-            name="fal",
-            provider_type=ProviderType.VIDEO,
-            api_key_env="FAL_KEY",
-            default_model="fal-ai/cogvideox-5b",
-            extra_config={
-                "models": [
-                    "fal-ai/cogvideox-5b",
-                    "fal-ai/hunyuan-video",
-                    "fal-ai/ltx-video",
-                    "fal-ai/mochi-1",
-                    "fal-ai/fast-svd-lcm",
-                ]
-            }
-        ),
-        ProviderConfig(
-            name="replicate",
-            provider_type=ProviderType.VIDEO,
-            api_key_env="REPLICATE_API_TOKEN",
-            default_model="minimax/video-01",
-            extra_config={
-                "models": [
-                    "minimax/video-01",
-                    "lumalabs/dream-machine",
-                    "stability-ai/stable-video-diffusion",
-                    "wavymulder/animatediff",
-                ]
-            }
-        ),
-        ProviderConfig(
-            name="comfyui",
-            provider_type=ProviderType.VIDEO,
-            api_key_env="COMFYUI_URL",  # Not really a key, but URL
-            default_model="wan2-t2v",
-            base_url=os.environ.get("COMFYUI_URL", "http://localhost:8188"),
-            extra_config={
-                "models": [
-                    "wan2-t2v",  # Wan 2.1 Text-to-Video
-                    "animatediff-v3",
-                    "animatediff-lightning",
-                    "svd-xt",
-                ]
-            }
-        ),
-        ProviderConfig(
-            name="runpod",
-            provider_type=ProviderType.VIDEO,
-            api_key_env="RUNPOD_API_KEY",
-            extra_config={
-                "endpoint_id_env": "RUNPOD_ENDPOINT_ID"
-            }
-        ),
-    ])
+    VIDEO_PROVIDERS: list[ProviderConfig] = field(
+        default_factory=lambda: [
+            ProviderConfig(
+                name="fal",
+                provider_type=ProviderType.VIDEO,
+                api_key_env="FAL_KEY",
+                default_model="fal-ai/cogvideox-5b",
+                extra_config={
+                    "models": [
+                        "fal-ai/cogvideox-5b",
+                        "fal-ai/hunyuan-video",
+                        "fal-ai/ltx-video",
+                        "fal-ai/mochi-1",
+                        "fal-ai/fast-svd-lcm",
+                    ]
+                },
+            ),
+            ProviderConfig(
+                name="replicate",
+                provider_type=ProviderType.VIDEO,
+                api_key_env="REPLICATE_API_TOKEN",
+                default_model="minimax/video-01",
+                extra_config={
+                    "models": [
+                        "minimax/video-01",
+                        "lumalabs/dream-machine",
+                        "stability-ai/stable-video-diffusion",
+                        "wavymulder/animatediff",
+                    ]
+                },
+            ),
+            ProviderConfig(
+                name="comfyui",
+                provider_type=ProviderType.VIDEO,
+                api_key_env="COMFYUI_URL",  # Not really a key, but URL
+                default_model="wan2-t2v",
+                base_url=os.environ.get("COMFYUI_URL", "http://localhost:8188"),
+                extra_config={
+                    "models": [
+                        "wan2-t2v",  # Wan 2.1 Text-to-Video
+                        "animatediff-v3",
+                        "animatediff-lightning",
+                        "svd-xt",
+                    ]
+                },
+            ),
+            ProviderConfig(
+                name="runpod",
+                provider_type=ProviderType.VIDEO,
+                api_key_env="RUNPOD_API_KEY",
+                extra_config={"endpoint_id_env": "RUNPOD_ENDPOINT_ID"},
+            ),
+        ]
+    )
 
     # Image Providers
-    IMAGE_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
-        ProviderConfig(
-            name="flux_fal",
-            provider_type=ProviderType.IMAGE,
-            api_key_env="FAL_KEY",
-            default_model="fal-ai/flux/schnell",
-            extra_config={
-                "models": [
-                    "fal-ai/flux/schnell",
-                    "fal-ai/flux/dev",
-                    "fal-ai/flux/pro",
-                ]
-            }
-        ),
-        ProviderConfig(
-            name="replicate_sdxl",
-            provider_type=ProviderType.IMAGE,
-            api_key_env="REPLICATE_API_TOKEN",
-            default_model="stability-ai/sdxl",
-        ),
-    ])
+    IMAGE_PROVIDERS: list[ProviderConfig] = field(
+        default_factory=lambda: [
+            ProviderConfig(
+                name="flux_fal",
+                provider_type=ProviderType.IMAGE,
+                api_key_env="FAL_KEY",
+                default_model="fal-ai/flux/schnell",
+                extra_config={
+                    "models": [
+                        "fal-ai/flux/schnell",
+                        "fal-ai/flux/dev",
+                        "fal-ai/flux/pro",
+                    ]
+                },
+            ),
+            ProviderConfig(
+                name="replicate_sdxl",
+                provider_type=ProviderType.IMAGE,
+                api_key_env="REPLICATE_API_TOKEN",
+                default_model="stability-ai/sdxl",
+            ),
+        ]
+    )
 
     # Voice Providers
-    VOICE_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
-        ProviderConfig(
-            name="kokoro",
-            provider_type=ProviderType.VOICE,
-            api_key_env="KOKORO_ENABLED",  # Not actually needed, always enabled
-            is_enabled=True,
-            extra_config={
-                "voices_count": 20,
-                "languages": ["en", "es"],
-                "built_in": True,  # Mark as built-in
-            }
-        ),
-        ProviderConfig(
-            name="elevenlabs",
-            provider_type=ProviderType.VOICE,
-            api_key_env="ELEVENLABS_API_KEY",
-            extra_config={
-                "voice_cloning": True,
-            }
-        ),
-    ])
+    VOICE_PROVIDERS: list[ProviderConfig] = field(
+        default_factory=lambda: [
+            ProviderConfig(
+                name="kokoro",
+                provider_type=ProviderType.VOICE,
+                api_key_env="KOKORO_ENABLED",  # Not actually needed, always enabled
+                is_enabled=True,
+                extra_config={
+                    "voices_count": 20,
+                    "languages": ["en", "es"],
+                    "built_in": True,  # Mark as built-in
+                },
+            ),
+            ProviderConfig(
+                name="elevenlabs",
+                provider_type=ProviderType.VOICE,
+                api_key_env="ELEVENLABS_API_KEY",
+                extra_config={
+                    "voice_cloning": True,
+                },
+            ),
+        ]
+    )
 
     # LipSync Providers
-    LIPSYNC_PROVIDERS: list[ProviderConfig] = field(default_factory=lambda: [
-        ProviderConfig(
-            name="latentsync",
-            provider_type=ProviderType.LIPSYNC,
-            api_key_env="REPLICATE_API_TOKEN",
-        ),
-        ProviderConfig(
-            name="wav2lip",
-            provider_type=ProviderType.LIPSYNC,
-            api_key_env="WAV2LIP_MODEL_PATH",  # Local model path
-        ),
-    ])
+    LIPSYNC_PROVIDERS: list[ProviderConfig] = field(
+        default_factory=lambda: [
+            ProviderConfig(
+                name="latentsync",
+                provider_type=ProviderType.LIPSYNC,
+                api_key_env="REPLICATE_API_TOKEN",
+            ),
+            ProviderConfig(
+                name="wav2lip",
+                provider_type=ProviderType.LIPSYNC,
+                api_key_env="WAV2LIP_MODEL_PATH",  # Local model path
+            ),
+        ]
+    )
 
     def get_configured_providers(self, provider_type: ProviderType) -> list[ProviderConfig]:
         """Get all configured providers of a type."""
@@ -230,7 +241,9 @@ class ProvidersRegistry:
             report[ptype.value] = {
                 "configured": [p.name for p in providers if p.is_configured or p.name == "kokoro"],
                 "available": [p.name for p in providers if p.status == ProviderStatus.AVAILABLE],
-                "not_configured": [p.name for p in providers if p.status == ProviderStatus.NOT_CONFIGURED],
+                "not_configured": [
+                    p.name for p in providers if p.status == ProviderStatus.NOT_CONFIGURED
+                ],
             }
 
         return report

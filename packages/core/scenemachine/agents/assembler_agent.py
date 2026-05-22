@@ -242,6 +242,7 @@ class AssemblerAgent(BaseAgent):
 
             # Copy for now (would transcode in production)
             import shutil
+
             shutil.copy(input_p, output_p)
 
             file_size = output_p.stat().st_size if output_p.exists() else 0
@@ -332,40 +333,44 @@ class AssemblerAgent(BaseAgent):
             # Determine transition to next scene
             if i < len(scenes) - 1:
                 next_scene = scenes[i + 1]
-                transition = self._select_intelligent_transition(
-                    scene, next_scene
+                transition = self._select_intelligent_transition(scene, next_scene)
+                plan["transitions"].append(
+                    {
+                        "from_scene": i,
+                        "to_scene": i + 1,
+                        "transition_type": transition["type"],
+                        "duration": transition["duration"],
+                        "reason": transition["reason"],
+                    }
                 )
-                plan["transitions"].append({
-                    "from_scene": i,
-                    "to_scene": i + 1,
-                    "transition_type": transition["type"],
-                    "duration": transition["duration"],
-                    "reason": transition["reason"],
-                })
 
             # Audio mix recommendation
-            audio_preset = self.AUDIO_MIX_PRESETS.get(
-                mood, self.AUDIO_MIX_PRESETS["default"]
+            audio_preset = self.AUDIO_MIX_PRESETS.get(mood, self.AUDIO_MIX_PRESETS["default"])
+            plan["audio_mix"].append(
+                {
+                    "scene_index": i,
+                    "preset": mood if mood in self.AUDIO_MIX_PRESETS else "default",
+                    "levels": audio_preset,
+                }
             )
-            plan["audio_mix"].append({
-                "scene_index": i,
-                "preset": mood if mood in self.AUDIO_MIX_PRESETS else "default",
-                "levels": audio_preset,
-            })
 
             # Pacing analysis
             if scene_duration < 2.0 and scene_type not in ["action", "montage"]:
-                plan["pacing_notes"].append({
-                    "scene_index": i,
-                    "issue": "short_scene",
-                    "recommendation": "Consider extending or combining with adjacent scene",
-                })
+                plan["pacing_notes"].append(
+                    {
+                        "scene_index": i,
+                        "issue": "short_scene",
+                        "recommendation": "Consider extending or combining with adjacent scene",
+                    }
+                )
             elif scene_duration > 30.0:
-                plan["pacing_notes"].append({
-                    "scene_index": i,
-                    "issue": "long_scene",
-                    "recommendation": "Consider adding b-roll or cutaways",
-                })
+                plan["pacing_notes"].append(
+                    {
+                        "scene_index": i,
+                        "issue": "long_scene",
+                        "recommendation": "Consider adding b-roll or cutaways",
+                    }
+                )
 
         return plan
 
@@ -424,6 +429,7 @@ class AssemblerAgent(BaseAgent):
         )
 
         import random
+
         selected = random.choice(transition_pool)
 
         # Adjust duration based on scene type
@@ -472,19 +478,19 @@ class AssemblerAgent(BaseAgent):
             peak_db = track.get("peak_db", -3.0)
 
             # Calculate needed adjustment
-            target_lufs = self.AUDIO_MIX_PRESETS["default"].get(
-                track_type, 0.0
-            )
+            target_lufs = self.AUDIO_MIX_PRESETS["default"].get(track_type, 0.0)
             adjustment = target_lufs - current_lufs
 
-            optimizations["adjustments"].append({
-                "track_id": track_id,
-                "track_type": track_type,
-                "current_lufs": current_lufs,
-                "target_lufs": target_lufs,
-                "gain_adjustment_db": adjustment,
-                "needs_limiting": peak_db > -3.0,
-            })
+            optimizations["adjustments"].append(
+                {
+                    "track_id": track_id,
+                    "track_type": track_type,
+                    "current_lufs": current_lufs,
+                    "target_lufs": target_lufs,
+                    "gain_adjustment_db": adjustment,
+                    "needs_limiting": peak_db > -3.0,
+                }
+            )
 
         return optimizations
 
@@ -531,37 +537,45 @@ class AssemblerAgent(BaseAgent):
 
             # Too short
             if duration < target["min"]:
-                modification["recommendations"].append({
-                    "issue": "too_short",
-                    "action": "extend",
-                    "target_duration": target["avg"],
-                    "reason": f"Shot is {duration:.1f}s, below {target['min']:.1f}s minimum for {target_pace} pace",
-                })
+                modification["recommendations"].append(
+                    {
+                        "issue": "too_short",
+                        "action": "extend",
+                        "target_duration": target["avg"],
+                        "reason": f"Shot is {duration:.1f}s, below {target['min']:.1f}s minimum for {target_pace} pace",
+                    }
+                )
 
             # Too long
             elif duration > target["max"]:
-                modification["recommendations"].append({
-                    "issue": "too_long",
-                    "action": "split_or_trim",
-                    "suggested_splits": int(duration / target["avg"]),
-                    "reason": f"Shot is {duration:.1f}s, exceeds {target['max']:.1f}s maximum for {target_pace} pace",
-                })
+                modification["recommendations"].append(
+                    {
+                        "issue": "too_long",
+                        "action": "split_or_trim",
+                        "suggested_splits": int(duration / target["avg"]),
+                        "reason": f"Shot is {duration:.1f}s, exceeds {target['max']:.1f}s maximum for {target_pace} pace",
+                    }
+                )
 
             # Wide shots can be longer
             if shot_type == "wide" and duration < 4.0:
-                modification["recommendations"].append({
-                    "issue": "establishing_shot_short",
-                    "action": "consider_extending",
-                    "reason": "Wide/establishing shots benefit from longer duration",
-                })
+                modification["recommendations"].append(
+                    {
+                        "issue": "establishing_shot_short",
+                        "action": "consider_extending",
+                        "reason": "Wide/establishing shots benefit from longer duration",
+                    }
+                )
 
             # Close-ups should be shorter
             if shot_type == "closeup" and duration > 5.0:
-                modification["recommendations"].append({
-                    "issue": "closeup_too_long",
-                    "action": "consider_trimming",
-                    "reason": "Close-up shots can feel awkward if held too long",
-                })
+                modification["recommendations"].append(
+                    {
+                        "issue": "closeup_too_long",
+                        "action": "consider_trimming",
+                        "reason": "Close-up shots can feel awkward if held too long",
+                    }
+                )
 
             if modification["recommendations"]:
                 suggestions["shot_modifications"].append(modification)

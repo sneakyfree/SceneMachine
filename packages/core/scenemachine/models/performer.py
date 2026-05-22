@@ -25,12 +25,14 @@ if TYPE_CHECKING:
 
 class PerformerType(StrEnum):
     """Type of performer."""
+
     HUMAN = "human"  # Human glove actor with motion capture
     SYNTHETIC = "synthetic"  # AI-generated synthetic performer
 
 
 class PerformerAvailability(StrEnum):
     """Performer availability status."""
+
     AVAILABLE = "available"  # Ready for bookings
     BUSY = "busy"  # Currently fulfilling a booking
     OFFLINE = "offline"  # Not accepting bookings
@@ -39,6 +41,7 @@ class PerformerAvailability(StrEnum):
 
 class PerformerVerification(StrEnum):
     """Performer verification status."""
+
     UNVERIFIED = "unverified"  # Not yet verified
     PENDING = "pending"  # Verification in progress
     VERIFIED = "verified"  # Identity verified
@@ -154,9 +157,7 @@ class Performer(Base, UUIDMixin, TimestampMixin):
 
     # Activity
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    last_active_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     joined_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -196,10 +197,7 @@ class Performer(Base, UUIDMixin, TimestampMixin):
     @property
     def is_available(self) -> bool:
         """Check if performer is available for booking."""
-        return (
-            self.is_active
-            and self.availability_status == PerformerAvailability.AVAILABLE
-        )
+        return self.is_active and self.availability_status == PerformerAvailability.AVAILABLE
 
     def get_price_for_mode(self, mode: str) -> float | None:
         """Get pricing for a specific booking mode."""

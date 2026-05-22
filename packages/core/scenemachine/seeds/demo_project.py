@@ -150,9 +150,7 @@ async def seed_demo_project(
     Seed a complete demo project for investor demonstrations.
     """
     # Check for existing demo project
-    result = await session.execute(
-        select(Project).where(Project.name == DEMO_PROJECT["name"])
-    )
+    result = await session.execute(select(Project).where(Project.name == DEMO_PROJECT["name"]))
     existing = result.scalar_one_or_none()
 
     if existing and not force:
@@ -232,7 +230,9 @@ async def seed_demo_project(
             video_path = None
             thumbnail_path = None
             if include_mock_videos:
-                shot_file = shot_file_mapping.get(shot_data['shot_number'], f"shot_{shot_data['shot_number'].lower()}")
+                shot_file = shot_file_mapping.get(
+                    shot_data["shot_number"], f"shot_{shot_data['shot_number'].lower()}"
+                )
                 video_path = f"demo/videos/{shot_file}.mp4"
                 thumbnail_path = f"demo/thumbnails/{shot_file}.jpg"
 

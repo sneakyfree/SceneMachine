@@ -173,8 +173,7 @@ class ExportAgent(BaseAgent):
 
         await self._log_action(
             "transcode_complete",
-            f"Transcoded to {output.get('format', 'mp4')} — "
-            f"{output.get('file_size_mb', 0):.1f} MB",
+            f"Transcoded to {output.get('format', 'mp4')} — {output.get('file_size_mb', 0):.1f} MB",
             confidence=0.95,
         )
 
@@ -233,9 +232,7 @@ class ExportAgent(BaseAgent):
 
         return settings
 
-    async def _check_export_readiness(
-        self, project_id: str | None
-    ) -> dict[str, Any]:
+    async def _check_export_readiness(self, project_id: str | None) -> dict[str, Any]:
         """Verify the project is ready for export."""
         # In production, this would check:
         # - All shots generated successfully
@@ -256,9 +253,7 @@ class ExportAgent(BaseAgent):
     ) -> None:
         """Apply watermark to the assembled video."""
         # Delegates to AssemblyService.apply_watermark
-        logger.info(
-            "Applying watermark to project %s: %s", project_id, watermark_config
-        )
+        logger.info("Applying watermark to project %s: %s", project_id, watermark_config)
 
     async def _transcode(
         self,

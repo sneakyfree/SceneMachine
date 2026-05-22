@@ -90,9 +90,7 @@ class ScreenplayService:
         screenplay_format = self.SUPPORTED_FORMATS[suffix]
 
         # Save file
-        file_path, file_hash = await self.storage.save_screenplay(
-            project_id, file, filename
-        )
+        file_path, file_hash = await self.storage.save_screenplay(project_id, file, filename)
 
         # Create screenplay record
         screenplay = Screenplay(

@@ -214,9 +214,7 @@ class Shot(Base, UUIDMixin, TimestampMixin):
 
     # Version tracking (for regenerations)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    previous_version_id: Mapped[UUID | None] = mapped_column(
-        PGUUID(as_uuid=True), nullable=True
-    )
+    previous_version_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
 
     # Relationships
     scene: Mapped["Scene"] = relationship("Scene", back_populates="shots")

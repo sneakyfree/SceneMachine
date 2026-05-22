@@ -252,7 +252,6 @@ async def delete_project(
     )
 
 
-
 from pydantic import BaseModel
 
 
@@ -263,7 +262,9 @@ class ProjectDuplicateRequest(BaseModel):
     include_generated_videos: bool = False
 
 
-@router.post("/{project_id}/duplicate", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{project_id}/duplicate", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED
+)
 async def duplicate_project_endpoint(
     project_id: UUID,
     request: ProjectDuplicateRequest,

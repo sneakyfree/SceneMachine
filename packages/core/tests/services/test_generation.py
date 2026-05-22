@@ -230,7 +230,9 @@ class TestReplicateProvider:
 
         with patch.dict("sys.modules", {"replicate": None}):
             # Force import error
-            with patch("builtins.__import__", side_effect=ImportError("No module named 'replicate'")):
+            with patch(
+                "builtins.__import__", side_effect=ImportError("No module named 'replicate'")
+            ):
                 await provider.generate(request)
                 # Note: This test structure may need adjustment based on actual import handling
                 # The provider should handle ImportError gracefully

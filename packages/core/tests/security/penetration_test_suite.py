@@ -70,9 +70,11 @@ COMMAND_INJECTION_PAYLOADS = [
 # Security Test Utilities
 # =============================================================================
 
+
 @dataclass
 class SecurityTestResult:
     """Result of a security test."""
+
     test_name: str
     passed: bool
     vulnerability_found: bool
@@ -83,6 +85,7 @@ class SecurityTestResult:
 
 class MockResponse:
     """Mock HTTP response for testing."""
+
     def __init__(self, status_code: int, body: str, headers: dict[str, str] | None = None):
         self.status_code = status_code
         self.body = body
@@ -91,6 +94,7 @@ class MockResponse:
 
     def json(self) -> dict[str, Any]:
         import json
+
         return json.loads(self.body)
 
 
@@ -109,13 +113,15 @@ class MockSecurityClient:
         headers: dict[str, str] | None = None,
     ) -> MockResponse:
         """Make a mock request and check for vulnerabilities."""
-        self.requests.append({
-            "method": method,
-            "url": url,
-            "params": params,
-            "json": json_data,
-            "headers": headers,
-        })
+        self.requests.append(
+            {
+                "method": method,
+                "url": url,
+                "params": params,
+                "json": json_data,
+                "headers": headers,
+            }
+        )
 
         # Simulate response based on payload detection
         all_data = str(params) + str(json_data)
@@ -140,6 +146,7 @@ class MockSecurityClient:
 # SQL Injection Tests
 # =============================================================================
 
+
 class TestSQLInjection:
     """Test SQL injection protection."""
 
@@ -159,7 +166,9 @@ class TestSQLInjection:
 
             # Should not cause SQL error or data leak
             assert response.status_code in [200, 400, 422]
-            assert "error" not in str(response.body).lower() or "invalid" in str(response.body).lower()
+            assert (
+                "error" not in str(response.body).lower() or "invalid" in str(response.body).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_sql_injection_in_search(self, client: MockSecurityClient):
@@ -193,6 +202,7 @@ class TestSQLInjection:
 # =============================================================================
 # XSS Tests
 # =============================================================================
+
 
 class TestXSS:
     """Test XSS protection."""
@@ -228,18 +238,19 @@ class TestXSS:
 
             # XSS should be sanitized
             if response.status_code == 200:
-                assert not re.search(r'<script.*?>.*?</script>', response.body, re.IGNORECASE)
+                assert not re.search(r"<script.*?>.*?</script>", response.body, re.IGNORECASE)
 
     def test_xss_sanitization_function(self):
         """Test XSS sanitization utility."""
+
         def sanitize_html(text: str) -> str:
             """Simple HTML sanitization."""
             return (
                 text.replace("&", "&amp;")
-                    .replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                    .replace('"', "&quot;")
-                    .replace("'", "&#x27;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+                .replace("'", "&#x27;")
             )
 
         for payload in XSS_PAYLOADS:
@@ -251,6 +262,7 @@ class TestXSS:
 # =============================================================================
 # CSRF Tests
 # =============================================================================
+
 
 class TestCSRF:
     """Test CSRF protection."""
@@ -268,6 +280,7 @@ class TestCSRF:
 
     def test_csrf_token_validation(self):
         """Test CSRF token validation logic."""
+
         def validate_csrf(session_token: str, request_token: str) -> bool:
             """Validate CSRF token."""
             if not session_token or not request_token:
@@ -289,12 +302,14 @@ class TestCSRF:
 # Rate Limiting Tests
 # =============================================================================
 
+
 class TestRateLimiting:
     """Test rate limiting effectiveness."""
 
     @pytest.mark.asyncio
     async def test_login_rate_limiting(self):
         """Test that login attempts are rate limited."""
+
         # Mock rate limiter
         class RateLimiter:
             def __init__(self, max_attempts: int, window_seconds: int):
@@ -304,6 +319,7 @@ class TestRateLimiting:
 
             def is_allowed(self, key: str) -> bool:
                 import time
+
                 now = time.time()
 
                 if key not in self.attempts:
@@ -311,8 +327,7 @@ class TestRateLimiting:
 
                 # Clean old attempts
                 self.attempts[key] = [
-                    t for t in self.attempts[key]
-                    if now - t < self.window_seconds
+                    t for t in self.attempts[key] if now - t < self.window_seconds
                 ]
 
                 if len(self.attempts[key]) >= self.max_attempts:
@@ -342,6 +357,7 @@ class TestRateLimiting:
 # Authentication Tests
 # =============================================================================
 
+
 class TestAuthentication:
     """Test authentication security."""
 
@@ -360,10 +376,11 @@ class TestAuthentication:
 
     def test_jwt_token_validation(self):
         """Test JWT token structure validation."""
+
         # Mock JWT validation
         def validate_jwt_structure(token: str) -> bool:
             """Check JWT has valid structure."""
-            parts = token.split('.')
+            parts = token.split(".")
             return len(parts) == 3 and all(len(p) > 0 for p in parts)
 
         valid_token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig"
@@ -391,32 +408,36 @@ class TestAuthentication:
 # Path Traversal Tests
 # =============================================================================
 
+
 class TestPathTraversal:
     """Test path traversal protection."""
 
     def test_file_path_sanitization(self):
         """Test file path sanitization."""
+
         def sanitize_path(path: str) -> str:
             """Sanitize file path to prevent traversal."""
             import os
+
             # Remove null bytes
-            path = path.replace('\x00', '')
+            path = path.replace("\x00", "")
             # Normalize and resolve
             path = os.path.normpath(path)
             # Remove any remaining traversal attempts
-            while '..' in path:
-                path = path.replace('..', '')
-            return path.lstrip('/')
+            while ".." in path:
+                path = path.replace("..", "")
+            return path.lstrip("/")
 
         for payload in PATH_TRAVERSAL_PAYLOADS:
             sanitized = sanitize_path(payload)
-            assert '..' not in sanitized
-            assert not sanitized.startswith('/')
+            assert ".." not in sanitized
+            assert not sanitized.startswith("/")
 
 
 # =============================================================================
 # Security Headers Tests
 # =============================================================================
+
 
 class TestSecurityHeaders:
     """Test security headers are properly set."""
@@ -451,6 +472,7 @@ class TestSecurityHeaders:
 # Summary Report
 # =============================================================================
 
+
 class TestSecuritySummary:
     """Generate security test summary."""
 
@@ -463,15 +485,17 @@ class TestSecuritySummary:
             SecurityTestResult("Rate Limiting", True, False, "Limits enforced", "info"),
             SecurityTestResult("Authentication", True, False, "Strong password hashing", "info"),
             SecurityTestResult("Path Traversal", True, False, "Paths sanitized", "info"),
-            SecurityTestResult("Security Headers", True, False, "All required headers present", "info"),
+            SecurityTestResult(
+                "Security Headers", True, False, "All required headers present", "info"
+            ),
         ]
 
         passed = sum(1 for r in results if r.passed)
         total = len(results)
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("SECURITY TEST SUMMARY")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Tests Passed: {passed}/{total}")
         print(f"Vulnerabilities Found: {sum(1 for r in results if r.vulnerability_found)}")
 
@@ -479,6 +503,6 @@ class TestSecuritySummary:
             status = "✅" if result.passed else "❌"
             print(f"  {status} {result.test_name}: {result.details}")
 
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         assert passed == total

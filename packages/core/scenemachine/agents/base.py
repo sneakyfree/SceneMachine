@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 class AgentType(Enum):
     """Types of agents in the SceneMachine crew."""
+
     ORCHESTRATOR = "orchestrator"
     PARSER = "parser"
     CHARACTER = "character"
@@ -40,6 +41,7 @@ class AgentType(Enum):
 
 class ActionStatus(Enum):
     """Status of an agent action."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -50,6 +52,7 @@ class ActionStatus(Enum):
 
 class EscalationReason(Enum):
     """Reasons for escalating to human."""
+
     LOW_CONFIDENCE = "low_confidence"
     BUDGET_EXCEEDED = "budget_exceeded"
     SENSITIVE_CONTENT = "sensitive_content"
@@ -62,6 +65,7 @@ class EscalationReason(Enum):
 @dataclass
 class ActionContext:
     """Context passed to agent actions."""
+
     project_id: UUID
     user_id: UUID | None = None
     session_id: UUID = field(default_factory=uuid4)
@@ -73,6 +77,7 @@ class ActionContext:
 @dataclass
 class ActionResult:
     """Result of an agent action."""
+
     action_id: UUID
     status: ActionStatus
     success: bool
@@ -88,6 +93,7 @@ class ActionResult:
 @dataclass
 class ActionLog:
     """Immutable log entry for an agent action."""
+
     id: UUID
     agent_type: AgentType
     agent_name: str
@@ -355,9 +361,7 @@ class BaseAgent(ABC):
 
         Returns True if approved, False if rejected.
         """
-        logger.warning(
-            f"[{self.name}] Requesting approval for '{action_name}': {reason.value}"
-        )
+        logger.warning(f"[{self.name}] Requesting approval for '{action_name}': {reason.value}")
 
         if self._approval_callback:
             return self._approval_callback(

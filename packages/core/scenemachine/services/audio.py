@@ -182,21 +182,25 @@ class MockTTSProvider(TTSProviderBase):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if progress_callback:
-            await progress_callback(AudioProgress(
-                percent=10,
-                stage="preparing",
-                message="Preparing audio generation...",
-            ))
+            await progress_callback(
+                AudioProgress(
+                    percent=10,
+                    stage="preparing",
+                    message="Preparing audio generation...",
+                )
+            )
 
         # Simulate processing time
         await asyncio.sleep(0.5)
 
         if progress_callback:
-            await progress_callback(AudioProgress(
-                percent=50,
-                stage="generating",
-                message="Generating speech...",
-            ))
+            await progress_callback(
+                AudioProgress(
+                    percent=50,
+                    stage="generating",
+                    message="Generating speech...",
+                )
+            )
 
         await asyncio.sleep(0.5)
 
@@ -208,11 +212,13 @@ class MockTTSProvider(TTSProviderBase):
         output_path.touch()
 
         if progress_callback:
-            await progress_callback(AudioProgress(
-                percent=100,
-                stage="complete",
-                message="Audio generation complete",
-            ))
+            await progress_callback(
+                AudioProgress(
+                    percent=100,
+                    stage="complete",
+                    message="Audio generation complete",
+                )
+            )
 
         # Estimate duration based on text length (rough: 150 words per minute)
         words = len(request.text.split())
@@ -316,20 +322,24 @@ class ElevenLabsProvider(TTSProviderBase):
                 for voice in data.get("voices", []):
                     labels = voice.get("labels", {})
                     gender_str = labels.get("gender", "neutral")
-                    gender = VoiceGender.MALE if gender_str == "male" else (
-                        VoiceGender.FEMALE if gender_str == "female" else VoiceGender.NEUTRAL
+                    gender = (
+                        VoiceGender.MALE
+                        if gender_str == "male"
+                        else (VoiceGender.FEMALE if gender_str == "female" else VoiceGender.NEUTRAL)
                     )
 
-                    voices.append(Voice(
-                        id=voice["voice_id"],
-                        name=voice["name"],
-                        provider=TTSProvider.ELEVENLABS,
-                        gender=gender,
-                        language=labels.get("language", "en"),
-                        accent=labels.get("accent"),
-                        preview_url=voice.get("preview_url"),
-                        description=voice.get("description"),
-                    ))
+                    voices.append(
+                        Voice(
+                            id=voice["voice_id"],
+                            name=voice["name"],
+                            provider=TTSProvider.ELEVENLABS,
+                            gender=gender,
+                            language=labels.get("language", "en"),
+                            accent=labels.get("accent"),
+                            preview_url=voice.get("preview_url"),
+                            description=voice.get("description"),
+                        )
+                    )
 
                 # Update cache
                 self._voices_cache = voices
@@ -352,26 +362,34 @@ class ElevenLabsProvider(TTSProviderBase):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if progress_callback:
-            await progress_callback(AudioProgress(
-                percent=5,
-                stage="preparing",
-                message="Connecting to ElevenLabs...",
-            ))
+            await progress_callback(
+                AudioProgress(
+                    percent=5,
+                    stage="preparing",
+                    message="Connecting to ElevenLabs...",
+                )
+            )
 
         try:
             # Determine model based on text length and request
-            model_id = request.extra_params.get("model_id", self.model_id) if hasattr(request, "extra_params") else self.model_id
+            model_id = (
+                request.extra_params.get("model_id", self.model_id)
+                if hasattr(request, "extra_params")
+                else self.model_id
+            )
 
             # Use streaming for longer texts
             use_streaming = len(request.text) > 500
 
             async with httpx.AsyncClient() as client:
                 if progress_callback:
-                    await progress_callback(AudioProgress(
-                        percent=10,
-                        stage="generating",
-                        message=f"Generating speech with {self.MODELS.get(model_id, {}).get('name', model_id)}...",
-                    ))
+                    await progress_callback(
+                        AudioProgress(
+                            percent=10,
+                            stage="generating",
+                            message=f"Generating speech with {self.MODELS.get(model_id, {}).get('name', model_id)}...",
+                        )
+                    )
 
                 endpoint = f"{self.base_url}/text-to-speech/{request.voice_id}"
                 if use_streaming:
@@ -404,11 +422,13 @@ class ElevenLabsProvider(TTSProviderBase):
                 )
 
                 if progress_callback:
-                    await progress_callback(AudioProgress(
-                        percent=60,
-                        stage="processing",
-                        message="Processing audio response...",
-                    ))
+                    await progress_callback(
+                        AudioProgress(
+                            percent=60,
+                            stage="processing",
+                            message="Processing audio response...",
+                        )
+                    )
 
                 if response.status_code != 200:
                     error_msg = f"ElevenLabs API error: {response.status_code}"
@@ -421,30 +441,37 @@ class ElevenLabsProvider(TTSProviderBase):
 
                 # Generate unique filename
                 import hashlib
+
                 text_hash = hashlib.md5(request.text.encode()).hexdigest()[:8]
                 timestamp = int(asyncio.get_event_loop().time() * 1000) % 100000
-                output_path = output_dir / f"elevenlabs_{request.voice_id}_{text_hash}_{timestamp}.mp3"
+                output_path = (
+                    output_dir / f"elevenlabs_{request.voice_id}_{text_hash}_{timestamp}.mp3"
+                )
 
                 # Save audio file
                 with open(output_path, "wb") as f:
                     f.write(response.content)
 
                 if progress_callback:
-                    await progress_callback(AudioProgress(
-                        percent=85,
-                        stage="finalizing",
-                        message="Analyzing audio duration...",
-                    ))
+                    await progress_callback(
+                        AudioProgress(
+                            percent=85,
+                            stage="finalizing",
+                            message="Analyzing audio duration...",
+                        )
+                    )
 
                 # Get actual audio duration using ffprobe
                 duration = await self._get_audio_duration(output_path)
 
                 if progress_callback:
-                    await progress_callback(AudioProgress(
-                        percent=100,
-                        stage="complete",
-                        message="Audio generation complete",
-                    ))
+                    await progress_callback(
+                        AudioProgress(
+                            percent=100,
+                            stage="complete",
+                            message="Audio generation complete",
+                        )
+                    )
 
                 # Calculate cost
                 cost = self.estimate_cost(request.text, model_id)
@@ -468,9 +495,12 @@ class ElevenLabsProvider(TTSProviderBase):
         try:
             cmd = [
                 "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 str(audio_path),
             ]
 
@@ -525,10 +555,7 @@ class ElevenLabsProvider(TTSProviderBase):
     @classmethod
     def list_models(cls) -> list[dict[str, Any]]:
         """List available TTS models."""
-        return [
-            {"id": model_id, **info}
-            for model_id, info in cls.MODELS.items()
-        ]
+        return [{"id": model_id, **info} for model_id, info in cls.MODELS.items()]
 
 
 class OpenAITTSProvider(TTSProviderBase):
@@ -611,11 +638,13 @@ class OpenAITTSProvider(TTSProviderBase):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if progress_callback:
-            await progress_callback(AudioProgress(
-                percent=10,
-                stage="preparing",
-                message="Connecting to OpenAI...",
-            ))
+            await progress_callback(
+                AudioProgress(
+                    percent=10,
+                    stage="preparing",
+                    message="Connecting to OpenAI...",
+                )
+            )
 
         try:
             async with httpx.AsyncClient() as client:
@@ -635,11 +664,13 @@ class OpenAITTSProvider(TTSProviderBase):
                 )
 
                 if progress_callback:
-                    await progress_callback(AudioProgress(
-                        percent=70,
-                        stage="processing",
-                        message="Processing audio...",
-                    ))
+                    await progress_callback(
+                        AudioProgress(
+                            percent=70,
+                            stage="processing",
+                            message="Processing audio...",
+                        )
+                    )
 
                 if response.status_code != 200:
                     error_msg = f"OpenAI API error: {response.status_code}"
@@ -651,16 +682,20 @@ class OpenAITTSProvider(TTSProviderBase):
                     return TTSResult(success=False, error_message=error_msg)
 
                 # Save audio file
-                output_path = output_dir / f"openai_{request.voice_id}_{hash(request.text) % 10000}.mp3"
+                output_path = (
+                    output_dir / f"openai_{request.voice_id}_{hash(request.text) % 10000}.mp3"
+                )
                 with open(output_path, "wb") as f:
                     f.write(response.content)
 
                 if progress_callback:
-                    await progress_callback(AudioProgress(
-                        percent=100,
-                        stage="complete",
-                        message="Audio generation complete",
-                    ))
+                    await progress_callback(
+                        AudioProgress(
+                            percent=100,
+                            stage="complete",
+                            message="Audio generation complete",
+                        )
+                    )
 
                 # Estimate duration
                 words = len(request.text.split())
@@ -718,18 +753,14 @@ class AudioService:
         elevenlabs_key = self._settings.elevenlabs_api_key
         if elevenlabs_key:
             self.register_provider(
-                TTSProvider.ELEVENLABS,
-                ElevenLabsProvider(api_key=elevenlabs_key)
+                TTSProvider.ELEVENLABS, ElevenLabsProvider(api_key=elevenlabs_key)
             )
             logger.info("Registered ElevenLabs TTS provider")
 
         # Register OpenAI TTS if key available
         openai_key = self._settings.openai_api_key
         if openai_key:
-            self.register_provider(
-                TTSProvider.OPENAI,
-                OpenAITTSProvider(api_key=openai_key)
-            )
+            self.register_provider(TTSProvider.OPENAI, OpenAITTSProvider(api_key=openai_key))
             logger.info("Registered OpenAI TTS provider")
 
     async def get_available_voices(
@@ -742,7 +773,8 @@ class AudioService:
         voices = []
 
         providers_to_check = (
-            [self._providers[provider]] if provider and provider in self._providers
+            [self._providers[provider]]
+            if provider and provider in self._providers
             else self._providers.values()
         )
 
@@ -867,10 +899,12 @@ class AudioService:
 
         for provider_type, provider in self._providers.items():
             available = await provider.check_availability()
-            providers.append({
-                "provider": provider_type.value,
-                "name": provider.name,
-                "available": available,
-            })
+            providers.append(
+                {
+                    "provider": provider_type.value,
+                    "name": provider.name,
+                    "available": available,
+                }
+            )
 
         return providers

@@ -98,9 +98,7 @@ class ProjectStateTransition(BaseSchema):
     """Request to transition project state."""
 
     target_state: ProjectState
-    force: bool = Field(
-        False, description="Skip validation checks (use with caution)"
-    )
+    force: bool = Field(False, description="Skip validation checks (use with caution)")
 
 
 class ProjectStateResponse(BaseSchema):

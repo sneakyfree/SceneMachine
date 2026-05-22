@@ -174,9 +174,7 @@ class OpenAIBackend:
 
                 self._client = openai.AsyncOpenAI(api_key=self.api_key)
             except ImportError:
-                raise RuntimeError(
-                    "openai package not installed. Install with: pip install openai"
-                )
+                raise RuntimeError("openai package not installed. Install with: pip install openai")
         return self._client
 
     async def complete(
@@ -194,9 +192,7 @@ class OpenAIBackend:
         if system:
             openai_messages.append({"role": "system", "content": system})
         else:
-            openai_messages.append(
-                {"role": "system", "content": PromptTemplates.SYSTEM_CONTEXT}
-            )
+            openai_messages.append({"role": "system", "content": PromptTemplates.SYSTEM_CONTEXT})
 
         for msg in messages:
             role = msg.get("role", "user")
@@ -462,9 +458,7 @@ class LLMService:
                 temperature=temperature,
             )
         except Exception as primary_error:
-            logger.warning(
-                f"Primary provider {self.primary_provider} failed: {primary_error}"
-            )
+            logger.warning(f"Primary provider {self.primary_provider} failed: {primary_error}")
 
             if self.fallback_provider:
                 try:

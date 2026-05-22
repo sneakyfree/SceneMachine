@@ -123,11 +123,7 @@ class EnvironmentSecretProvider(SecretProvider):
         """Get all environment variables with prefix."""
         if not self._prefix:
             return []
-        return [
-            k[len(self._prefix) :].lower()
-            for k in os.environ
-            if k.startswith(self._prefix)
-        ]
+        return [k[len(self._prefix) :].lower() for k in os.environ if k.startswith(self._prefix)]
 
 
 class FileSecretProvider(SecretProvider):

@@ -234,7 +234,7 @@ class AudioLibraryService:
         # Validate size
         file_size = source_path.stat().st_size
         if file_size > self.MAX_FILE_SIZE:
-            raise ValueError(f"File too large. Maximum: {self.MAX_FILE_SIZE // (1024*1024)} MB")
+            raise ValueError(f"File too large. Maximum: {self.MAX_FILE_SIZE // (1024 * 1024)} MB")
 
         # Generate unique filename
         asset_id = uuid4()
@@ -368,8 +368,10 @@ class AudioLibraryService:
 
             cmd = [
                 "ffprobe",
-                "-v", "quiet",
-                "-print_format", "json",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
                 "-show_format",
                 str(file_path),
             ]
@@ -406,6 +408,7 @@ class AudioLibraryService:
 
 
 # Convenience functions
+
 
 async def get_sound_effects(
     session: AsyncSession,

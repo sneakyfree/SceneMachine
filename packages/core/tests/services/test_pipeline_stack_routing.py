@@ -6,6 +6,7 @@ with a stub provider so no real ComfyUI is touched. The goal is to
 verify the wiring (routing + request construction + provider dispatch)
 rather than the generation itself.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,17 +30,20 @@ class _StubProvider:
         return "stub-pipeline-provider"
 
     async def generate(self, request, progress_callback=None):
-        self.calls.append({
-            "shot_id": str(request.shot_id),
-            "prompt": request.prompt,
-            "model_id": (request.extra_params or {}).get("model_id"),
-            "input_image_path": request.input_image_path,
-            "character_refs": list(request.character_references or []),
-            "duration_seconds": request.duration_seconds,
-        })
+        self.calls.append(
+            {
+                "shot_id": str(request.shot_id),
+                "prompt": request.prompt,
+                "model_id": (request.extra_params or {}).get("model_id"),
+                "input_image_path": request.input_image_path,
+                "character_refs": list(request.character_references or []),
+                "duration_seconds": request.duration_seconds,
+            }
+        )
         if self.next_result is not None:
             return self.next_result
         from scenemachine.generators.base import GenerationResult
+
         return GenerationResult(
             success=True,
             output_path=f"shots/{request.shot_id}/output.mp4",
@@ -55,6 +59,7 @@ def _make_pipeline(tmp_path: Path):
         ProductionPipeline,
         ShotGenerationStatus,
     )
+
     p = ProductionPipeline(
         project_id="test-routing",
         output_dir=tmp_path,
@@ -86,11 +91,13 @@ def stub_registry(monkeypatch):
 @pytest.fixture
 def stub_reviewer(monkeypatch):
     """Disable the video quality reviewer — we're not testing it here."""
+
     class _NoReview:
         async def review_video(self, path):
             return {"overall_score": 1.0}
 
     from scenemachine.services import video_quality_reviewer
+
     monkeypatch.setattr(
         video_quality_reviewer,
         "get_video_quality_reviewer",
@@ -105,13 +112,21 @@ async def test_t2v_routing_for_simple_shot(tmp_path, stub_registry, stub_reviewe
     pipeline, ShotStatus = _make_pipeline(tmp_path)
 
     shot_id = str(uuid4())
-    pipeline.shot_list = {"scenes": [{"shots": [{
-        "shot_id": shot_id,
-        "description": "establishing wide of a misty pine forest at dawn",
-        "character_ids": [],
-        "duration_seconds": 3.0,
-        "shot_type": "establishing",
-    }]}]}
+    pipeline.shot_list = {
+        "scenes": [
+            {
+                "shots": [
+                    {
+                        "shot_id": shot_id,
+                        "description": "establishing wide of a misty pine forest at dawn",
+                        "character_ids": [],
+                        "duration_seconds": 3.0,
+                        "shot_type": "establishing",
+                    }
+                ]
+            }
+        ]
+    }
     pipeline.characters = []
 
     shot = ShotStatus(shot_id=shot_id, scene_id="scene-1", status="queued")
@@ -126,22 +141,28 @@ async def test_t2v_routing_for_simple_shot(tmp_path, stub_registry, stub_reviewe
 
 
 @pytest.mark.asyncio
-async def test_animate_routing_when_character_ref_available(
-    tmp_path, stub_registry, stub_reviewer
-):
+async def test_animate_routing_when_character_ref_available(tmp_path, stub_registry, stub_reviewer):
     """A shot with a character_id AND a registered reference image routes
     to Animate. The character_references list is forwarded to the provider."""
     pipeline, ShotStatus = _make_pipeline(tmp_path)
 
     shot_id = str(uuid4())
     hero_id = str(uuid4())
-    pipeline.shot_list = {"scenes": [{"shots": [{
-        "shot_id": shot_id,
-        "description": "close-up of the hero, dialogue",
-        "character_ids": [hero_id],
-        "duration_seconds": 3.0,
-        "shot_type": "close_up",
-    }]}]}
+    pipeline.shot_list = {
+        "scenes": [
+            {
+                "shots": [
+                    {
+                        "shot_id": shot_id,
+                        "description": "close-up of the hero, dialogue",
+                        "character_ids": [hero_id],
+                        "duration_seconds": 3.0,
+                        "shot_type": "close_up",
+                    }
+                ]
+            }
+        ]
+    }
     pipeline.characters = [
         {"id": hero_id, "reference_image_path": "hero.png"},
     ]
@@ -152,16 +173,12 @@ async def test_animate_routing_when_character_ref_available(
     assert len(stub_registry.calls) == 1
     call = stub_registry.calls[0]
     assert call["model_id"] == "wan22-animate-14b"
-    assert call["character_refs"] == [
-        {"character_id": hero_id, "reference_image_path": "hero.png"}
-    ]
+    assert call["character_refs"] == [{"character_id": hero_id, "reference_image_path": "hero.png"}]
     assert shot.status == "completed"
 
 
 @pytest.mark.asyncio
-async def test_provider_failure_propagates_to_shot_status(
-    tmp_path, stub_registry, stub_reviewer
-):
+async def test_provider_failure_propagates_to_shot_status(tmp_path, stub_registry, stub_reviewer):
     """When the provider returns success=False, the shot is marked failed
     with the error message — no silent placeholder mp4 (regression test
     for the pre-#40 silent-fallback bug)."""
@@ -175,12 +192,20 @@ async def test_provider_failure_propagates_to_shot_status(
     )
 
     shot_id = str(uuid4())
-    pipeline.shot_list = {"scenes": [{"shots": [{
-        "shot_id": shot_id,
-        "description": "anything",
-        "character_ids": [],
-        "duration_seconds": 3.0,
-    }]}]}
+    pipeline.shot_list = {
+        "scenes": [
+            {
+                "shots": [
+                    {
+                        "shot_id": shot_id,
+                        "description": "anything",
+                        "character_ids": [],
+                        "duration_seconds": 3.0,
+                    }
+                ]
+            }
+        ]
+    }
     pipeline.characters = []
 
     shot = ShotStatus(shot_id=shot_id, scene_id="scene-1", status="queued")
@@ -192,7 +217,9 @@ async def test_provider_failure_propagates_to_shot_status(
 
 
 @pytest.mark.asyncio
-async def test_i2v_continuity_routes_second_shot(tmp_path, stub_registry, stub_reviewer, monkeypatch):
+async def test_i2v_continuity_routes_second_shot(
+    tmp_path, stub_registry, stub_reviewer, monkeypatch
+):
     """Two shots in the same scene, no characters: first shot routes to T2V
     (no prior frame), then its last frame is extracted and seeded into the
     second shot's request — second shot must route to I2V via continuity.
@@ -202,27 +229,49 @@ async def test_i2v_continuity_routes_second_shot(tmp_path, stub_registry, stub_r
     pipeline, _ = _make_pipeline(tmp_path)
     scene_id = "scene-1"
     sid1, sid2 = str(uuid4()), str(uuid4())
-    pipeline.shot_list = {"scenes": [{"scene_number": scene_id, "shots": [
-        {"shot_id": sid1, "description": "establishing wide", "character_ids": [], "duration_seconds": 3.0},
-        {"shot_id": sid2, "description": "medium follow", "character_ids": [], "duration_seconds": 3.0},
-    ]}]}
+    pipeline.shot_list = {
+        "scenes": [
+            {
+                "scene_number": scene_id,
+                "shots": [
+                    {
+                        "shot_id": sid1,
+                        "description": "establishing wide",
+                        "character_ids": [],
+                        "duration_seconds": 3.0,
+                    },
+                    {
+                        "shot_id": sid2,
+                        "description": "medium follow",
+                        "character_ids": [],
+                        "duration_seconds": 3.0,
+                    },
+                ],
+            }
+        ]
+    }
     pipeline.characters = []
 
     # Stub the ffmpeg last-frame extractor: pretend it always succeeds and
     # returns a synthetic filename. The pipeline's stack_router will then
     # see it and route the SECOND shot to I2V.
     from scenemachine.utils import ffmpeg as ffmpeg_module
+
     class _StubFfmpeg:
         async def extract_frame(self, video_path, output_path, timestamp=1.0, quality=2):
             from pathlib import Path
+
             Path(str(output_path)).write_bytes(b"\xff\xd8\xff\xd9")  # tiny valid JPEG
             return Path(str(output_path))
+
     monkeypatch.setattr(ffmpeg_module, "get_ffmpeg", lambda: _StubFfmpeg())
 
     # Make the stub provider write a 1-byte mp4 so Path(video_path).exists() is True
     from scenemachine.generators.base import GenerationResult
+
     real_outputs = tmp_path / "shots"
     real_outputs.mkdir(exist_ok=True)
+
     def _make_real_result(req):
         out_dir = real_outputs / str(req.shot_id)
         out_dir.mkdir(exist_ok=True)
@@ -235,13 +284,17 @@ async def test_i2v_continuity_routes_second_shot(tmp_path, stub_registry, stub_r
             cost_usd=0.0,
             metadata={"quality_score": 1.0},
         )
+
     async def _gen(req, progress_callback=None):
-        stub_registry.calls.append({
-            "shot_id": str(req.shot_id),
-            "model_id": (req.extra_params or {}).get("model_id"),
-            "input_image_path": req.input_image_path,
-        })
+        stub_registry.calls.append(
+            {
+                "shot_id": str(req.shot_id),
+                "model_id": (req.extra_params or {}).get("model_id"),
+                "input_image_path": req.input_image_path,
+            }
+        )
         return _make_real_result(req)
+
     stub_registry.generate = _gen
 
     # Point pipeline.output_dir at the same tree the stub writes to so the
@@ -249,6 +302,7 @@ async def test_i2v_continuity_routes_second_shot(tmp_path, stub_registry, stub_r
     pipeline.output_dir = tmp_path
     # And settings.output_dir is used by the pipeline for path resolution.
     from scenemachine.config import get_settings
+
     monkeypatch.setattr(get_settings(), "output_dir", tmp_path)
 
     s1 = ShotGenerationStatus(shot_id=sid1, scene_id=scene_id, status="queued")
@@ -263,15 +317,16 @@ async def test_i2v_continuity_routes_second_shot(tmp_path, stub_registry, stub_r
     assert first["input_image_path"] is None
     # Second shot: SHOULD have a prev_shot frame, routing to I2V
     assert second["model_id"] == "wan22-i2v-14b-fp8", (
-        f"second shot should route I2V but got {second['model_id']} — "
-        f"continuity wiring is broken"
+        f"second shot should route I2V but got {second['model_id']} — continuity wiring is broken"
     )
     assert second["input_image_path"] is not None
     assert second["input_image_path"].startswith("continuity_")
 
 
 @pytest.mark.asyncio
-async def test_continuity_does_not_cross_scene_boundary(tmp_path, stub_registry, stub_reviewer, monkeypatch):
+async def test_continuity_does_not_cross_scene_boundary(
+    tmp_path, stub_registry, stub_reviewer, monkeypatch
+):
     """Two scenes, each with one shot, no characters: both shots route to
     T2V (no continuity carries from scene 1 → scene 2). Each scene runs
     its own sequential loop so prev_frame is scoped per scene.
@@ -280,18 +335,43 @@ async def test_continuity_does_not_cross_scene_boundary(tmp_path, stub_registry,
 
     pipeline, _ = _make_pipeline(tmp_path)
     sid1, sid2 = str(uuid4()), str(uuid4())
-    pipeline.shot_list = {"scenes": [
-        {"scene_number": "scene-a", "shots": [{"shot_id": sid1, "description": "a", "character_ids": [], "duration_seconds": 3.0}]},
-        {"scene_number": "scene-b", "shots": [{"shot_id": sid2, "description": "b", "character_ids": [], "duration_seconds": 3.0}]},
-    ]}
+    pipeline.shot_list = {
+        "scenes": [
+            {
+                "scene_number": "scene-a",
+                "shots": [
+                    {
+                        "shot_id": sid1,
+                        "description": "a",
+                        "character_ids": [],
+                        "duration_seconds": 3.0,
+                    }
+                ],
+            },
+            {
+                "scene_number": "scene-b",
+                "shots": [
+                    {
+                        "shot_id": sid2,
+                        "description": "b",
+                        "character_ids": [],
+                        "duration_seconds": 3.0,
+                    }
+                ],
+            },
+        ]
+    }
     pipeline.characters = []
 
     from scenemachine.utils import ffmpeg as ffmpeg_module
+
     class _StubFfmpeg:
         async def extract_frame(self, video_path, output_path, timestamp=1.0, quality=2):
             from pathlib import Path as P
+
             P(str(output_path)).write_bytes(b"\xff\xd8\xff\xd9")
             return P(str(output_path))
+
     monkeypatch.setattr(ffmpeg_module, "get_ffmpeg", lambda: _StubFfmpeg())
 
     s1 = ShotGenerationStatus(shot_id=sid1, scene_id="scene-a", status="queued")
@@ -320,18 +400,38 @@ async def test_animate_still_wins_over_continuity_when_character_ref_present(
     pipeline, _ = _make_pipeline(tmp_path)
     sid1, sid2 = str(uuid4()), str(uuid4())
     hero = str(uuid4())
-    pipeline.shot_list = {"scenes": [{"scene_number": "s1", "shots": [
-        {"shot_id": sid1, "description": "wide", "character_ids": [], "duration_seconds": 3.0},
-        {"shot_id": sid2, "description": "close-up of hero", "character_ids": [hero], "duration_seconds": 3.0},
-    ]}]}
+    pipeline.shot_list = {
+        "scenes": [
+            {
+                "scene_number": "s1",
+                "shots": [
+                    {
+                        "shot_id": sid1,
+                        "description": "wide",
+                        "character_ids": [],
+                        "duration_seconds": 3.0,
+                    },
+                    {
+                        "shot_id": sid2,
+                        "description": "close-up of hero",
+                        "character_ids": [hero],
+                        "duration_seconds": 3.0,
+                    },
+                ],
+            }
+        ]
+    }
     pipeline.characters = [{"id": hero, "reference_image_path": "hero.png"}]
 
     from scenemachine.utils import ffmpeg as ffmpeg_module
+
     class _StubFfmpeg:
         async def extract_frame(self, video_path, output_path, timestamp=1.0, quality=2):
             from pathlib import Path as P
+
             P(str(output_path)).write_bytes(b"\xff\xd8\xff\xd9")
             return P(str(output_path))
+
     monkeypatch.setattr(ffmpeg_module, "get_ffmpeg", lambda: _StubFfmpeg())
 
     s1 = ShotGenerationStatus(shot_id=sid1, scene_id="s1", status="queued")
@@ -344,9 +444,7 @@ async def test_animate_still_wins_over_continuity_when_character_ref_present(
 
 
 @pytest.mark.asyncio
-async def test_no_provider_registered_fails_all_shots_loudly(
-    tmp_path, monkeypatch, stub_reviewer
-):
+async def test_no_provider_registered_fails_all_shots_loudly(tmp_path, monkeypatch, stub_reviewer):
     """When the registry has NO provider for LOCAL, every shot is marked
     failed with an actionable error. This is the loud-failure replacement
     for the prior silent placeholder."""
@@ -363,12 +461,20 @@ async def test_no_provider_registered_fails_all_shots_loudly(
 
     pipeline, ShotStatus = _make_pipeline(tmp_path)
     shot_id = str(uuid4())
-    pipeline.shot_list = {"scenes": [{"shots": [{
-        "shot_id": shot_id,
-        "description": "any",
-        "character_ids": [],
-        "duration_seconds": 3.0,
-    }]}]}
+    pipeline.shot_list = {
+        "scenes": [
+            {
+                "shots": [
+                    {
+                        "shot_id": shot_id,
+                        "description": "any",
+                        "character_ids": [],
+                        "duration_seconds": 3.0,
+                    }
+                ]
+            }
+        ]
+    }
     pipeline.characters = []
 
     shot = ShotStatus(shot_id=shot_id, scene_id="scene-1", status="queued")

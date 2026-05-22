@@ -23,8 +23,10 @@ from uuid import uuid4
 # Data Models
 # =============================================================================
 
+
 class TestOutcome(Enum):
     """Outcome of a test scenario."""
+
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -33,6 +35,7 @@ class TestOutcome(Enum):
 
 class FrictionLevel(Enum):
     """Level of UX friction encountered."""
+
     NONE = "none"
     LOW = "low"
     MEDIUM = "medium"
@@ -43,6 +46,7 @@ class FrictionLevel(Enum):
 @dataclass
 class TestStep:
     """A single step in a test scenario."""
+
     step_number: int
     description: str
     expected_result: str
@@ -57,6 +61,7 @@ class TestStep:
 @dataclass
 class TestScenario:
     """A complete test scenario with multiple steps."""
+
     scenario_id: str
     name: str
     description: str
@@ -74,6 +79,7 @@ class TestScenario:
 @dataclass
 class BetaSession:
     """A beta testing session."""
+
     session_id: str
     tester_id: str
     tester_name: str
@@ -177,6 +183,7 @@ ALL_SCENARIOS = [
 # Test Runner
 # =============================================================================
 
+
 class BetaTestRunner:
     """Runs beta test scenarios and collects results."""
 
@@ -194,6 +201,7 @@ class BetaTestRunner:
     def _collect_environment(self) -> dict[str, Any]:
         """Collect environment information."""
         import platform
+
         return {
             "platform": platform.system(),
             "platform_version": platform.version(),
@@ -203,10 +211,10 @@ class BetaTestRunner:
 
     def run_scenario(self, scenario: TestScenario) -> TestScenario:
         """Run a single test scenario (interactive mode)."""
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"SCENARIO: {scenario.name}")
         print(f"Description: {scenario.description}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         scenario.session_id = self.session.session_id
         scenario.tester_id = self.session.tester_id
@@ -226,17 +234,17 @@ class BetaTestRunner:
 
             step.duration_seconds = time.time() - step_start
 
-            if result == 'p':
+            if result == "p":
                 step.passed = True
                 step.actual_result = step.expected_result
-            elif result == 'f':
+            elif result == "f":
                 step.passed = False
                 step.actual_result = input("Actual result: ")
                 step.notes = input("Notes: ")
                 all_passed = False
-            elif result == 's':
+            elif result == "s":
                 step.passed = None
-            elif result == 'b':
+            elif result == "b":
                 step.passed = False
                 step.actual_result = "BLOCKED"
                 step.notes = input("Blocking reason: ")
@@ -291,14 +299,16 @@ class BetaTestRunner:
         friction_points = []
         for scenario in self.session.scenarios:
             for step in scenario.steps:
-                if step.friction_level.value not in ['none', 'low']:
-                    friction_points.append({
-                        "scenario": scenario.name,
-                        "step": step.step_number,
-                        "description": step.description,
-                        "friction_level": step.friction_level.value,
-                        "notes": step.notes,
-                    })
+                if step.friction_level.value not in ["none", "low"]:
+                    friction_points.append(
+                        {
+                            "scenario": scenario.name,
+                            "step": step.step_number,
+                            "description": step.description,
+                            "friction_level": step.friction_level.value,
+                            "notes": step.notes,
+                        }
+                    )
 
         return {
             "session_id": self.session.session_id,
@@ -312,7 +322,7 @@ class BetaTestRunner:
                 "passed": passed,
                 "failed": failed,
                 "blocked": blocked,
-                "pass_rate": f"{passed/max(1, len(self.session.scenarios))*100:.1f}%",
+                "pass_rate": f"{passed / max(1, len(self.session.scenarios)) * 100:.1f}%",
             },
             "friction_points": friction_points,
             "nps_score": self.session.nps_score,
@@ -335,7 +345,7 @@ class BetaTestRunner:
         filename = f"beta_session_{self.session.session_id[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         filepath = self.results_dir / filename
 
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(report, f, indent=2)
 
         print(f"\nReport saved to: {filepath}")
@@ -344,6 +354,7 @@ class BetaTestRunner:
 # =============================================================================
 # Automated Tests (for pytest)
 # =============================================================================
+
 
 class TestBetaScenarios:
     """Automated validation of beta test scenario definitions."""
@@ -357,8 +368,12 @@ class TestBetaScenarios:
         """Verify all steps have descriptions and expected results."""
         for scenario in ALL_SCENARIOS:
             for step in scenario.steps:
-                assert step.description, f"Step {step.step_number} in {scenario.name} missing description"
-                assert step.expected_result, f"Step {step.step_number} in {scenario.name} missing expected result"
+                assert step.description, (
+                    f"Step {step.step_number} in {scenario.name} missing description"
+                )
+                assert step.expected_result, (
+                    f"Step {step.step_number} in {scenario.name} missing expected result"
+                )
 
     def test_scenario_ids_unique(self):
         """Verify all scenario IDs are unique."""
@@ -397,11 +412,12 @@ class TestBetaTestRunner:
 # CLI Entry Point
 # =============================================================================
 
+
 def main():
     """Run interactive beta testing session."""
-    print("="*60)
+    print("=" * 60)
     print("SCENEMACHINE BETA TESTING SESSION")
-    print("="*60)
+    print("=" * 60)
 
     tester_id = input("\nEnter your tester ID: ")
     tester_name = input("Enter your name: ")
@@ -416,7 +432,7 @@ def main():
 
     while True:
         choice = input("\nEnter scenario number to run (or 'q' to finish): ")
-        if choice.lower() == 'q':
+        if choice.lower() == "q":
             break
 
         try:
@@ -430,9 +446,9 @@ def main():
 
     report = runner.finalize_session()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SESSION SUMMARY")
-    print("="*60)
+    print("=" * 60)
     print(json.dumps(report["summary"], indent=2))
 
 

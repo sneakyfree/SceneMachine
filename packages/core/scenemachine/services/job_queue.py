@@ -426,11 +426,7 @@ class BackgroundJobQueue:
     async def _process_pending(self) -> None:
         """Process pending jobs up to concurrency limit."""
         async with self._lock:
-            while (
-                len(self._running) < self.max_concurrent
-                and self._pending
-                and not self._shutdown
-            ):
+            while len(self._running) < self.max_concurrent and self._pending and not self._shutdown:
                 job = self._pending.pop(0)
                 self._running[job.id] = job
 
@@ -525,8 +521,10 @@ class BackgroundJobQueue:
                 self._total_retried += 1
 
                 # Exponential backoff
-                delay = min(30, 2 ** job.retry_count)
-                logger.info(f"Job {job.id} will retry in {delay}s (attempt {job.retry_count}/{job.max_retries})")
+                delay = min(30, 2**job.retry_count)
+                logger.info(
+                    f"Job {job.id} will retry in {delay}s (attempt {job.retry_count}/{job.max_retries})"
+                )
 
                 # Re-queue with delay
                 async with self._lock:
@@ -586,7 +584,9 @@ class BackgroundJobQueue:
 
                 # Limit completed job history
                 if len(self._completed) > 1000:
-                    oldest = min(self._completed.keys(), key=lambda k: self._completed[k].duration_seconds)
+                    oldest = min(
+                        self._completed.keys(), key=lambda k: self._completed[k].duration_seconds
+                    )
                     del self._completed[oldest]
 
     async def _update_db_job_status(
@@ -615,11 +615,7 @@ class BackgroundJobQueue:
                 if retry_count is not None:
                     values["retry_count"] = retry_count
 
-                stmt = (
-                    update(GenerationJob)
-                    .where(GenerationJob.id == job_id)
-                    .values(**values)
-                )
+                stmt = update(GenerationJob).where(GenerationJob.id == job_id).values(**values)
                 await session.execute(stmt)
                 await session.commit()
 
@@ -644,7 +640,9 @@ def get_job_queue() -> BackgroundJobQueue:
     return _job_queue
 
 
-async def init_job_queue(session_factory: Callable[[], AsyncSession] | None = None) -> BackgroundJobQueue:
+async def init_job_queue(
+    session_factory: Callable[[], AsyncSession] | None = None,
+) -> BackgroundJobQueue:
     """Initialize and start the global job queue."""
     global _job_queue
 
