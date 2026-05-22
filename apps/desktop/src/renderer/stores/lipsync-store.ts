@@ -141,7 +141,10 @@ export const useLipSyncStore = create<LipSyncStore>()(
           });
 
           try {
-            const response = await window.electronAPI.backendRequest('lipsync.getProviders', {});
+            // Backend registers this handler as `lipSync.getProviders`
+            // (camelCase). Aligning the renderer with that name closes the
+            // ghost-IPC bug class — see docs/INVENTORY_DEFECTS.md P0-2.
+            const response = await window.electronAPI.backendRequest('lipSync.getProviders', {});
 
             // Handle response safely
             const providersData = response as { providers?: Provider[] } | undefined;

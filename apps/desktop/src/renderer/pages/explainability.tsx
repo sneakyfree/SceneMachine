@@ -656,22 +656,24 @@ export function ExplainabilityPage() {
     },
   });
 
-  // Generation jobs
+  // Generation jobs — backend exposes this as `generation.getPendingJobs`
+  // (P0-4 in docs/INVENTORY_DEFECTS.md: renderer was calling a non-existent
+  // `generation.listJobs` channel, so this page silently rendered empty).
   const { data: jobs = [] } = useQuery({
     queryKey: ['explainability-jobs', projectId],
     queryFn: async () => {
-      return window.electronAPI.backendRequest<GenerationJob[]>('generation.listJobs', {
+      return window.electronAPI.backendRequest<GenerationJob[]>('generation.getPendingJobs', {
         project_id: projectId,
         limit: 100,
       });
     },
   });
 
-  // Agent logs
+  // Agent logs — backend exposes this as `crew.getActionLogs` (P0-7).
   const { data: agentLogs = [] } = useQuery({
     queryKey: ['explainability-logs', projectId],
     queryFn: async () => {
-      return window.electronAPI.backendRequest<AgentLog[]>('crew.getLogs', {
+      return window.electronAPI.backendRequest<AgentLog[]>('crew.getActionLogs', {
         limit: 100,
       });
     },
