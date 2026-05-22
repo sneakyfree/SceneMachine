@@ -118,45 +118,64 @@ class TestPR45StepsAndCfgPlumbing:
 
 
 class TestPR46AssemblyRobustness:
-    """Pre-PR #46, _assemble_movie silently fell back to copying the
-    first shot's mp4 as the final output when the concat demuxer
-    returned non-zero. A 47-shot run would emit a 3-second "movie"
-    that the launch summary reported as success.
+    """Two-phase fix:
 
-    The fix:
-      1. Adds a concat-filter + libx264 re-encode fallback (slow but
-         tolerant)
-      2. Removes the silent first-shot copy (no fallback now writes
-         partial content masquerading as the final movie)
-      3. Widens stderr capture from 500 chars to 4096 chars
+    Phase 1 (PR #46, 2026-05-14): removed the silent first-shot copy
+    that emitted a 3-second "movie" passing as the final output. The
+    replacement was a 0-byte placeholder + loud log error — a 50% fix.
+
+    Phase 2 (this PR, 2026-05-20): replaces the 0-byte placeholder
+    with raising ``AssemblyError``. The placeholder was indistinguishable
+    from success at the file-existence layer — every downstream poller
+    (wait_and_analyze.sh's MIN_MP4_BYTES guard was the only check that
+    caught it) and the harness's RESULTS.json all reported a "real"
+    final_mp4_path. Three incidents in 48h on 2026-05-19/20 all
+    surfaced the same way (ComfyUI-down, ComfyUI VRAM leak, original
+    first-shot fallback) despite different root causes.
+
+    The Phase-2 fix:
+      1. Removes ALL ``write_bytes(b"")`` placeholders
+      2. Raises ``AssemblyError`` on: no completed shots, both
+         strategies failed, generic exception during assembly
+      3. Callers must catch — run_benchmark.py records the failure
+         as ``assembly_error`` in the screenplay result dict
+      4. Preserves the concat-filter + libx264 re-encode fallback
+         from Phase 1 (slow-but-correct path stays)
+      5. Preserves the 4096-char stderr capture from Phase 1
     """
 
     def test_no_silent_first_shot_fallback(self):
         from scenemachine.services.production_pipeline import ProductionPipeline
 
         src = inspect.getsource(ProductionPipeline._assemble_movie)
-        # The bad pattern was a `shutil.copy2(video_paths[0], output_path)`
-        # call INSIDE the concat-failure exception branch (not the
-        # legitimate single-shot copy when ``len(video_paths) == 1``).
-        # The fix replaces that with an empty placeholder + loud error.
-        # We pin the fix by asserting both:
-        #   (a) the empty-placeholder signal exists on the failure path
-        #   (b) the explicit "No silent first-shot fallback" comment from
-        #       PR #46 is preserved (intent-level documentation)
-        assert 'output_path.write_bytes(b"")' in src, (
-            "_assemble_movie must write an empty placeholder when both "
-            "assembly strategies fail, not silently copy the first shot. "
-            "Per the feedback_no_silent_fallbacks rule, the empty-on-fail "
-            "strategy from PR #46 must be preserved."
+        # The original (pre-PR #46) bad pattern was a
+        # `shutil.copy2(video_paths[0], output_path)` inside the
+        # concat-failure exception branch (not the legitimate single-shot
+        # copy when ``len(video_paths) == 1``). PR #46 replaced that with
+        # an empty-placeholder write. This PR replaces the placeholder
+        # with raising AssemblyError. We pin both:
+        #   (a) no write_bytes placeholder anywhere
+        #   (b) AssemblyError is raised on the failure paths
+        assert 'output_path.write_bytes(b"")' not in src, (
+            "_assemble_movie must NOT write a 0-byte placeholder on "
+            "assembly failure — the empty file is indistinguishable from "
+            "success at every downstream file-existence check. Raise "
+            "AssemblyError instead. See [[feedback-no-silent-fallbacks]]."
         )
-        # Count strategies that fail loud — there are at least two output
-        # branches that emit an empty file (filter fallback fail + outer
-        # except). If someone reverts to a silent first-shot copy, both
-        # disappear together.
-        assert src.count('output_path.write_bytes(b"")') >= 2, (
-            "Expected at least two empty-placeholder branches in "
-            "_assemble_movie (concat-filter failure path + outer except). "
-            "Reverting to a single silent first-shot copy reduces these."
+
+    def test_assembly_raises_on_failure(self):
+        from scenemachine.services.production_pipeline import ProductionPipeline
+
+        src = inspect.getsource(ProductionPipeline._assemble_movie)
+        # At least three raise-sites: empty input, both strategies failed,
+        # generic exception. Plus a defensive trailing raise for the
+        # unreachable-fall-through guard.
+        n_raises = src.count("raise AssemblyError")
+        assert n_raises >= 3, (
+            f"Expected at least 3 `raise AssemblyError` sites in "
+            f"_assemble_movie (empty-input, both-strategies-failed, "
+            f"generic-exception), found {n_raises}. Reverting to a "
+            f"placeholder write reduces this count."
         )
 
     def test_concat_filter_fallback_exists(self):
@@ -182,6 +201,132 @@ class TestPR46AssemblyRobustness:
             "PR #46 widened the stderr decode budget so operators can "
             "see the actual ffmpeg error past the banner; do not shrink "
             "below 4096 chars."
+        )
+
+
+class TestAssemblyRaisesOnFailure:
+    """Functional tests for the Phase-2 fix (this PR, 2026-05-20).
+
+    Drive ``_assemble_movie`` end-to-end through the three failure modes
+    and assert that:
+      (a) ``AssemblyError`` is raised
+      (b) no 0-byte file is written at the would-be output path
+
+    These complement the source-grep tests above with behavioral
+    coverage that catches refactors which keep the textual `raise
+    AssemblyError` lines but reintroduce the write_bytes placeholder
+    via some other route.
+    """
+
+    @pytest.fixture
+    def pipeline(self, tmp_path):
+        from scenemachine.services.production_pipeline import ProductionPipeline
+        return ProductionPipeline(
+            project_id="test-no-silent-fail",
+            output_dir=tmp_path,
+        )
+
+    @pytest.mark.asyncio
+    async def test_empty_shots_list_raises(self, pipeline):
+        from scenemachine.services.production_pipeline import AssemblyError
+        with pytest.raises(AssemblyError) as excinfo:
+            await pipeline._assemble_movie([])
+        assert "no completed shots" in str(excinfo.value).lower()
+
+        expected_path = pipeline.output_dir / f"output_{pipeline.project_id}.mp4"
+        assert not expected_path.exists(), (
+            f"_assemble_movie wrote a placeholder at {expected_path} "
+            f"despite raising. The whole point of the Phase-2 fix is to "
+            f"leave no file behind on failure."
+        )
+
+    @pytest.mark.asyncio
+    async def test_all_shots_failed_raises(self, pipeline):
+        from scenemachine.services.production_pipeline import (
+            AssemblyError,
+            ShotGenerationStatus,
+        )
+        shots = [
+            ShotGenerationStatus(
+                shot_id=f"shot-{i}",
+                scene_id=f"scene-{i}",
+                status="failed",
+                error="upstream gen failed",
+            )
+            for i in range(5)
+        ]
+        with pytest.raises(AssemblyError) as excinfo:
+            await pipeline._assemble_movie(shots)
+        # Message should mention the input count for forensics.
+        assert "5 shots" in str(excinfo.value) or "received 5" in str(excinfo.value)
+
+        expected_path = pipeline.output_dir / f"output_{pipeline.project_id}.mp4"
+        assert not expected_path.exists()
+
+    @pytest.mark.asyncio
+    async def test_completed_shots_with_no_video_paths_raises(self, pipeline):
+        from scenemachine.services.production_pipeline import (
+            AssemblyError,
+            ShotGenerationStatus,
+        )
+        # The harness's path-existence filter inside _assemble_movie drops
+        # shots that lack a video_path or whose video_path doesn't exist.
+        # If every shot is in this state, video_paths == [] and we should
+        # raise — the failed-shot test above only exercises the
+        # status="failed" filter; this one exercises the
+        # video_path-doesn't-exist filter independently.
+        shots = [
+            ShotGenerationStatus(
+                shot_id=f"shot-{i}",
+                scene_id=f"scene-{i}",
+                status="completed",
+                video_path="/nonexistent/path/that/should/not/be/there.mp4",
+            )
+            for i in range(3)
+        ]
+        with pytest.raises(AssemblyError):
+            await pipeline._assemble_movie(shots)
+
+        expected_path = pipeline.output_dir / f"output_{pipeline.project_id}.mp4"
+        assert not expected_path.exists()
+
+
+class TestHarnessRecordsAssemblyError:
+    """The harness side of the Phase-2 fix: run_benchmark.py's
+    ``run_one_screenplay`` now catches AssemblyError and records it
+    in the screenplay's result dict, preserving shot stats.
+
+    Pre-fix, the harness called ``_assemble_movie`` unwrapped — if it
+    had raised, the whole screenplay would have ended up as
+    ``{"screenplay", "error", "preset"}`` only, losing shots_total /
+    shots_completed / shots_failed needed for forensics. The wrapper
+    keeps those fields.
+    """
+
+    def test_run_one_screenplay_catches_assembly_error(self):
+        import inspect
+        # The harness script lives outside the package so we read source
+        # directly. This is the same approach the test_pr46* tests use
+        # for production_pipeline.
+        from pathlib import Path as _Path
+        harness_path = (
+            _Path(__file__).parent.parent.parent.parent.parent
+            / "scripts" / "run_benchmark.py"
+        )
+        src = harness_path.read_text()
+        # Look for the AssemblyError catch in run_one_screenplay.
+        assert "AssemblyError" in src, (
+            "scripts/run_benchmark.py must import AssemblyError and catch "
+            "it in run_one_screenplay so RESULTS.json reflects assembly "
+            "failure as a structured field rather than swallowing it."
+        )
+        assert "except AssemblyError" in src, (
+            "Expected `except AssemblyError` block in run_one_screenplay."
+        )
+        assert "assembly_error" in src, (
+            "Expected `assembly_error` key in the screenplay result dict "
+            "so downstream tools can distinguish assembly failure from "
+            "shot-level failure."
         )
 
 

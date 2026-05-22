@@ -24,6 +24,24 @@ from uuid import UUID, uuid4
 logger = logging.getLogger(__name__)
 
 
+class AssemblyError(Exception):
+    """Raised when ``_assemble_movie`` cannot produce a real movie file.
+
+    Replaces the prior "write a 0-byte placeholder and return its path"
+    behavior from PR #46, which was a 50% fix: it removed the silent
+    first-shot copy but the empty file still passed every file-existence
+    check downstream — wait_and_analyze, post_v8_sequencer, and the
+    harness's own RESULTS.json all reported "final.mp4 exists" with a
+    sha equal to the empty-file sha. Three incidents in 48h on the
+    2026-05-19/20 SceneMachine runs (ComfyUI-down, ComfyUI VRAM leak,
+    and the original 2026-05-14 first-shot fallback) all surfaced the
+    same way despite different root causes.
+
+    Callers must catch this and record the failure clearly. Never write
+    a stub file in its place.
+    """
+
+
 class PipelineStage(StrEnum):
     """Pipeline processing stages."""
 
@@ -962,18 +980,19 @@ class ProductionPipeline:
           2. concat filter with libx264 re-encode (slow but tolerant of
              stream-level inconsistencies that break the demuxer)
 
-        On both failures, returns an empty mp4 with a loud error rather than
-        the previous silent "fallback to first shot" behavior, which was
-        misleading: a 47-shot run that 'finished' with a 3-second mp4
-        masquerading as the final movie.
+        Raises ``AssemblyError`` if no shots completed, if both strategies
+        fail, or if assembly raises. Never writes a 0-byte placeholder —
+        the PR #46 empty-mp4 fallback was indistinguishable from success
+        at the file-existence layer and caused three silent-fail incidents
+        in 48h across the 2026-05-19/20 runs (ComfyUI-down, ComfyUI VRAM
+        leak from V8 Animate carrying into V3 T2V, and the original
+        first-shot fallback bug). Callers must handle ``AssemblyError``.
 
-        Found 2026-05-14 overnight: the demuxer path returned non-zero from
-        ``asyncio.create_subprocess_exec`` in production while the literally
-        identical command succeeded from a shell. Manual concat after the
-        fact recovered the real movie. The re-encode filter fallback below
-        means future runs degrade to slow-but-correct instead of fast-but-
-        wrong, and the full stderr is logged so the next operator can see
-        what ffmpeg actually complained about.
+        2026-05-14 finding (kept for context): the demuxer's
+        ``asyncio.create_subprocess_exec`` returned non-zero in production
+        while the literally identical command succeeded from a shell. The
+        concat-filter re-encode below means runs degrade to slow-but-correct
+        instead of fast-but-wrong; full stderr is logged at 4 KB.
         """
         output_path = self.output_dir / f"output_{self.project_id}.mp4"
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -985,9 +1004,16 @@ class ProductionPipeline:
         ]
 
         if not video_paths:
-            logger.warning("No completed shot videos to assemble")
-            output_path.write_bytes(b"")
-            return str(output_path)
+            logger.error(
+                "No completed shot videos to assemble (received %d shots, "
+                "0 with status=completed and an existing video_path). "
+                "Refusing to write a 0-byte placeholder; raising AssemblyError.",
+                len(shots),
+            )
+            raise AssemblyError(
+                f"no completed shots to assemble (received {len(shots)} shots, "
+                "0 with a valid video_path); upstream generation failed"
+            )
 
         if len(video_paths) == 1:
             import shutil
@@ -1096,18 +1122,29 @@ class ProductionPipeline:
                 proc2.returncode,
                 stderr2.decode(errors="replace")[-4096:],
             )
-            # No silent first-shot fallback — write an empty placeholder so
-            # the caller sees the failure clearly instead of getting a 3-sec
-            # movie that looks like success.
-            output_path.write_bytes(b"")
+            # Both assembly strategies failed. Raising AssemblyError so the
+            # caller can record the failure cleanly — a 0-byte placeholder
+            # would pass every downstream file-existence check and replicate
+            # the silent-fail trap PR #46 only half-fixed.
+            raise AssemblyError(
+                f"both assembly strategies failed for {len(video_paths)} "
+                f"shots (demuxer rc={proc.returncode}, "
+                f"filter rc={proc2.returncode})"
+            )
 
+        except AssemblyError:
+            # Defined-failure path — re-raise so the caller handles it.
+            raise
         except Exception as e:
             logger.exception("Assembly error: %s", e)
-            output_path.write_bytes(b"")
+            raise AssemblyError(f"assembly raised {type(e).__name__}: {e}") from e
         finally:
             concat_file.unlink(missing_ok=True)
 
-        return str(output_path)
+        # Unreachable: every path above either returned or raised. Defensive
+        # guard so a future code edit that drops the return doesn't silently
+        # fall through to a missing-path return.
+        raise AssemblyError("assembly fell through without returning a path")
 
     def _build_generation_prompt(self, shot_data: dict[str, Any]) -> str:
         """Build a video generation prompt from shot data.
