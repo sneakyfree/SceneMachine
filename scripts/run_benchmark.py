@@ -158,16 +158,35 @@ PRESETS: Dict[str, BenchmarkPreset] = {
         use_quality_gate_regen=True,
         expected_wallclock_minutes_per_47_shots=11 * 60,
     ),
+    # V7_combined — properly wired with every win that has a real consumer
+    # in the pipeline. Originally this preset set ``use_llm_prompts=True``
+    # and ``use_quality_gate_regen=True`` with no consumers, silently
+    # running as V5 + 720p + 30 steps (audited in PR #65's discussion).
+    # This version (stacked on #67 + #68):
+    #   - drops the no-op ``use_quality_gate_regen`` (RIB-3.7 still pending)
+    #   - adds ``shot_extra_params`` so the V6a-style Animate-strength
+    #     reduction (face_strength=0.5, clip_vision_strength=0.5) is
+    #     actually applied
+    #   - keeps ``use_llm_prompts=True`` — now backed by the harness
+    #     consumer + the prompts JSON written by
+    #     scripts/generate_llm_prompts.py
+    # When V6a's scorecard recommends "ship V7-proper," this is it.
     "V7_combined": BenchmarkPreset(
         name="V7_combined",
-        description="All improvements merged. The candidate v1 product config.",
+        description=(
+            "Properly combined: V5 animate + V6a strength=0.5 + V3 LLM "
+            "prompts + V2 720p. The candidate v1 product config."
+        ),
         num_inference_steps=30,
         width=1280,
         height=720,
         use_llm_prompts=True,
         use_continuity=True,
         use_animate_when_chars=True,
-        use_quality_gate_regen=True,
+        shot_extra_params={
+            "face_strength": 0.5,
+            "clip_vision_strength": 0.5,
+        },
         expected_wallclock_minutes_per_47_shots=15 * 60,
     ),
     # V6a — attack the empirical rigidity measurement (2026-05-17, see
