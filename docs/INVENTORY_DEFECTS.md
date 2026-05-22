@@ -90,14 +90,57 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 | P3-4 | Hardcoded staging URLs in `deploy.yml` | `https://staging.scenemachine.ai`, `https://app.scenemachine.ai` |
 | P3-5 | Tracking ID rotation / Secrets Manager not configured for k8s | Env-only secrets |
 
-## Currently testing (Stage 1 batteries — to be populated by stress test agents)
+## Stage 1 batteries — status
 
-- [ ] Desktop app fuzz battery — drag-drop, large screenplays, concurrent ops, network failure
-- [ ] IPC schema fuzz — every Dict-accepting handler with malformed input
-- [ ] Pipeline external-out — ComfyUI/Ollama/FFmpeg/HF down scenarios
-- [ ] DB migration up/down/up cycle
-- [ ] Audio + lipsync paths
-- [ ] Marketplace surface stress (performers + bookings ALIVE side)
+- [x] **Desktop app battery** — completed 2026-05-21 22:00 (agent a8fbea07b5bbdc446). 13 findings appended below.
+- [x] **Marketplace surface battery** — completed same agent. 8 findings appended below.
+- [ ] IPC schema fuzz — every Dict-accepting handler with malformed input (pending)
+- [ ] Pipeline external-out — ComfyUI/Ollama/FFmpeg/HF down scenarios (manually covered: caught 2026-05-19 ComfyUI-down, 2026-05-20 VRAM-leak)
+- [ ] DB migration up/down/up cycle (alembic 005 downgrade missing enum drops — P0-10)
+- [ ] Audio + lipsync paths (lipsync.* P0-2 already documented)
+
+## Stage 1 desktop battery findings (2026-05-21)
+
+### Form validation gaps
+- `apps/desktop/src/renderer/components/booking-modal.tsx:91` | P1 | duration not range-checked before send
+- `apps/desktop/src/renderer/components/booking-modal.tsx:96` | P2 | `projectId || undefined` passes null to backend
+- `apps/desktop/src/renderer/pages/settings.tsx:152` | P2 | API key input accepts empty strings
+
+### Error boundaries
+- `export.tsx`, `scene-planning.tsx`, `actforge.tsx`, `timeline.tsx` | P1 | no `<PageErrorBoundary>` wrappers — pages crash the whole renderer on error
+
+### Long-running ops without abort
+- `pages/export.tsx:301` | P1 | `assembly.export` (60–600s) has no Cancel button → user trapped during export
+- `pages/scene-planning.tsx:255` | P1 | `scenes.generateBreakdown` lacks loading state + abort
+
+### Empty states
+- `pages/timeline.tsx:357` | P2 | bare `.map()` without empty-state guard
+
+### Drag-drop hardening
+- `components/screenplay-upload.tsx:504-537` | P2 | extension-only validation, no size or MIME check
+
+### Accessibility
+- `components/performer-card.tsx:204-221` | P2 | "Blink (10s)" / "Full Booking" buttons missing aria-label
+- `components/lipsync/lipsync-panel.tsx:126-143` | P2 | Info button tooltip has no accessible text
+
+### Settings page sprawl
+- `pages/settings.tsx` 1725 lines | P2 | monolithic, needs decomposition into `components/settings/*`
+
+## Stage 1 marketplace battery findings (2026-05-21)
+
+### Booking flow — money path bugs
+- `api/routes/bookings.py:310-387` | P1 | `create_blink_booking()` accepts `max_price_usd=None` without validation → negative values silently ignored
+- `api/routes/bookings.py:345-449` | P1 | `create_deep_booking()` / `create_epic_booking()` don't validate `requester_user_id` exists → orphan bookings possible
+- `api/routes/bookings.py:452` | P1 | **race condition**: concurrent DEEP bookings on same performer both succeed → overselling
+- `api/routes/bookings.py:360` | P1 | BLINK booking → MATCHED but `payment_status=PENDING`, **no escrow hold until performer accepts** → performer can deliver without payment guarantee
+- `api/routes/bookings.py:754-784` | P1 | `rate_booking()` allows rating before `payment_status=RELEASED`
+- `api/routes/bookings.py:743-750` | P1 | `cancel_booking()` only refunds ESCROWED, silently no-op on PENDING/RELEASED
+
+### Performer search integrity
+- `pages/actforge.tsx:62-69` | P1 | UI offers `sort_by` filter but backend `find_available_performer()` ignores it → "Sort by Price" returns ACI-sorted results
+
+### Rating multi-rate vulnerability
+- `models/performer_rating.py` | P2 | no DB unique constraint on `(performer_id, booking_id)` → race-create dup ratings
 
 ## CTO scope-defers (intentionally NOT fixed in this 72h sprint)
 
