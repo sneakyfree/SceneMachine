@@ -51,16 +51,76 @@ interface SoundEffectsProps {
 }
 
 const DEFAULT_CATEGORIES: SoundCategory[] = [
-  { id: 'ambience', name: 'Ambience', icon: '🌿', subcategories: ['Nature', 'Urban', 'Indoor', 'Weather'], count: 0 },
-  { id: 'foley', name: 'Foley', icon: '👣', subcategories: ['Footsteps', 'Clothing', 'Doors', 'Props'], count: 0 },
-  { id: 'impacts', name: 'Impacts', icon: '💥', subcategories: ['Hits', 'Crashes', 'Explosions', 'Glass'], count: 0 },
-  { id: 'whooshes', name: 'Whooshes', icon: '💨', subcategories: ['Swishes', 'Swooshes', 'Transitions'], count: 0 },
-  { id: 'risers', name: 'Risers & Stingers', icon: '📈', subcategories: ['Tension', 'Horror', 'Action'], count: 0 },
-  { id: 'ui', name: 'UI Sounds', icon: '🔔', subcategories: ['Clicks', 'Notifications', 'Error'], count: 0 },
-  { id: 'vehicles', name: 'Vehicles', icon: '🚗', subcategories: ['Cars', 'Motorcycles', 'Aircraft'], count: 0 },
-  { id: 'weapons', name: 'Weapons', icon: '⚔️', subcategories: ['Guns', 'Swords', 'Punches'], count: 0 },
-  { id: 'animals', name: 'Animals', icon: '🐕', subcategories: ['Dogs', 'Cats', 'Birds', 'Wildlife'], count: 0 },
-  { id: 'voice', name: 'Voice FX', icon: '🗣️', subcategories: ['Crowds', 'Reactions', 'Vocalizations'], count: 0 },
+  {
+    id: 'ambience',
+    name: 'Ambience',
+    icon: '🌿',
+    subcategories: ['Nature', 'Urban', 'Indoor', 'Weather'],
+    count: 0,
+  },
+  {
+    id: 'foley',
+    name: 'Foley',
+    icon: '👣',
+    subcategories: ['Footsteps', 'Clothing', 'Doors', 'Props'],
+    count: 0,
+  },
+  {
+    id: 'impacts',
+    name: 'Impacts',
+    icon: '💥',
+    subcategories: ['Hits', 'Crashes', 'Explosions', 'Glass'],
+    count: 0,
+  },
+  {
+    id: 'whooshes',
+    name: 'Whooshes',
+    icon: '💨',
+    subcategories: ['Swishes', 'Swooshes', 'Transitions'],
+    count: 0,
+  },
+  {
+    id: 'risers',
+    name: 'Risers & Stingers',
+    icon: '📈',
+    subcategories: ['Tension', 'Horror', 'Action'],
+    count: 0,
+  },
+  {
+    id: 'ui',
+    name: 'UI Sounds',
+    icon: '🔔',
+    subcategories: ['Clicks', 'Notifications', 'Error'],
+    count: 0,
+  },
+  {
+    id: 'vehicles',
+    name: 'Vehicles',
+    icon: '🚗',
+    subcategories: ['Cars', 'Motorcycles', 'Aircraft'],
+    count: 0,
+  },
+  {
+    id: 'weapons',
+    name: 'Weapons',
+    icon: '⚔️',
+    subcategories: ['Guns', 'Swords', 'Punches'],
+    count: 0,
+  },
+  {
+    id: 'animals',
+    name: 'Animals',
+    icon: '🐕',
+    subcategories: ['Dogs', 'Cats', 'Birds', 'Wildlife'],
+    count: 0,
+  },
+  {
+    id: 'voice',
+    name: 'Voice FX',
+    icon: '🗣️',
+    subcategories: ['Crowds', 'Reactions', 'Vocalizations'],
+    count: 0,
+  },
 ];
 
 function formatDuration(seconds: number): string {
@@ -88,16 +148,10 @@ function EffectItem({
         onClick={onPlay}
         className={cn(
           'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors',
-          isPlaying
-            ? 'bg-brand-500 text-white'
-            : 'bg-surface-700 hover:bg-surface-600'
+          isPlaying ? 'bg-brand-500 text-white' : 'bg-surface-700 hover:bg-surface-600'
         )}
       >
-        {isPlaying ? (
-          <Pause className="w-3 h-3" />
-        ) : (
-          <Play className="w-3 h-3 ml-0.5" />
-        )}
+        {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
       </button>
 
       {/* Effect info */}
@@ -121,9 +175,7 @@ function EffectItem({
           onClick={onToggleFavorite}
           className={cn(
             'p-1.5 rounded transition-colors',
-            effect.isFavorite
-              ? 'text-yellow-400'
-              : 'text-surface-500 hover:text-surface-300'
+            effect.isFavorite ? 'text-yellow-400' : 'text-surface-500 hover:text-surface-300'
           )}
         >
           <Star className={cn('w-4 h-4', effect.isFavorite && 'fill-current')} />
@@ -310,9 +362,7 @@ export function SoundEffectsLibrary({
             }}
             className={cn(
               'w-full flex items-center gap-2 p-2 rounded-lg transition-colors',
-              !selectedCategory
-                ? 'bg-brand-500/20 text-brand-400'
-                : 'hover:bg-surface-800'
+              !selectedCategory ? 'bg-brand-500/20 text-brand-400' : 'hover:bg-surface-800'
             )}
           >
             <Folder className="w-4 h-4" />
@@ -431,9 +481,7 @@ export function SoundEffectsLibrary({
             <div className="text-center py-12 text-surface-400">
               <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No effects found</p>
-              <p className="text-sm text-surface-500 mt-1">
-                Try adjusting your search or category
-              </p>
+              <p className="text-sm text-surface-500 mt-1">Try adjusting your search or category</p>
             </div>
           )}
         </div>
@@ -448,11 +496,7 @@ export function SoundEffectsLibrary({
 /**
  * Compact SFX button for quick access.
  */
-export function SFXButton({
-  onClick,
-}: {
-  onClick: () => void;
-}) {
+export function SFXButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}

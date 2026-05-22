@@ -40,7 +40,8 @@ const WIZARD_STEPS: WizardStep[] = [
     id: 'upload',
     title: 'Upload Your Script',
     subtitle: 'Step 1 of 5',
-    description: 'Drag and drop your screenplay file here. I can read Fountain, Final Draft, PDF, or plain text.',
+    description:
+      'Drag and drop your screenplay file here. I can read Fountain, Final Draft, PDF, or plain text.',
     icon: Upload,
     color: 'blue',
   },
@@ -48,7 +49,8 @@ const WIZARD_STEPS: WizardStep[] = [
     id: 'characters',
     title: 'Meet Your Characters',
     subtitle: 'Step 2 of 5',
-    description: 'I found the characters in your script. Let\'s describe how they look so they\'re consistent throughout your movie.',
+    description:
+      "I found the characters in your script. Let's describe how they look so they're consistent throughout your movie.",
     icon: Users,
     color: 'green',
   },
@@ -56,7 +58,8 @@ const WIZARD_STEPS: WizardStep[] = [
     id: 'scenes',
     title: 'Plan Your Scenes',
     subtitle: 'Step 3 of 5',
-    description: 'I\'ve broken down each scene into camera shots. Review and approve them, or let me adjust anything.',
+    description:
+      "I've broken down each scene into camera shots. Review and approve them, or let me adjust anything.",
     icon: Clapperboard,
     color: 'yellow',
   },
@@ -64,7 +67,8 @@ const WIZARD_STEPS: WizardStep[] = [
     id: 'generate',
     title: 'Create Your Movie',
     subtitle: 'Step 4 of 5',
-    description: 'Now the magic happens! I\'m generating video for each shot. You can preview them as they complete.',
+    description:
+      "Now the magic happens! I'm generating video for each shot. You can preview them as they complete.",
     icon: Video,
     color: 'purple',
   },
@@ -72,7 +76,8 @@ const WIZARD_STEPS: WizardStep[] = [
     id: 'export',
     title: 'Download & Share',
     subtitle: 'Step 5 of 5',
-    description: 'Your movie is ready! Choose your format and quality, then download or share it with the world.',
+    description:
+      'Your movie is ready! Choose your format and quality, then download or share it with the world.',
     icon: Download,
     color: 'brand',
   },
@@ -123,18 +128,17 @@ function WizardStepIndicator({
               {isCompleted ? (
                 <Check className="w-6 h-6 text-white" />
               ) : (
-                <Icon className={cn(
-                  'w-6 h-6',
-                  isCurrent ? 'text-white' : 'text-surface-500'
-                )} />
+                <Icon className={cn('w-6 h-6', isCurrent ? 'text-white' : 'text-surface-500')} />
               )}
 
               {/* Step number badge */}
               {!isCompleted && (
-                <span className={cn(
-                  'absolute -bottom-1 -right-1 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium',
-                  isCurrent ? 'bg-white text-brand-600' : 'bg-surface-700 text-surface-400'
-                )}>
+                <span
+                  className={cn(
+                    'absolute -bottom-1 -right-1 w-5 h-5 rounded-full text-xs flex items-center justify-center font-medium',
+                    isCurrent ? 'bg-white text-brand-600' : 'bg-surface-700 text-surface-400'
+                  )}
+                >
                   {index + 1}
                 </span>
               )}
@@ -142,10 +146,12 @@ function WizardStepIndicator({
 
             {/* Connecting line */}
             {index < steps.length - 1 && (
-              <div className={cn(
-                'w-8 sm:w-12 md:w-16 h-1 mx-1',
-                index < currentStep ? 'bg-green-500' : 'bg-surface-800'
-              )} />
+              <div
+                className={cn(
+                  'w-8 sm:w-12 md:w-16 h-1 mx-1',
+                  index < currentStep ? 'bg-green-500' : 'bg-surface-800'
+                )}
+              />
             )}
           </div>
         );
@@ -159,22 +165,28 @@ function UploadStep({ onNext }: { onNext: () => void }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    setIsUploading(true);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      setIsUploading(true);
 
-    // Simulate upload (would actually trigger screenplay upload)
-    setTimeout(() => {
-      setIsUploading(false);
-      onNext();
-    }, 2000);
-  }, [onNext]);
+      // Simulate upload (would actually trigger screenplay upload)
+      setTimeout(() => {
+        setIsUploading(false);
+        onNext();
+      }, 2000);
+    },
+    [onNext]
+  );
 
   return (
     <div className="text-center">
       <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         className={cn(
@@ -191,19 +203,17 @@ function UploadStep({ onNext }: { onNext: () => void }) {
           </div>
         ) : (
           <>
-            <Upload className={cn(
-              'w-12 h-12 mx-auto mb-4',
-              isDragging ? 'text-brand-400' : 'text-surface-400'
-            )} />
+            <Upload
+              className={cn(
+                'w-12 h-12 mx-auto mb-4',
+                isDragging ? 'text-brand-400' : 'text-surface-400'
+              )}
+            />
             <p className="text-lg font-medium mb-2">
               {isDragging ? 'Drop it here!' : 'Drag & Drop Your Screenplay'}
             </p>
-            <p className="text-sm text-surface-400">
-              Or click to browse your files
-            </p>
-            <p className="text-xs text-surface-500 mt-4">
-              Supports: .fountain, .fdx, .pdf, .txt
-            </p>
+            <p className="text-sm text-surface-400">Or click to browse your files</p>
+            <p className="text-xs text-surface-500 mt-4">Supports: .fountain, .fdx, .pdf, .txt</p>
           </>
         )}
       </div>
@@ -214,8 +224,8 @@ function UploadStep({ onNext }: { onNext: () => void }) {
           What happens next?
         </h4>
         <p className="text-sm text-surface-400">
-          Once you upload your script, I'll automatically find all your characters,
-          identify each scene, and extract the dialogue. It only takes a few seconds!
+          Once you upload your script, I'll automatically find all your characters, identify each
+          scene, and extract the dialogue. It only takes a few seconds!
         </p>
       </div>
     </div>
@@ -253,10 +263,7 @@ function CharactersStep({
       {/* Character cards placeholder */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-64 overflow-y-auto p-1">
         {Array.from({ length: characterCount }, (_, i) => (
-          <div
-            key={i}
-            className="p-4 bg-surface-800 rounded-lg border border-surface-700"
-          >
+          <div key={i} className="p-4 bg-surface-800 rounded-lg border border-surface-700">
             <div className="w-12 h-12 bg-surface-700 rounded-full mx-auto mb-3" />
             <p className="font-medium text-center text-sm">Character {i + 1}</p>
             <p className="text-xs text-surface-500 text-center">Needs description</p>
@@ -347,7 +354,9 @@ function ScenesStep({
       <div className="p-6 bg-surface-800 rounded-xl">
         <div className="flex justify-between text-sm mb-2">
           <span>Shot planning progress</span>
-          <span className="text-brand-400">{approvedCount}/{sceneCount} scenes</span>
+          <span className="text-brand-400">
+            {approvedCount}/{sceneCount} scenes
+          </span>
         </div>
         <div className="h-3 bg-surface-700 rounded-full overflow-hidden">
           <div
@@ -440,9 +449,7 @@ function GenerateStep({
 
       {/* Big progress display */}
       <div className="p-8 bg-surface-800 rounded-xl text-center">
-        <div className="text-6xl font-bold text-brand-400 mb-4">
-          {currentProgress}%
-        </div>
+        <div className="text-6xl font-bold text-brand-400 mb-4">{currentProgress}%</div>
         <div className="h-4 bg-surface-700 rounded-full overflow-hidden max-w-md mx-auto">
           <div
             className="h-full bg-gradient-to-r from-brand-500 to-purple-500 rounded-full transition-all"
@@ -669,25 +676,13 @@ export function StoryModeWizard({
         {/* Step-specific content */}
         {step === 0 && <UploadStep onNext={handleNext} />}
         {step === 1 && (
-          <CharactersStep
-            characterCount={characterCount}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
+          <CharactersStep characterCount={characterCount} onNext={handleNext} onBack={handleBack} />
         )}
         {step === 2 && (
-          <ScenesStep
-            sceneCount={sceneCount}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
+          <ScenesStep sceneCount={sceneCount} onNext={handleNext} onBack={handleBack} />
         )}
         {step === 3 && (
-          <GenerateStep
-            progress={generationProgress}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
+          <GenerateStep progress={generationProgress} onNext={handleNext} onBack={handleBack} />
         )}
         {step === 4 && <ExportStep onBack={handleBack} />}
       </div>

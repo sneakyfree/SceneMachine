@@ -8,7 +8,17 @@
  */
 
 import { useState, useCallback, useRef, useEffect, DragEvent } from 'react';
-import { Upload, FileText, CheckCircle, AlertCircle, Brain, Sparkles, Wrench, XCircle, RefreshCw } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  Brain,
+  Sparkles,
+  Wrench,
+  XCircle,
+  RefreshCw,
+} from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface ScreenplayUploadProps {
@@ -31,7 +41,14 @@ interface ScreenplayResult {
   createdAt: string;
 }
 
-type UploadState = 'idle' | 'dragging' | 'uploading' | 'parsing' | 'analyzing' | 'success' | 'error';
+type UploadState =
+  | 'idle'
+  | 'dragging'
+  | 'uploading'
+  | 'parsing'
+  | 'analyzing'
+  | 'success'
+  | 'error';
 
 interface ProgressPhase {
   id: UploadState;
@@ -41,9 +58,24 @@ interface ProgressPhase {
 }
 
 const PROGRESS_PHASES: ProgressPhase[] = [
-  { id: 'uploading', label: 'Uploading', description: 'Sending file to server...', estimatedSeconds: 5 },
-  { id: 'parsing', label: 'Parsing', description: 'Extracting screenplay structure...', estimatedSeconds: 10 },
-  { id: 'analyzing', label: 'AI Analysis', description: 'Analyzing with AI...', estimatedSeconds: 30 },
+  {
+    id: 'uploading',
+    label: 'Uploading',
+    description: 'Sending file to server...',
+    estimatedSeconds: 5,
+  },
+  {
+    id: 'parsing',
+    label: 'Parsing',
+    description: 'Extracting screenplay structure...',
+    estimatedSeconds: 10,
+  },
+  {
+    id: 'analyzing',
+    label: 'AI Analysis',
+    description: 'Analyzing with AI...',
+    estimatedSeconds: 30,
+  },
 ];
 
 const SUPPORTED_EXTENSIONS = ['.fountain', '.spmd', '.pdf', '.fdx', '.txt'];
@@ -162,11 +194,7 @@ function UploadProgressBar({
               key={p.id}
               className={cn(
                 'transition-colors',
-                isCompleted
-                  ? 'text-green-400'
-                  : isActive
-                    ? 'text-primary-400'
-                    : 'text-surface-500'
+                isCompleted ? 'text-green-400' : isActive ? 'text-primary-400' : 'text-surface-500'
               )}
             >
               {p.label}
@@ -185,15 +213,9 @@ function UploadProgressBar({
 
       {/* Progress details */}
       <div className="flex justify-between items-center mt-2 text-xs">
-        <span className="text-surface-400">
-          {currentPhase?.description || 'Processing...'}
-        </span>
+        <span className="text-surface-400">{currentPhase?.description || 'Processing...'}</span>
         <div className="flex items-center gap-2">
-          {eta !== null && (
-            <span className="text-surface-500">
-              ~{eta}s remaining
-            </span>
-          )}
+          {eta !== null && <span className="text-surface-500">~{eta}s remaining</span>}
           <span className="text-surface-300 font-medium">{percentage.toFixed(0)}%</span>
         </div>
       </div>
@@ -215,7 +237,14 @@ export function ScreenplayUpload({
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [parseBlockers, setParseBlockers] = useState<
-    Array<{ severity: 'critical' | 'warning'; message: string; fix?: string; fixType?: 'auto' | 'manual'; isFixing?: boolean; isFixed?: boolean }>
+    Array<{
+      severity: 'critical' | 'warning';
+      message: string;
+      fix?: string;
+      fixType?: 'auto' | 'manual';
+      isFixing?: boolean;
+      isFixed?: boolean;
+    }>
   >([]);
   const [screenplayId, setScreenplayId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -312,11 +341,22 @@ export function ScreenplayUpload({
         setPercentage(100);
 
         // Detect blockers from parse result
-        const blockers: Array<{ severity: 'critical' | 'warning'; message: string; fix?: string; fixType?: 'auto' | 'manual'; isFixing?: boolean; isFixed?: boolean }> = [];
+        const blockers: Array<{
+          severity: 'critical' | 'warning';
+          message: string;
+          fix?: string;
+          fixType?: 'auto' | 'manual';
+          isFixing?: boolean;
+          isFixed?: boolean;
+        }> = [];
 
         if (parseResult.parseErrors && parseResult.parseErrors.length > 0) {
           parseResult.parseErrors.forEach((err) => {
-            blockers.push({ severity: 'critical', message: err, fix: 'Fix in screenplay file and re-upload' });
+            blockers.push({
+              severity: 'critical',
+              message: err,
+              fix: 'Fix in screenplay file and re-upload',
+            });
           });
         }
 
@@ -335,7 +375,10 @@ export function ScreenplayUpload({
           });
         }
 
-        if (parseResult.metadata.unnamed_characters && parseResult.metadata.unnamed_characters > 0) {
+        if (
+          parseResult.metadata.unnamed_characters &&
+          parseResult.metadata.unnamed_characters > 0
+        ) {
           blockers.push({
             severity: 'warning',
             message: `${parseResult.metadata.unnamed_characters} unnamed character(s) detected`,
@@ -399,7 +442,7 @@ export function ScreenplayUpload({
         setPercentage(100);
         setProgress(
           `Parsed ${parseResult.metadata.scene_count || 0} scenes, ` +
-          `${parseResult.metadata.character_count || 0} characters`
+            `${parseResult.metadata.character_count || 0} characters`
         );
 
         // Get full screenplay data
@@ -664,25 +707,29 @@ export function ScreenplayUpload({
             <div className="w-full max-w-md space-y-2 mt-2">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-surface-300">
-                  {parseBlockers.filter(b => !b.isFixed).length} issue(s) found
+                  {parseBlockers.filter((b) => !b.isFixed).length} issue(s) found
                 </span>
-                {parseBlockers.some(b => b.fixType === 'auto' && !b.isFixed) && (
+                {parseBlockers.some((b) => b.fixType === 'auto' && !b.isFixed) && (
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
                       if (!screenplayId) return;
-                      setParseBlockers(prev => prev.map(b =>
-                        b.fixType === 'auto' && !b.isFixed ? { ...b, isFixing: true } : b
-                      ));
+                      setParseBlockers((prev) =>
+                        prev.map((b) =>
+                          b.fixType === 'auto' && !b.isFixed ? { ...b, isFixing: true } : b
+                        )
+                      );
                       try {
                         await window.electronAPI.backendRequest('screenplays.autoFixAll', {
                           screenplay_id: screenplayId,
                         });
-                        setParseBlockers(prev => prev.map(b =>
-                          b.fixType === 'auto' ? { ...b, isFixing: false, isFixed: true } : b
-                        ));
+                        setParseBlockers((prev) =>
+                          prev.map((b) =>
+                            b.fixType === 'auto' ? { ...b, isFixing: false, isFixed: true } : b
+                          )
+                        );
                       } catch {
-                        setParseBlockers(prev => prev.map(b => ({ ...b, isFixing: false })));
+                        setParseBlockers((prev) => prev.map((b) => ({ ...b, isFixing: false })));
                       }
                     }}
                     className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
@@ -717,11 +764,15 @@ export function ScreenplayUpload({
                     />
                   )}
                   <div className="flex-1">
-                    <span className={cn(
-                      blocker.isFixed
-                        ? 'text-green-300 line-through'
-                        : blocker.severity === 'critical' ? 'text-red-300' : 'text-yellow-300'
-                    )}>
+                    <span
+                      className={cn(
+                        blocker.isFixed
+                          ? 'text-green-300 line-through'
+                          : blocker.severity === 'critical'
+                            ? 'text-red-300'
+                            : 'text-yellow-300'
+                      )}
+                    >
                       {blocker.message}
                     </span>
                     {blocker.fix && !blocker.isFixed && (
@@ -739,21 +790,23 @@ export function ScreenplayUpload({
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (!screenplayId) return;
-                            setParseBlockers(prev => prev.map((b, i) =>
-                              i === idx ? { ...b, isFixing: true } : b
-                            ));
+                            setParseBlockers((prev) =>
+                              prev.map((b, i) => (i === idx ? { ...b, isFixing: true } : b))
+                            );
                             try {
                               await window.electronAPI.backendRequest('screenplays.autoFix', {
                                 screenplay_id: screenplayId,
                                 issue_index: idx,
                               });
-                              setParseBlockers(prev => prev.map((b, i) =>
-                                i === idx ? { ...b, isFixing: false, isFixed: true } : b
-                              ));
+                              setParseBlockers((prev) =>
+                                prev.map((b, i) =>
+                                  i === idx ? { ...b, isFixing: false, isFixed: true } : b
+                                )
+                              );
                             } catch {
-                              setParseBlockers(prev => prev.map((b, i) =>
-                                i === idx ? { ...b, isFixing: false } : b
-                              ));
+                              setParseBlockers((prev) =>
+                                prev.map((b, i) => (i === idx ? { ...b, isFixing: false } : b))
+                              );
                             }
                           }}
                           className="p-1 rounded hover:bg-blue-500/20 text-blue-400 transition-colors"
@@ -766,7 +819,7 @@ export function ScreenplayUpload({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setParseBlockers(prev => prev.filter((_, i) => i !== idx));
+                            setParseBlockers((prev) => prev.filter((_, i) => i !== idx));
                           }}
                           className="p-1 rounded hover:bg-surface-700 text-surface-500 transition-colors"
                           title="Dismiss this warning"

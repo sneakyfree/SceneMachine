@@ -4,7 +4,16 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode, useCallback } from 'react';
-import { AlertTriangle, RefreshCw, Home, Bug, Copy, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  AlertTriangle,
+  RefreshCw,
+  Home,
+  Bug,
+  Copy,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -73,11 +82,23 @@ export class ErrorBoundary extends Component<Props, State> {
 
   handleGoHome = () => {
     window.location.hash = '#/';
-    this.setState({ hasError: false, error: null, errorInfo: null, showDetails: false, copied: false });
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showDetails: false,
+      copied: false,
+    });
   };
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null, showDetails: false, copied: false });
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showDetails: false,
+      copied: false,
+    });
   };
 
   toggleDetails = () => {
@@ -104,7 +125,10 @@ export class ErrorBoundary extends Component<Props, State> {
     const body = encodeURIComponent(
       `## Error Report\n\n**Error Message:** ${error?.message}\n\n**Stack Trace:**\n\`\`\`\n${error?.stack?.slice(0, 1500)}\n\`\`\`\n\n**Component Stack:**\n\`\`\`${errorInfo?.componentStack?.slice(0, 1000)}\n\`\`\`\n\n**Environment:**\n- URL: ${window.location.href}\n- User Agent: ${navigator.userAgent}\n- Timestamp: ${new Date().toISOString()}`
     );
-    window.open(`https://github.com/scenemachine/scenemachine/issues/new?title=${title}&body=${body}`, '_blank');
+    window.open(
+      `https://github.com/scenemachine/scenemachine/issues/new?title=${title}&body=${body}`,
+      '_blank'
+    );
   };
 
   render() {
@@ -124,9 +148,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-10 h-10 text-red-400" />
               </div>
-              <h1 className="text-2xl font-bold text-white mb-2">
-                Something went wrong
-              </h1>
+              <h1 className="text-2xl font-bold text-white mb-2">Something went wrong</h1>
               <p className="text-surface-400">
                 An unexpected error occurred. You can try again or go back to the home screen.
               </p>
@@ -176,9 +198,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 {/* Stack trace */}
                 <div className="bg-surface-900 border border-surface-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-surface-300">
-                      Stack Trace
-                    </h3>
+                    <h3 className="text-sm font-medium text-surface-300">Stack Trace</h3>
                     <button
                       onClick={this.copyErrorDetails}
                       className="flex items-center gap-1 text-xs text-surface-400 hover:text-surface-200"
@@ -204,9 +224,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 {/* Component stack */}
                 {errorInfo?.componentStack && (
                   <div className="bg-surface-900 border border-surface-800 rounded-lg p-4">
-                    <h3 className="text-sm font-medium text-surface-300 mb-2">
-                      Component Stack
-                    </h3>
+                    <h3 className="text-sm font-medium text-surface-300 mb-2">Component Stack</h3>
                     <pre className="text-xs text-surface-400 font-mono overflow-x-auto whitespace-pre-wrap max-h-32 overflow-y-auto">
                       {errorInfo.componentStack}
                     </pre>
@@ -309,19 +327,19 @@ export function useErrorHandler() {
     }
   }, []);
 
-  const wrapAsync = useCallback(<T extends (...args: any[]) => Promise<any>>(
-    fn: T,
-    context?: string
-  ): T => {
-    return (async (...args: Parameters<T>) => {
-      try {
-        return await fn(...args);
-      } catch (error) {
-        logError(error as Error, context);
-        throw error;
-      }
-    }) as T;
-  }, [logError]);
+  const wrapAsync = useCallback(
+    <T extends (...args: any[]) => Promise<any>>(fn: T, context?: string): T => {
+      return (async (...args: Parameters<T>) => {
+        try {
+          return await fn(...args);
+        } catch (error) {
+          logError(error as Error, context);
+          throw error;
+        }
+      }) as T;
+    },
+    [logError]
+  );
 
   return { logError, wrapAsync };
 }
@@ -336,13 +354,15 @@ export function setupGlobalErrorHandlers() {
     console.error('Unhandled promise rejection:', event.reason);
 
     if (window.electronAPI?.backendRequest) {
-      window.electronAPI.backendRequest('system.logError', {
-        type: 'unhandled_rejection',
-        message: event.reason?.message || String(event.reason),
-        stack: event.reason?.stack,
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-      }).catch(() => {});
+      window.electronAPI
+        .backendRequest('system.logError', {
+          type: 'unhandled_rejection',
+          message: event.reason?.message || String(event.reason),
+          stack: event.reason?.stack,
+          timestamp: new Date().toISOString(),
+          url: window.location.href,
+        })
+        .catch(() => {});
     }
   });
 
@@ -351,16 +371,18 @@ export function setupGlobalErrorHandlers() {
     console.error('Uncaught error:', event.error);
 
     if (window.electronAPI?.backendRequest) {
-      window.electronAPI.backendRequest('system.logError', {
-        type: 'uncaught_error',
-        message: event.error?.message || event.message,
-        stack: event.error?.stack,
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno,
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-      }).catch(() => {});
+      window.electronAPI
+        .backendRequest('system.logError', {
+          type: 'uncaught_error',
+          message: event.error?.message || event.message,
+          stack: event.error?.stack,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+          timestamp: new Date().toISOString(),
+          url: window.location.href,
+        })
+        .catch(() => {});
     }
   });
 }

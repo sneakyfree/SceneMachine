@@ -176,9 +176,7 @@ const QueueJobRow = memo(function QueueJobRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <Film className="w-4 h-4 text-surface-400 shrink-0" aria-hidden="true" />
-            <span className="font-medium truncate">
-              {shotLabel}
-            </span>
+            <span className="font-medium truncate">{shotLabel}</span>
             <StatusBadge status={job.status} />
             {/* Queue position for pending jobs */}
             {positionString && (
@@ -187,17 +185,17 @@ const QueueJobRow = memo(function QueueJobRow({
               </span>
             )}
             {/* Elapsed time for running jobs */}
-            {elapsedString && (
-              <span className="text-xs text-brand-400">
-                {elapsedString}
-              </span>
-            )}
+            {elapsedString && <span className="text-xs text-brand-400">{elapsedString}</span>}
           </div>
           {job.progressMessage && isRunning && (
-            <p className="text-xs text-surface-400 mt-1" aria-live="polite">{job.progressMessage}</p>
+            <p className="text-xs text-surface-400 mt-1" aria-live="polite">
+              {job.progressMessage}
+            </p>
           )}
           {job.errorMessage && isFailed && (
-            <p className="text-xs text-red-400 mt-1 truncate" role="alert">{job.errorMessage}</p>
+            <p className="text-xs text-red-400 mt-1 truncate" role="alert">
+              {job.errorMessage}
+            </p>
           )}
         </div>
 
@@ -213,7 +211,11 @@ const QueueJobRow = memo(function QueueJobRow({
 
         {/* Priority controls (only for pending) */}
         {isPending && (
-          <div className="flex items-center gap-1" role="group" aria-label="Queue priority controls">
+          <div
+            className="flex items-center gap-1"
+            role="group"
+            aria-label="Queue priority controls"
+          >
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -363,9 +365,7 @@ function QueueStatsSummary({ stats }: { stats: QueueStats }) {
         <div className="flex items-center gap-2 text-sm">
           <Clock className="w-4 h-4 text-brand-400" />
           <span className="text-brand-400 font-medium">{timeString}</span>
-          {completionString && (
-            <span className="text-surface-500">({completionString})</span>
-          )}
+          {completionString && <span className="text-surface-500">({completionString})</span>}
         </div>
       )}
     </div>
@@ -387,9 +387,7 @@ function WorkerStatusBadge({ isPaused, isLoading }: { isPaused: boolean; isLoadi
     <span
       className={cn(
         'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
-        isPaused
-          ? 'bg-yellow-500/20 text-yellow-400'
-          : 'bg-green-500/20 text-green-400'
+        isPaused ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'
       )}
       role="status"
       aria-label={isPaused ? 'Queue worker is paused' : 'Queue worker is running'}
@@ -415,12 +413,7 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
   const [isTogglingWorker, setIsTogglingWorker] = useState(false);
 
   // Get worker status and controls from store
-  const {
-    workerStatus,
-    fetchWorkerStatus,
-    pauseWorker,
-    resumeWorker,
-  } = useGenerationStore();
+  const { workerStatus, fetchWorkerStatus, pauseWorker, resumeWorker } = useGenerationStore();
 
   // Fetch worker status on mount and periodically
   useEffect(() => {
@@ -446,7 +439,11 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
   }, [workerStatus?.is_paused, pauseWorker, resumeWorker, fetchWorkerStatus]);
 
   // Fetch queue
-  const { data: jobs, isLoading, refetch } = useQuery({
+  const {
+    data: jobs,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['queue', projectId],
     queryFn: async () => {
       return window.electronAPI.backendRequest<QueueJob[]>('queue.getAll', {
@@ -559,7 +556,10 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
       <div className="p-3 bg-surface-800 rounded-lg">
         <div className="flex items-center justify-between mb-2">
           {stats && <QueueStatsSummary stats={stats} />}
-          <WorkerStatusBadge isPaused={workerStatus?.is_paused ?? false} isLoading={!workerStatus} />
+          <WorkerStatusBadge
+            isPaused={workerStatus?.is_paused ?? false}
+            isLoading={!workerStatus}
+          />
         </div>
         {isLoading && <Loader2 className="w-4 h-4 animate-spin text-brand-400" />}
       </div>
@@ -576,7 +576,10 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
               <Clock className="w-5 h-5 text-brand-400" />
               Generation Queue
             </h2>
-            <WorkerStatusBadge isPaused={workerStatus?.is_paused ?? false} isLoading={!workerStatus} />
+            <WorkerStatusBadge
+              isPaused={workerStatus?.is_paused ?? false}
+              isLoading={!workerStatus}
+            />
           </div>
           {stats && (
             <div className="mt-1">
@@ -596,7 +599,9 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
                 ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                 : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
             )}
-            title={workerStatus?.is_paused ? 'Resume processing new jobs' : 'Pause processing new jobs'}
+            title={
+              workerStatus?.is_paused ? 'Resume processing new jobs' : 'Pause processing new jobs'
+            }
             aria-label={workerStatus?.is_paused ? 'Resume queue worker' : 'Pause queue worker'}
           >
             {isTogglingWorker ? (
@@ -646,7 +651,10 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
       {isLoading ? (
         <div className="space-y-2" aria-label="Loading queue">
           {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="p-3 bg-surface-800/50 rounded-lg border border-surface-700 animate-pulse">
+            <div
+              key={i}
+              className="p-3 bg-surface-800/50 rounded-lg border border-surface-700 animate-pulse"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-4 h-4 bg-surface-700 rounded" />
                 <div className="flex-1 space-y-2">

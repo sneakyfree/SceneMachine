@@ -107,9 +107,7 @@ describe('AssemblyStore', () => {
           id: 'scene-2',
           sceneNumber: 2,
           durationSeconds: 60,
-          clips: [
-            { id: 'clip-3', shotId: 'shot-3', durationSeconds: 60, startTime: 60 },
-          ],
+          clips: [{ id: 'clip-3', shotId: 'shot-3', durationSeconds: 60, startTime: 60 }],
         },
       ],
     };
@@ -426,7 +424,8 @@ describe('AssemblyStore', () => {
 
   describe('Reset', () => {
     it('should reset all state', () => {
-      const { setAssemblyStatus, setTimeline, setSelectedFormat, setError, reset } = useAssemblyStore.getState();
+      const { setAssemblyStatus, setTimeline, setSelectedFormat, setError, reset } =
+        useAssemblyStore.getState();
 
       // Modify state
       setAssemblyStatus({

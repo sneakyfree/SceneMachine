@@ -42,10 +42,9 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     queryKey: ['project', projectId],
     queryFn: async () => {
       if (!projectId) return null;
-      const result = await window.electronAPI.backendRequest<{ name: string }>(
-        'projects.get',
-        { project_id: projectId }
-      );
+      const result = await window.electronAPI.backendRequest<{ name: string }>('projects.get', {
+        project_id: projectId,
+      });
       return result;
     },
     enabled: !!projectId,
@@ -142,10 +141,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
           return (
             <li key={index} className="flex items-center gap-1">
               {index > 0 && (
-                <ChevronRight
-                  className="w-4 h-4 text-surface-500 shrink-0"
-                  aria-hidden="true"
-                />
+                <ChevronRight className="w-4 h-4 text-surface-500 shrink-0" aria-hidden="true" />
               )}
 
               {item.href && !isLast ? (
@@ -164,9 +160,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
                 <span
                   className={cn(
                     'flex items-center gap-1.5 px-1.5 py-1',
-                    isLast
-                      ? 'text-surface-100 font-medium'
-                      : 'text-surface-400'
+                    isLast ? 'text-surface-100 font-medium' : 'text-surface-400'
                   )}
                   aria-current={isLast ? 'page' : undefined}
                 >

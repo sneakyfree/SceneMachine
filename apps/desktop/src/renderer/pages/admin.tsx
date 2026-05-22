@@ -193,9 +193,7 @@ function WorkerStatusPanel({ status }: { status: WorkerStatus | null }) {
           <div className="text-xs text-surface-400">Failed</div>
         </div>
         <div className="bg-brand-500/10 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-brand-400">
-            {status.success_rate.toFixed(1)}%
-          </div>
+          <div className="text-2xl font-bold text-brand-400">{status.success_rate.toFixed(1)}%</div>
           <div className="text-xs text-surface-400">Success Rate</div>
         </div>
       </div>
@@ -311,13 +309,15 @@ export function AdminPage() {
               providersLoading
                 ? 'loading'
                 : hasProviderIssues
-                ? 'warning'
-                : availableProviders > 0
-                ? 'ok'
-                : 'error'
+                  ? 'warning'
+                  : availableProviders > 0
+                    ? 'ok'
+                    : 'error'
             }
             value={`${availableProviders}/${totalProviders}`}
-            subtext={hasProviderIssues ? 'Some providers unavailable' : 'All configured providers healthy'}
+            subtext={
+              hasProviderIssues ? 'Some providers unavailable' : 'All configured providers healthy'
+            }
           />
           <StatusCard
             title="Generations (7d)"
@@ -464,8 +464,8 @@ export function AdminPage() {
                     provider.available
                       ? 'bg-green-500/5 border-green-500/30'
                       : provider.configured
-                      ? 'bg-yellow-500/5 border-yellow-500/30'
-                      : 'bg-surface-800/50 border-surface-700'
+                        ? 'bg-yellow-500/5 border-yellow-500/30'
+                        : 'bg-surface-800/50 border-surface-700'
                   )}
                 >
                   <div className="flex items-start justify-between">
@@ -477,8 +477,8 @@ export function AdminPage() {
                             provider.available
                               ? 'bg-green-400'
                               : provider.configured
-                              ? 'bg-yellow-400'
-                              : 'bg-surface-500'
+                                ? 'bg-yellow-400'
+                                : 'bg-surface-500'
                           )}
                         />
                         <span className="font-medium">{provider.name}</span>

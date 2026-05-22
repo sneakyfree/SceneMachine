@@ -305,7 +305,9 @@ export const ExportPresets = memo(function ExportPresets({
                   isSelected ? 'bg-primary-500/30' : 'bg-surface-700'
                 )}
               >
-                <Icon className={cn(sizes.icon, isSelected ? 'text-primary-400' : 'text-surface-300')} />
+                <Icon
+                  className={cn(sizes.icon, isSelected ? 'text-primary-400' : 'text-surface-300')}
+                />
               </div>
               <div className="flex-1 text-left">
                 <div className="flex items-center gap-2">
@@ -366,16 +368,14 @@ export const ExportPresets = memo(function ExportPresets({
                 isSelected ? 'bg-primary-500/30' : 'bg-surface-700'
               )}
             >
-              <Icon className={cn(sizes.icon, isSelected ? 'text-primary-400' : 'text-surface-300')} />
+              <Icon
+                className={cn(sizes.icon, isSelected ? 'text-primary-400' : 'text-surface-300')}
+              />
             </div>
 
-            <span className={cn('font-medium text-surface-100', sizes.title)}>
-              {preset.name}
-            </span>
+            <span className={cn('font-medium text-surface-100', sizes.title)}>{preset.name}</span>
 
-            <p className={cn('text-surface-400 mt-0.5', sizes.desc)}>
-              {preset.description}
-            </p>
+            <p className={cn('text-surface-400 mt-0.5', sizes.desc)}>{preset.description}</p>
 
             {/* Preset details */}
             {preset.id !== 'custom' && (
@@ -435,19 +435,24 @@ export const PresetButtonRow = memo(function PresetButtonRow({
 /**
  * Get preset by ID
  */
-export function getPresetById(presetId: string, presets: ExportPreset[] = DEFAULT_PRESETS): ExportPreset | undefined {
+export function getPresetById(
+  presetId: string,
+  presets: ExportPreset[] = DEFAULT_PRESETS
+): ExportPreset | undefined {
   return presets.find((p) => p.id === presetId);
 }
 
 /**
  * Apply preset to export settings
  */
-export function applyPresetToSettings<T extends {
-  format: string;
-  quality: string;
-  resolution: string;
-  frameRate: number;
-}>(settings: T, preset: ExportPreset): T {
+export function applyPresetToSettings<
+  T extends {
+    format: string;
+    quality: string;
+    resolution: string;
+    frameRate: number;
+  },
+>(settings: T, preset: ExportPreset): T {
   if (preset.id === 'custom') {
     return settings;
   }

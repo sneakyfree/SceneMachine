@@ -133,8 +133,8 @@ export function CostPreview({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-surface-800/50 backdrop-blur-sm",
-        isOverBudget ? "border-red-500/50" : "border-surface-700",
+        'rounded-lg border bg-surface-800/50 backdrop-blur-sm',
+        isOverBudget ? 'border-red-500/50' : 'border-surface-700',
         className
       )}
     >
@@ -161,15 +161,10 @@ export function CostPreview({
         <div className="grid grid-cols-2 gap-4">
           {/* Total cost */}
           <div className="space-y-1">
-            <div className="text-xs text-surface-400 uppercase tracking-wide">
-              Estimated Cost
-            </div>
+            <div className="text-xs text-surface-400 uppercase tracking-wide">Estimated Cost</div>
             <div className="flex items-baseline gap-1">
               <span
-                className={cn(
-                  "text-2xl font-bold",
-                  isOverBudget ? "text-red-400" : "text-white"
-                )}
+                className={cn('text-2xl font-bold', isOverBudget ? 'text-red-400' : 'text-white')}
               >
                 {formatCost(totalCost)}
               </span>
@@ -183,14 +178,10 @@ export function CostPreview({
 
           {/* Estimated time */}
           <div className="space-y-1">
-            <div className="text-xs text-surface-400 uppercase tracking-wide">
-              Est. Time
-            </div>
+            <div className="text-xs text-surface-400 uppercase tracking-wide">Est. Time</div>
             <div className="flex items-baseline gap-1">
               <Clock className="w-4 h-4 text-surface-400" />
-              <span className="text-2xl font-bold text-white">
-                {formatTime(totalTime)}
-              </span>
+              <span className="text-2xl font-bold text-white">{formatTime(totalTime)}</span>
             </div>
           </div>
         </div>
@@ -211,10 +202,10 @@ export function CostPreview({
           {estimates[0]?.confidence && (
             <span
               className={cn(
-                "text-xs px-2 py-0.5 rounded",
-                estimates[0].confidence === 'high' && "bg-green-500/20 text-green-400",
-                estimates[0].confidence === 'medium' && "bg-yellow-500/20 text-yellow-400",
-                estimates[0].confidence === 'low' && "bg-red-500/20 text-red-400"
+                'text-xs px-2 py-0.5 rounded',
+                estimates[0].confidence === 'high' && 'bg-green-500/20 text-green-400',
+                estimates[0].confidence === 'medium' && 'bg-yellow-500/20 text-yellow-400',
+                estimates[0].confidence === 'low' && 'bg-red-500/20 text-red-400'
               )}
             >
               {estimates[0].confidence} confidence
@@ -227,8 +218,8 @@ export function CostPreview({
           <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
             <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
             <div className="text-sm text-red-300">
-              This exceeds your remaining budget of {formatCost(budgetRemaining!)}.
-              Generation will be blocked.
+              This exceeds your remaining budget of {formatCost(budgetRemaining!)}. Generation will
+              be blocked.
             </div>
           </div>
         )}
@@ -238,9 +229,9 @@ export function CostPreview({
           <button
             onClick={() => setShowBreakdown(!showBreakdown)}
             className={cn(
-              "w-full flex items-center justify-between px-3 py-2 rounded-lg",
-              "bg-surface-700/50 hover:bg-surface-700 transition-colors",
-              "text-sm text-surface-300"
+              'w-full flex items-center justify-between px-3 py-2 rounded-lg',
+              'bg-surface-700/50 hover:bg-surface-700 transition-colors',
+              'text-sm text-surface-300'
             )}
           >
             <span className="flex items-center gap-2">
@@ -280,9 +271,7 @@ export function CostPreview({
         {/* Batch job list */}
         {isBatch && estimates.length <= 5 && (
           <div className="space-y-2">
-            <div className="text-xs text-surface-400 uppercase tracking-wide">
-              Individual Jobs
-            </div>
+            <div className="text-xs text-surface-400 uppercase tracking-wide">Individual Jobs</div>
             {estimates.map((est, index) => (
               <div
                 key={index}
@@ -305,9 +294,9 @@ export function CostPreview({
           <button
             onClick={onCancel}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium",
-              "bg-surface-700 text-surface-200",
-              "hover:bg-surface-600 transition-colors"
+              'px-4 py-2 rounded-lg text-sm font-medium',
+              'bg-surface-700 text-surface-200',
+              'hover:bg-surface-600 transition-colors'
             )}
             disabled={isLoading}
           >
@@ -317,11 +306,11 @@ export function CostPreview({
             onClick={onConfirm}
             disabled={isLoading || isOverBudget}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium",
-              "bg-primary-500 text-white",
-              "hover:bg-primary-600 transition-colors",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-              "flex items-center gap-2"
+              'px-4 py-2 rounded-lg text-sm font-medium',
+              'bg-primary-500 text-white',
+              'hover:bg-primary-600 transition-colors',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              'flex items-center gap-2'
             )}
           >
             {isLoading ? (

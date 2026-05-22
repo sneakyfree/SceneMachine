@@ -48,10 +48,7 @@ function FAQAccordion({ items }: { items: FAQItem[] }) {
   return (
     <div className="space-y-2">
       {items.map((item, index) => (
-        <div
-          key={index}
-          className="border border-surface-700 rounded-lg overflow-hidden"
-        >
+        <div key={index} className="border border-surface-700 rounded-lg overflow-hidden">
           <button
             onClick={() => setOpenIndex(openIndex === index ? null : index)}
             className="w-full flex items-center justify-between p-4 text-left hover:bg-surface-800 transition-colors"
@@ -64,9 +61,7 @@ function FAQAccordion({ items }: { items: FAQItem[] }) {
             )}
           </button>
           {openIndex === index && (
-            <div className="px-4 pb-4 text-surface-300 text-sm leading-relaxed">
-              {item.answer}
-            </div>
+            <div className="px-4 pb-4 text-surface-300 text-sm leading-relaxed">{item.answer}</div>
           )}
         </div>
       ))}
@@ -82,9 +77,7 @@ function KeyboardShortcutsSection() {
     <div className="space-y-6">
       {shortcutGroups.map((group) => (
         <div key={group.category}>
-          <h3 className="text-sm font-medium text-surface-400 mb-3">
-            {group.category}
-          </h3>
+          <h3 className="text-sm font-medium text-surface-400 mb-3">{group.category}</h3>
           <div className="grid gap-2">
             {group.shortcuts.map((shortcut) => (
               <div
@@ -234,10 +227,7 @@ function FeatureGuide() {
   return (
     <div className="space-y-4">
       {features.map((feature) => (
-        <div
-          key={feature.title}
-          className="border border-surface-700 rounded-lg overflow-hidden"
-        >
+        <div key={feature.title} className="border border-surface-700 rounded-lg overflow-hidden">
           <button
             onClick={() =>
               setExpandedFeature(expandedFeature === feature.title ? null : feature.title)
@@ -448,9 +438,7 @@ export function HelpPage() {
             {/* Version info */}
             <div className="mt-6 text-center text-sm text-surface-500">
               <p>SceneMachine Desktop v0.1.0</p>
-              <p className="mt-1">
-                Built with AI for filmmakers and storytellers
-              </p>
+              <p className="mt-1">Built with AI for filmmakers and storytellers</p>
             </div>
           </div>
         </div>

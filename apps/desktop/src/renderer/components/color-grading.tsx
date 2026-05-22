@@ -356,15 +356,7 @@ interface SliderControlProps {
   format?: (value: number) => string;
 }
 
-function SliderControl({
-  label,
-  value,
-  min,
-  max,
-  step = 1,
-  onChange,
-  format,
-}: SliderControlProps) {
+function SliderControl({ label, value, min, max, step = 1, onChange, format }: SliderControlProps) {
   const displayValue = format ? format(value) : value.toString();
 
   return (
@@ -393,16 +385,14 @@ interface PresetThumbnailProps {
   onToggleFavorite: () => void;
 }
 
-function PresetThumbnail({
-  preset,
-  isSelected,
-  onSelect,
-  onToggleFavorite,
-}: PresetThumbnailProps) {
+function PresetThumbnail({ preset, isSelected, onSelect, onToggleFavorite }: PresetThumbnailProps) {
   // Generate a gradient preview based on the preset
   const previewStyle = useMemo(() => {
     const g = { ...DEFAULT_GRADE, ...preset.grade };
-    const warmth = g.temperature > 0 ? `rgba(255,200,100,${g.temperature / 200})` : `rgba(100,150,255,${-g.temperature / 200})`;
+    const warmth =
+      g.temperature > 0
+        ? `rgba(255,200,100,${g.temperature / 200})`
+        : `rgba(100,150,255,${-g.temperature / 200})`;
     const satMod = 1 + g.saturation / 100;
 
     return {
@@ -441,9 +431,7 @@ function PresetThumbnail({
         }}
         className={cn(
           'absolute top-1 left-1 p-1 rounded transition-colors',
-          preset.isFavorite
-            ? 'text-yellow-400'
-            : 'text-white/50 hover:text-white/80'
+          preset.isFavorite ? 'text-yellow-400' : 'text-white/50 hover:text-white/80'
         )}
       >
         <Star className={cn('w-3 h-3', preset.isFavorite && 'fill-current')} />
@@ -526,9 +514,7 @@ export function ColorGradingPanel({
 
     if (onPresetsChange) {
       onPresetsChange(
-        customPresets.map((p) =>
-          p.id === presetId ? { ...p, isFavorite: !p.isFavorite } : p
-        )
+        customPresets.map((p) => (p.id === presetId ? { ...p, isFavorite: !p.isFavorite } : p))
       );
     }
   };
@@ -569,9 +555,7 @@ export function ColorGradingPanel({
             onClick={() => onToggleEnabled?.(!isEnabled)}
             className={cn(
               'icon-btn p-2 rounded transition-colors',
-              isEnabled
-                ? 'text-brand-400'
-                : 'text-surface-500'
+              isEnabled ? 'text-brand-400' : 'text-surface-500'
             )}
             aria-label={isEnabled ? 'Disable color grading' : 'Enable color grading'}
             title={isEnabled ? 'Disable' : 'Enable'}
@@ -620,11 +604,7 @@ export function ColorGradingPanel({
                       : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
                   )}
                 >
-                  {cat === 'all'
-                    ? 'All'
-                    : cat === 'favorites'
-                    ? 'Favorites'
-                    : CATEGORY_NAMES[cat]}
+                  {cat === 'all' ? 'All' : cat === 'favorites' ? 'Favorites' : CATEGORY_NAMES[cat]}
                 </button>
               ))}
             </div>
@@ -813,9 +793,7 @@ export function ColorGradingPanel({
                 <div className="space-y-3">
                   <div className="flex items-center gap-4">
                     <div>
-                      <label className="text-xs text-surface-400 mb-1 block">
-                        Highlights
-                      </label>
+                      <label className="text-xs text-surface-400 mb-1 block">Highlights</label>
                       <input
                         type="color"
                         value={grade.highlightTint}
@@ -824,9 +802,7 @@ export function ColorGradingPanel({
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-surface-400 mb-1 block">
-                        Shadows
-                      </label>
+                      <label className="text-xs text-surface-400 mb-1 block">Shadows</label>
                       <input
                         type="color"
                         value={grade.shadowTint}
@@ -841,9 +817,7 @@ export function ColorGradingPanel({
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ splitBalance: v })}
-                    format={(v) =>
-                      v < 0 ? 'Shadows' : v > 0 ? 'Highlights' : 'Balanced'
-                    }
+                    format={(v) => (v < 0 ? 'Shadows' : v > 0 ? 'Highlights' : 'Balanced')}
                   />
                 </div>
               )}

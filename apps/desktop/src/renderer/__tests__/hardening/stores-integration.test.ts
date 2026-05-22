@@ -70,9 +70,7 @@ describe('Store Integration Hardening', () => {
         useToastStore.getState().removeToast(toastId);
       });
 
-      expect(
-        useToastStore.getState().toasts.find((t) => t.id === toastId)
-      ).toBeUndefined();
+      expect(useToastStore.getState().toasts.find((t) => t.id === toastId)).toBeUndefined();
     });
   });
 
@@ -223,16 +221,12 @@ describe('Store State Types', () => {
     const state = useProjectStore.getState();
 
     // currentProject should be null or Project
-    expect(state.currentProject === null || typeof state.currentProject === 'object').toBe(
-      true
-    );
+    expect(state.currentProject === null || typeof state.currentProject === 'object').toBe(true);
     expect(typeof state.sidebarCollapsed).toBe('boolean');
     expect(
       state.selectedCharacterId === null || typeof state.selectedCharacterId === 'string'
     ).toBe(true);
-    expect(
-      state.selectedSceneId === null || typeof state.selectedSceneId === 'string'
-    ).toBe(true);
+    expect(state.selectedSceneId === null || typeof state.selectedSceneId === 'string').toBe(true);
   });
 
   it('should have correct generation state shape', async () => {

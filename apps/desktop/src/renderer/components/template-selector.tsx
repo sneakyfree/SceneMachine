@@ -63,10 +63,7 @@ function PacingIndicator({ pacing }: { pacing: string }) {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className={cn(
-            'w-1 h-3 rounded-full',
-            i <= bars ? 'bg-brand-400' : 'bg-surface-700'
-          )}
+          className={cn('w-1 h-3 rounded-full', i <= bars ? 'bg-brand-400' : 'bg-surface-700')}
         />
       ))}
     </div>
@@ -131,9 +128,7 @@ function TemplateCard({
       </div>
 
       {/* Description */}
-      <p className="text-sm text-surface-400 mb-3 line-clamp-2">
-        {template.description}
-      </p>
+      <p className="text-sm text-surface-400 mb-3 line-clamp-2">{template.description}</p>
 
       {/* Color palette */}
       <div className="mb-3">
@@ -335,7 +330,11 @@ export function TemplateSelector({
       <div>
         <h3 className="text-sm font-medium text-surface-400 flex items-center gap-2 mb-3">
           <Tag className="w-4 h-4" />
-          {searchQuery ? 'Search Results' : selectedCategory ? 'Filtered Templates' : 'All Templates'}
+          {searchQuery
+            ? 'Search Results'
+            : selectedCategory
+              ? 'Filtered Templates'
+              : 'All Templates'}
         </h3>
 
         {isLoading ? (
@@ -363,9 +362,7 @@ export function TemplateSelector({
 
       {/* Selected template details */}
       {selectedTemplate && templates && (
-        <SelectedTemplateDetails
-          template={templates.find((t) => t.id === selectedTemplate)}
-        />
+        <SelectedTemplateDetails template={templates.find((t) => t.id === selectedTemplate)} />
       )}
     </div>
   );

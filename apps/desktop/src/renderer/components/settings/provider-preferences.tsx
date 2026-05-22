@@ -213,7 +213,7 @@ export function ProviderPreferencesPanel({
   const getProvider = (id: string) => DEFAULT_PROVIDERS.find((p) => p.id === id);
 
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn('space-y-6', className)}>
       {/* Section Header */}
       <div>
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -253,11 +253,11 @@ export function ProviderPreferencesPanel({
                   setDragOverIndex(null);
                 }}
                 className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                  "bg-surface-800 cursor-grab active:cursor-grabbing",
-                  isDragging && "opacity-50 scale-95",
-                  isDropTarget && "border-primary-500 bg-primary-500/10",
-                  !isDropTarget && "border-surface-700 hover:border-surface-600"
+                  'flex items-center gap-3 p-3 rounded-lg border transition-all',
+                  'bg-surface-800 cursor-grab active:cursor-grabbing',
+                  isDragging && 'opacity-50 scale-95',
+                  isDropTarget && 'border-primary-500 bg-primary-500/10',
+                  !isDropTarget && 'border-surface-700 hover:border-surface-600'
                 )}
               >
                 {/* Drag handle */}
@@ -284,17 +284,15 @@ export function ProviderPreferencesPanel({
                     {/* Status indicator */}
                     <span
                       className={cn(
-                        "w-2 h-2 rounded-full",
-                        provider.status === 'online' && "bg-green-400",
-                        provider.status === 'degraded' && "bg-yellow-400",
-                        provider.status === 'offline' && "bg-red-400"
+                        'w-2 h-2 rounded-full',
+                        provider.status === 'online' && 'bg-green-400',
+                        provider.status === 'degraded' && 'bg-yellow-400',
+                        provider.status === 'offline' && 'bg-red-400'
                       )}
                       title={provider.status}
                     />
                   </div>
-                  <div className="text-xs text-surface-400 truncate">
-                    {provider.description}
-                  </div>
+                  <div className="text-xs text-surface-400 truncate">{provider.description}</div>
                 </div>
 
                 {/* Cost and time info */}
@@ -310,18 +308,14 @@ export function ProviderPreferencesPanel({
                     toggleProvider(providerId);
                   }}
                   className={cn(
-                    "p-2 rounded-lg transition-colors",
+                    'p-2 rounded-lg transition-colors',
                     isEnabled
-                      ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
-                      : "bg-surface-700 text-surface-500 hover:bg-surface-600"
+                      ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                      : 'bg-surface-700 text-surface-500 hover:bg-surface-600'
                   )}
                   title={isEnabled ? 'Disable provider' : 'Enable provider'}
                 >
-                  {isEnabled ? (
-                    <Power className="w-4 h-4" />
-                  ) : (
-                    <PowerOff className="w-4 h-4" />
-                  )}
+                  {isEnabled ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
                 </button>
               </div>
             );
@@ -362,16 +356,16 @@ export function ProviderPreferencesPanel({
             value={optimization}
             onChange={(e) => handleOptimizationChange(parseFloat(e.target.value))}
             className={cn(
-              "w-full h-2 rounded-full appearance-none cursor-pointer",
-              "bg-gradient-to-r from-green-500 via-yellow-500 to-orange-500",
-              "[&::-webkit-slider-thumb]:appearance-none",
-              "[&::-webkit-slider-thumb]:w-4",
-              "[&::-webkit-slider-thumb]:h-4",
-              "[&::-webkit-slider-thumb]:rounded-full",
-              "[&::-webkit-slider-thumb]:bg-white",
-              "[&::-webkit-slider-thumb]:shadow-lg",
-              "[&::-webkit-slider-thumb]:cursor-grab",
-              "[&::-webkit-slider-thumb]:active:cursor-grabbing"
+              'w-full h-2 rounded-full appearance-none cursor-pointer',
+              'bg-gradient-to-r from-green-500 via-yellow-500 to-orange-500',
+              '[&::-webkit-slider-thumb]:appearance-none',
+              '[&::-webkit-slider-thumb]:w-4',
+              '[&::-webkit-slider-thumb]:h-4',
+              '[&::-webkit-slider-thumb]:rounded-full',
+              '[&::-webkit-slider-thumb]:bg-white',
+              '[&::-webkit-slider-thumb]:shadow-lg',
+              '[&::-webkit-slider-thumb]:cursor-grab',
+              '[&::-webkit-slider-thumb]:active:cursor-grabbing'
             )}
           />
 
@@ -379,17 +373,15 @@ export function ProviderPreferencesPanel({
             {optimization < 0.3
               ? 'Prioritizing lowest cost'
               : optimization > 0.7
-              ? 'Prioritizing fastest speed'
-              : 'Balanced approach'}
+                ? 'Prioritizing fastest speed'
+                : 'Balanced approach'}
           </div>
         </div>
       </div>
 
       {/* Budget Limit */}
       <div className="space-y-3">
-        <label className="text-sm font-medium text-surface-200">
-          Monthly Budget Limit
-        </label>
+        <label className="text-sm font-medium text-surface-200">Monthly Budget Limit</label>
 
         <div className="flex items-center gap-3">
           <span className="text-surface-400">$</span>
@@ -400,10 +392,10 @@ export function ProviderPreferencesPanel({
             value={budgetLimit}
             onChange={(e) => handleBudgetChange(Math.max(0, parseFloat(e.target.value) || 0))}
             className={cn(
-              "flex-1 px-3 py-2 rounded-lg",
-              "bg-surface-800 border border-surface-700",
-              "text-white placeholder-surface-500",
-              "focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              'flex-1 px-3 py-2 rounded-lg',
+              'bg-surface-800 border border-surface-700',
+              'text-white placeholder-surface-500',
+              'focus:outline-none focus:ring-2 focus:ring-primary-500/50'
             )}
             placeholder="100"
           />
@@ -413,14 +405,12 @@ export function ProviderPreferencesPanel({
         {/* Budget usage bar */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-surface-400">
-              Current: ${currentSpending.toFixed(2)}
-            </span>
+            <span className="text-surface-400">Current: ${currentSpending.toFixed(2)}</span>
             <span
               className={cn(
-                isOverBudget && "text-red-400",
-                isNearBudget && !isOverBudget && "text-yellow-400",
-                !isNearBudget && "text-surface-400"
+                isOverBudget && 'text-red-400',
+                isNearBudget && !isOverBudget && 'text-yellow-400',
+                !isNearBudget && 'text-surface-400'
               )}
             >
               {budgetPercentage.toFixed(0)}% used
@@ -430,10 +420,10 @@ export function ProviderPreferencesPanel({
           <div className="h-2 bg-surface-700 rounded-full overflow-hidden">
             <div
               className={cn(
-                "h-full rounded-full transition-all",
-                isOverBudget && "bg-red-500",
-                isNearBudget && !isOverBudget && "bg-yellow-500",
-                !isNearBudget && "bg-primary-500"
+                'h-full rounded-full transition-all',
+                isOverBudget && 'bg-red-500',
+                isNearBudget && !isOverBudget && 'bg-yellow-500',
+                !isNearBudget && 'bg-primary-500'
               )}
               style={{ width: `${Math.min(100, budgetPercentage)}%` }}
             />

@@ -60,13 +60,9 @@ describe('CharacterStore', () => {
     it('should update character map when setting characters', () => {
       const { setCharacters } = useCharacterStore.getState();
 
-      setCharacters([
-        { id: 'char-1', name: 'ALEX', lockState: 'unlocked' as const },
-      ] as any);
+      setCharacters([{ id: 'char-1', name: 'ALEX', lockState: 'unlocked' as const }] as any);
 
-      setCharacters([
-        { id: 'char-2', name: 'SARAH', lockState: 'locked' as const },
-      ] as any);
+      setCharacters([{ id: 'char-2', name: 'SARAH', lockState: 'locked' as const }] as any);
 
       const state = useCharacterStore.getState();
       expect(state.characters).toHaveLength(1);
@@ -95,9 +91,7 @@ describe('CharacterStore', () => {
     it('should clear selection when null is passed', () => {
       const { setCharacters, setSelectedCharacterId } = useCharacterStore.getState();
 
-      setCharacters([
-        { id: 'char-1', name: 'ALEX', lockState: 'unlocked' as const },
-      ] as any);
+      setCharacters([{ id: 'char-1', name: 'ALEX', lockState: 'unlocked' as const }] as any);
 
       setSelectedCharacterId('char-1');
       setSelectedCharacterId(null);
@@ -143,7 +137,12 @@ describe('CharacterStore', () => {
       setCharacters([
         { id: 'char-1', name: 'ALEX', lockState: 'unlocked' as const, voiceId: null },
         { id: 'char-2', name: 'SARAH', lockState: 'locked' as const, voiceId: 'voice-1' },
-        { id: 'char-3', name: 'BOB', lockState: 'locked_with_reference' as const, voiceId: 'voice-2' },
+        {
+          id: 'char-3',
+          name: 'BOB',
+          lockState: 'locked_with_reference' as const,
+          voiceId: 'voice-2',
+        },
         { id: 'char-4', name: 'JANE', lockState: 'unlocked' as const, voiceId: 'voice-3' },
       ] as any);
     });
@@ -167,8 +166,8 @@ describe('CharacterStore', () => {
 
       const locked = getLockedCharacters();
       expect(locked).toHaveLength(2);
-      expect(locked.map(c => c.name)).toContain('SARAH');
-      expect(locked.map(c => c.name)).toContain('BOB');
+      expect(locked.map((c) => c.name)).toContain('SARAH');
+      expect(locked.map((c) => c.name)).toContain('BOB');
     });
 
     it('should get unlocked characters', () => {
@@ -176,8 +175,8 @@ describe('CharacterStore', () => {
 
       const unlocked = getUnlockedCharacters();
       expect(unlocked).toHaveLength(2);
-      expect(unlocked.map(c => c.name)).toContain('ALEX');
-      expect(unlocked.map(c => c.name)).toContain('JANE');
+      expect(unlocked.map((c) => c.name)).toContain('ALEX');
+      expect(unlocked.map((c) => c.name)).toContain('JANE');
     });
 
     it('should get characters with voice', () => {
@@ -236,9 +235,7 @@ describe('CharacterStore', () => {
         useCharacterStore.getState();
 
       // Modify state
-      setCharacters([
-        { id: 'char-1', name: 'ALEX', lockState: 'locked' as const },
-      ] as any);
+      setCharacters([{ id: 'char-1', name: 'ALEX', lockState: 'locked' as const }] as any);
       setSelectedCharacterId('char-1');
       setError('Some error');
 

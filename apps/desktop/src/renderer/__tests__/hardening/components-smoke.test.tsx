@@ -103,9 +103,8 @@ describe('Component Imports', () => {
 
   describe('Character Components', () => {
     it('should import PhysicalDescriptionForm', async () => {
-      const { PhysicalDescriptionForm } = await import(
-        '../../components/physical-description-form'
-      );
+      const { PhysicalDescriptionForm } =
+        await import('../../components/physical-description-form');
       expect(PhysicalDescriptionForm).toBeDefined();
     });
   });
@@ -118,18 +117,14 @@ describe('Component Imports', () => {
 
     it('should import CircuitBreakerPanel', async () => {
       // Actual export is CircuitBreakerPanel, not CircuitBreakerStatus
-      const { CircuitBreakerPanel } = await import(
-        '../../components/circuit-breaker-status'
-      );
+      const { CircuitBreakerPanel } = await import('../../components/circuit-breaker-status');
       expect(CircuitBreakerPanel).toBeDefined();
     });
   });
 
   describe('Experience Mode Components', () => {
     it('should import ExperienceModeSelector', async () => {
-      const { ExperienceModeSelector } = await import(
-        '../../components/experience-mode-selector'
-      );
+      const { ExperienceModeSelector } = await import('../../components/experience-mode-selector');
       expect(ExperienceModeSelector).toBeDefined();
     });
 

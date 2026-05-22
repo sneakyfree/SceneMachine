@@ -6,12 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  offlineCache,
-  CachedProject,
-  CachedVideo,
-  SyncQueueItem,
-} from '../lib/offline-cache';
+import { offlineCache, CachedProject, CachedVideo, SyncQueueItem } from '../lib/offline-cache';
 import { useOnlineStatus } from './use-online-status';
 
 export interface UseOfflineCacheOptions {
@@ -109,9 +104,7 @@ export interface UseOfflineCacheReturn {
   /**
    * Process sync queue (called automatically when online)
    */
-  processQueue: (
-    syncFn: (item: SyncQueueItem) => Promise<boolean>
-  ) => Promise<void>;
+  processQueue: (syncFn: (item: SyncQueueItem) => Promise<boolean>) => Promise<void>;
 
   /**
    * Clear all cached data
@@ -127,9 +120,7 @@ export interface UseOfflineCacheReturn {
 /**
  * Hook for offline cache operations
  */
-export function useOfflineCache(
-  options: UseOfflineCacheOptions = {}
-): UseOfflineCacheReturn {
+export function useOfflineCache(options: UseOfflineCacheOptions = {}): UseOfflineCacheReturn {
   const { autoInit = true, autoSync = true } = options;
 
   const [isReady, setIsReady] = useState(false);

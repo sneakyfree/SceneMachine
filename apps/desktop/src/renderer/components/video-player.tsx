@@ -175,8 +175,10 @@ export function VideoPlayer({
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!containerRef.current?.contains(document.activeElement) &&
-          document.activeElement !== containerRef.current) {
+      if (
+        !containerRef.current?.contains(document.activeElement) &&
+        document.activeElement !== containerRef.current
+      ) {
         return;
       }
 
@@ -255,26 +257,35 @@ export function VideoPlayer({
     }
   }, []);
 
-  const seek = useCallback((time: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = Math.max(0, Math.min(time, duration));
-  }, [duration]);
+  const seek = useCallback(
+    (time: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+      video.currentTime = Math.max(0, Math.min(time, duration));
+    },
+    [duration]
+  );
 
-  const skip = useCallback((seconds: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = Math.max(0, Math.min(video.currentTime + seconds, duration));
-  }, [duration]);
+  const skip = useCallback(
+    (seconds: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+      video.currentTime = Math.max(0, Math.min(video.currentTime + seconds, duration));
+    },
+    [duration]
+  );
 
-  const adjustVolume = useCallback((delta: number) => {
-    const video = videoRef.current;
-    if (!video) return;
-    const newVolume = Math.max(0, Math.min(1, volume + delta));
-    video.volume = newVolume;
-    setVolume(newVolume);
-    setIsMuted(newVolume === 0);
-  }, [volume]);
+  const adjustVolume = useCallback(
+    (delta: number) => {
+      const video = videoRef.current;
+      if (!video) return;
+      const newVolume = Math.max(0, Math.min(1, volume + delta));
+      video.volume = newVolume;
+      setVolume(newVolume);
+      setIsMuted(newVolume === 0);
+    },
+    [volume]
+  );
 
   const toggleMute = useCallback(() => {
     const video = videoRef.current;
@@ -298,14 +309,17 @@ export function VideoPlayer({
     }
   }, []);
 
-  const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const progress = progressRef.current;
-    if (!progress) return;
+  const handleProgressClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const progress = progressRef.current;
+      if (!progress) return;
 
-    const rect = progress.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    seek(percent * duration);
-  }, [duration, seek]);
+      const rect = progress.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      seek(percent * duration);
+    },
+    [duration, seek]
+  );
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current;
@@ -342,11 +356,7 @@ export function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className={cn(
-        'relative bg-black group',
-        isFullscreen && 'fixed inset-0 z-50',
-        className
-      )}
+      className={cn('relative bg-black group', isFullscreen && 'fixed inset-0 z-50', className)}
       tabIndex={0}
     >
       {/* Video Element */}
@@ -420,11 +430,7 @@ export function VideoPlayer({
               className="p-2 text-white hover:text-brand-400 transition-colors"
               title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             >
-              {isPlaying ? (
-                <Pause className="w-5 h-5" />
-              ) : (
-                <Play className="w-5 h-5" />
-              )}
+              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
             </button>
 
             {/* Skip back */}
@@ -510,11 +516,7 @@ export function VideoPlayer({
               className="p-2 text-white hover:text-brand-400 transition-colors"
               title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
             >
-              {isFullscreen ? (
-                <Minimize2 className="w-5 h-5" />
-              ) : (
-                <Maximize2 className="w-5 h-5" />
-              )}
+              {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
             </button>
           </div>
         </div>

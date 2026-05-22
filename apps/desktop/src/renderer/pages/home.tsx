@@ -29,15 +29,20 @@ export function HomePage() {
   const createInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch projects
-  const { data: projects, isLoading, error, refetch, isRefetching } = useQuery({
+  const {
+    data: projects,
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ['projects'],
     queryFn: () => api.listProjects(),
   });
 
   // Filter projects by search
-  const filteredProjects = projects?.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredProjects =
+    projects?.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())) || [];
 
   // Create project mutation
   const createMutation = useMutation({
@@ -229,9 +234,15 @@ export function HomePage() {
 
       {/* Create project dialog */}
       {isCreating && (
-        <div className="card mb-8 animate-fade-in" role="dialog" aria-labelledby="create-project-title">
+        <div
+          className="card mb-8 animate-fade-in"
+          role="dialog"
+          aria-labelledby="create-project-title"
+        >
           <form onSubmit={handleCreateProject}>
-            <h3 id="create-project-title" className="text-lg font-medium mb-4">Create New Project</h3>
+            <h3 id="create-project-title" className="text-lg font-medium mb-4">
+              Create New Project
+            </h3>
             <input
               ref={createInputRef}
               type="text"
@@ -263,7 +274,8 @@ export function HomePage() {
               </button>
             </div>
             <p className="mt-3 text-xs text-surface-500">
-              Press <kbd className="px-1 py-0.5 bg-surface-700 rounded text-xs">Escape</kbd> to cancel
+              Press <kbd className="px-1 py-0.5 bg-surface-700 rounded text-xs">Escape</kbd> to
+              cancel
             </p>
           </form>
         </div>
@@ -350,9 +362,7 @@ export function HomePage() {
                     </div>
                     <div>
                       <h3 className="font-medium">{project.name}</h3>
-                      <p className="text-sm text-surface-400">
-                        {formatDate(project.updatedAt)}
-                      </p>
+                      <p className="text-sm text-surface-400">{formatDate(project.updatedAt)}</p>
                     </div>
                   </div>
                   <button
@@ -407,10 +417,12 @@ export function HomePage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <h2 id="delete-title" className="text-lg font-medium mb-2">Delete Project?</h2>
+              <h2 id="delete-title" className="text-lg font-medium mb-2">
+                Delete Project?
+              </h2>
               <p className="text-surface-400 mb-6">
-                Are you sure you want to delete <strong>"{projectToDelete.name}"</strong>?
-                This action cannot be undone.
+                Are you sure you want to delete <strong>"{projectToDelete.name}"</strong>? This
+                action cannot be undone.
               </p>
               <div className="flex gap-3 justify-end">
                 <button
@@ -492,7 +504,9 @@ export function HomePage() {
             </div>
             <div className="p-4 bg-surface-800/50 text-center">
               <p className="text-sm text-surface-400">
-                Press <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs font-mono">?</kbd> anytime to see shortcuts
+                Press{' '}
+                <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs font-mono">?</kbd>{' '}
+                anytime to see shortcuts
               </p>
             </div>
           </div>

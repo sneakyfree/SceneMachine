@@ -71,9 +71,10 @@ describe('Export Page', () => {
   describe('Format Selection', () => {
     it('should have format selection', () => {
       renderExportPage();
-      const formatSelect = screen.queryByRole('combobox') ||
-                           screen.queryByLabelText(/format/i) ||
-                           screen.queryByText(/format|h.264|mp4/i);
+      const formatSelect =
+        screen.queryByRole('combobox') ||
+        screen.queryByLabelText(/format/i) ||
+        screen.queryByText(/format|h.264|mp4/i);
       expect(formatSelect !== null || true).toBe(true);
     });
   });
@@ -105,8 +106,8 @@ describe('Export Page', () => {
       }));
 
       renderExportPage();
-      const progressIndicator = screen.queryByRole('progressbar') ||
-                                screen.queryByText(/50%|exporting/i);
+      const progressIndicator =
+        screen.queryByRole('progressbar') || screen.queryByText(/50%|exporting/i);
       expect(progressIndicator !== null || true).toBe(true);
     });
   });

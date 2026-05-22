@@ -150,8 +150,7 @@ export function LogsViewer({
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         return (
-          log.message.toLowerCase().includes(query) ||
-          log.source.toLowerCase().includes(query)
+          log.message.toLowerCase().includes(query) || log.source.toLowerCase().includes(query)
         );
       }
 
@@ -165,7 +164,7 @@ export function LogsViewer({
   }, []);
 
   return (
-    <div className={cn("flex flex-col h-full", className)}>
+    <div className={cn('flex flex-col h-full', className)}>
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-700 bg-surface-900/50">
         {/* Search */}
@@ -177,10 +176,10 @@ export function LogsViewer({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search logs..."
             className={cn(
-              "w-full pl-9 pr-3 py-2 rounded-lg",
-              "bg-surface-800 border border-surface-700",
-              "text-sm text-white placeholder-surface-500",
-              "focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+              'w-full pl-9 pr-3 py-2 rounded-lg',
+              'bg-surface-800 border border-surface-700',
+              'text-sm text-white placeholder-surface-500',
+              'focus:outline-none focus:ring-2 focus:ring-primary-500/50'
             )}
           />
         </div>
@@ -190,10 +189,10 @@ export function LogsViewer({
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg",
-              "bg-surface-800 border border-surface-700",
-              "hover:bg-surface-700 transition-colors",
-              showFilters && "ring-2 ring-primary-500/50"
+              'flex items-center gap-2 px-3 py-2 rounded-lg',
+              'bg-surface-800 border border-surface-700',
+              'hover:bg-surface-700 transition-colors',
+              showFilters && 'ring-2 ring-primary-500/50'
             )}
           >
             <Filter className="w-4 h-4 text-surface-400" />
@@ -213,9 +212,9 @@ export function LogsViewer({
                     setShowFilters(false);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-sm text-left",
-                    "hover:bg-surface-700 transition-colors",
-                    levelFilter === level && "bg-surface-700"
+                    'w-full flex items-center gap-2 px-3 py-2 text-sm text-left',
+                    'hover:bg-surface-700 transition-colors',
+                    levelFilter === level && 'bg-surface-700'
                   )}
                 >
                   {level !== 'all' && (
@@ -237,10 +236,10 @@ export function LogsViewer({
         <button
           onClick={() => setIsPaused(!isPaused)}
           className={cn(
-            "p-2 rounded-lg transition-colors",
+            'p-2 rounded-lg transition-colors',
             isPaused
-              ? "bg-yellow-500/20 text-yellow-400"
-              : "bg-surface-800 text-surface-400 hover:bg-surface-700"
+              ? 'bg-yellow-500/20 text-yellow-400'
+              : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
           )}
           title={isPaused ? 'Resume auto-refresh' : 'Pause auto-refresh'}
         >
@@ -254,7 +253,7 @@ export function LogsViewer({
           className="p-2 rounded-lg bg-surface-800 text-surface-400 hover:bg-surface-700 transition-colors disabled:opacity-50"
           title="Refresh logs"
         >
-          <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+          <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
         </button>
 
         <div className="flex-1" />
@@ -298,14 +297,14 @@ export function LogsViewer({
                 <div
                   key={log.id}
                   className={cn(
-                    "px-4 py-2 hover:bg-surface-800/50 cursor-pointer transition-colors",
+                    'px-4 py-2 hover:bg-surface-800/50 cursor-pointer transition-colors',
                     LEVEL_BG_COLORS[log.level]
                   )}
                   onClick={() => log.details && toggleLogExpansion(log.id)}
                 >
                   <div className="flex items-start gap-3">
                     {/* Level icon */}
-                    <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", LEVEL_COLORS[log.level])} />
+                    <Icon className={cn('w-4 h-4 mt-0.5 shrink-0', LEVEL_COLORS[log.level])} />
 
                     {/* Timestamp */}
                     <span className="text-surface-500 shrink-0">
@@ -318,16 +317,14 @@ export function LogsViewer({
                     </span>
 
                     {/* Message */}
-                    <span className="text-surface-200 break-words flex-1">
-                      {log.message}
-                    </span>
+                    <span className="text-surface-200 break-words flex-1">{log.message}</span>
 
                     {/* Expand indicator */}
                     {log.details && (
                       <ChevronDown
                         className={cn(
-                          "w-4 h-4 text-surface-500 shrink-0 transition-transform",
-                          isExpanded && "rotate-180"
+                          'w-4 h-4 text-surface-500 shrink-0 transition-transform',
+                          isExpanded && 'rotate-180'
                         )}
                       />
                     )}
@@ -354,9 +351,7 @@ export function LogsViewer({
         <span>
           Showing {filteredLogs.length} of {logs.length} logs
         </span>
-        <span>
-          {isPaused ? 'Paused' : `Auto-refresh: ${autoRefreshInterval}s`}
-        </span>
+        <span>{isPaused ? 'Paused' : `Auto-refresh: ${autoRefreshInterval}s`}</span>
       </div>
     </div>
   );

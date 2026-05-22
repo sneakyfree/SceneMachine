@@ -176,7 +176,11 @@ export const useGenerationStore = create<GenerationStoreState>()(
               state.availableModels[provider] = models;
               state.isLoadingModels = false;
               // Auto-select first model if none selected
-              if (state.selectedProvider === provider && !state.selectedModel && models.length > 0) {
+              if (
+                state.selectedProvider === provider &&
+                !state.selectedModel &&
+                models.length > 0
+              ) {
                 state.selectedModel = models[0].id;
               }
             });
@@ -262,9 +266,7 @@ export function useCurrentModel(): ProviderModel | null {
  */
 export function useGenerationReady(): boolean {
   return useGenerationStore((state) => {
-    const health = state.providersHealth.find(
-      (p) => p.provider === state.selectedProvider
-    );
+    const health = state.providersHealth.find((p) => p.provider === state.selectedProvider);
     return !!(health?.configured && health?.available && state.selectedModel);
   });
 }

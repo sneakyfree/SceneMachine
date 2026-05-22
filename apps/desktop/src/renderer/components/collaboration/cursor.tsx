@@ -48,8 +48,8 @@ function CursorComponent({ x, y, name, color, lastUpdate, className }: CursorPro
   return (
     <div
       className={cn(
-        "absolute pointer-events-none z-[9999]",
-        "transition-all duration-50 ease-out",
+        'absolute pointer-events-none z-[9999]',
+        'transition-all duration-50 ease-out',
         className
       )}
       style={{
@@ -83,10 +83,10 @@ function CursorComponent({ x, y, name, color, lastUpdate, className }: CursorPro
       {/* Name label */}
       <div
         className={cn(
-          "absolute left-4 top-4",
-          "px-2 py-0.5 rounded-md text-xs font-medium",
-          "whitespace-nowrap shadow-md",
-          "border border-white/20"
+          'absolute left-4 top-4',
+          'px-2 py-0.5 rounded-md text-xs font-medium',
+          'whitespace-nowrap shadow-md',
+          'border border-white/20'
         )}
         style={{
           backgroundColor: color,

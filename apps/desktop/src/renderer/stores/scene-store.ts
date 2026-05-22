@@ -102,7 +102,7 @@ export const useSceneStore = create<SceneStoreState>()(
       setSelectedSceneId: (id) =>
         set((state) => {
           state.selectedSceneId = id;
-          state.selectedScene = id ? state.sceneMap[id] ?? null : null;
+          state.selectedScene = id ? (state.sceneMap[id] ?? null) : null;
         }),
 
       setError: (error) =>
@@ -321,14 +321,13 @@ export const useSceneStore = create<SceneStoreState>()(
 
       getScenesReadyForGeneration: () => {
         return get().scenes.filter(
-          (s) => s.state === 'breakdown_approved' || s.state === 'generating' || s.state === 'generated'
+          (s) =>
+            s.state === 'breakdown_approved' || s.state === 'generating' || s.state === 'generated'
         );
       },
 
       getScenesNeedingBreakdown: () => {
-        return get().scenes.filter(
-          (s) => s.state === 'draft' || s.state === 'analyzed'
-        );
+        return get().scenes.filter((s) => s.state === 'draft' || s.state === 'analyzed');
       },
 
       getSceneAnalysis: (sceneId) => {
@@ -366,7 +365,9 @@ export function useSceneProgress(): {
     const breakdownGenerated = state.scenes.filter((s) => s.state === 'breakdown_generated').length;
     const approved = state.scenes.filter((s) => s.state === 'breakdown_approved').length;
     const generating = state.scenes.filter((s) => s.state === 'generating').length;
-    const generated = state.scenes.filter((s) => s.state === 'generated' || s.state === 'approved').length;
+    const generated = state.scenes.filter(
+      (s) => s.state === 'generated' || s.state === 'approved'
+    ).length;
 
     const percentage = total > 0 ? Math.round((generated / total) * 100) : 0;
 
@@ -389,9 +390,7 @@ export function useSceneProgress(): {
 export function useAllScenesGenerated(): boolean {
   return useSceneStore((state) => {
     if (state.scenes.length === 0) return false;
-    return state.scenes.every(
-      (s) => s.state === 'generated' || s.state === 'approved'
-    );
+    return state.scenes.every((s) => s.state === 'generated' || s.state === 'approved');
   });
 }
 
@@ -399,7 +398,5 @@ export function useAllScenesGenerated(): boolean {
  * Hook to get scene by index (1-based scene number).
  */
 export function useSceneByNumber(sceneNumber: number): Scene | undefined {
-  return useSceneStore((state) =>
-    state.scenes.find((s) => s.sceneNumber === sceneNumber)
-  );
+  return useSceneStore((state) => state.scenes.find((s) => s.sceneNumber === sceneNumber));
 }

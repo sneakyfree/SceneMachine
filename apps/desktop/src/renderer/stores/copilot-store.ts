@@ -129,7 +129,9 @@ const initialState = {
   isPanelMinimized: false,
   activeTab: 'chat' as const,
   autoSuggest: true,
-  suggestionTypes: ['scene', 'shot', 'character', 'dialogue', 'pacing', 'visual'] as Array<CopilotSuggestion['type']>,
+  suggestionTypes: ['scene', 'shot', 'character', 'dialogue', 'pacing', 'visual'] as Array<
+    CopilotSuggestion['type']
+  >,
   isLoadingSuggestions: false,
   isSending: false,
   error: null,
@@ -179,8 +181,7 @@ export const useCopilotStore = create<CopilotStoreState>()(
             // Filter out already applied or dismissed suggestions
             const newSuggestions = suggestions.filter(
               (s) =>
-                !state.appliedSuggestionIds.has(s.id) &&
-                !state.dismissedSuggestionIds.has(s.id)
+                !state.appliedSuggestionIds.has(s.id) && !state.dismissedSuggestionIds.has(s.id)
             );
             // Merge with existing, avoiding duplicates
             const existingIds = new Set(state.activeSuggestions.map((s) => s.id));
@@ -199,17 +200,13 @@ export const useCopilotStore = create<CopilotStoreState>()(
         markSuggestionApplied: (suggestionId) =>
           set((state) => {
             state.appliedSuggestionIds.add(suggestionId);
-            state.activeSuggestions = state.activeSuggestions.filter(
-              (s) => s.id !== suggestionId
-            );
+            state.activeSuggestions = state.activeSuggestions.filter((s) => s.id !== suggestionId);
           }),
 
         markSuggestionDismissed: (suggestionId) =>
           set((state) => {
             state.dismissedSuggestionIds.add(suggestionId);
-            state.activeSuggestions = state.activeSuggestions.filter(
-              (s) => s.id !== suggestionId
-            );
+            state.activeSuggestions = state.activeSuggestions.filter((s) => s.id !== suggestionId);
           }),
 
         // Analysis actions
@@ -493,9 +490,7 @@ export const useCopilotStore = create<CopilotStoreState>()(
 
         getVisibleSuggestions: () => {
           const state = get();
-          return state.activeSuggestions.filter((s) =>
-            state.suggestionTypes.includes(s.type)
-          );
+          return state.activeSuggestions.filter((s) => state.suggestionTypes.includes(s.type));
         },
 
         getSuggestionsByType: (type) => {
@@ -565,9 +560,7 @@ export function useCopilotReady(): boolean {
  * Hook to get high-confidence suggestions only.
  */
 export function useHighConfidenceSuggestions(): CopilotSuggestion[] {
-  return useCopilotStore((state) =>
-    state.activeSuggestions.filter((s) => s.confidence >= 0.8)
-  );
+  return useCopilotStore((state) => state.activeSuggestions.filter((s) => s.confidence >= 0.8));
 }
 
 /**
@@ -585,8 +578,6 @@ export function useWeakestArea(): { area: string; score: number } | null {
       { area: 'dialogue', score: analysis.dialogue.score },
     ];
 
-    return areas.reduce((min, current) =>
-      current.score < min.score ? current : min
-    );
+    return areas.reduce((min, current) => (current.score < min.score ? current : min));
   });
 }

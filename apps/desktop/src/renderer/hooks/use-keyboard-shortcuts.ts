@@ -109,10 +109,7 @@ export function useShortcuts() {
     loadCustomShortcuts()
   );
 
-  const shortcuts = useMemo(
-    () => getEffectiveShortcuts(customizations),
-    [customizations]
-  );
+  const shortcuts = useMemo(() => getEffectiveShortcuts(customizations), [customizations]);
 
   // Handle shortcut trigger
   const handleShortcut = useCallback((id: string) => {
@@ -247,11 +244,9 @@ export function useGlobalShortcuts() {
     () => currentProject && navigate(`/project/${currentProject.id}/timeline`),
     [navigate, currentProject]
   );
-  useShortcutHandler(
-    'project.analytics',
-    () => currentProject && navigate('/analytics'),
-    [navigate]
-  );
+  useShortcutHandler('project.analytics', () => currentProject && navigate('/analytics'), [
+    navigate,
+  ]);
 
   // View handlers
   useShortcutHandler('view.sidebar', toggleSidebar, [toggleSidebar]);
@@ -262,26 +257,10 @@ export function useGlobalShortcuts() {
   );
 
   // Editing handlers (dispatch events for page-specific handling)
-  useShortcutHandler(
-    'edit.save',
-    () => window.dispatchEvent(new CustomEvent('app:save')),
-    []
-  );
-  useShortcutHandler(
-    'edit.undo',
-    () => window.dispatchEvent(new CustomEvent('app:undo')),
-    []
-  );
-  useShortcutHandler(
-    'edit.redo',
-    () => window.dispatchEvent(new CustomEvent('app:redo')),
-    []
-  );
-  useShortcutHandler(
-    'edit.redo.alt',
-    () => window.dispatchEvent(new CustomEvent('app:redo')),
-    []
-  );
+  useShortcutHandler('edit.save', () => window.dispatchEvent(new CustomEvent('app:save')), []);
+  useShortcutHandler('edit.undo', () => window.dispatchEvent(new CustomEvent('app:undo')), []);
+  useShortcutHandler('edit.redo', () => window.dispatchEvent(new CustomEvent('app:redo')), []);
+  useShortcutHandler('edit.redo.alt', () => window.dispatchEvent(new CustomEvent('app:redo')), []);
 
   // General handlers
   useShortcutHandler(
@@ -347,25 +326,51 @@ export function useTimelineShortcuts(callbacks: {
   onNextClip?: () => void;
   onPrevClip?: () => void;
 }) {
-  useShortcutHandler('timeline.playPause', callbacks.onPlayPause || (() => {}), [callbacks.onPlayPause]);
+  useShortcutHandler('timeline.playPause', callbacks.onPlayPause || (() => {}), [
+    callbacks.onPlayPause,
+  ]);
   useShortcutHandler('timeline.stop', callbacks.onStop || (() => {}), [callbacks.onStop]);
-  useShortcutHandler('timeline.frameForward', callbacks.onFrameForward || (() => {}), [callbacks.onFrameForward]);
-  useShortcutHandler('timeline.frameBack', callbacks.onFrameBack || (() => {}), [callbacks.onFrameBack]);
-  useShortcutHandler('timeline.jumpForward', callbacks.onJumpForward || (() => {}), [callbacks.onJumpForward]);
-  useShortcutHandler('timeline.jumpBack', callbacks.onJumpBack || (() => {}), [callbacks.onJumpBack]);
-  useShortcutHandler('timeline.goToStart', callbacks.onGoToStart || (() => {}), [callbacks.onGoToStart]);
+  useShortcutHandler('timeline.frameForward', callbacks.onFrameForward || (() => {}), [
+    callbacks.onFrameForward,
+  ]);
+  useShortcutHandler('timeline.frameBack', callbacks.onFrameBack || (() => {}), [
+    callbacks.onFrameBack,
+  ]);
+  useShortcutHandler('timeline.jumpForward', callbacks.onJumpForward || (() => {}), [
+    callbacks.onJumpForward,
+  ]);
+  useShortcutHandler('timeline.jumpBack', callbacks.onJumpBack || (() => {}), [
+    callbacks.onJumpBack,
+  ]);
+  useShortcutHandler('timeline.goToStart', callbacks.onGoToStart || (() => {}), [
+    callbacks.onGoToStart,
+  ]);
   useShortcutHandler('timeline.goToEnd', callbacks.onGoToEnd || (() => {}), [callbacks.onGoToEnd]);
   useShortcutHandler('timeline.zoomIn', callbacks.onZoomIn || (() => {}), [callbacks.onZoomIn]);
   useShortcutHandler('timeline.zoomIn.alt', callbacks.onZoomIn || (() => {}), [callbacks.onZoomIn]);
   useShortcutHandler('timeline.zoomOut', callbacks.onZoomOut || (() => {}), [callbacks.onZoomOut]);
-  useShortcutHandler('timeline.zoomReset', callbacks.onZoomReset || (() => {}), [callbacks.onZoomReset]);
-  useShortcutHandler('timeline.toggleLock', callbacks.onToggleLock || (() => {}), [callbacks.onToggleLock]);
-  useShortcutHandler('timeline.toggleVisibility', callbacks.onToggleVisibility || (() => {}), [callbacks.onToggleVisibility]);
-  useShortcutHandler('timeline.splitClip', callbacks.onSplitClip || (() => {}), [callbacks.onSplitClip]);
-  useShortcutHandler('timeline.trimStart', callbacks.onTrimStart || (() => {}), [callbacks.onTrimStart]);
+  useShortcutHandler('timeline.zoomReset', callbacks.onZoomReset || (() => {}), [
+    callbacks.onZoomReset,
+  ]);
+  useShortcutHandler('timeline.toggleLock', callbacks.onToggleLock || (() => {}), [
+    callbacks.onToggleLock,
+  ]);
+  useShortcutHandler('timeline.toggleVisibility', callbacks.onToggleVisibility || (() => {}), [
+    callbacks.onToggleVisibility,
+  ]);
+  useShortcutHandler('timeline.splitClip', callbacks.onSplitClip || (() => {}), [
+    callbacks.onSplitClip,
+  ]);
+  useShortcutHandler('timeline.trimStart', callbacks.onTrimStart || (() => {}), [
+    callbacks.onTrimStart,
+  ]);
   useShortcutHandler('timeline.trimEnd', callbacks.onTrimEnd || (() => {}), [callbacks.onTrimEnd]);
-  useShortcutHandler('timeline.nextClip', callbacks.onNextClip || (() => {}), [callbacks.onNextClip]);
-  useShortcutHandler('timeline.prevClip', callbacks.onPrevClip || (() => {}), [callbacks.onPrevClip]);
+  useShortcutHandler('timeline.nextClip', callbacks.onNextClip || (() => {}), [
+    callbacks.onNextClip,
+  ]);
+  useShortcutHandler('timeline.prevClip', callbacks.onPrevClip || (() => {}), [
+    callbacks.onPrevClip,
+  ]);
 }
 
 /**
@@ -381,12 +386,18 @@ export function useGenerationShortcuts(callbacks: {
   onPreview?: () => void;
 }) {
   useShortcutHandler('generation.queue', callbacks.onQueue || (() => {}), [callbacks.onQueue]);
-  useShortcutHandler('generation.queueAll', callbacks.onQueueAll || (() => {}), [callbacks.onQueueAll]);
-  useShortcutHandler('generation.approve', callbacks.onApprove || (() => {}), [callbacks.onApprove]);
+  useShortcutHandler('generation.queueAll', callbacks.onQueueAll || (() => {}), [
+    callbacks.onQueueAll,
+  ]);
+  useShortcutHandler('generation.approve', callbacks.onApprove || (() => {}), [
+    callbacks.onApprove,
+  ]);
   useShortcutHandler('generation.reject', callbacks.onReject || (() => {}), [callbacks.onReject]);
   useShortcutHandler('generation.retry', callbacks.onRetry || (() => {}), [callbacks.onRetry]);
   useShortcutHandler('generation.cancel', callbacks.onCancel || (() => {}), [callbacks.onCancel]);
-  useShortcutHandler('generation.preview', callbacks.onPreview || (() => {}), [callbacks.onPreview]);
+  useShortcutHandler('generation.preview', callbacks.onPreview || (() => {}), [
+    callbacks.onPreview,
+  ]);
 }
 
 /**
@@ -401,11 +412,19 @@ export function usePlaybackShortcuts(callbacks: {
   onSpeedDown?: () => void;
   onLoop?: () => void;
 }) {
-  useShortcutHandler('playback.fullscreen', callbacks.onFullscreen || (() => {}), [callbacks.onFullscreen]);
+  useShortcutHandler('playback.fullscreen', callbacks.onFullscreen || (() => {}), [
+    callbacks.onFullscreen,
+  ]);
   useShortcutHandler('playback.mute', callbacks.onMute || (() => {}), [callbacks.onMute]);
-  useShortcutHandler('playback.volumeUp', callbacks.onVolumeUp || (() => {}), [callbacks.onVolumeUp]);
-  useShortcutHandler('playback.volumeDown', callbacks.onVolumeDown || (() => {}), [callbacks.onVolumeDown]);
+  useShortcutHandler('playback.volumeUp', callbacks.onVolumeUp || (() => {}), [
+    callbacks.onVolumeUp,
+  ]);
+  useShortcutHandler('playback.volumeDown', callbacks.onVolumeDown || (() => {}), [
+    callbacks.onVolumeDown,
+  ]);
   useShortcutHandler('playback.speedUp', callbacks.onSpeedUp || (() => {}), [callbacks.onSpeedUp]);
-  useShortcutHandler('playback.speedDown', callbacks.onSpeedDown || (() => {}), [callbacks.onSpeedDown]);
+  useShortcutHandler('playback.speedDown', callbacks.onSpeedDown || (() => {}), [
+    callbacks.onSpeedDown,
+  ]);
   useShortcutHandler('playback.loop', callbacks.onLoop || (() => {}), [callbacks.onLoop]);
 }

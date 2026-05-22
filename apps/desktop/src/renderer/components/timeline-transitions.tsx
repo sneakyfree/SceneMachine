@@ -202,9 +202,7 @@ export function TransitionPicker({
           {TRANSITIONS.slice(0, 5).map((transition) => (
             <button
               key={transition.type}
-              onClick={() =>
-                onSelect(transition.type, transition.defaultDuration, easing)
-              }
+              onClick={() => onSelect(transition.type, transition.defaultDuration, easing)}
               className={cn(
                 'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
                 selectedType === transition.type
@@ -226,9 +224,7 @@ export function TransitionPicker({
               max="2000"
               step="100"
               value={duration}
-              onChange={(e) =>
-                onSelect(selectedType, parseInt(e.target.value), easing)
-              }
+              onChange={(e) => onSelect(selectedType, parseInt(e.target.value), easing)}
               className="w-24 accent-brand-500"
             />
             <span className="text-surface-400">{duration}ms</span>
@@ -266,18 +262,14 @@ export function TransitionPicker({
         <div className="p-4 border-b border-surface-800 bg-surface-800/50 space-y-4">
           {/* Duration */}
           <div>
-            <label className="text-sm text-surface-400 mb-2 block">
-              Duration: {duration}ms
-            </label>
+            <label className="text-sm text-surface-400 mb-2 block">Duration: {duration}ms</label>
             <input
               type="range"
               min="100"
               max="2000"
               step="50"
               value={duration}
-              onChange={(e) =>
-                onSelect(selectedType, parseInt(e.target.value), easing)
-              }
+              onChange={(e) => onSelect(selectedType, parseInt(e.target.value), easing)}
               className="w-full accent-brand-500"
             />
             <div className="flex justify-between text-xs text-surface-500 mt-1">
@@ -314,11 +306,7 @@ export function TransitionPicker({
         {categories.map((category) => (
           <div key={category} className="mb-2">
             <button
-              onClick={() =>
-                setExpandedCategory(
-                  expandedCategory === category ? null : category
-                )
-              }
+              onClick={() => setExpandedCategory(expandedCategory === category ? null : category)}
               className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-surface-400 hover:text-surface-200"
             >
               {expandedCategory === category ? (
@@ -331,38 +319,30 @@ export function TransitionPicker({
 
             {expandedCategory === category && (
               <div className="grid grid-cols-3 gap-2 mt-2 px-2">
-                {TRANSITIONS.filter((t) => t.category === category).map(
-                  (transition) => (
-                    <button
-                      key={transition.type}
-                      onClick={() =>
-                        onSelect(
-                          transition.type,
-                          transition.defaultDuration,
-                          easing
-                        )
-                      }
+                {TRANSITIONS.filter((t) => t.category === category).map((transition) => (
+                  <button
+                    key={transition.type}
+                    onClick={() => onSelect(transition.type, transition.defaultDuration, easing)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 p-3 rounded-lg transition-colors',
+                      selectedType === transition.type
+                        ? 'bg-brand-500/20 border border-brand-500/50'
+                        : 'bg-surface-800 hover:bg-surface-700 border border-transparent'
+                    )}
+                  >
+                    <div
                       className={cn(
-                        'flex flex-col items-center gap-1 p-3 rounded-lg transition-colors',
+                        'w-8 h-8 rounded-lg flex items-center justify-center',
                         selectedType === transition.type
-                          ? 'bg-brand-500/20 border border-brand-500/50'
-                          : 'bg-surface-800 hover:bg-surface-700 border border-transparent'
+                          ? 'bg-brand-500/20 text-brand-400'
+                          : 'bg-surface-700'
                       )}
                     >
-                      <div
-                        className={cn(
-                          'w-8 h-8 rounded-lg flex items-center justify-center',
-                          selectedType === transition.type
-                            ? 'bg-brand-500/20 text-brand-400'
-                            : 'bg-surface-700'
-                        )}
-                      >
-                        {transition.icon}
-                      </div>
-                      <span className="text-xs">{transition.name}</span>
-                    </button>
-                  )
-                )}
+                      {transition.icon}
+                    </div>
+                    <span className="text-xs">{transition.name}</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -383,13 +363,7 @@ export function TransitionPicker({
 /**
  * Visual preview of a transition effect.
  */
-function TransitionPreview({
-  type,
-  duration,
-}: {
-  type: TransitionType;
-  duration: number;
-}) {
+function TransitionPreview({ type, duration }: { type: TransitionType; duration: number }) {
   const [isAnimating, setIsAnimating] = useState(false);
 
   const triggerAnimation = () => {
@@ -444,9 +418,7 @@ function TransitionPreview({
       </div>
 
       {/* Click hint */}
-      <div className="absolute bottom-1 right-2 text-xs text-white/50">
-        Click to preview
-      </div>
+      <div className="absolute bottom-1 right-2 text-xs text-white/50">Click to preview</div>
 
       <style>{`
         @keyframes fadeTransition {

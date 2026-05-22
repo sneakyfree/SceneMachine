@@ -4,7 +4,11 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '../test-utils';
-import { ErrorBoundary, PageErrorBoundary, withErrorBoundary } from '../../components/error-boundary';
+import {
+  ErrorBoundary,
+  PageErrorBoundary,
+  withErrorBoundary,
+} from '../../components/error-boundary';
 
 // Component that throws an error
 function ThrowError({ shouldThrow }: { shouldThrow: boolean }) {

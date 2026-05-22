@@ -39,22 +39,16 @@ export function CommentsPanel({
   onNavigateToShot,
 }: CommentsPanelProps) {
   const [newComment, setNewComment] = useState('');
-  const [authorName, setAuthorName] = useState(() =>
-    localStorage.getItem('scenemachine-comment-author') || ''
+  const [authorName, setAuthorName] = useState(
+    () => localStorage.getItem('scenemachine-comment-author') || ''
   );
   const [showResolved, setShowResolved] = useState(false);
   const [filterShotId, setFilterShotId] = useState<string | 'all'>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const {
-    comments,
-    isLoadingComments,
-    fetchComments,
-    addComment,
-    resolveComment,
-    deleteComment,
-  } = useSharingStore();
+  const { comments, isLoadingComments, fetchComments, addComment, resolveComment, deleteComment } =
+    useSharingStore();
 
   // Fetch comments when panel opens
   useEffect(() => {
@@ -143,7 +137,7 @@ export function CommentsPanel({
   );
 
   // Get unique shot IDs for filter
-  const shotIds = [...new Set(comments.filter(c => c.shotId).map(c => c.shotId!))];
+  const shotIds = [...new Set(comments.filter((c) => c.shotId).map((c) => c.shotId!))];
 
   if (!isOpen) return null;
 
@@ -206,9 +200,7 @@ export function CommentsPanel({
           <div className="text-center py-8">
             <MessageSquare className="w-12 h-12 mx-auto text-surface-600 mb-3" />
             <h3 className="text-sm font-medium mb-1">No Comments Yet</h3>
-            <p className="text-xs text-surface-500">
-              Be the first to leave a comment
-            </p>
+            <p className="text-xs text-surface-500">Be the first to leave a comment</p>
           </div>
         ) : (
           Object.entries(groupedComments).map(([shotKey, shotComments]) => (
@@ -262,11 +254,7 @@ export function CommentsPanel({
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              currentShotId
-                ? 'Comment on this shot...'
-                : 'Add a general comment...'
-            }
+            placeholder={currentShotId ? 'Comment on this shot...' : 'Add a general comment...'}
             rows={3}
             className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded text-sm resize-none focus:outline-none focus:border-brand-500"
           />
@@ -307,12 +295,7 @@ interface CommentBubbleProps {
   onNavigateToShot?: (shotId: string) => void;
 }
 
-function CommentBubble({
-  comment,
-  onResolve,
-  onDelete,
-  onNavigateToShot,
-}: CommentBubbleProps) {
+function CommentBubble({ comment, onResolve, onDelete, onNavigateToShot }: CommentBubbleProps) {
   const [showMenu, setShowMenu] = useState(false);
 
   const formatTime = (dateString: string) => {
@@ -359,9 +342,7 @@ function CommentBubble({
                 {formatTime(comment.createdAt)}
               </span>
               {comment.timecodeSeconds !== undefined && (
-                <span className="text-brand-400">
-                  @ {formatTimecode(comment.timecodeSeconds)}
-                </span>
+                <span className="text-brand-400">@ {formatTimecode(comment.timecodeSeconds)}</span>
               )}
             </div>
           </div>
@@ -378,10 +359,7 @@ function CommentBubble({
           </button>
           {showMenu && (
             <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setShowMenu(false)}
-              />
+              <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
               <div className="absolute right-0 top-full mt-1 w-36 bg-surface-800 border border-surface-700 rounded-lg shadow-lg py-1 z-20">
                 {!comment.isResolved && (
                   <button

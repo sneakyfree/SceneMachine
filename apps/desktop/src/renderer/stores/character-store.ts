@@ -47,10 +47,7 @@ interface CharacterStoreState {
   fetchCharacter: (characterId: string) => Promise<Character | null>;
 
   // Async actions - Update
-  updateCharacter: (
-    characterId: string,
-    data: CharacterUpdateRequest
-  ) => Promise<boolean>;
+  updateCharacter: (characterId: string, data: CharacterUpdateRequest) => Promise<boolean>;
 
   // Async actions - Description generation
   generateDescription: (characterId: string) => Promise<GeneratedCharacterDescription | null>;
@@ -121,7 +118,7 @@ export const useCharacterStore = create<CharacterStoreState>()(
       setSelectedCharacterId: (id) =>
         set((state) => {
           state.selectedCharacterId = id;
-          state.selectedCharacter = id ? state.characterMap[id] ?? null : null;
+          state.selectedCharacter = id ? (state.characterMap[id] ?? null) : null;
         }),
 
       setError: (error) =>
@@ -321,9 +318,7 @@ export const useCharacterStore = create<CharacterStoreState>()(
               if (existing) {
                 const updated = {
                   ...existing,
-                  referenceImages: (existing.referenceImages ?? []).filter(
-                    (r) => r.id !== assetId
-                  ),
+                  referenceImages: (existing.referenceImages ?? []).filter((r) => r.id !== assetId),
                 };
                 state.characterMap[characterId] = updated;
                 const idx = state.characters.findIndex((c) => c.id === characterId);
@@ -509,10 +504,11 @@ export const useCharacterStore = create<CharacterStoreState>()(
  * Hook to get the count of locked characters.
  */
 export function useLockedCharacterCount(): number {
-  return useCharacterStore((state) =>
-    state.characters.filter(
-      (c) => c.lockState === 'locked' || c.lockState === 'locked_with_reference'
-    ).length
+  return useCharacterStore(
+    (state) =>
+      state.characters.filter(
+        (c) => c.lockState === 'locked' || c.lockState === 'locked_with_reference'
+      ).length
   );
 }
 
@@ -535,10 +531,7 @@ export function useCharacterCompletion(): number {
   return useCharacterStore((state) => {
     if (state.characters.length === 0) return 0;
     const complete = state.characters.filter(
-      (c) =>
-        c.physicalDescription &&
-        c.lockState !== 'unlocked' &&
-        c.voiceId !== null
+      (c) => c.physicalDescription && c.lockState !== 'unlocked' && c.voiceId !== null
     ).length;
     return Math.round((complete / state.characters.length) * 100);
   });

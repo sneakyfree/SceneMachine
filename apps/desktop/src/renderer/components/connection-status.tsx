@@ -7,14 +7,7 @@
  */
 
 import { memo, useState } from 'react';
-import {
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  Radio,
-  AlertTriangle,
-  CheckCircle,
-} from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, Radio, AlertTriangle, CheckCircle } from 'lucide-react';
 import {
   wsClient,
   useWebSocketStore,
@@ -127,11 +120,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
   // Support legacy showLabel prop
   const displayMode = showLabel ? 'badge' : mode;
 
-  const statusInfo = getConnectionStatusInfo(
-    connectionState,
-    reconnectAttempts,
-    error
-  );
+  const statusInfo = getConnectionStatusInfo(connectionState, reconnectAttempts, error);
   const sizes = sizeClasses[size];
   const colors = colorClasses[statusInfo.color];
 
@@ -221,9 +210,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
       )}
 
       {isPolling && (
-        <p className="text-yellow-300 text-xs">
-          Real-time updates may be delayed while polling
-        </p>
+        <p className="text-yellow-300 text-xs">Real-time updates may be delayed while polling</p>
       )}
 
       {/* Reconnect button for error/disconnected states */}
@@ -266,11 +253,7 @@ export const ConnectionStatusBanner = memo(function ConnectionStatusBanner({
     return null;
   }
 
-  const statusInfo = getConnectionStatusInfo(
-    connectionState,
-    reconnectAttempts,
-    error
-  );
+  const statusInfo = getConnectionStatusInfo(connectionState, reconnectAttempts, error);
   const colors = colorClasses[statusInfo.color];
 
   const handleReconnect = () => {
@@ -289,22 +272,14 @@ export const ConnectionStatusBanner = memo(function ConnectionStatusBanner({
       role="alert"
     >
       <div className="flex items-center gap-3">
-        <span className={colors.text}>
-          {getIcon(statusInfo.icon, 'w-4 h-4')}
-        </span>
+        <span className={colors.text}>{getIcon(statusInfo.icon, 'w-4 h-4')}</span>
         <div>
-          <span className={cn('font-medium', colors.text)}>
-            {statusInfo.label}
-          </span>
+          <span className={cn('font-medium', colors.text)}>{statusInfo.label}</span>
           {statusInfo.message && (
-            <span className="ml-2 text-surface-400 text-sm">
-              {statusInfo.message}
-            </span>
+            <span className="ml-2 text-surface-400 text-sm">{statusInfo.message}</span>
           )}
           {isPolling && (
-            <span className="ml-2 text-yellow-300 text-sm">
-              Updates may be delayed
-            </span>
+            <span className="ml-2 text-yellow-300 text-sm">Updates may be delayed</span>
           )}
         </div>
       </div>

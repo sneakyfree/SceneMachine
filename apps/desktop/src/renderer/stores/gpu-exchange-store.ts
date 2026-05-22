@@ -111,7 +111,11 @@ interface GPUExchangeStoreState {
     useSpot?: boolean;
   }) => Promise<GPUCostEstimate | null>;
   setBudgetLimit: (projectId: string, limitUsd: number) => Promise<boolean>;
-  checkBudget: (projectId: string, estimatedCost: number, currentSpent?: number) => Promise<{
+  checkBudget: (
+    projectId: string,
+    estimatedCost: number,
+    currentSpent?: number
+  ) => Promise<{
     allowed: boolean;
     warning?: string;
   }>;
@@ -420,15 +424,11 @@ export const useGPUExchangeStore = create<GPUExchangeStoreState>()(
 
         getHealthyProviders: () => {
           const state = get();
-          return state.providers.filter(
-            (p) => state.providersHealth[p.id]?.available
-          );
+          return state.providers.filter((p) => state.providersHealth[p.id]?.available);
         },
 
         getProvidersForGPUType: (gpuType) => {
-          return get().providers.filter((p) =>
-            p.supported_gpu_types.includes(gpuType)
-          );
+          return get().providers.filter((p) => p.supported_gpu_types.includes(gpuType));
         },
 
         getCurrentRoutingConfig: () => {
@@ -436,9 +436,7 @@ export const useGPUExchangeStore = create<GPUExchangeStoreState>()(
           return {
             priority: state.routingPriority,
             max_price_usd: state.maxPriceUsd ?? undefined,
-            preferred_providers: state.selectedProvider
-              ? [state.selectedProvider]
-              : [],
+            preferred_providers: state.selectedProvider ? [state.selectedProvider] : [],
             preferred_regions: [state.selectedRegion],
             allow_spot: state.allowSpot,
           };

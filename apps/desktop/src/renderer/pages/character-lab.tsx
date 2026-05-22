@@ -115,10 +115,9 @@ export function CharacterLabPage() {
   const { data: characters, isLoading } = useQuery({
     queryKey: ['characters', projectId],
     queryFn: async () => {
-      const result = await window.electronAPI.backendRequest<Character[]>(
-        'characters.list',
-        { project_id: projectId }
-      );
+      const result = await window.electronAPI.backendRequest<Character[]>('characters.list', {
+        project_id: projectId,
+      });
       return result;
     },
     enabled: !!projectId,
@@ -265,10 +264,9 @@ export function CharacterLabPage() {
   // FEAT-027: Check consistency mutation
   const checkConsistencyMutation = useMutation({
     mutationFn: async (characterId: string) => {
-      return window.electronAPI.backendRequest<{ score: number }>(
-        'characters.checkConsistency',
-        { character_id: characterId }
-      );
+      return window.electronAPI.backendRequest<{ score: number }>('characters.checkConsistency', {
+        character_id: characterId,
+      });
     },
     onSuccess: (_result, characterId) => {
       const char = characters?.find((c) => c.id === characterId);
@@ -313,9 +311,7 @@ export function CharacterLabPage() {
       try {
         const result = await window.electronAPI.openFile({
           title: 'Select Reference Image',
-          filters: [
-            { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
-          ],
+          filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
           properties: ['openFile'],
         });
 
@@ -451,8 +447,8 @@ export function CharacterLabPage() {
             </h3>
             <p className="text-sm text-surface-300 mt-1">
               {isStoryMode
-                ? 'Saving a character\'s look ensures they appear the same in every scene of your movie. Describe how they look, add reference photos if you have them, and save their appearance before creating your scenes.'
-                : 'Locking a character\'s appearance ensures they look consistent across all generated scenes. Define their physical features, upload reference images, and lock them before proceeding to scene generation.'}
+                ? "Saving a character's look ensures they appear the same in every scene of your movie. Describe how they look, add reference photos if you have them, and save their appearance before creating your scenes."
+                : "Locking a character's appearance ensures they look consistent across all generated scenes. Define their physical features, upload reference images, and lock them before proceeding to scene generation."}
             </p>
           </div>
         </div>
@@ -475,35 +471,33 @@ export function CharacterLabPage() {
         {/* Filters */}
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-surface-500" />
-          {(['all', 'locked', 'unlocked', 'protagonist'] as FilterType[]).map(
-            (filterType) => {
-              // Use friendly terms for filter labels
-              const getFilterLabel = (type: FilterType) => {
-                switch (type) {
-                  case 'locked':
-                    return getTerm('locked', 'characters');
-                  case 'unlocked':
-                    return getTerm('unlocked', 'characters');
-                  default:
-                    return type.charAt(0).toUpperCase() + type.slice(1);
-                }
-              };
-              return (
-                <button
-                  key={filterType}
-                  onClick={() => setFilter(filterType)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-lg text-sm transition-colors',
-                    filter === filterType
-                      ? 'bg-brand-500/20 text-brand-400'
-                      : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
-                  )}
-                >
-                  {getFilterLabel(filterType)}
-                </button>
-              );
-            }
-          )}
+          {(['all', 'locked', 'unlocked', 'protagonist'] as FilterType[]).map((filterType) => {
+            // Use friendly terms for filter labels
+            const getFilterLabel = (type: FilterType) => {
+              switch (type) {
+                case 'locked':
+                  return getTerm('locked', 'characters');
+                case 'unlocked':
+                  return getTerm('unlocked', 'characters');
+                default:
+                  return type.charAt(0).toUpperCase() + type.slice(1);
+              }
+            };
+            return (
+              <button
+                key={filterType}
+                onClick={() => setFilter(filterType)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-sm transition-colors',
+                  filter === filterType
+                    ? 'bg-brand-500/20 text-brand-400'
+                    : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
+                )}
+              >
+                {getFilterLabel(filterType)}
+              </button>
+            );
+          })}
         </div>
 
         {/* Bulk Actions */}
@@ -541,14 +535,18 @@ export function CharacterLabPage() {
         onEmptyAction={
           searchQuery || filter !== 'all'
             ? () => {
-              setSearchQuery('');
-              setFilter('all');
-            }
+                setSearchQuery('');
+                setFilter('all');
+              }
             : undefined
         }
       >
         {filteredCharacters && filteredCharacters.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" role="list" aria-label="Characters">
+          <div
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+            role="list"
+            aria-label="Characters"
+          >
             {filteredCharacters.map((character) => (
               <div key={character.id} role="listitem">
                 <CharacterCard

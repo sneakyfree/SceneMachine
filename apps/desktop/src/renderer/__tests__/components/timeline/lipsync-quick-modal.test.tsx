@@ -129,9 +129,7 @@ describe('LipSyncQuickModal', () => {
 
     it('should show provider description', () => {
       render(<LipSyncQuickModal {...defaultProps} />);
-      expect(
-        screen.getByText('Mock provider for testing purposes')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Mock provider for testing purposes')).toBeInTheDocument();
     });
   });
 

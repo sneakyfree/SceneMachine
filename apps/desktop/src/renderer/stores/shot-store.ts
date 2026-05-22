@@ -53,7 +53,11 @@ interface ShotStoreState {
   deleteShot: (shotId: string) => Promise<boolean>;
 
   // Async actions - Generation
-  queueShot: (shotId: string, provider?: string, priority?: number) => Promise<QueuedJobResult | null>;
+  queueShot: (
+    shotId: string,
+    provider?: string,
+    priority?: number
+  ) => Promise<QueuedJobResult | null>;
   approveShot: (shotId: string) => Promise<boolean>;
   rejectShot: (shotId: string, notes?: string) => Promise<boolean>;
 
@@ -100,14 +104,16 @@ export const useShotStore = create<ShotStoreState>()(
           });
           // Sort shots by number within each scene
           Object.keys(state.shotsByScene).forEach((sceneId: string) => {
-            state.shotsByScene[sceneId].sort((a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber);
+            state.shotsByScene[sceneId].sort(
+              (a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber
+            );
           });
         }),
 
       setSelectedShotId: (id: string | null) =>
         set((state) => {
           state.selectedShotId = id;
-          state.selectedShot = id ? state.shotMap[id] ?? null : null;
+          state.selectedShot = id ? (state.shotMap[id] ?? null) : null;
         }),
 
       updateShotInState: (shot: Shot) =>
@@ -120,7 +126,9 @@ export const useShotStore = create<ShotStoreState>()(
               state.shotsByScene[shot.sceneId][idx] = shot;
             } else {
               state.shotsByScene[shot.sceneId].push(shot);
-              state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber);
+              state.shotsByScene[shot.sceneId].sort(
+                (a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber
+              );
             }
           } else {
             state.shotsByScene[shot.sceneId] = [shot];
@@ -172,7 +180,9 @@ export const useShotStore = create<ShotStoreState>()(
               state.shotsByScene[shot.sceneId][idx] = shot;
             } else {
               state.shotsByScene[shot.sceneId].push(shot);
-              state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber);
+              state.shotsByScene[shot.sceneId].sort(
+                (a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber
+              );
             }
             if (state.selectedShotId === shotId) {
               state.selectedShot = shot;
@@ -249,7 +259,9 @@ export const useShotStore = create<ShotStoreState>()(
               state.shotsByScene[shot.sceneId] = [];
             }
             state.shotsByScene[shot.sceneId].push(shot);
-            state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber);
+            state.shotsByScene[shot.sceneId].sort(
+              (a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber
+            );
             state.isLoading = false;
           });
           return shot;
@@ -314,7 +326,9 @@ export const useShotStore = create<ShotStoreState>()(
               const updated = { ...shot, state: 'queued' as const };
               state.shotMap[shotId] = updated;
               if (state.shotsByScene[shot.sceneId]) {
-                const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
+                const idx = state.shotsByScene[shot.sceneId].findIndex(
+                  (s: Shot) => s.id === shotId
+                );
                 if (idx >= 0) {
                   state.shotsByScene[shot.sceneId][idx] = updated;
                 }
@@ -358,7 +372,9 @@ export const useShotStore = create<ShotStoreState>()(
                 const updated = { ...shot, state: 'approved' as const };
                 state.shotMap[shotId] = updated;
                 if (state.shotsByScene[shot.sceneId]) {
-                  const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
+                  const idx = state.shotsByScene[shot.sceneId].findIndex(
+                    (s: Shot) => s.id === shotId
+                  );
                   if (idx >= 0) {
                     state.shotsByScene[shot.sceneId][idx] = updated;
                   }
@@ -405,9 +421,7 @@ export const useShotStore = create<ShotStoreState>()(
                 const updated = { ...shot, state: 'rejected' as const };
                 state.shotMap[shotId] = updated;
                 if (state.shotsByScene[sceneId]) {
-                  const idx = state.shotsByScene[sceneId].findIndex(
-                    (s: Shot) => s.id === shotId,
-                  );
+                  const idx = state.shotsByScene[sceneId].findIndex((s: Shot) => s.id === shotId);
                   if (idx >= 0) {
                     state.shotsByScene[sceneId][idx] = updated;
                   }
@@ -494,9 +508,7 @@ export function useShotStats(): {
     const approved = shots.filter((s: Shot) => s.state === 'approved').length;
     const rejected = shots.filter((s: Shot) => s.state === 'rejected').length;
 
-    const progressPercentage = total > 0
-      ? Math.round(((generated + approved) / total) * 100)
-      : 0;
+    const progressPercentage = total > 0 ? Math.round(((generated + approved) / total) * 100) : 0;
 
     return {
       total,

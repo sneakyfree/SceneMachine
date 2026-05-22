@@ -4,17 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import {
-  Play,
-  Trash2,
-  Lock,
-  Unlock,
-  Eye,
-  EyeOff,
-  Copy,
-  Scissors,
-  Mic,
-} from 'lucide-react';
+import { Play, Trash2, Lock, Unlock, Eye, EyeOff, Copy, Scissors, Mic } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface ClipContextMenuProps {
@@ -64,9 +54,7 @@ function MenuItem({
     >
       <span className="w-4 h-4 flex-shrink-0">{icon}</span>
       <span className="flex-1">{label}</span>
-      {shortcut && (
-        <span className="text-xs text-surface-500 ml-2">{shortcut}</span>
-      )}
+      {shortcut && <span className="text-xs text-surface-500 ml-2">{shortcut}</span>}
     </button>
   );
 }

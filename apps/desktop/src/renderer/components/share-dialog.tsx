@@ -33,12 +33,7 @@ interface ShareDialogProps {
   onClose: () => void;
 }
 
-export function ShareDialog({
-  projectId,
-  projectName,
-  isOpen,
-  onClose,
-}: ShareDialogProps) {
+export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDialogProps) {
   const [tab, setTab] = useState<'create' | 'manage'>('create');
   const [isCreating, setIsCreating] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -81,7 +76,16 @@ export function ShareDialog({
     } finally {
       setIsCreating(false);
     }
-  }, [projectId, permission, recipientEmail, recipientName, message, expiresInDays, isPublic, createShare]);
+  }, [
+    projectId,
+    permission,
+    recipientEmail,
+    recipientName,
+    message,
+    expiresInDays,
+    isPublic,
+    createShare,
+  ]);
 
   const handleCopy = useCallback(async (text: string) => {
     try {
@@ -93,11 +97,14 @@ export function ShareDialog({
     }
   }, []);
 
-  const handleRevoke = useCallback(async (shareId: string) => {
-    if (confirm('Are you sure you want to revoke this share?')) {
-      await revokeShare(shareId);
-    }
-  }, [revokeShare]);
+  const handleRevoke = useCallback(
+    async (shareId: string) => {
+      if (confirm('Are you sure you want to revoke this share?')) {
+        await revokeShare(shareId);
+      }
+    },
+    [revokeShare]
+  );
 
   const resetForm = useCallback(() => {
     setRecipientEmail('');
@@ -232,7 +239,9 @@ export function ShareDialog({
                 </label>
                 <select
                   value={expiresInDays ?? 'never'}
-                  onChange={(e) => setExpiresInDays(e.target.value === 'never' ? null : parseInt(e.target.value))}
+                  onChange={(e) =>
+                    setExpiresInDays(e.target.value === 'never' ? null : parseInt(e.target.value))
+                  }
                   className="w-full px-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 >
                   <option value="1">1 day</option>
@@ -325,11 +334,7 @@ export function ShareDialog({
                     onClick={() => handleCopy(createdShare.shareUrl)}
                     className="p-2 bg-brand-600 hover:bg-brand-500 rounded transition-colors"
                   >
-                    {copySuccess ? (
-                      <Check className="w-4 h-4" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
+                    {copySuccess ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
@@ -413,10 +418,12 @@ function ShareListItem({ share, onRevoke }: ShareListItemProps) {
 
   return (
     <div className="flex items-center gap-3 p-3 bg-surface-800 rounded-lg">
-      <div className={cn(
-        'p-2 rounded-lg',
-        share.isPublic ? 'bg-green-500/20 text-green-400' : 'bg-brand-500/20 text-brand-400'
-      )}>
+      <div
+        className={cn(
+          'p-2 rounded-lg',
+          share.isPublic ? 'bg-green-500/20 text-green-400' : 'bg-brand-500/20 text-brand-400'
+        )}
+      >
         {share.isPublic ? <Globe className="w-4 h-4" /> : <Link className="w-4 h-4" />}
       </div>
 
@@ -429,10 +436,12 @@ function ShareListItem({ share, onRevoke }: ShareListItemProps) {
           ) : (
             <span className="text-sm text-surface-400 italic">Public link</span>
           )}
-          <span className={cn(
-            'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs',
-            'bg-surface-700 text-surface-300'
-          )}>
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs',
+              'bg-surface-700 text-surface-300'
+            )}
+          >
             {getPermissionIcon(share.permission)}
             {share.permission}
           </span>

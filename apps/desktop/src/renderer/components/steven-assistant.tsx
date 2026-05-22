@@ -57,14 +57,10 @@ const PAGE_SUGGESTIONS: Record<string, string[]> = {
   ],
   '/generation': [
     'How long does generation take?',
-    'What if I don\'t like a result?',
+    "What if I don't like a result?",
     'How do I prioritize certain shots?',
   ],
-  '/timeline': [
-    'How do I reorder clips?',
-    'What are transitions?',
-    'How do I trim a clip?',
-  ],
+  '/timeline': ['How do I reorder clips?', 'What are transitions?', 'How do I trim a clip?'],
   '/export': [
     'What format should I choose?',
     'What resolution is best?',
@@ -87,10 +83,12 @@ function StevenAvatar({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
         sizeClasses[size]
       )}
     >
-      <Film className={cn(
-        'text-white',
-        size === 'sm' ? 'w-4 h-4' : size === 'md' ? 'w-5 h-5' : 'w-6 h-6'
-      )} />
+      <Film
+        className={cn(
+          'text-white',
+          size === 'sm' ? 'w-4 h-4' : size === 'md' ? 'w-5 h-5' : 'w-6 h-6'
+        )}
+      />
     </div>
   );
 }
@@ -119,9 +117,7 @@ function MessageBubble({ message }: { message: StevenMessage }) {
         )}
       >
         {!isUser && message.type !== 'info' && (
-          <div className="flex items-center gap-1 mb-1">
-            {typeIcons[message.type]}
-          </div>
+          <div className="flex items-center gap-1 mb-1">{typeIcons[message.type]}</div>
         )}
         <p className="text-sm leading-relaxed">{message.content}</p>
       </div>
@@ -130,13 +126,7 @@ function MessageBubble({ message }: { message: StevenMessage }) {
 }
 
 // Quick suggestion button
-function SuggestionButton({
-  suggestion,
-  onClick,
-}: {
-  suggestion: string;
-  onClick: () => void;
-}) {
+function SuggestionButton({ suggestion, onClick }: { suggestion: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -172,12 +162,14 @@ export function StevenAssistant() {
   useEffect(() => {
     if (messages.length === 0) {
       const welcomeMessage = STEVEN_MESSAGES.welcome[0];
-      setMessages([{
-        id: '1',
-        content: welcomeMessage,
-        type: 'info',
-        timestamp: Date.now(),
-      }]);
+      setMessages([
+        {
+          id: '1',
+          content: welcomeMessage,
+          type: 'info',
+          timestamp: Date.now(),
+        },
+      ]);
     }
   }, []);
 
@@ -268,11 +260,7 @@ export function StevenAssistant() {
             title={isExpanded ? 'Collapse' : 'Expand'}
             aria-label={isExpanded ? 'Collapse Steven assistant' : 'Expand Steven assistant'}
           >
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronUp className="w-4 h-4" />
-            )}
+            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
           </button>
           <button
             onClick={() => setStevenMinimized(true)}
@@ -286,10 +274,7 @@ export function StevenAssistant() {
       </div>
 
       {/* Messages */}
-      <div className={cn(
-        'flex-1 overflow-y-auto p-4 space-y-4',
-        !isExpanded && 'max-h-64'
-      )}>
+      <div className={cn('flex-1 overflow-y-auto p-4 space-y-4', !isExpanded && 'max-h-64')}>
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
@@ -299,9 +284,18 @@ export function StevenAssistant() {
             <StevenAvatar size="sm" />
             <div className="bg-surface-800 rounded-2xl rounded-bl-sm px-4 py-2">
               <div className="flex gap-1">
-                <span className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span
+                  className="w-2 h-2 bg-surface-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-2 h-2 bg-surface-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-2 h-2 bg-surface-500 rounded-full animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
               </div>
             </div>
           </div>
@@ -361,7 +355,8 @@ function generateResponse(
   // Project creation
   if (q.includes('start') || q.includes('new project') || q.includes('begin')) {
     return {
-      content: 'To start a new project, click the "+ New Project" button on the home page. Give your project a name, then drag and drop your screenplay file to get started!',
+      content:
+        'To start a new project, click the "+ New Project" button on the home page. Give your project a name, then drag and drop your screenplay file to get started!',
       type: 'info',
     };
   }
@@ -369,15 +364,17 @@ function generateResponse(
   // File formats
   if (q.includes('format') || q.includes('file') || q.includes('upload')) {
     return {
-      content: 'I can read Fountain (.fountain), Final Draft (.fdx), PDF (.pdf), and plain text (.txt) files. Fountain and Final Draft work best because they have proper screenplay formatting.',
+      content:
+        'I can read Fountain (.fountain), Final Draft (.fdx), PDF (.pdf), and plain text (.txt) files. Fountain and Final Draft work best because they have proper screenplay formatting.',
       type: 'info',
     };
   }
 
   // Workflow
-  if (q.includes('workflow') || q.includes('how') && q.includes('work')) {
+  if (q.includes('workflow') || (q.includes('how') && q.includes('work'))) {
     return {
-      content: 'Here\'s how we\'ll make your movie together: 1) Upload your screenplay, 2) I\'ll analyze it and find your characters, 3) You\'ll describe how they look, 4) I\'ll plan camera shots for each scene, 5) We\'ll generate video clips, 6) Export your finished movie!',
+      content:
+        "Here's how we'll make your movie together: 1) Upload your screenplay, 2) I'll analyze it and find your characters, 3) You'll describe how they look, 4) I'll plan camera shots for each scene, 5) We'll generate video clips, 6) Export your finished movie!",
       type: 'info',
     };
   }
@@ -385,7 +382,8 @@ function generateResponse(
   // Characters
   if (q.includes('character') || q.includes('describe')) {
     return {
-      content: 'For each character, you can describe their appearance (age, height, hair, etc.), upload reference photos, and even assign a voice for dialogue. The more detail you give, the more consistent they\'ll look across scenes!',
+      content:
+        "For each character, you can describe their appearance (age, height, hair, etc.), upload reference photos, and even assign a voice for dialogue. The more detail you give, the more consistent they'll look across scenes!",
       type: 'info',
     };
   }
@@ -393,7 +391,8 @@ function generateResponse(
   // Shots
   if (q.includes('shot') || q.includes('camera') || q.includes('angle')) {
     return {
-      content: 'A shot breakdown is like a comic book version of your scene - each panel shows a different camera angle. I suggest shots like close-ups for emotional moments and wide shots to show the setting. You can customize any of my suggestions!',
+      content:
+        'A shot breakdown is like a comic book version of your scene - each panel shows a different camera angle. I suggest shots like close-ups for emotional moments and wide shots to show the setting. You can customize any of my suggestions!',
       type: 'info',
     };
   }
@@ -401,15 +400,17 @@ function generateResponse(
   // Generation
   if (q.includes('generate') || q.includes('long') || q.includes('time')) {
     return {
-      content: 'Each shot typically takes 30-60 seconds to generate. A full scene might take 5-10 minutes. I\'ll keep you updated on progress, and you can preview completed shots while others are still cooking!',
+      content:
+        "Each shot typically takes 30-60 seconds to generate. A full scene might take 5-10 minutes. I'll keep you updated on progress, and you can preview completed shots while others are still cooking!",
       type: 'info',
     };
   }
 
   // Don't like result
-  if (q.includes('don\'t like') || q.includes('change') || q.includes('redo')) {
+  if (q.includes("don't like") || q.includes('change') || q.includes('redo')) {
     return {
-      content: 'No problem! If a generated shot doesn\'t look right, just click "Reject" and I\'ll generate a new version. You can also tweak the description to guide the AI toward what you want.',
+      content:
+        'No problem! If a generated shot doesn\'t look right, just click "Reject" and I\'ll generate a new version. You can also tweak the description to guide the AI toward what you want.',
       type: 'info',
     };
   }
@@ -417,7 +418,8 @@ function generateResponse(
   // Resolution/format
   if (q.includes('resolution') || q.includes('quality')) {
     return {
-      content: 'For sharing online, 1080p (Full HD) is perfect - it looks great and files aren\'t too big. If you\'re planning for a big screen or professional use, go for 4K. For quick previews, 720p is fast to export.',
+      content:
+        "For sharing online, 1080p (Full HD) is perfect - it looks great and files aren't too big. If you're planning for a big screen or professional use, go for 4K. For quick previews, 720p is fast to export.",
       type: 'info',
     };
   }
@@ -426,25 +428,29 @@ function generateResponse(
   if (q.includes('next') || q.includes('what should')) {
     if (currentPath === '/') {
       return {
-        content: 'Let\'s create a new project! Click the "+ New Project" button and give it a name. Then we can upload your screenplay.',
+        content:
+          'Let\'s create a new project! Click the "+ New Project" button and give it a name. Then we can upload your screenplay.',
         type: 'info',
       };
     }
     if (currentPath.includes('project')) {
       return {
-        content: 'Looking at your project, the next step is to upload a screenplay. Just drag and drop your file, and I\'ll take it from there!',
+        content:
+          "Looking at your project, the next step is to upload a screenplay. Just drag and drop your file, and I'll take it from there!",
         type: 'info',
       };
     }
     return {
-      content: 'Based on where you are, I\'d suggest moving to the next step in our workflow. Would you like me to guide you through it?',
+      content:
+        "Based on where you are, I'd suggest moving to the next step in our workflow. Would you like me to guide you through it?",
       type: 'info',
     };
   }
 
   // Default response
   return {
-    content: 'Great question! I\'m here to help with anything related to making your movie. You can ask me about uploading screenplays, describing characters, planning shots, generating videos, or exporting your final film.',
+    content:
+      "Great question! I'm here to help with anything related to making your movie. You can ask me about uploading screenplays, describing characters, planning shots, generating videos, or exporting your final film.",
     type: 'info',
   };
 }

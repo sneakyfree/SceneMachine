@@ -70,18 +70,15 @@ export function ConflictModal<T = unknown>({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onCancel}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
 
       {/* Modal */}
       <div
         className={cn(
-          "relative w-full max-w-2xl mx-4",
-          "bg-surface-900 rounded-xl shadow-2xl",
-          "border border-surface-700",
-          "animate-in fade-in-0 zoom-in-95 duration-200"
+          'relative w-full max-w-2xl mx-4',
+          'bg-surface-900 rounded-xl shadow-2xl',
+          'border border-surface-700',
+          'animate-in fade-in-0 zoom-in-95 duration-200'
         )}
       >
         {/* Header */}
@@ -90,9 +87,7 @@ export function ConflictModal<T = unknown>({
             <AlertTriangle className="w-5 h-5 text-yellow-400" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">
-              Conflict Detected
-            </h2>
+            <h2 className="text-lg font-semibold text-white">Conflict Detected</h2>
             <p className="text-sm text-surface-400">
               Changes conflict with {conflict.theirUserName}&apos;s edits to{' '}
               <span className="text-surface-200">{conflict.elementName}</span>
@@ -107,10 +102,10 @@ export function ConflictModal<T = unknown>({
             {/* Your changes */}
             <div
               className={cn(
-                "rounded-lg border-2 cursor-pointer transition-all",
+                'rounded-lg border-2 cursor-pointer transition-all',
                 selectedOption === 'mine'
-                  ? "border-primary-500 bg-primary-500/10"
-                  : "border-surface-700 hover:border-surface-600"
+                  ? 'border-primary-500 bg-primary-500/10'
+                  : 'border-surface-700 hover:border-surface-600'
               )}
               onClick={() => setSelectedOption('mine')}
             >
@@ -121,24 +116,24 @@ export function ConflictModal<T = unknown>({
                   <Check className="w-4 h-4 text-primary-400 ml-auto" />
                 )}
               </div>
-              <div className="p-4">
-                {preview(conflict.yourChanges, 'Your version')}
-              </div>
+              <div className="p-4">{preview(conflict.yourChanges, 'Your version')}</div>
             </div>
 
             {/* Their changes */}
             <div
               className={cn(
-                "rounded-lg border-2 cursor-pointer transition-all",
+                'rounded-lg border-2 cursor-pointer transition-all',
                 selectedOption === 'theirs'
-                  ? "border-orange-500 bg-orange-500/10"
-                  : "border-surface-700 hover:border-surface-600"
+                  ? 'border-orange-500 bg-orange-500/10'
+                  : 'border-surface-700 hover:border-surface-600'
               )}
               onClick={() => setSelectedOption('theirs')}
             >
               <div className="flex items-center gap-2 px-4 py-3 border-b border-surface-700">
                 <Users className="w-4 h-4 text-orange-400" />
-                <span className="font-medium text-white">{conflict.theirUserName}&apos;s Changes</span>
+                <span className="font-medium text-white">
+                  {conflict.theirUserName}&apos;s Changes
+                </span>
                 {selectedOption === 'theirs' && (
                   <Check className="w-4 h-4 text-orange-400 ml-auto" />
                 )}
@@ -153,10 +148,10 @@ export function ConflictModal<T = unknown>({
           {conflict.canAutoMerge && conflict.mergedVersion && (
             <div
               className={cn(
-                "rounded-lg border-2 cursor-pointer transition-all",
+                'rounded-lg border-2 cursor-pointer transition-all',
                 selectedOption === 'merge'
-                  ? "border-green-500 bg-green-500/10"
-                  : "border-surface-700 hover:border-surface-600"
+                  ? 'border-green-500 bg-green-500/10'
+                  : 'border-surface-700 hover:border-surface-600'
               )}
               onClick={() => setSelectedOption('merge')}
             >
@@ -166,13 +161,9 @@ export function ConflictModal<T = unknown>({
                 <span className="text-xs text-surface-400 px-2 py-0.5 bg-green-500/20 rounded">
                   Recommended
                 </span>
-                {selectedOption === 'merge' && (
-                  <Check className="w-4 h-4 text-green-400 ml-auto" />
-                )}
+                {selectedOption === 'merge' && <Check className="w-4 h-4 text-green-400 ml-auto" />}
               </div>
-              <div className="p-4">
-                {preview(conflict.mergedVersion, 'Combined changes')}
-              </div>
+              <div className="p-4">{preview(conflict.mergedVersion, 'Combined changes')}</div>
             </div>
           )}
         </div>
@@ -182,10 +173,10 @@ export function ConflictModal<T = unknown>({
           <button
             onClick={onCancel}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium",
-              "bg-surface-800 text-surface-200",
-              "hover:bg-surface-700 transition-colors",
-              "focus:outline-none focus:ring-2 focus:ring-surface-500"
+              'px-4 py-2 rounded-lg text-sm font-medium',
+              'bg-surface-800 text-surface-200',
+              'hover:bg-surface-700 transition-colors',
+              'focus:outline-none focus:ring-2 focus:ring-surface-500'
             )}
           >
             <X className="w-4 h-4 inline mr-2" />
@@ -196,11 +187,11 @@ export function ConflictModal<T = unknown>({
             onClick={handleResolve}
             disabled={!selectedOption || isResolving}
             className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium",
-              "bg-primary-500 text-white",
-              "hover:bg-primary-600 transition-colors",
-              "focus:outline-none focus:ring-2 focus:ring-primary-500",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              'px-4 py-2 rounded-lg text-sm font-medium',
+              'bg-primary-500 text-white',
+              'hover:bg-primary-600 transition-colors',
+              'focus:outline-none focus:ring-2 focus:ring-primary-500',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
             {isResolving ? (

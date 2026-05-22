@@ -128,11 +128,7 @@ export class AutoSaveManager {
   /**
    * Start auto-save for a project
    */
-  start(
-    projectId: string,
-    getData: () => any,
-    onRecover?: (data: any) => void
-  ): void {
+  start(projectId: string, getData: () => any, onRecover?: (data: any) => void): void {
     this.stop();
 
     this.currentProjectId = projectId;
@@ -211,10 +207,7 @@ export class AutoSaveManager {
       };
 
       // Save current version
-      localStorage.setItem(
-        `${AUTOSAVE_PREFIX}${this.currentProjectId}`,
-        JSON.stringify(state)
-      );
+      localStorage.setItem(`${AUTOSAVE_PREFIX}${this.currentProjectId}`, JSON.stringify(state));
 
       // Save to version history
       this.saveVersionHistory(state);
@@ -229,9 +222,7 @@ export class AutoSaveManager {
       );
     } catch (error) {
       console.error('Auto-save failed:', error);
-      window.dispatchEvent(
-        new CustomEvent('autosave:error', { detail: { error } })
-      );
+      window.dispatchEvent(new CustomEvent('autosave:error', { detail: { error } }));
     }
   }
 

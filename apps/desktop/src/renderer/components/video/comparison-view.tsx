@@ -22,12 +22,7 @@ interface ComparisonViewProps {
   className?: string;
 }
 
-export function ComparisonView({
-  videos,
-  onClose,
-  onSelectBest,
-  className,
-}: ComparisonViewProps) {
+export function ComparisonView({ videos, onClose, onSelectBest, className }: ComparisonViewProps) {
   const [selectedBest, setSelectedBest] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -91,15 +86,18 @@ export function ComparisonView({
   }, [selectedBest, onSelectBest, onClose]);
 
   // Register video element
-  const registerVideo = useCallback((id: string, element: HTMLVideoElement | null) => {
-    if (element) {
-      videoRefs.current.set(id, element);
-      element.volume = volume;
-      element.muted = isMuted;
-    } else {
-      videoRefs.current.delete(id);
-    }
-  }, [volume, isMuted]);
+  const registerVideo = useCallback(
+    (id: string, element: HTMLVideoElement | null) => {
+      if (element) {
+        videoRefs.current.set(id, element);
+        element.volume = volume;
+        element.muted = isMuted;
+      } else {
+        videoRefs.current.delete(id);
+      }
+    },
+    [volume, isMuted]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -129,18 +127,16 @@ export function ComparisonView({
   const duration = videoRefs.current.values().next().value?.duration || 0;
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  const gridClass = displayVideos.length === 2
-    ? 'grid-cols-2'
-    : displayVideos.length === 3
-    ? 'grid-cols-3'
-    : 'grid-cols-1';
+  const gridClass =
+    displayVideos.length === 2
+      ? 'grid-cols-2'
+      : displayVideos.length === 3
+        ? 'grid-cols-3'
+        : 'grid-cols-1';
 
   return (
     <div
-      className={cn(
-        'fixed inset-0 z-50 bg-black/95 flex flex-col',
-        className
-      )}
+      className={cn('fixed inset-0 z-50 bg-black/95 flex flex-col', className)}
       role="dialog"
       aria-label="Video comparison"
     >
@@ -188,7 +184,13 @@ export function ComparisonView({
             <video
               ref={(el) => registerVideo(video.id, el)}
               src={video.src.startsWith('file://') ? video.src : `file://${video.src}`}
-              poster={video.poster ? (video.poster.startsWith('file://') ? video.poster : `file://${video.poster}`) : undefined}
+              poster={
+                video.poster
+                  ? video.poster.startsWith('file://')
+                    ? video.poster
+                    : `file://${video.poster}`
+                  : undefined
+              }
               className="w-full h-full object-contain"
               playsInline
               onTimeUpdate={(e) => {

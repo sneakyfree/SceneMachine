@@ -4,16 +4,7 @@
 
 import React, { useCallback, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Check,
-  Image,
-  Loader2,
-  Plus,
-  Trash2,
-  Upload,
-  X,
-  AlertTriangle,
-} from 'lucide-react';
+import { Check, Image, Loader2, Plus, Trash2, Upload, X, AlertTriangle } from 'lucide-react';
 import { api, type WatermarkInfo } from '../api/client';
 import { cn } from '../lib/utils';
 import { useToast } from '../stores/toast-store';
@@ -104,9 +95,7 @@ function WatermarkThumbnail({
       </div>
       <div className="text-xs text-surface-500">
         {formatFileSize(watermark.sizeBytes)}
-        {watermark.isDefault && (
-          <span className="ml-1 text-brand-400">(Built-in)</span>
-        )}
+        {watermark.isDefault && <span className="ml-1 text-brand-400">(Built-in)</span>}
       </div>
 
       {/* Selected indicator */}
@@ -141,29 +130,38 @@ function WatermarkThumbnail({
 /**
  * Upload dropzone for adding new watermarks.
  */
-function UploadDropzone({ onUpload, isUploading }: {
+function UploadDropzone({
+  onUpload,
+  isUploading,
+}: {
   onUpload: (file: File) => void;
   isUploading: boolean;
 }) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      onUpload(file);
-    }
-  }, [onUpload]);
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        onUpload(file);
+      }
+    },
+    [onUpload]
+  );
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onUpload(file);
-    }
-  }, [onUpload]);
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        onUpload(file);
+      }
+    },
+    [onUpload]
+  );
 
   return (
     <div
@@ -197,9 +195,7 @@ function UploadDropzone({ onUpload, isUploading }: {
       <p className="mt-2 text-sm text-surface-400">
         {isUploading ? 'Uploading...' : 'Drop image or click to upload'}
       </p>
-      <p className="text-xs text-surface-500 mt-1">
-        PNG, JPG, WebP, GIF (max 5MB)
-      </p>
+      <p className="text-xs text-surface-500 mt-1">PNG, JPG, WebP, GIF (max 5MB)</p>
     </div>
   );
 }
@@ -308,9 +304,7 @@ export function WatermarkPicker({
         <>
           {/* Watermark gallery */}
           <div>
-            <label className="block text-sm text-surface-400 mb-2">
-              Select Watermark
-            </label>
+            <label className="block text-sm text-surface-400 mb-2">Select Watermark</label>
 
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -356,11 +350,7 @@ export function WatermarkPicker({
                     watermark={watermark}
                     selected={watermark.path === selectedPath}
                     onSelect={() => onSelect(watermark.path)}
-                    onDelete={
-                      watermark.isDefault
-                        ? undefined
-                        : () => handleDelete(watermark.id)
-                    }
+                    onDelete={watermark.isDefault ? undefined : () => handleDelete(watermark.id)}
                     isDeleting={deletingId === watermark.id}
                   />
                 ))}
@@ -371,9 +361,7 @@ export function WatermarkPicker({
           {/* Position selector */}
           {selectedPath && (
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Position
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Position</label>
               <div className="grid grid-cols-3 gap-2">
                 {POSITION_OPTIONS.map((opt) => (
                   <button

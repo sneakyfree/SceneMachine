@@ -24,13 +24,16 @@ export type FeatureArea =
   | 'settings';
 
 // Mode descriptions for UI
-export const MODE_INFO: Record<ExperienceMode, {
-  name: string;
-  shortName: string;
-  description: string;
-  icon: string;
-  color: string;
-}> = {
+export const MODE_INFO: Record<
+  ExperienceMode,
+  {
+    name: string;
+    shortName: string;
+    description: string;
+    icon: string;
+    color: string;
+  }
+> = {
   story: {
     name: 'Story Mode',
     shortName: 'Story',
@@ -96,86 +99,86 @@ export const FRIENDLY_TERMS: Record<string, Record<ExperienceMode, string>> = {
   },
 
   // Formats
-  'h264': {
+  h264: {
     story: 'Universal (Plays everywhere)',
     creator: 'MP4 (H.264)',
     pro: 'H.264/AVC MP4',
   },
-  'h265': {
+  h265: {
     story: 'Compact (Same quality, smaller file)',
     creator: 'MP4 (H.265)',
     pro: 'H.265/HEVC MP4',
   },
-  'prores': {
+  prores: {
     story: 'Professional (For editing)',
     creator: 'ProRes (Professional)',
     pro: 'Apple ProRes 422',
   },
-  'webm': {
+  webm: {
     story: 'Web-Ready (For websites)',
     creator: 'WebM (Web)',
     pro: 'VP9 WebM',
   },
 
   // Queue/Generation statuses
-  'queued': {
+  queued: {
     story: 'Waiting in line',
     creator: 'Queued',
     pro: 'Queued (pending)',
   },
-  'pending': {
+  pending: {
     story: 'Waiting in line',
     creator: 'Pending',
     pro: 'Pending',
   },
-  'preparing': {
+  preparing: {
     story: 'Getting ready...',
     creator: 'Preparing',
     pro: 'Preparing',
   },
-  'running': {
+  running: {
     story: 'Creating your video...',
     creator: 'Generating',
     pro: 'Running',
   },
-  'processing': {
+  processing: {
     story: 'Creating your video...',
     creator: 'Generating',
     pro: 'Processing',
   },
-  'post_processing': {
+  post_processing: {
     story: 'Almost done...',
     creator: 'Finishing up',
     pro: 'Post-processing',
   },
-  'completed': {
+  completed: {
     story: 'Done!',
     creator: 'Completed',
     pro: 'Completed',
   },
-  'failed': {
+  failed: {
     story: 'Something went wrong',
     creator: 'Failed',
     pro: 'Failed',
   },
-  'timeout': {
+  timeout: {
     story: 'Took too long, will try again',
     creator: 'Timed out',
     pro: 'Timeout',
   },
-  'cancelled': {
+  cancelled: {
     story: 'Stopped',
     creator: 'Cancelled',
     pro: 'Cancelled',
   },
 
   // Provider names
-  'replicate': {
+  replicate: {
     story: 'Cloud Processing',
     creator: 'Replicate',
     pro: 'Replicate API',
   },
-  'fal': {
+  fal: {
     story: 'Fast Cloud',
     creator: 'Fal.ai',
     pro: 'Fal.ai API',
@@ -185,7 +188,7 @@ export const FRIENDLY_TERMS: Record<string, Record<ExperienceMode, string>> = {
     creator: 'Local (ComfyUI)',
     pro: 'ComfyUI Local',
   },
-  'comfyui_local': {
+  comfyui_local: {
     story: 'Your Computer',
     creator: 'Local (ComfyUI)',
     pro: 'ComfyUI Local',
@@ -195,293 +198,293 @@ export const FRIENDLY_TERMS: Record<string, Record<ExperienceMode, string>> = {
     creator: 'RunPod',
     pro: 'RunPod Serverless',
   },
-  'runpod_serverless': {
+  runpod_serverless: {
     story: 'GPU Cloud',
     creator: 'RunPod',
     pro: 'RunPod Serverless',
   },
-  'local': {
+  local: {
     story: 'Your Computer',
     creator: 'Local',
     pro: 'Local',
   },
-  'mock': {
+  mock: {
     story: 'Preview Mode',
     creator: 'Mock (Testing)',
     pro: 'Mock Provider',
   },
 
   // Provider status / Circuit breaker
-  'circuit_open': {
+  circuit_open: {
     story: 'Taking a short break, will try again soon',
     creator: 'Temporarily unavailable',
     pro: 'Circuit breaker: OPEN',
   },
-  'circuit_closed': {
+  circuit_closed: {
     story: 'Ready to go!',
     creator: 'Available',
     pro: 'Circuit breaker: CLOSED',
   },
-  'circuit_half_open': {
+  circuit_half_open: {
     story: 'Testing connection...',
     creator: 'Recovering',
     pro: 'Circuit breaker: HALF_OPEN',
   },
 
   // Character workflow
-  'lock': {
+  lock: {
     story: 'Save Look',
     creator: 'Lock Appearance',
     pro: 'Lock Character',
   },
-  'locked': {
+  locked: {
     story: 'Look Saved',
     creator: 'Locked',
     pro: 'Locked',
   },
-  'unlock': {
+  unlock: {
     story: 'Change Look',
     creator: 'Unlock',
     pro: 'Unlock',
   },
-  'unlocked': {
+  unlocked: {
     story: 'Ready to Edit',
     creator: 'Unlocked',
     pro: 'Unlocked',
   },
-  'finalize': {
+  finalize: {
     story: 'Save Appearance',
     creator: 'Finalize',
     pro: 'Finalize',
   },
 
   // Shot types
-  'wide': {
+  wide: {
     story: 'Full Scene View',
     creator: 'Wide Shot',
     pro: 'Wide',
   },
-  'medium': {
+  medium: {
     story: 'Good Quality',
     creator: 'Medium Quality',
     pro: 'Medium (balanced)',
   },
-  'medium_shot': {
+  medium_shot: {
     story: 'Character View',
     creator: 'Medium Shot',
     pro: 'Medium Shot',
   },
-  'close_up': {
+  close_up: {
     story: 'Face Close-Up',
     creator: 'Close-Up',
     pro: 'CU',
   },
-  'extreme_close_up': {
+  extreme_close_up: {
     story: 'Detail Shot',
     creator: 'Extreme Close-Up',
     pro: 'ECU',
   },
-  'ots': {
+  ots: {
     story: 'Over Shoulder',
     creator: 'Over-the-Shoulder',
     pro: 'OTS',
   },
-  'over_the_shoulder': {
+  over_the_shoulder: {
     story: 'Over Shoulder',
     creator: 'Over-the-Shoulder',
     pro: 'OTS',
   },
-  'pov': {
+  pov: {
     story: 'First Person View',
     creator: 'Point of View',
     pro: 'POV',
   },
-  'point_of_view': {
+  point_of_view: {
     story: 'First Person View',
     creator: 'Point of View',
     pro: 'POV',
   },
-  'dutch_angle': {
+  dutch_angle: {
     story: 'Tilted Camera',
     creator: 'Dutch Angle',
     pro: 'Dutch Angle',
   },
-  'establishing': {
+  establishing: {
     story: 'Scene Opener',
     creator: 'Establishing Shot',
     pro: 'Establishing',
   },
-  'two_shot': {
+  two_shot: {
     story: 'Two People',
     creator: 'Two Shot',
     pro: '2-Shot',
   },
-  'group_shot': {
+  group_shot: {
     story: 'Group View',
     creator: 'Group Shot',
     pro: 'Group Shot',
   },
-  'insert': {
+  insert: {
     story: 'Detail Close-Up',
     creator: 'Insert Shot',
     pro: 'Insert',
   },
-  'aerial': {
-    story: 'Bird\'s Eye View',
+  aerial: {
+    story: "Bird's Eye View",
     creator: 'Aerial Shot',
     pro: 'Aerial',
   },
-  'tracking': {
+  tracking: {
     story: 'Moving Camera',
     creator: 'Tracking Shot',
     pro: 'Tracking',
   },
-  'dolly': {
+  dolly: {
     story: 'Smooth Move',
     creator: 'Dolly Shot',
     pro: 'Dolly',
   },
-  'crane': {
+  crane: {
     story: 'Rising Shot',
     creator: 'Crane Shot',
     pro: 'Crane',
   },
-  'handheld': {
+  handheld: {
     story: 'Natural Feel',
     creator: 'Handheld',
     pro: 'Handheld',
   },
-  'static': {
+  static: {
     story: 'Still Camera',
     creator: 'Static Shot',
     pro: 'Static',
   },
 
   // Camera movements
-  'pan': {
+  pan: {
     story: 'Camera Looks Left/Right',
     creator: 'Pan',
     pro: 'Pan',
   },
-  'tilt': {
+  tilt: {
     story: 'Camera Looks Up/Down',
     creator: 'Tilt',
     pro: 'Tilt',
   },
-  'zoom': {
+  zoom: {
     story: 'Zoom In/Out',
     creator: 'Zoom',
     pro: 'Zoom',
   },
-  'push_in': {
+  push_in: {
     story: 'Camera Moves Closer',
     creator: 'Push In',
     pro: 'Push In',
   },
-  'pull_out': {
+  pull_out: {
     story: 'Camera Moves Away',
     creator: 'Pull Out',
     pro: 'Pull Out',
   },
 
   // Quality
-  'low': {
+  low: {
     story: 'Quick Preview',
     creator: 'Low Quality',
     pro: 'Low (faster)',
   },
-  'high': {
+  high: {
     story: 'Great Quality',
     creator: 'High Quality',
     pro: 'High (slower)',
   },
-  'cinema': {
+  cinema: {
     story: 'Best Quality (Movie theater ready)',
     creator: 'Cinema Quality',
     pro: 'Cinema (maximum)',
   },
 
   // Priority levels
-  'urgent': {
+  urgent: {
     story: 'Do First!',
     creator: 'Urgent',
     pro: 'Urgent (P0)',
   },
-  'priority_high': {
+  priority_high: {
     story: 'Important',
     creator: 'High Priority',
     pro: 'High (P1)',
   },
-  'priority_normal': {
+  priority_normal: {
     story: 'Normal',
     creator: 'Normal Priority',
     pro: 'Normal (P2)',
   },
-  'priority_low': {
+  priority_low: {
     story: 'Can Wait',
     creator: 'Low Priority',
     pro: 'Low (P3)',
   },
 
   // Workflow steps
-  'screenplay_upload': {
+  screenplay_upload: {
     story: 'Add Your Script',
     creator: 'Upload Screenplay',
     pro: 'Upload Screenplay',
   },
-  'movie_plan': {
+  movie_plan: {
     story: 'AI Plans Your Movie',
     creator: 'Movie Plan',
     pro: 'Movie Plan Generation',
   },
-  'character_lab': {
+  character_lab: {
     story: 'Design Characters',
     creator: 'Character Lab',
     pro: 'Character Lab',
   },
-  'scene_planning': {
+  scene_planning: {
     story: 'Plan Each Scene',
     creator: 'Scene Planning',
     pro: 'Scene Breakdown',
   },
-  'generation': {
+  generation: {
     story: 'Create Videos',
     creator: 'Generation',
     pro: 'Video Generation',
   },
-  'export': {
+  export: {
     story: 'Save Your Movie',
     creator: 'Export',
     pro: 'Export',
   },
 
   // Misc UI terms
-  'approve': {
+  approve: {
     story: 'Looks Good!',
     creator: 'Approve',
     pro: 'Approve',
   },
-  'reject': {
+  reject: {
     story: 'Try Again',
     creator: 'Reject',
     pro: 'Reject',
   },
-  'regenerate': {
+  regenerate: {
     story: 'Make a New One',
     creator: 'Regenerate',
     pro: 'Regenerate',
   },
-  'retry': {
+  retry: {
     story: 'Try Again',
     creator: 'Retry',
     pro: 'Retry',
   },
-  'cancel': {
+  cancel: {
     story: 'Stop',
     creator: 'Cancel',
     pro: 'Cancel',
   },
-  'skip': {
+  skip: {
     story: 'Skip for Now',
     creator: 'Skip',
     pro: 'Skip',
@@ -495,7 +498,7 @@ export const STEVEN_MESSAGES = {
     "Welcome back! I've been keeping your project warm. Ready to continue?",
   ],
   uploadScript: [
-    "Just drag your screenplay file here - I can read Fountain, Final Draft, or even PDF files.",
+    'Just drag your screenplay file here - I can read Fountain, Final Draft, or even PDF files.',
     "Got a script? Drop it right here and I'll start reading it immediately.",
   ],
   charactersFound: (count: number) =>
@@ -504,18 +507,17 @@ export const STEVEN_MESSAGES = {
     `I've broken down your screenplay into ${count} scenes. Want me to plan the camera shots?`,
   generationStarted:
     "Alright, I'm sending your shots to our video creators. I'll keep you updated on progress!",
-  generationComplete:
-    "Your scenes are ready! Take a look and let me know if you want any changes.",
+  generationComplete: 'Your scenes are ready! Take a look and let me know if you want any changes.',
   error: (message: string) =>
     `Hmm, we hit a snag: ${message}. Don't worry, I can help you fix this.`,
   celebration: [
-    "Your movie is done! Time to share it with the world!",
-    "Another masterpiece in the making! Great work!",
+    'Your movie is done! Time to share it with the world!',
+    'Another masterpiece in the making! Great work!',
   ],
   idle: [
     "I'm here if you need any help. Just ask!",
     "Take your time. I'll be right here when you're ready.",
-    "Looking good so far! What would you like to work on next?",
+    'Looking good so far! What would you like to work on next?',
   ],
 };
 
@@ -548,7 +550,10 @@ interface ExperienceStoreState {
   // Steven actions
   setStevenEnabled: (enabled: boolean) => void;
   setStevenMinimized: (minimized: boolean) => void;
-  sendStevenMessage: (message: string, type?: 'info' | 'success' | 'warning' | 'celebration') => void;
+  sendStevenMessage: (
+    message: string,
+    type?: 'info' | 'success' | 'warning' | 'celebration'
+  ) => void;
   clearStevenHistory: () => void;
 
   // Helper functions
@@ -572,22 +577,24 @@ export const useExperienceStore = create<ExperienceStoreState>()(
         stevenMessageHistory: [],
 
         // Set global mode
-        setGlobalMode: (mode) => set((state) => {
-          state.globalMode = mode;
-          // Clear overrides if remembering globally
-          if (state.rememberGlobal) {
-            state.featureOverrides = {};
-          }
-        }),
+        setGlobalMode: (mode) =>
+          set((state) => {
+            state.globalMode = mode;
+            // Clear overrides if remembering globally
+            if (state.rememberGlobal) {
+              state.featureOverrides = {};
+            }
+          }),
 
         // Set per-feature mode override
-        setFeatureMode: (feature, mode) => set((state) => {
-          if (mode === null) {
-            delete state.featureOverrides[feature];
-          } else {
-            state.featureOverrides[feature] = mode;
-          }
-        }),
+        setFeatureMode: (feature, mode) =>
+          set((state) => {
+            if (mode === null) {
+              delete state.featureOverrides[feature];
+            } else {
+              state.featureOverrides[feature] = mode;
+            }
+          }),
 
         // Get the effective mode for a feature
         getEffectiveMode: (feature) => {
@@ -599,36 +606,41 @@ export const useExperienceStore = create<ExperienceStoreState>()(
         },
 
         // Reset all feature overrides
-        resetFeatureOverrides: () => set((state) => {
-          state.featureOverrides = {};
-        }),
+        resetFeatureOverrides: () =>
+          set((state) => {
+            state.featureOverrides = {};
+          }),
 
         // Steven controls
-        setStevenEnabled: (enabled) => set((state) => {
-          state.stevenEnabled = enabled;
-        }),
+        setStevenEnabled: (enabled) =>
+          set((state) => {
+            state.stevenEnabled = enabled;
+          }),
 
-        setStevenMinimized: (minimized) => set((state) => {
-          state.stevenMinimized = minimized;
-        }),
+        setStevenMinimized: (minimized) =>
+          set((state) => {
+            state.stevenMinimized = minimized;
+          }),
 
-        sendStevenMessage: (message, type = 'info') => set((state) => {
-          state.stevenLastMessage = message;
-          state.stevenMessageHistory.push({
-            message,
-            timestamp: Date.now(),
-            type,
-          });
-          // Keep only last 50 messages
-          if (state.stevenMessageHistory.length > 50) {
-            state.stevenMessageHistory = state.stevenMessageHistory.slice(-50);
-          }
-        }),
+        sendStevenMessage: (message, type = 'info') =>
+          set((state) => {
+            state.stevenLastMessage = message;
+            state.stevenMessageHistory.push({
+              message,
+              timestamp: Date.now(),
+              type,
+            });
+            // Keep only last 50 messages
+            if (state.stevenMessageHistory.length > 50) {
+              state.stevenMessageHistory = state.stevenMessageHistory.slice(-50);
+            }
+          }),
 
-        clearStevenHistory: () => set((state) => {
-          state.stevenMessageHistory = [];
-          state.stevenLastMessage = null;
-        }),
+        clearStevenHistory: () =>
+          set((state) => {
+            state.stevenMessageHistory = [];
+            state.stevenLastMessage = null;
+          }),
 
         // Get user-friendly term based on current mode
         getTerm: (technicalTerm, feature) => {

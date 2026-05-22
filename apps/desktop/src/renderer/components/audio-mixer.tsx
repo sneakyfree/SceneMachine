@@ -165,7 +165,11 @@ function TrackChannel({
           className="w-16 h-1"
         />
         <span className="text-[10px] text-surface-400 font-mono">
-          {track.pan === 0 ? 'C' : track.pan < 0 ? `L${Math.abs(Math.round(track.pan * 100))}` : `R${Math.round(track.pan * 100)}`}
+          {track.pan === 0
+            ? 'C'
+            : track.pan < 0
+              ? `L${Math.abs(Math.round(track.pan * 100))}`
+              : `R${Math.round(track.pan * 100)}`}
         </span>
       </div>
 
@@ -262,9 +266,7 @@ function MasterChannel({
           className="h-20 -rotate-90"
           style={{ width: '80px', marginTop: '30px', marginBottom: '30px' }}
         />
-        <span className="text-sm text-white font-mono font-bold">
-          {Math.round(volume * 100)}%
-        </span>
+        <span className="text-sm text-white font-mono font-bold">{Math.round(volume * 100)}%</span>
       </div>
 
       {/* Play/Pause */}
@@ -273,11 +275,7 @@ function MasterChannel({
           onClick={onPlayPause}
           className="p-2 bg-brand-500 hover:bg-brand-600 text-white rounded transition-colors"
         >
-          {isPlaying ? (
-            <Pause className="w-5 h-5 mx-auto" />
-          ) : (
-            <Play className="w-5 h-5 mx-auto" />
-          )}
+          {isPlaying ? <Pause className="w-5 h-5 mx-auto" /> : <Play className="w-5 h-5 mx-auto" />}
         </button>
       )}
     </div>
@@ -393,7 +391,8 @@ export function AudioMixer({
       {/* Quick tips */}
       <div className="mt-3 pt-3 border-t border-surface-800">
         <p className="text-xs text-surface-500">
-          <span className="font-medium">Tips:</span> S = Solo (hear only this track), M = Mute (silence this track)
+          <span className="font-medium">Tips:</span> S = Solo (hear only this track), M = Mute
+          (silence this track)
         </p>
       </div>
     </div>
@@ -405,28 +404,29 @@ export function useAudioMixer(initialTracks: AudioTrack[] = []) {
   const [tracks, setTracks] = useState<AudioTrack[]>(initialTracks);
   const [masterVolume, setMasterVolume] = useState(0.8);
 
-  const addTrack = useCallback((type: AudioTrack['type']) => {
-    const newTrack: AudioTrack = {
-      id: `track-${Date.now()}`,
-      name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${tracks.filter((t) => t.type === type).length + 1}`,
-      type,
-      volume: 0.75,
-      pan: 0,
-      muted: false,
-      solo: false,
-      color: TRACK_COLORS[type],
-    };
-    setTracks((prev) => [...prev, newTrack]);
-  }, [tracks]);
+  const addTrack = useCallback(
+    (type: AudioTrack['type']) => {
+      const newTrack: AudioTrack = {
+        id: `track-${Date.now()}`,
+        name: `${type.charAt(0).toUpperCase() + type.slice(1)} ${tracks.filter((t) => t.type === type).length + 1}`,
+        type,
+        volume: 0.75,
+        pan: 0,
+        muted: false,
+        solo: false,
+        color: TRACK_COLORS[type],
+      };
+      setTracks((prev) => [...prev, newTrack]);
+    },
+    [tracks]
+  );
 
   const removeTrack = useCallback((trackId: string) => {
     setTracks((prev) => prev.filter((t) => t.id !== trackId));
   }, []);
 
   const updateTrack = useCallback((trackId: string, changes: Partial<AudioTrack>) => {
-    setTracks((prev) =>
-      prev.map((t) => (t.id === trackId ? { ...t, ...changes } : t))
-    );
+    setTracks((prev) => prev.map((t) => (t.id === trackId ? { ...t, ...changes } : t)));
   }, []);
 
   return {

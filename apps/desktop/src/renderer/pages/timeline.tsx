@@ -37,7 +37,12 @@ import { cn } from '../lib/utils';
 import { useUndoRedo } from '../hooks/use-undo-redo';
 import { useWebSocketEvent, EventType } from '../lib/websocket';
 import { VideoPlayer } from '../components/video-player';
-import { ClipContextMenu, LipSyncQuickModal, TransitionZone, TransitionConfig } from '../components/timeline';
+import {
+  ClipContextMenu,
+  LipSyncQuickModal,
+  TransitionZone,
+  TransitionConfig,
+} from '../components/timeline';
 import { AudioMixer, useAudioMixer, AudioTrack } from '../components/audio-mixer';
 
 // Transition types (extended to match TransitionZone)
@@ -78,7 +83,15 @@ function formatTime(seconds: number): string {
 }
 
 // Timeline ruler component
-function TimelineRuler({ duration, zoom, scrollLeft }: { duration: number; zoom: number; scrollLeft: number }) {
+function TimelineRuler({
+  duration,
+  zoom,
+  scrollLeft,
+}: {
+  duration: number;
+  zoom: number;
+  scrollLeft: number;
+}) {
   const marks: number[] = [];
   const interval = zoom > 1.5 ? 1 : zoom > 0.5 ? 5 : 10;
 
@@ -137,12 +150,15 @@ function TimelineClipComponent({
   const width = clip.duration * 50 * zoom;
 
   // Handle trim drag start
-  const handleTrimMouseDown = useCallback((e: React.MouseEvent, edge: 'start' | 'end') => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsTrimming(edge);
-    trimStartRef.current = { startX: e.clientX, originalDuration: clip.duration };
-  }, [clip.duration]);
+  const handleTrimMouseDown = useCallback(
+    (e: React.MouseEvent, edge: 'start' | 'end') => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsTrimming(edge);
+      trimStartRef.current = { startX: e.clientX, originalDuration: clip.duration };
+    },
+    [clip.duration]
+  );
 
   // Handle trim drag
   useEffect(() => {
@@ -215,9 +231,7 @@ function TimelineClipComponent({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
             <GripVertical className="w-3 h-3 text-surface-400 opacity-0 group-hover:opacity-100" />
-            <span className="text-xs font-medium bg-black/50 px-1 rounded">
-              {clip.shotNumber}
-            </span>
+            <span className="text-xs font-medium bg-black/50 px-1 rounded">{clip.shotNumber}</span>
           </div>
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
             <button
@@ -250,9 +264,7 @@ function TimelineClipComponent({
             </button>
           </div>
         </div>
-        <div className="text-xs text-surface-300">
-          {formatTime(clip.duration)}
-        </div>
+        <div className="text-xs text-surface-300">{formatTime(clip.duration)}</div>
       </div>
 
       {/* Resize handles */}
@@ -260,14 +272,14 @@ function TimelineClipComponent({
         <>
           <div
             className={cn(
-              "absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize bg-brand-500 transition-opacity",
+              'absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize bg-brand-500 transition-opacity',
               isTrimming === 'start' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
             )}
             onMouseDown={(e) => handleTrimMouseDown(e, 'start')}
           />
           <div
             className={cn(
-              "absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize bg-brand-500 transition-opacity",
+              'absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize bg-brand-500 transition-opacity',
               isTrimming === 'end' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
             )}
             onMouseDown={(e) => handleTrimMouseDown(e, 'end')}
@@ -337,11 +349,7 @@ function TransportControls({
           onClick={onPlayPause}
           className="p-2 bg-brand-500 hover:bg-brand-600 rounded-full transition-colors"
         >
-          {isPlaying ? (
-            <Pause className="w-5 h-5" />
-          ) : (
-            <Play className="w-5 h-5" />
-          )}
+          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
         </button>
         <button
           onClick={onNext}
@@ -371,11 +379,7 @@ function TransportControls({
           onClick={onMuteToggle}
           className="p-1 hover:bg-surface-700 rounded transition-colors"
         >
-          {isMuted ? (
-            <VolumeX className="w-4 h-4 text-red-400" />
-          ) : (
-            <Volume2 className="w-4 h-4" />
-          )}
+          {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
         </button>
         <input
           type="range"
@@ -412,7 +416,9 @@ export function TimelinePage() {
   const [isMuted, setIsMuted] = useState(false);
 
   // Auto-save state
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+    'idle'
+  );
   const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previousClipsRef = useRef<TimelineClip[] | null>(null);
 
@@ -441,9 +447,36 @@ export function TimelinePage() {
   // Audio mixer state
   const [showAudioMixer, setShowAudioMixer] = useState(false);
   const audioMixer = useAudioMixer([
-    { id: 'dialogue', name: 'Dialogue', type: 'dialogue', volume: 0.8, pan: 0, muted: false, solo: false, color: '#3b82f6' },
-    { id: 'music', name: 'Music', type: 'music', volume: 0.5, pan: 0, muted: false, solo: false, color: '#8b5cf6' },
-    { id: 'sfx', name: 'SFX', type: 'sfx', volume: 0.7, pan: 0, muted: false, solo: false, color: '#22c55e' },
+    {
+      id: 'dialogue',
+      name: 'Dialogue',
+      type: 'dialogue',
+      volume: 0.8,
+      pan: 0,
+      muted: false,
+      solo: false,
+      color: '#3b82f6',
+    },
+    {
+      id: 'music',
+      name: 'Music',
+      type: 'music',
+      volume: 0.5,
+      pan: 0,
+      muted: false,
+      solo: false,
+      color: '#8b5cf6',
+    },
+    {
+      id: 'sfx',
+      name: 'SFX',
+      type: 'sfx',
+      volume: 0.7,
+      pan: 0,
+      muted: false,
+      solo: false,
+      color: '#22c55e',
+    },
   ] as AudioTrack[]);
 
   // Undo/Redo state for timeline clips
@@ -455,15 +488,18 @@ export function TimelinePage() {
     canUndo,
     canRedo,
     historySize,
-  } = useUndoRedo<TimelineState>({
-    clips: [],
-    sceneGroups: [],
-  }, {
-    maxHistorySize: 50,
-    onChange: () => {
-      // Track that there are unsaved changes
+  } = useUndoRedo<TimelineState>(
+    {
+      clips: [],
+      sceneGroups: [],
     },
-  });
+    {
+      maxHistorySize: 50,
+      onChange: () => {
+        // Track that there are unsaved changes
+      },
+    }
+  );
 
   const hasChanges = historySize > 0;
 
@@ -471,7 +507,11 @@ export function TimelinePage() {
   const playbackRef = useRef<number | null>(null);
 
   // Fetch project and shots for timeline
-  const { data: timelineData, isLoading, refetch } = useQuery({
+  const {
+    data: timelineData,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['timeline', projectId],
     queryFn: async () => {
       // Fetch scenes with shots
@@ -524,7 +564,7 @@ export function TimelinePage() {
       }
 
       // Initialize undo/redo state with loaded data
-      const allClips = sceneGroups.flatMap(g => g.clips);
+      const allClips = sceneGroups.flatMap((g) => g.clips);
       setTimelineState({ clips: allClips, sceneGroups }, { merge: true });
 
       return {
@@ -574,62 +614,62 @@ export function TimelinePage() {
   }, [isPlaying, timelineData]);
 
   // Clip manipulation handlers with undo support
-  const handleDeleteClip = useCallback((clipId: string) => {
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.filter(c => c.id !== clipId),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.filter(c => c.id !== clipId),
-      })),
-    }));
-    setSelectedClipId(null);
-  }, [setTimelineState]);
+  const handleDeleteClip = useCallback(
+    (clipId: string) => {
+      setTimelineState((prev) => ({
+        ...prev,
+        clips: prev.clips.filter((c) => c.id !== clipId),
+        sceneGroups: prev.sceneGroups.map((g) => ({
+          ...g,
+          clips: g.clips.filter((c) => c.id !== clipId),
+        })),
+      }));
+      setSelectedClipId(null);
+    },
+    [setTimelineState]
+  );
 
-  const handleToggleClipLock = useCallback((clipId: string) => {
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.map(c =>
-        c.id === clipId ? { ...c, isLocked: !c.isLocked } : c
-      ),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.map(c =>
-          c.id === clipId ? { ...c, isLocked: !c.isLocked } : c
-        ),
-      })),
-    }));
-  }, [setTimelineState]);
+  const handleToggleClipLock = useCallback(
+    (clipId: string) => {
+      setTimelineState((prev) => ({
+        ...prev,
+        clips: prev.clips.map((c) => (c.id === clipId ? { ...c, isLocked: !c.isLocked } : c)),
+        sceneGroups: prev.sceneGroups.map((g) => ({
+          ...g,
+          clips: g.clips.map((c) => (c.id === clipId ? { ...c, isLocked: !c.isLocked } : c)),
+        })),
+      }));
+    },
+    [setTimelineState]
+  );
 
-  const handleToggleClipVisibility = useCallback((clipId: string) => {
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.map(c =>
-        c.id === clipId ? { ...c, isVisible: !c.isVisible } : c
-      ),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.map(c =>
-          c.id === clipId ? { ...c, isVisible: !c.isVisible } : c
-        ),
-      })),
-    }));
-  }, [setTimelineState]);
+  const handleToggleClipVisibility = useCallback(
+    (clipId: string) => {
+      setTimelineState((prev) => ({
+        ...prev,
+        clips: prev.clips.map((c) => (c.id === clipId ? { ...c, isVisible: !c.isVisible } : c)),
+        sceneGroups: prev.sceneGroups.map((g) => ({
+          ...g,
+          clips: g.clips.map((c) => (c.id === clipId ? { ...c, isVisible: !c.isVisible } : c)),
+        })),
+      }));
+    },
+    [setTimelineState]
+  );
 
-  const handleUpdateClipDuration = useCallback((clipId: string, duration: number) => {
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.map(c =>
-        c.id === clipId ? { ...c, duration } : c
-      ),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.map(c =>
-          c.id === clipId ? { ...c, duration } : c
-        ),
-      })),
-    }));
-  }, [setTimelineState]);
+  const handleUpdateClipDuration = useCallback(
+    (clipId: string, duration: number) => {
+      setTimelineState((prev) => ({
+        ...prev,
+        clips: prev.clips.map((c) => (c.id === clipId ? { ...c, duration } : c)),
+        sceneGroups: prev.sceneGroups.map((g) => ({
+          ...g,
+          clips: g.clips.map((c) => (c.id === clipId ? { ...c, duration } : c)),
+        })),
+      }));
+    },
+    [setTimelineState]
+  );
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -704,7 +744,17 @@ export function TimelinePage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedClipId, timelineData, canUndo, canRedo, undo, redo, handleDeleteClip, handleToggleClipLock, handleToggleClipVisibility]);
+  }, [
+    selectedClipId,
+    timelineData,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    handleDeleteClip,
+    handleToggleClipLock,
+    handleToggleClipVisibility,
+  ]);
 
   // Handlers
   const handleZoomIn = () => setZoom((z) => Math.min(z * 1.5, 4));
@@ -865,14 +915,17 @@ export function TimelinePage() {
       // Rollback to previous state
       if (previousClipsRef.current) {
         const prevClips = previousClipsRef.current;
-        setTimelineState(prev => ({
-          ...prev,
-          clips: prevClips,
-          sceneGroups: prev.sceneGroups.map(g => ({
-            ...g,
-            clips: prevClips.filter(c => c.sceneId === g.id),
-          })),
-        }), { merge: true });
+        setTimelineState(
+          (prev) => ({
+            ...prev,
+            clips: prevClips,
+            sceneGroups: prev.sceneGroups.map((g) => ({
+              ...g,
+              clips: prevClips.filter((c) => c.sceneId === g.id),
+            })),
+          }),
+          { merge: true }
+        );
       }
       // Show error for 3 seconds, then reset
       saveStatusTimeoutRef.current = setTimeout(() => {
@@ -902,7 +955,8 @@ export function TimelinePage() {
     }
 
     // Only auto-save if there are actual changes
-    const hasChanges = JSON.stringify(timelineState.clips) !== JSON.stringify(previousClipsRef.current);
+    const hasChanges =
+      JSON.stringify(timelineState.clips) !== JSON.stringify(previousClipsRef.current);
     if (hasChanges && historySize > 0) {
       debouncedAutoSave(timelineState.clips);
     }
@@ -926,79 +980,81 @@ export function TimelinePage() {
   const selectedClip = useMemo(() => {
     if (!selectedClipId) return null;
     for (const group of timelineState.sceneGroups) {
-      const clip = group.clips.find(c => c.id === selectedClipId);
+      const clip = group.clips.find((c) => c.id === selectedClipId);
       if (clip) return clip;
     }
     return null;
   }, [selectedClipId, timelineState.sceneGroups]);
 
   // Handle clip transition change (accepts TransitionConfig from TransitionZone)
-  const handleUpdateClipTransition = useCallback((clipId: string, transitionConfig: TransitionConfig) => {
-    const transition = transitionConfig.type as TransitionType;
-    const transitionDuration = transitionConfig.duration;
-    setTimelineState(prev => ({
-      ...prev,
-      clips: prev.clips.map(c =>
-        c.id === clipId
-          ? { ...c, transition, transitionDuration }
-          : c
-      ),
-      sceneGroups: prev.sceneGroups.map(g => ({
-        ...g,
-        clips: g.clips.map(c =>
-          c.id === clipId
-            ? { ...c, transition, transitionDuration }
-            : c
+  const handleUpdateClipTransition = useCallback(
+    (clipId: string, transitionConfig: TransitionConfig) => {
+      const transition = transitionConfig.type as TransitionType;
+      const transitionDuration = transitionConfig.duration;
+      setTimelineState((prev) => ({
+        ...prev,
+        clips: prev.clips.map((c) =>
+          c.id === clipId ? { ...c, transition, transitionDuration } : c
         ),
-      })),
-    }));
-  }, [setTimelineState]);
+        sceneGroups: prev.sceneGroups.map((g) => ({
+          ...g,
+          clips: g.clips.map((c) =>
+            c.id === clipId ? { ...c, transition, transitionDuration } : c
+          ),
+        })),
+      }));
+    },
+    [setTimelineState]
+  );
 
   // Handle drag and drop reorder
-  const handleDrop = useCallback((targetSceneId: string, targetIndex: number, draggedClipId: string) => {
-    setTimelineState(prev => {
-      // Find the dragged clip
-      let draggedClip: TimelineClip | null = null;
-      let sourceGroupIndex = -1;
-      for (let gi = 0; gi < prev.sceneGroups.length; gi++) {
-        const clipIndex = prev.sceneGroups[gi].clips.findIndex(c => c.id === draggedClipId);
-        if (clipIndex !== -1) {
-          draggedClip = prev.sceneGroups[gi].clips[clipIndex];
-          sourceGroupIndex = gi;
-          break;
-        }
-      }
-
-      if (!draggedClip || sourceGroupIndex === -1) return prev;
-
-      // Create new scene groups with the clip moved
-      const newGroups = prev.sceneGroups.map((group, gi) => {
-        let newClips = [...group.clips];
-
-        // Remove from source
-        if (gi === sourceGroupIndex) {
-          newClips = newClips.filter(c => c.id !== draggedClipId);
+  const handleDrop = useCallback(
+    (targetSceneId: string, targetIndex: number, draggedClipId: string) => {
+      setTimelineState((prev) => {
+        // Find the dragged clip
+        let draggedClip: TimelineClip | null = null;
+        let sourceGroupIndex = -1;
+        for (let gi = 0; gi < prev.sceneGroups.length; gi++) {
+          const clipIndex = prev.sceneGroups[gi].clips.findIndex((c) => c.id === draggedClipId);
+          if (clipIndex !== -1) {
+            draggedClip = prev.sceneGroups[gi].clips[clipIndex];
+            sourceGroupIndex = gi;
+            break;
+          }
         }
 
-        // Add to target
-        if (group.id === targetSceneId) {
-          newClips.splice(targetIndex, 0, { ...draggedClip!, sceneId: targetSceneId });
-        }
+        if (!draggedClip || sourceGroupIndex === -1) return prev;
+
+        // Create new scene groups with the clip moved
+        const newGroups = prev.sceneGroups.map((group, gi) => {
+          let newClips = [...group.clips];
+
+          // Remove from source
+          if (gi === sourceGroupIndex) {
+            newClips = newClips.filter((c) => c.id !== draggedClipId);
+          }
+
+          // Add to target
+          if (group.id === targetSceneId) {
+            newClips.splice(targetIndex, 0, { ...draggedClip!, sceneId: targetSceneId });
+          }
+
+          return {
+            ...group,
+            clips: newClips,
+            totalDuration: newClips.reduce((sum, c) => sum + c.duration, 0),
+          };
+        });
 
         return {
-          ...group,
-          clips: newClips,
-          totalDuration: newClips.reduce((sum, c) => sum + c.duration, 0),
+          ...prev,
+          sceneGroups: newGroups,
+          clips: newGroups.flatMap((g) => g.clips),
         };
       });
-
-      return {
-        ...prev,
-        sceneGroups: newGroups,
-        clips: newGroups.flatMap(g => g.clips),
-      };
-    });
-  }, [setTimelineState]);
+    },
+    [setTimelineState]
+  );
 
   if (isLoading) {
     return (
@@ -1212,10 +1268,12 @@ export function TimelinePage() {
                     className="w-full bg-surface-800 border border-surface-700 rounded px-3 py-2 disabled:opacity-50"
                     value={selectedClip.transition}
                     disabled={selectedClip.isLocked}
-                    onChange={(e) => handleUpdateClipTransition(selectedClip.id, {
-                      type: e.target.value as 'cut' | 'fade' | 'crossfade',
-                      duration: selectedClip.transitionDuration
-                    })}
+                    onChange={(e) =>
+                      handleUpdateClipTransition(selectedClip.id, {
+                        type: e.target.value as 'cut' | 'fade' | 'crossfade',
+                        duration: selectedClip.transitionDuration,
+                      })
+                    }
                   >
                     <option value="cut">Cut (instant)</option>
                     <option value="fade">Fade</option>
@@ -1229,7 +1287,9 @@ export function TimelinePage() {
                 {/* Transition duration (only for non-cut transitions) */}
                 {selectedClip.transition !== 'cut' && (
                   <div>
-                    <label className="block text-sm text-surface-400 mb-1">Transition Duration</label>
+                    <label className="block text-sm text-surface-400 mb-1">
+                      Transition Duration
+                    </label>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
@@ -1244,7 +1304,7 @@ export function TimelinePage() {
                           if (!isNaN(value) && value >= 0.1) {
                             handleUpdateClipTransition(selectedClip.id, {
                               type: selectedClip.transition as 'cut' | 'fade' | 'crossfade',
-                              duration: value
+                              duration: value,
                             });
                           }
                         }}
@@ -1314,36 +1374,38 @@ export function TimelinePage() {
       {timelineData && timelineData.sceneGroups.length > 0 && (
         <div className="h-10 bg-surface-900 border-t border-surface-800 flex items-center px-2 gap-0.5 overflow-hidden">
           <span className="text-[10px] text-surface-500 mr-1 shrink-0">MAP</span>
-          {timelineData.sceneGroups.flatMap(g => g.clips).map((clip) => {
-            const fraction = clip.duration / (timelineData.totalDuration || 1);
-            return (
-              <button
-                key={clip.id}
-                onClick={() => {
-                  setCurrentTime(clip.startTime);
-                  setSelectedClipId(clip.id);
-                }}
-                className={cn(
-                  'h-7 rounded-sm border transition-all relative overflow-hidden',
-                  selectedClipId === clip.id
-                    ? 'border-brand-500 ring-1 ring-brand-500'
-                    : 'border-surface-700 hover:border-surface-500'
-                )}
-                style={{ width: `${Math.max(fraction * 100, 1.5)}%` }}
-                title={`Shot ${clip.shotNumber} — ${clip.duration.toFixed(1)}s`}
-              >
-                {clip.thumbnailUrl ? (
-                  <img src={clip.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-surface-800" />
-                )}
-              </button>
-            );
-          })}
+          {timelineData.sceneGroups
+            .flatMap((g) => g.clips)
+            .map((clip) => {
+              const fraction = clip.duration / (timelineData.totalDuration || 1);
+              return (
+                <button
+                  key={clip.id}
+                  onClick={() => {
+                    setCurrentTime(clip.startTime);
+                    setSelectedClipId(clip.id);
+                  }}
+                  className={cn(
+                    'h-7 rounded-sm border transition-all relative overflow-hidden',
+                    selectedClipId === clip.id
+                      ? 'border-brand-500 ring-1 ring-brand-500'
+                      : 'border-surface-700 hover:border-surface-500'
+                  )}
+                  style={{ width: `${Math.max(fraction * 100, 1.5)}%` }}
+                  title={`Shot ${clip.shotNumber} — ${clip.duration.toFixed(1)}s`}
+                >
+                  {clip.thumbnailUrl ? (
+                    <img src={clip.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-surface-800" />
+                  )}
+                </button>
+              );
+            })}
           {/* Playhead indicator in minimap */}
           <div
             className="absolute h-7 w-0.5 bg-red-500 pointer-events-none z-10"
-            style={{ left: `${2 + ((currentTime / (timelineData.totalDuration || 1)) * 96)}%` }}
+            style={{ left: `${2 + (currentTime / (timelineData.totalDuration || 1)) * 96}%` }}
           />
         </div>
       )}
@@ -1363,24 +1425,20 @@ export function TimelinePage() {
           className="flex-1 overflow-x-auto overflow-y-auto relative"
           onScroll={handleScroll}
         >
-          <div className="relative" style={{ width: `${(timelineData?.totalDuration || 0) * 50 * zoom + 200}px` }}>
+          <div
+            className="relative"
+            style={{ width: `${(timelineData?.totalDuration || 0) * 50 * zoom + 200}px` }}
+          >
             {/* Playhead */}
             <Playhead position={currentTime} zoom={zoom} />
 
             {/* Scene tracks */}
             {timelineData?.sceneGroups.map((group) => (
-              <div
-                key={group.id}
-                className="flex items-center border-b border-surface-800"
-              >
+              <div key={group.id} className="flex items-center border-b border-surface-800">
                 {/* Track header */}
                 <div className="w-32 shrink-0 p-2 bg-surface-900 border-r border-surface-700">
-                  <div className="text-sm font-medium truncate">
-                    Scene {group.sceneNumber}
-                  </div>
-                  <div className="text-xs text-surface-400">
-                    {group.clips.length} clips
-                  </div>
+                  <div className="text-sm font-medium truncate">Scene {group.sceneNumber}</div>
+                  <div className="text-xs text-surface-400">{group.clips.length} clips</div>
                 </div>
 
                 {/* Clips */}
@@ -1422,12 +1480,17 @@ export function TimelinePage() {
                       {clipIdx > 0 && (
                         <TransitionZone
                           transition={{
-                            type: (clip.transition === 'cut' || clip.transition === 'fade' || clip.transition === 'crossfade')
-                              ? clip.transition
-                              : 'cut',
+                            type:
+                              clip.transition === 'cut' ||
+                              clip.transition === 'fade' ||
+                              clip.transition === 'crossfade'
+                                ? clip.transition
+                                : 'cut',
                             duration: clip.transitionDuration,
                           }}
-                          onChange={(newTransition) => handleUpdateClipTransition(clip.id, newTransition)}
+                          onChange={(newTransition) =>
+                            handleUpdateClipTransition(clip.id, newTransition)
+                          }
                           className="h-16"
                         />
                       )}

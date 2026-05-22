@@ -387,7 +387,8 @@ export const useSettingsStore = create<SettingsStoreState>()(
             });
           } catch (error) {
             set((state) => {
-              state.error = error instanceof Error ? error.message : 'Failed to fetch storage stats';
+              state.error =
+                error instanceof Error ? error.message : 'Failed to fetch storage stats';
             });
           }
         },
@@ -413,18 +414,9 @@ export const useSettingsStore = create<SettingsStoreState>()(
         fetchProviderOptions: async () => {
           try {
             const [llmProviders, videoProviders, themeOptions] = await Promise.all([
-              window.electronAPI.backendRequest<ProviderOption[]>(
-                'settings.getLlmProviders',
-                {}
-              ),
-              window.electronAPI.backendRequest<ProviderOption[]>(
-                'settings.getVideoProviders',
-                {}
-              ),
-              window.electronAPI.backendRequest<ThemeOption[]>(
-                'settings.getThemeOptions',
-                {}
-              ),
+              window.electronAPI.backendRequest<ProviderOption[]>('settings.getLlmProviders', {}),
+              window.electronAPI.backendRequest<ProviderOption[]>('settings.getVideoProviders', {}),
+              window.electronAPI.backendRequest<ThemeOption[]>('settings.getThemeOptions', {}),
             ]);
 
             set((state) => {

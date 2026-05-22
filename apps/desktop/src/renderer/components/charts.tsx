@@ -101,14 +101,21 @@ export function LineChart({
 
   if (data.length === 0) {
     return (
-      <div className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)} style={{ height }}>
+      <div
+        className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)}
+        style={{ height }}
+      >
         <p className="text-surface-500">No data available</p>
       </div>
     );
   }
 
   return (
-    <svg viewBox={`0 0 ${chartData.width} ${height}`} className={cn('w-full', className)} style={{ height }}>
+    <svg
+      viewBox={`0 0 ${chartData.width} ${height}`}
+      className={cn('w-full', className)}
+      style={{ height }}
+    >
       {/* Grid lines */}
       {showGrid && (
         <g className="grid-lines">
@@ -130,31 +137,46 @@ export function LineChart({
       {showArea && <path d={chartData.areaPath} fill={fillColor} />}
 
       {/* Line */}
-      <path d={chartData.path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={chartData.path}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
 
       {/* Dots */}
       {showDots &&
         chartData.points.map((point, i) => (
-          <circle key={i} cx={point.x} cy={point.y} r="4" fill={color} stroke="#1f2937" strokeWidth="2" />
+          <circle
+            key={i}
+            cx={point.x}
+            cy={point.y}
+            r="4"
+            fill={color}
+            stroke="#1f2937"
+            strokeWidth="2"
+          />
         ))}
 
       {/* Y-axis labels */}
       {chartData.yLabels.map((label, i) => (
-        <text key={i} x={chartData.padding.left - 10} y={label.y + 4} textAnchor="end" fill="#9ca3af" fontSize="12">
+        <text
+          key={i}
+          x={chartData.padding.left - 10}
+          y={label.y + 4}
+          textAnchor="end"
+          fill="#9ca3af"
+          fontSize="12"
+        >
           {label.label}
         </text>
       ))}
 
       {/* X-axis labels */}
       {chartData.xLabels.map((label, i) => (
-        <text
-          key={i}
-          x={label.x}
-          y={height - 10}
-          textAnchor="middle"
-          fill="#9ca3af"
-          fontSize="11"
-        >
+        <text key={i} x={label.x} y={height - 10} textAnchor="middle" fill="#9ca3af" fontSize="11">
           {label.label}
         </text>
       ))}
@@ -195,7 +217,10 @@ export function BarChart({
 
   if (data.length === 0) {
     return (
-      <div className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)} style={{ height }}>
+      <div
+        className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)}
+        style={{ height }}
+      >
         <p className="text-surface-500">No data available</p>
       </div>
     );
@@ -251,13 +276,7 @@ export function BarChart({
             />
             {/* Value label */}
             {showValues && (
-              <text
-                x={x + barWidth / 2}
-                y={y - 8}
-                textAnchor="middle"
-                fill="#9ca3af"
-                fontSize="12"
-              >
+              <text x={x + barWidth / 2} y={y - 8} textAnchor="middle" fill="#9ca3af" fontSize="12">
                 {bar.value}
               </text>
             )}
@@ -318,7 +337,8 @@ export function DonutChart({
       const dashOffset = circumference - dashLength + (i > 0 ? 0 : circumference * 0.25);
 
       // Calculate rotation to position segment correctly
-      const rotation = i === 0 ? 0 : data.slice(0, i).reduce((sum, d) => sum + (d.value / total) * 360, 0);
+      const rotation =
+        i === 0 ? 0 : data.slice(0, i).reduce((sum, d) => sum + (d.value / total) * 360, 0);
 
       return {
         ...d,
@@ -334,7 +354,10 @@ export function DonutChart({
 
   if (data.length === 0) {
     return (
-      <div className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)} style={{ height: size }}>
+      <div
+        className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)}
+        style={{ height: size }}
+      >
         <p className="text-surface-500">No data available</p>
       </div>
     );
@@ -405,14 +428,9 @@ export function DonutChart({
         <div className="space-y-2">
           {chartData.segments.map((segment, i) => (
             <div key={i} className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: segment.color }}
-              />
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: segment.color }} />
               <span className="text-sm text-surface-300">{segment.label}</span>
-              <span className="text-sm text-surface-500">
-                ({segment.percentage.toFixed(1)}%)
-              </span>
+              <span className="text-sm text-surface-500">({segment.percentage.toFixed(1)}%)</span>
             </div>
           ))}
         </div>
@@ -472,10 +490,15 @@ export function Sparkline({
 
   return (
     <svg width={width} height={height} className={className}>
-      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      {showDot && lastPoint && (
-        <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill={color} />
-      )}
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {showDot && lastPoint && <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill={color} />}
     </svg>
   );
 }
@@ -549,13 +572,7 @@ export function ProgressRing({
         </text>
       )}
       {label && (
-        <text
-          x={center}
-          y={center + 12}
-          textAnchor="middle"
-          fill="#9ca3af"
-          fontSize={size / 8}
-        >
+        <text x={center} y={center + 12} textAnchor="middle" fill="#9ca3af" fontSize={size / 8}>
           {label}
         </text>
       )}

@@ -40,11 +40,7 @@ export const CachedBadge = memo(function CachedBadge({
 /**
  * Indicator showing pending sync items
  */
-export const SyncIndicator = memo(function SyncIndicator({
-  className,
-}: {
-  className?: string;
-}) {
+export const SyncIndicator = memo(function SyncIndicator({ className }: { className?: string }) {
   const { pendingSync, isSyncing } = useOfflineCache();
   const { isOnline } = useOnlineStatus();
 
@@ -67,8 +63,8 @@ export const SyncIndicator = memo(function SyncIndicator({
         isSyncing
           ? 'Syncing changes...'
           : isOnline
-          ? `${pendingSync.length} changes pending sync`
-          : `${pendingSync.length} changes will sync when online`
+            ? `${pendingSync.length} changes pending sync`
+            : `${pendingSync.length} changes will sync when online`
       }
     >
       {isSyncing ? (
@@ -105,12 +101,7 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
   const { isOnline, isChecking } = useOnlineStatus();
 
   return (
-    <div
-      className={cn(
-        'rounded-lg border border-surface-700 bg-surface-800 p-4',
-        className
-      )}
-    >
+    <div className={cn('rounded-lg border border-surface-700 bg-surface-800 p-4', className)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-surface-200">Offline Cache</h3>
@@ -174,9 +165,7 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
               </div>
             ))}
             {pendingSync.length > 5 && (
-              <div className="text-xs text-surface-500 pl-1">
-                +{pendingSync.length - 5} more...
-              </div>
+              <div className="text-xs text-surface-500 pl-1">+{pendingSync.length - 5} more...</div>
             )}
           </div>
 

@@ -50,14 +50,8 @@ export function LockIndicator({
   onLockReleased,
   className,
 }: LockIndicatorProps) {
-  const {
-    isConnected,
-    currentUserId,
-    getElementLock,
-    requestLock,
-    releaseLock,
-    collaborators,
-  } = useCollaborationStore();
+  const { isConnected, currentUserId, getElementLock, requestLock, releaseLock, collaborators } =
+    useCollaborationStore();
 
   const [showTooltip, setShowTooltip] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -120,11 +114,7 @@ export function LockIndicator({
 
   return (
     <div
-      className={cn(
-        "relative",
-        isLocked && "cursor-not-allowed",
-        className
-      )}
+      className={cn('relative', isLocked && 'cursor-not-allowed', className)}
       onClick={handleClick}
       onBlur={handleBlur}
       onMouseEnter={() => setIsHovering(true)}
@@ -134,9 +124,9 @@ export function LockIndicator({
       {isLocked && (
         <div
           className={cn(
-            "absolute inset-0 pointer-events-none z-10",
-            "rounded-lg border-2 transition-opacity",
-            isHovering ? "opacity-100" : "opacity-70"
+            'absolute inset-0 pointer-events-none z-10',
+            'rounded-lg border-2 transition-opacity',
+            isHovering ? 'opacity-100' : 'opacity-70'
           )}
           style={{
             borderColor: lockColor,
@@ -149,11 +139,11 @@ export function LockIndicator({
       {isLocked && lock && (
         <div
           className={cn(
-            "absolute -top-2 -right-2 z-20",
-            "flex items-center gap-1 px-2 py-0.5",
-            "rounded-full text-xs font-medium shadow-lg",
-            "transition-all duration-200",
-            isHovering ? "scale-110" : "scale-100"
+            'absolute -top-2 -right-2 z-20',
+            'flex items-center gap-1 px-2 py-0.5',
+            'rounded-full text-xs font-medium shadow-lg',
+            'transition-all duration-200',
+            isHovering ? 'scale-110' : 'scale-100'
           )}
           style={{
             backgroundColor: lockColor,
@@ -169,10 +159,10 @@ export function LockIndicator({
       {showTooltip && lock && (
         <div
           className={cn(
-            "absolute left-1/2 -translate-x-1/2 -top-12 z-30",
-            "px-3 py-2 rounded-lg shadow-lg",
-            "bg-surface-900 text-white text-sm",
-            "whitespace-nowrap animate-in fade-in-0 slide-in-from-bottom-2"
+            'absolute left-1/2 -translate-x-1/2 -top-12 z-30',
+            'px-3 py-2 rounded-lg shadow-lg',
+            'bg-surface-900 text-white text-sm',
+            'whitespace-nowrap animate-in fade-in-0 slide-in-from-bottom-2'
           )}
         >
           Being edited by {lock.userName}
@@ -187,10 +177,10 @@ export function LockIndicator({
       {isOwnLock && (
         <div
           className={cn(
-            "absolute -top-2 -right-2 z-20",
-            "flex items-center gap-1 px-2 py-0.5",
-            "rounded-full text-xs font-medium shadow-lg",
-            "bg-primary-500 text-white"
+            'absolute -top-2 -right-2 z-20',
+            'flex items-center gap-1 px-2 py-0.5',
+            'rounded-full text-xs font-medium shadow-lg',
+            'bg-primary-500 text-white'
           )}
         >
           <Lock className="w-3 h-3" />
@@ -199,9 +189,7 @@ export function LockIndicator({
       )}
 
       {/* Children */}
-      <div className={cn(isLocked && "pointer-events-none opacity-75")}>
-        {children}
-      </div>
+      <div className={cn(isLocked && 'pointer-events-none opacity-75')}>{children}</div>
     </div>
   );
 }

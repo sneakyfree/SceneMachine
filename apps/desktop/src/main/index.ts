@@ -2,7 +2,14 @@
  * Electron main process entry point.
  */
 
-import { app, BrowserWindow, dialog, ipcMain, OpenDialogOptions, SaveDialogOptions } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  OpenDialogOptions,
+  SaveDialogOptions,
+} from 'electron';
 import * as path from 'path';
 import { PythonBackend } from './python-backend';
 import { IPCClient } from './ipc-client';

@@ -4,13 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  DollarSign,
-  AlertTriangle,
-  Check,
-  Info,
-  Loader2,
-} from 'lucide-react';
+import { DollarSign, AlertTriangle, Check, Info, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface BudgetSettingsProps {
@@ -37,9 +31,7 @@ export function BudgetSettings({
   isSaving = false,
 }: BudgetSettingsProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [budgetLimit, setBudgetLimit] = useState<string>(
-    currentBudgetLimit?.toString() || ''
-  );
+  const [budgetLimit, setBudgetLimit] = useState<string>(currentBudgetLimit?.toString() || '');
   const [periodDays, setPeriodDays] = useState<number>(currentPeriodDays);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -101,8 +93,8 @@ export function BudgetSettings({
             isOverBudget
               ? 'bg-red-500/10 border-red-500/30'
               : isNearBudget
-              ? 'bg-yellow-500/10 border-yellow-500/30'
-              : 'bg-green-500/10 border-green-500/30'
+                ? 'bg-yellow-500/10 border-yellow-500/30'
+                : 'bg-green-500/10 border-green-500/30'
           )}
         >
           <div className="flex items-center justify-between mb-3">
@@ -113,8 +105,8 @@ export function BudgetSettings({
                   isOverBudget
                     ? 'text-red-400'
                     : isNearBudget
-                    ? 'text-yellow-400'
-                    : 'text-green-400'
+                      ? 'text-yellow-400'
+                      : 'text-green-400'
                 )}
               />
               <span className="font-medium">Budget Status</span>
@@ -147,11 +139,7 @@ export function BudgetSettings({
               <div
                 className={cn(
                   'h-full rounded-full transition-all',
-                  isOverBudget
-                    ? 'bg-red-500'
-                    : isNearBudget
-                    ? 'bg-yellow-500'
-                    : 'bg-green-500'
+                  isOverBudget ? 'bg-red-500' : isNearBudget ? 'bg-yellow-500' : 'bg-green-500'
                 )}
                 style={{ width: `${budgetUsagePercent}%` }}
               />
@@ -165,20 +153,14 @@ export function BudgetSettings({
             <span
               className={cn(
                 'font-medium',
-                isOverBudget
-                  ? 'text-red-400'
-                  : isNearBudget
-                  ? 'text-yellow-400'
-                  : 'text-green-400'
+                isOverBudget ? 'text-red-400' : isNearBudget ? 'text-yellow-400' : 'text-green-400'
               )}
             >
               {budgetUsagePercent.toFixed(0)}%
             </span>
           </div>
 
-          <div className="text-xs text-surface-500 mt-2">
-            Period: {currentPeriodDays} days
-          </div>
+          <div className="text-xs text-surface-500 mt-2">Period: {currentPeriodDays} days</div>
         </div>
       ) : (
         <div className="p-4 bg-surface-800/50 rounded-lg border border-surface-700">
@@ -194,13 +176,9 @@ export function BudgetSettings({
         <div className="space-y-4 p-4 bg-surface-800/50 rounded-lg">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Budget Limit (USD)
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Budget Limit (USD)</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400">
-                  $
-                </span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400">$</span>
                 <input
                   type="text"
                   value={budgetLimit}
@@ -209,15 +187,11 @@ export function BudgetSettings({
                   className="w-full bg-surface-800 border border-surface-700 rounded-lg pl-7 pr-3 py-2 focus:outline-none focus:border-brand-500"
                 />
               </div>
-              <p className="text-xs text-surface-500 mt-1">
-                Leave empty for no limit
-              </p>
+              <p className="text-xs text-surface-500 mt-1">Leave empty for no limit</p>
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Budget Period
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Budget Period</label>
               <select
                 value={periodDays}
                 onChange={(e) => handlePeriodChange(parseInt(e.target.value))}
@@ -234,9 +208,7 @@ export function BudgetSettings({
 
           <div className="flex items-center gap-2 text-sm text-surface-400">
             <Info className="w-4 h-4" />
-            <span>
-              You'll receive alerts at 80% and 100% of your budget.
-            </span>
+            <span>You'll receive alerts at 80% and 100% of your budget.</span>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
@@ -275,9 +247,7 @@ export function BudgetSettings({
           onClick={() => setIsEditing(true)}
           className="w-full px-4 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm transition-colors text-left flex items-center justify-between"
         >
-          <span>
-            {currentBudgetLimit ? 'Change Budget Settings' : 'Set Budget Limit'}
-          </span>
+          <span>{currentBudgetLimit ? 'Change Budget Settings' : 'Set Budget Limit'}</span>
           <DollarSign className="w-4 h-4 text-surface-400" />
         </button>
       )}

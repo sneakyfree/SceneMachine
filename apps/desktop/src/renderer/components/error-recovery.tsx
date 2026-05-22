@@ -183,12 +183,7 @@ export const ErrorAlert = memo(function ErrorAlert({
 
   return (
     <div
-      className={cn(
-        'rounded-lg border overflow-hidden',
-        bgColor,
-        'border-current/20',
-        className
-      )}
+      className={cn('rounded-lg border overflow-hidden', bgColor, 'border-current/20', className)}
       role="alert"
     >
       {/* Header */}
@@ -267,10 +262,7 @@ interface ErrorDetailsProps {
 /**
  * Expandable technical error details for debugging
  */
-export const ErrorDetails = memo(function ErrorDetails({
-  error,
-  className,
-}: ErrorDetailsProps) {
+export const ErrorDetails = memo(function ErrorDetails({ error, className }: ErrorDetailsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -304,11 +296,7 @@ export const ErrorDetails = memo(function ErrorDetails({
         className="w-full flex items-center justify-between px-4 py-2 text-xs text-surface-500 hover:text-surface-400 transition-colors"
       >
         <span>Technical Details</span>
-        {isExpanded ? (
-          <ChevronUp className="w-4 h-4" />
-        ) : (
-          <ChevronDown className="w-4 h-4" />
-        )}
+        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </button>
 
       {isExpanded && (
@@ -394,10 +382,7 @@ export const RetryCountdown = memo(function RetryCountdown({
       <RefreshCw className="w-4 h-4 animate-spin" />
       <span>Retrying in {remaining}s...</span>
       {onCancel && (
-        <button
-          onClick={onCancel}
-          className="text-surface-500 hover:text-surface-300 underline"
-        >
+        <button onClick={onCancel} className="text-surface-500 hover:text-surface-300 underline">
           Cancel
         </button>
       )}

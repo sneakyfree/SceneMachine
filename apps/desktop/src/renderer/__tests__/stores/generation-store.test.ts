@@ -156,9 +156,7 @@ describe('GenerationStore', () => {
     it('should not auto-select for different provider', () => {
       const { setAvailableModels } = useGenerationStore.getState();
 
-      const models = [
-        { id: 'cogvideo', name: 'CogVideoX', description: 'Fast generation' },
-      ] as any;
+      const models = [{ id: 'cogvideo', name: 'CogVideoX', description: 'Fast generation' }] as any;
 
       // Current provider is replicate, setting models for fal
       setAvailableModels('fal', models);
@@ -222,7 +220,7 @@ describe('GenerationStore', () => {
         model: 'minimax',
         durationSeconds: 10,
         costPerShot: 0.15,
-        totalCost: 1.50,
+        totalCost: 1.5,
       };
 
       setLastCostEstimate(estimate);
@@ -238,7 +236,7 @@ describe('GenerationStore', () => {
         model: 'minimax',
         durationSeconds: 10,
         costPerShot: 0.15,
-        totalCost: 1.50,
+        totalCost: 1.5,
       });
 
       setLastCostEstimate(null);
@@ -271,7 +269,8 @@ describe('GenerationStore', () => {
 
   describe('Computed Helpers', () => {
     it('should get current model', () => {
-      const { setAvailableModels, setSelectedModel, getCurrentModel } = useGenerationStore.getState();
+      const { setAvailableModels, setSelectedModel, getCurrentModel } =
+        useGenerationStore.getState();
 
       const models = [
         { id: 'minimax', name: 'MiniMax', description: 'Fast generation' },
@@ -303,9 +302,7 @@ describe('GenerationStore', () => {
     it('should get models for provider', () => {
       const { setAvailableModels, getModelsForProvider } = useGenerationStore.getState();
 
-      const models = [
-        { id: 'minimax', name: 'MiniMax', description: 'Fast generation' },
-      ] as any;
+      const models = [{ id: 'minimax', name: 'MiniMax', description: 'Fast generation' }] as any;
 
       setAvailableModels('replicate', models);
 

@@ -4,7 +4,12 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act } from '@testing-library/react';
-import { useActForgeStore, useACIBadgeColor, useRevenueTierLabel, useBookingModeInfo } from '../../stores/actforge-store';
+import {
+  useActForgeStore,
+  useACIBadgeColor,
+  useRevenueTierLabel,
+  useBookingModeInfo,
+} from '../../stores/actforge-store';
 
 // Mock the API client
 vi.mock('../../api/client', () => ({

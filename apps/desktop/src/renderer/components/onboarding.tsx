@@ -50,8 +50,8 @@ function StepIndicator({
               i < currentStep
                 ? 'bg-brand-500 text-white'
                 : i === currentStep
-                ? 'bg-brand-500/20 text-brand-400 border-2 border-brand-500'
-                : 'bg-surface-700 text-surface-400'
+                  ? 'bg-brand-500/20 text-brand-400 border-2 border-brand-500'
+                  : 'bg-surface-700 text-surface-400'
             )}
           >
             {i < currentStep ? <Check className="w-4 h-4" /> : i + 1}
@@ -90,9 +90,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <Upload className="w-6 h-6 text-brand-400 mb-2" />
           <h4 className="font-medium mb-1">Upload Screenplays</h4>
-          <p className="text-sm text-surface-400">
-            Import Fountain or Final Draft files directly
-          </p>
+          <p className="text-sm text-surface-400">Import Fountain or Final Draft files directly</p>
         </div>
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <Users className="w-6 h-6 text-brand-400 mb-2" />
@@ -104,16 +102,12 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <Clapperboard className="w-6 h-6 text-brand-400 mb-2" />
           <h4 className="font-medium mb-1">Plan Shots</h4>
-          <p className="text-sm text-surface-400">
-            AI-assisted shot breakdown and composition
-          </p>
+          <p className="text-sm text-surface-400">AI-assisted shot breakdown and composition</p>
         </div>
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <Video className="w-6 h-6 text-brand-400 mb-2" />
           <h4 className="font-medium mb-1">Generate Video</h4>
-          <p className="text-sm text-surface-400">
-            Create and export professional video content
-          </p>
+          <p className="text-sm text-surface-400">Create and export professional video content</p>
         </div>
       </div>
 
@@ -129,18 +123,14 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 }
 
 // API Keys step
-function ApiKeysStep({
-  onNext,
-  onBack,
-}: {
-  onNext: () => void;
-  onBack: () => void;
-}) {
+function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const { settings, setApiKey, validateApiKey, isSaving, fetchSettings } = useSettingsStore();
 
   const [anthropicKey, setAnthropicKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [validationStatus, setValidationStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
+  const [validationStatus, setValidationStatus] = useState<
+    'idle' | 'validating' | 'valid' | 'invalid'
+  >('idle');
   const [validationMessage, setValidationMessage] = useState('');
 
   useEffect(() => {
@@ -311,13 +301,7 @@ function ApiKeysStep({
 }
 
 // Workflow overview step
-function WorkflowStep({
-  onNext,
-  onBack,
-}: {
-  onNext: () => void;
-  onBack: () => void;
-}) {
+function WorkflowStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const steps = [
     {
       icon: Upload,
@@ -405,13 +389,7 @@ function WorkflowStep({
 }
 
 // Ready step
-function ReadyStep({
-  onComplete,
-  onBack,
-}: {
-  onComplete: () => void;
-  onBack: () => void;
-}) {
+function ReadyStep({ onComplete, onBack }: { onComplete: () => void; onBack: () => void }) {
   const navigate = useNavigate();
 
   const handleCreateProject = () => {
@@ -455,10 +433,7 @@ function ReadyStep({
         </button>
       </div>
 
-      <button
-        onClick={onBack}
-        className="mt-6 text-sm text-surface-400 hover:text-surface-200"
-      >
+      <button onClick={onBack} className="mt-6 text-sm text-surface-400 hover:text-surface-200">
         Go back
       </button>
     </div>
@@ -503,11 +478,7 @@ export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
 
       {/* Progress */}
       <div className="py-6 px-8 border-b border-surface-800">
-        <StepIndicator
-          currentStep={currentStep}
-          totalSteps={totalSteps}
-          stepTitles={stepTitles}
-        />
+        <StepIndicator currentStep={currentStep} totalSteps={totalSteps} stepTitles={stepTitles} />
       </div>
 
       {/* Content */}
@@ -540,8 +511,7 @@ export function useOnboardingStatus() {
         // Check if user has any settings configured (returning user)
         const settings = await window.electronAPI.backendRequest<any>('settings.get', {});
         const hasApiKeys =
-          settings?.apiKeys?.anthropic?.configured ||
-          settings?.apiKeys?.openai?.configured;
+          settings?.apiKeys?.anthropic?.configured || settings?.apiKeys?.openai?.configured;
 
         // Show onboarding only for truly new users
         setShouldShowOnboarding(!hasApiKeys);

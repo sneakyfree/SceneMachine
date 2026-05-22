@@ -90,18 +90,12 @@ describe('Breadcrumbs', () => {
     });
 
     it('should render span for current page (no href)', () => {
-      renderBreadcrumbs([
-        { label: 'Home', href: '/' },
-        { label: 'Current Page' },
-      ]);
+      renderBreadcrumbs([{ label: 'Home', href: '/' }, { label: 'Current Page' }]);
       expect(screen.getByTestId('breadcrumb-current-1')).toBeInTheDocument();
     });
 
     it('should have aria-current on current page', () => {
-      renderBreadcrumbs([
-        { label: 'Home', href: '/' },
-        { label: 'Current Page' },
-      ]);
+      renderBreadcrumbs([{ label: 'Home', href: '/' }, { label: 'Current Page' }]);
       expect(screen.getByTestId('breadcrumb-current-1')).toHaveAttribute('aria-current', 'page');
     });
   });
@@ -188,10 +182,7 @@ describe('Breadcrumbs', () => {
     });
 
     it('should handle query parameters in hrefs', () => {
-      renderBreadcrumbs([
-        { label: 'Search', href: '/search?q=test' },
-        { label: 'Results' },
-      ]);
+      renderBreadcrumbs([{ label: 'Search', href: '/search?q=test' }, { label: 'Results' }]);
       expect(screen.getByTestId('breadcrumb-link-0')).toHaveAttribute('href', '/search?q=test');
     });
   });

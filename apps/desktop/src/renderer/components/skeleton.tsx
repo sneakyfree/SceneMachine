@@ -17,13 +17,7 @@ interface SkeletonProps {
  */
 export function Skeleton({ className }: SkeletonProps) {
   return (
-    <div
-      className={cn(
-        'animate-pulse bg-surface-700 rounded',
-        className
-      )}
-      aria-hidden="true"
-    />
+    <div className={cn('animate-pulse bg-surface-700 rounded', className)} aria-hidden="true" />
   );
 }
 
@@ -44,7 +38,10 @@ export function SkeletonTitle({ className }: SkeletonProps) {
 /**
  * Skeleton for a circular avatar.
  */
-export function SkeletonAvatar({ className, size = 'w-10 h-10' }: SkeletonProps & { size?: string }) {
+export function SkeletonAvatar({
+  className,
+  size = 'w-10 h-10',
+}: SkeletonProps & { size?: string }) {
   return <Skeleton className={cn('rounded-full', size, className)} />;
 }
 
@@ -100,7 +97,10 @@ export function SkeletonQueueJob({ className }: SkeletonProps) {
 /**
  * Skeleton for a timeline clip.
  */
-export function SkeletonTimelineClip({ className, width = 'w-32' }: SkeletonProps & { width?: string }) {
+export function SkeletonTimelineClip({
+  className,
+  width = 'w-32',
+}: SkeletonProps & { width?: string }) {
   return (
     <div className={cn('h-16 bg-surface-800 rounded border border-surface-700', width, className)}>
       <div className="p-2 space-y-1">
@@ -272,17 +272,11 @@ export const LoadingContainer = memo(function LoadingContainer({
 
     return (
       <div
-        className={cn(
-          'flex flex-col items-center justify-center',
-          minHeight,
-          className
-        )}
+        className={cn('flex flex-col items-center justify-center', minHeight, className)}
         aria-label="Loading"
       >
         <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
-        {loadingMessage && (
-          <p className="mt-3 text-sm text-surface-400">{loadingMessage}</p>
-        )}
+        {loadingMessage && <p className="mt-3 text-sm text-surface-400">{loadingMessage}</p>}
       </div>
     );
   }
@@ -301,9 +295,7 @@ export const LoadingContainer = memo(function LoadingContainer({
         <div className="p-4 bg-red-500/10 rounded-full mb-4">
           <AlertCircle className="w-8 h-8 text-red-400" />
         </div>
-        <h3 className="text-lg font-medium text-surface-100 mb-2">
-          Something went wrong
-        </h3>
+        <h3 className="text-lg font-medium text-surface-100 mb-2">Something went wrong</h3>
         <p className="text-sm text-surface-400 max-w-md mb-4">
           {error || 'An unexpected error occurred. Please try again.'}
         </p>
@@ -426,13 +418,7 @@ export const ContentPlaceholder = memo(function ContentPlaceholder({
   return (
     <div className={cn('space-y-3', className)} aria-label="Loading content">
       {Array.from({ length: lines }, (_, i) => (
-        <Skeleton
-          key={i}
-          className={cn(
-            'h-4',
-            i === lines - 1 ? 'w-2/3' : 'w-full'
-          )}
-        />
+        <Skeleton key={i} className={cn('h-4', i === lines - 1 ? 'w-2/3' : 'w-full')} />
       ))}
     </div>
   );
@@ -492,20 +478,14 @@ export const SkeletonTable = memo(function SkeletonTable({
         {Array.from({ length: columns }, (_, i) => (
           <Skeleton
             key={i}
-            className={cn(
-              'h-4',
-              i === 0 ? 'w-1/4' : i === columns - 1 ? 'w-20' : 'flex-1'
-            )}
+            className={cn('h-4', i === 0 ? 'w-1/4' : i === columns - 1 ? 'w-20' : 'flex-1')}
           />
         ))}
       </div>
 
       {/* Rows */}
       {Array.from({ length: rows }, (_, rowIndex) => (
-        <div
-          key={rowIndex}
-          className="flex gap-4 p-3 bg-surface-800/50 rounded-lg"
-        >
+        <div key={rowIndex} className="flex gap-4 p-3 bg-surface-800/50 rounded-lg">
           {Array.from({ length: columns }, (_, colIndex) => (
             <Skeleton
               key={colIndex}

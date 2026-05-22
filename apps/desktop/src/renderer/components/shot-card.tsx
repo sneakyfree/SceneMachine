@@ -90,8 +90,7 @@ function ShotCostBadge({
 
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-surface-800 text-surface-300">
-      <DollarSign className="w-3 h-3" />
-      ${estimate.total_cost.toFixed(2)}
+      <DollarSign className="w-3 h-3" />${estimate.total_cost.toFixed(2)}
     </span>
   );
 }
@@ -116,9 +115,7 @@ export function ShotCard({
 
   const shotType = shotTypes.find((st) => st.value === shot.shotType);
   const cameraMovement = cameraMovements.find((cm) => cm.value === shot.cameraMovement);
-  const shotCharacters = characters.filter((c) =>
-    shot.characterIds?.includes(c.id)
-  );
+  const shotCharacters = characters.filter((c) => shot.characterIds?.includes(c.id));
 
   const handleStartEdit = () => {
     setEditData({
@@ -167,17 +164,13 @@ export function ShotCard({
         {/* Shot Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium">
-              {shotType?.label || shot.shotType}
-            </span>
+            <span className="text-sm font-medium">{shotType?.label || shot.shotType}</span>
             <span className="text-surface-500">•</span>
             <span className="text-sm text-surface-400">
               {cameraMovement?.label || shot.cameraMovement}
             </span>
           </div>
-          <p className="text-sm text-surface-400 truncate">
-            {shot.description}
-          </p>
+          <p className="text-sm text-surface-400 truncate">{shot.description}</p>
         </div>
 
         {/* Duration */}
@@ -226,13 +219,9 @@ export function ShotCard({
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="icon-btn p-2 text-surface-400 hover:text-surface-300 hover:bg-surface-700 rounded transition-colors"
-            aria-label={isExpanded ? "Collapse shot details" : "Expand shot details"}
+            aria-label={isExpanded ? 'Collapse shot details' : 'Expand shot details'}
           >
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
       </div>
@@ -246,14 +235,10 @@ export function ShotCard({
               {/* Shot Type & Camera Movement */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">
-                    Shot Type
-                  </label>
+                  <label className="block text-sm text-surface-400 mb-1">Shot Type</label>
                   <select
                     value={editData.shotType || shot.shotType}
-                    onChange={(e) =>
-                      setEditData({ ...editData, shotType: e.target.value })
-                    }
+                    onChange={(e) => setEditData({ ...editData, shotType: e.target.value })}
                     className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                   >
                     {shotTypes.map((st) => (
@@ -264,14 +249,10 @@ export function ShotCard({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">
-                    Camera Movement
-                  </label>
+                  <label className="block text-sm text-surface-400 mb-1">Camera Movement</label>
                   <select
                     value={editData.cameraMovement || shot.cameraMovement}
-                    onChange={(e) =>
-                      setEditData({ ...editData, cameraMovement: e.target.value })
-                    }
+                    onChange={(e) => setEditData({ ...editData, cameraMovement: e.target.value })}
                     className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                   >
                     {cameraMovements.map((cm) => (
@@ -285,14 +266,10 @@ export function ShotCard({
 
               {/* Description */}
               <div>
-                <label className="block text-sm text-surface-400 mb-1">
-                  Description
-                </label>
+                <label className="block text-sm text-surface-400 mb-1">Description</label>
                 <textarea
                   value={editData.description ?? shot.description}
-                  onChange={(e) =>
-                    setEditData({ ...editData, description: e.target.value })
-                  }
+                  onChange={(e) => setEditData({ ...editData, description: e.target.value })}
                   rows={2}
                   className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500 resize-none"
                 />
@@ -300,7 +277,10 @@ export function ShotCard({
 
               {/* Duration */}
               <div>
-                <label htmlFor={`duration-${shot.id}`} className="block text-sm text-surface-400 mb-1">
+                <label
+                  htmlFor={`duration-${shot.id}`}
+                  className="block text-sm text-surface-400 mb-1"
+                >
                   Duration (seconds)
                 </label>
                 <input
@@ -323,28 +303,20 @@ export function ShotCard({
               {/* Notes */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">
-                    Composition Notes
-                  </label>
+                  <label className="block text-sm text-surface-400 mb-1">Composition Notes</label>
                   <textarea
                     value={editData.compositionNotes ?? shot.compositionNotes ?? ''}
-                    onChange={(e) =>
-                      setEditData({ ...editData, compositionNotes: e.target.value })
-                    }
+                    onChange={(e) => setEditData({ ...editData, compositionNotes: e.target.value })}
                     rows={2}
                     placeholder="Framing, rule of thirds, etc."
                     className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500 resize-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">
-                    Lighting Notes
-                  </label>
+                  <label className="block text-sm text-surface-400 mb-1">Lighting Notes</label>
                   <textarea
                     value={editData.lightingNotes ?? shot.lightingNotes ?? ''}
-                    onChange={(e) =>
-                      setEditData({ ...editData, lightingNotes: e.target.value })
-                    }
+                    onChange={(e) => setEditData({ ...editData, lightingNotes: e.target.value })}
                     rows={2}
                     placeholder="Key light, mood, etc."
                     className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500 resize-none"
@@ -379,9 +351,7 @@ export function ShotCard({
                     <span>Shot Type</span>
                   </div>
                   <p className="text-sm">{shotType?.label}</p>
-                  <p className="text-xs text-surface-500 mt-0.5">
-                    {shotType?.description}
-                  </p>
+                  <p className="text-xs text-surface-500 mt-0.5">{shotType?.description}</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 text-sm text-surface-400 mb-1">
@@ -389,9 +359,7 @@ export function ShotCard({
                     <span>Camera</span>
                   </div>
                   <p className="text-sm">{cameraMovement?.label}</p>
-                  <p className="text-xs text-surface-500 mt-0.5">
-                    {cameraMovement?.description}
-                  </p>
+                  <p className="text-xs text-surface-500 mt-0.5">{cameraMovement?.description}</p>
                 </div>
               </div>
 
@@ -423,10 +391,7 @@ export function ShotCard({
                   <h4 className="text-sm text-surface-400 mb-1">Characters</h4>
                   <div className="flex flex-wrap gap-2">
                     {shotCharacters.map((char) => (
-                      <span
-                        key={char.id}
-                        className="px-2 py-1 bg-surface-700 rounded text-xs"
-                      >
+                      <span key={char.id} className="px-2 py-1 bg-surface-700 rounded text-xs">
                         {char.name}
                       </span>
                     ))}
@@ -439,22 +404,14 @@ export function ShotCard({
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-surface-700">
                   {shot.compositionNotes && (
                     <div>
-                      <h4 className="text-xs text-surface-500 mb-1">
-                        Composition
-                      </h4>
-                      <p className="text-xs text-surface-400">
-                        {shot.compositionNotes}
-                      </p>
+                      <h4 className="text-xs text-surface-500 mb-1">Composition</h4>
+                      <p className="text-xs text-surface-400">{shot.compositionNotes}</p>
                     </div>
                   )}
                   {shot.lightingNotes && (
                     <div>
-                      <h4 className="text-xs text-surface-500 mb-1">
-                        Lighting
-                      </h4>
-                      <p className="text-xs text-surface-400">
-                        {shot.lightingNotes}
-                      </p>
+                      <h4 className="text-xs text-surface-500 mb-1">Lighting</h4>
+                      <p className="text-xs text-surface-400">{shot.lightingNotes}</p>
                     </div>
                   )}
                 </div>

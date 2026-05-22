@@ -86,15 +86,13 @@ export function ArchivePage() {
   // Fetch projects for export
   const { data: projects } = useQuery({
     queryKey: ['projects'],
-    queryFn: () =>
-      window.electronAPI.backendRequest<any[]>('projects.list', {}),
+    queryFn: () => window.electronAPI.backendRequest<any[]>('projects.list', {}),
   });
 
   // Fetch existing exports
   const { data: exports, isLoading: exportsLoading } = useQuery({
     queryKey: ['project-exports'],
-    queryFn: () =>
-      window.electronAPI.backendRequest<ExportedArchive[]>('project.listExports', {}),
+    queryFn: () => window.electronAPI.backendRequest<ExportedArchive[]>('project.listExports', {}),
   });
 
   // Export mutation
@@ -106,9 +104,7 @@ export function ArchivePage() {
       const result = await window.electronAPI.saveFile({
         title: 'Export Project',
         defaultPath: `project-${Date.now()}.smproject`,
-        filters: [
-          { name: 'SceneMachine Project', extensions: ['smproject'] },
-        ],
+        filters: [{ name: 'SceneMachine Project', extensions: ['smproject'] }],
       });
 
       if (result.canceled || !result.filePath) {
@@ -211,9 +207,7 @@ export function ArchivePage() {
               <Archive className="w-6 h-6 text-brand-400" />
               Project Archive
             </h1>
-            <p className="text-surface-400 mt-1">
-              Export and import projects as portable archives
-            </p>
+            <p className="text-surface-400 mt-1">Export and import projects as portable archives</p>
           </div>
         </div>
 
@@ -227,9 +221,7 @@ export function ArchivePage() {
 
             {/* Project Selection */}
             <div className="mb-4">
-              <label className="block text-sm text-surface-400 mb-2">
-                Select Project
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Select Project</label>
               <select
                 value={exportProjectId || ''}
                 onChange={(e) => setExportProjectId(e.target.value || null)}
@@ -348,16 +340,14 @@ export function ArchivePage() {
                   {archiveInfo && (
                     <div className="text-sm text-surface-400 space-y-1 mt-3">
                       <p>
-                        <span className="text-surface-500">Project:</span>{' '}
-                        {archiveInfo.projectName}
+                        <span className="text-surface-500">Project:</span> {archiveInfo.projectName}
                       </p>
                       <p>
                         <span className="text-surface-500">Exported:</span>{' '}
                         {formatDate(archiveInfo.exportedAt)}
                       </p>
                       <p>
-                        <span className="text-surface-500">Scenes:</span>{' '}
-                        {archiveInfo.sceneCount}
+                        <span className="text-surface-500">Scenes:</span> {archiveInfo.sceneCount}
                       </p>
                       <p>
                         <span className="text-surface-500">Characters:</span>{' '}
@@ -449,8 +439,7 @@ export function ArchivePage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{archive.projectName}</p>
                     <p className="text-sm text-surface-400">
-                      {formatDate(archive.exportedAt)} &bull;{' '}
-                      {formatFileSize(archive.fileSize)}
+                      {formatDate(archive.exportedAt)} &bull; {formatFileSize(archive.fileSize)}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -472,9 +461,7 @@ export function ArchivePage() {
             <div className="text-center py-8 text-surface-400">
               <Archive className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>No exports yet</p>
-              <p className="text-sm text-surface-500">
-                Export a project to see it here
-              </p>
+              <p className="text-sm text-surface-500">Export a project to see it here</p>
             </div>
           )}
         </div>

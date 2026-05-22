@@ -3,13 +3,7 @@
  */
 
 import { useState } from 'react';
-import {
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Info,
-  X,
-} from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Toast as ToastType, useToastStore } from '../stores/toast-store';
 
@@ -102,9 +96,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastType; onDismiss: () => vo
 
       <div className="flex-1 min-w-0">
         <p className={cn('font-medium', colorSet.title)}>{toast.title}</p>
-        {toast.message && (
-          <p className="text-sm text-surface-400 mt-1">{toast.message}</p>
-        )}
+        {toast.message && <p className="text-sm text-surface-400 mt-1">{toast.message}</p>}
         {toast.action && (
           <button
             onClick={toast.action.onClick}

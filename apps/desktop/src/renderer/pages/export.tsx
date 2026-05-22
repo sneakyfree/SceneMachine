@@ -180,8 +180,7 @@ export function ExportPage() {
   // Fetch project
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: () =>
-      window.electronAPI.backendRequest<any>('projects.get', { id: projectId }),
+    queryFn: () => window.electronAPI.backendRequest<any>('projects.get', { id: projectId }),
     enabled: !!projectId,
   });
 
@@ -209,18 +208,14 @@ export function ExportPage() {
   // Fetch export formats
   const { data: formats } = useQuery({
     queryKey: ['exportFormats'],
-    queryFn: () =>
-      window.electronAPI.backendRequest<ExportFormat[]>('assembly.getFormats', {}),
+    queryFn: () => window.electronAPI.backendRequest<ExportFormat[]>('assembly.getFormats', {}),
   });
 
   // Fetch quality presets
   const { data: qualityPresets } = useQuery({
     queryKey: ['qualityPresets'],
     queryFn: () =>
-      window.electronAPI.backendRequest<QualityPreset[]>(
-        'assembly.getQualityPresets',
-        {}
-      ),
+      window.electronAPI.backendRequest<QualityPreset[]>('assembly.getQualityPresets', {}),
   });
 
   // Fetch export history
@@ -313,23 +308,20 @@ export function ExportPage() {
   const estimatedSize = (() => {
     if (!timeline) return null;
 
-    const qualityMultiplier = {
-      draft: 0.5,
-      standard: 1,
-      high: 2,
-      master: 4,
-    }[settings.quality] || 1;
+    const qualityMultiplier =
+      {
+        draft: 0.5,
+        standard: 1,
+        high: 2,
+        master: 4,
+      }[settings.quality] || 1;
 
-    const resolutionMultiplier =
-      parseInt(settings.resolution.split('x')[0]) / 1920;
+    const resolutionMultiplier = parseInt(settings.resolution.split('x')[0]) / 1920;
 
     // Rough estimate: ~5 MB per minute at 1080p standard quality
     const baseMBPerMinute = 5;
     const estimatedMB =
-      (timeline.totalDuration / 60) *
-      baseMBPerMinute *
-      qualityMultiplier *
-      resolutionMultiplier;
+      (timeline.totalDuration / 60) * baseMBPerMinute * qualityMultiplier * resolutionMultiplier;
 
     return estimatedMB * 1024 * 1024; // Convert to bytes
   })();
@@ -420,12 +412,11 @@ export function ExportPage() {
                         assemblyStatus.isReady ? 'bg-green-500' : 'bg-brand-500'
                       )}
                       style={{
-                        width: `${assemblyStatus.totalShots > 0
-                          ? (assemblyStatus.generatedShots /
-                            assemblyStatus.totalShots) *
-                          100
-                          : 0
-                          }%`,
+                        width: `${
+                          assemblyStatus.totalShots > 0
+                            ? (assemblyStatus.generatedShots / assemblyStatus.totalShots) * 100
+                            : 0
+                        }%`,
                       }}
                     />
                   </div>
@@ -542,8 +533,7 @@ export function ExportPage() {
                       <div>
                         <p className="font-medium">{item.filename}</p>
                         <p className="text-xs text-surface-400">
-                          {item.format} - {item.quality} -{' '}
-                          {formatFileSize(item.fileSize)}
+                          {item.format} - {item.quality} - {formatFileSize(item.fileSize)}
                         </p>
                       </div>
                     </div>
@@ -582,12 +572,60 @@ export function ExportPage() {
               <label className="block text-sm text-surface-400 mb-2">Platform Preset</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: 'youtube_4k', label: 'YouTube 4K', icon: '📺', format: 'mp4_h264', resolution: '3840x2160', quality: 'master', fps: 30 },
-                  { id: 'youtube_1080p', label: 'YouTube HD', icon: '▶️', format: 'mp4_h264', resolution: '1920x1080', quality: 'high', fps: 30 },
-                  { id: 'instagram_reels', label: 'Instagram', icon: '📸', format: 'mp4_h264', resolution: '1080x1920', quality: 'high', fps: 30 },
-                  { id: 'tiktok', label: 'TikTok', icon: '🎵', format: 'mp4_h264', resolution: '1080x1920', quality: 'standard', fps: 30 },
-                  { id: 'vimeo', label: 'Vimeo', icon: '🎬', format: 'mp4_h264', resolution: '1920x1080', quality: 'high', fps: 24 },
-                  { id: 'archive', label: 'Archive', icon: '💾', format: 'mov_prores', resolution: '1920x1080', quality: 'master', fps: 24 },
+                  {
+                    id: 'youtube_4k',
+                    label: 'YouTube 4K',
+                    icon: '📺',
+                    format: 'mp4_h264',
+                    resolution: '3840x2160',
+                    quality: 'master',
+                    fps: 30,
+                  },
+                  {
+                    id: 'youtube_1080p',
+                    label: 'YouTube HD',
+                    icon: '▶️',
+                    format: 'mp4_h264',
+                    resolution: '1920x1080',
+                    quality: 'high',
+                    fps: 30,
+                  },
+                  {
+                    id: 'instagram_reels',
+                    label: 'Instagram',
+                    icon: '📸',
+                    format: 'mp4_h264',
+                    resolution: '1080x1920',
+                    quality: 'high',
+                    fps: 30,
+                  },
+                  {
+                    id: 'tiktok',
+                    label: 'TikTok',
+                    icon: '🎵',
+                    format: 'mp4_h264',
+                    resolution: '1080x1920',
+                    quality: 'standard',
+                    fps: 30,
+                  },
+                  {
+                    id: 'vimeo',
+                    label: 'Vimeo',
+                    icon: '🎬',
+                    format: 'mp4_h264',
+                    resolution: '1920x1080',
+                    quality: 'high',
+                    fps: 24,
+                  },
+                  {
+                    id: 'archive',
+                    label: 'Archive',
+                    icon: '💾',
+                    format: 'mov_prores',
+                    resolution: '1920x1080',
+                    quality: 'master',
+                    fps: 24,
+                  },
                 ].map((preset) => (
                   <button
                     key={preset.id}
@@ -629,13 +667,13 @@ export function ExportPage() {
                     {fmt.label}
                   </option>
                 )) || (
-                    <>
-                      <option value="mp4_h264">MP4 (H.264)</option>
-                      <option value="mp4_h265">MP4 (H.265/HEVC)</option>
-                      <option value="mov_prores">MOV (ProRes)</option>
-                      <option value="webm_vp9">WebM (VP9)</option>
-                    </>
-                  )}
+                  <>
+                    <option value="mp4_h264">MP4 (H.264)</option>
+                    <option value="mp4_h265">MP4 (H.265/HEVC)</option>
+                    <option value="mov_prores">MOV (ProRes)</option>
+                    <option value="webm_vp9">WebM (VP9)</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -652,13 +690,13 @@ export function ExportPage() {
                     {preset.label}
                   </option>
                 )) || (
-                    <>
-                      <option value="draft">Draft (Fast)</option>
-                      <option value="standard">Standard</option>
-                      <option value="high">High</option>
-                      <option value="master">Master (Slow)</option>
-                    </>
-                  )}
+                  <>
+                    <option value="draft">Draft (Fast)</option>
+                    <option value="standard">Standard</option>
+                    <option value="high">High</option>
+                    <option value="master">Master (Slow)</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -683,9 +721,7 @@ export function ExportPage() {
               <label className="block text-sm text-surface-400 mb-2">Frame Rate</label>
               <select
                 value={settings.frameRate}
-                onChange={(e) =>
-                  handleSettingChange('frameRate', parseInt(e.target.value))
-                }
+                onChange={(e) => handleSettingChange('frameRate', parseInt(e.target.value))}
                 className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2"
               >
                 {frameRateOptions.map((fps) => (
@@ -698,9 +734,7 @@ export function ExportPage() {
 
             {/* Output Filename */}
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Output Filename
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Output Filename</label>
               <input
                 type="text"
                 value={settings.outputFilename}
@@ -716,9 +750,7 @@ export function ExportPage() {
                 <input
                   type="checkbox"
                   checked={settings.includeAudio}
-                  onChange={(e) =>
-                    handleSettingChange('includeAudio', e.target.checked)
-                  }
+                  onChange={(e) => handleSettingChange('includeAudio', e.target.checked)}
                   className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                 />
                 <span className="text-sm">Include Audio</span>
@@ -728,9 +760,7 @@ export function ExportPage() {
                 <input
                   type="checkbox"
                   checked={settings.includeSubtitles}
-                  onChange={(e) =>
-                    handleSettingChange('includeSubtitles', e.target.checked)
-                  }
+                  onChange={(e) => handleSettingChange('includeSubtitles', e.target.checked)}
                   className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                 />
                 <span className="text-sm">Include Subtitles</span>
@@ -740,9 +770,7 @@ export function ExportPage() {
                 <input
                   type="checkbox"
                   checked={settings.includeTextOverlays}
-                  onChange={(e) =>
-                    handleSettingChange('includeTextOverlays', e.target.checked)
-                  }
+                  onChange={(e) => handleSettingChange('includeTextOverlays', e.target.checked)}
                   className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                 />
                 <span className="text-sm">Include Text Overlays</span>

@@ -32,7 +32,8 @@ vi.mock('../../components/queue-manager', () => ({
     onRemove,
     showCompleted = true,
   }: any) => {
-    const activeJobs = jobs?.filter((j: any) => j.status === 'RUNNING' || j.status === 'QUEUED') || [];
+    const activeJobs =
+      jobs?.filter((j: any) => j.status === 'RUNNING' || j.status === 'QUEUED') || [];
     const completedJobs = jobs?.filter((j: any) => j.status === 'COMPLETED') || [];
     const failedJobs = jobs?.filter((j: any) => j.status === 'FAILED') || [];
 
@@ -59,9 +60,7 @@ vi.mock('../../components/queue-manager', () => ({
               )}
             </div>
           ))}
-          {activeJobs.length === 0 && (
-            <div data-testid="empty-active">No active jobs</div>
-          )}
+          {activeJobs.length === 0 && <div data-testid="empty-active">No active jobs</div>}
         </section>
 
         {/* Completed Jobs Section */}

@@ -403,9 +403,10 @@ export function useAssemblyReadiness(): {
       };
     }
 
-    const progress = status.totalShotCount > 0
-      ? Math.round((status.approvedShotCount / status.totalShotCount) * 100)
-      : 0;
+    const progress =
+      status.totalShotCount > 0
+        ? Math.round((status.approvedShotCount / status.totalShotCount) * 100)
+        : 0;
 
     if (status.approvedShotCount === 0) {
       return {

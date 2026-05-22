@@ -67,13 +67,12 @@ describe('ToastContainer', () => {
   });
 
   it('should have aria-live for accessibility', () => {
-    const toasts = [
-      { id: 'toast-1', type: 'info' as const, title: 'Info', dismissible: true },
-    ];
+    const toasts = [{ id: 'toast-1', type: 'info' as const, title: 'Info', dismissible: true }];
     (useToastStore as any).mockReturnValue({ ...mockToastStore, toasts });
 
     render(<ToastContainer />);
-    const container = screen.getByRole('generic', { hidden: true }) || document.querySelector('[aria-live]');
+    const container =
+      screen.getByRole('generic', { hidden: true }) || document.querySelector('[aria-live]');
     // Container should have aria-live attribute
     expect(document.querySelector('[aria-live="polite"]')).toBeInTheDocument();
   });
@@ -91,9 +90,7 @@ describe('ToastContainer', () => {
     });
 
     it('should render error toast with correct styling', () => {
-      const toasts = [
-        { id: 'toast-1', type: 'error' as const, title: 'Error', dismissible: true },
-      ];
+      const toasts = [{ id: 'toast-1', type: 'error' as const, title: 'Error', dismissible: true }];
       (useToastStore as any).mockReturnValue({ ...mockToastStore, toasts });
 
       render(<ToastContainer />);
@@ -113,9 +110,7 @@ describe('ToastContainer', () => {
     });
 
     it('should render info toast with correct styling', () => {
-      const toasts = [
-        { id: 'toast-1', type: 'info' as const, title: 'Info', dismissible: true },
-      ];
+      const toasts = [{ id: 'toast-1', type: 'info' as const, title: 'Info', dismissible: true }];
       (useToastStore as any).mockReturnValue({ ...mockToastStore, toasts });
 
       render(<ToastContainer />);

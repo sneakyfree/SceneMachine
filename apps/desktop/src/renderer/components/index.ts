@@ -77,12 +77,7 @@ export type { VirtualListHandle } from './virtual-list';
 
 // Accessibility
 export { SkipLink } from './skip-link';
-export {
-  Modal,
-  ConfirmDialog,
-  AlertDialog,
-  useModal,
-} from './accessible-modal';
+export { Modal, ConfirmDialog, AlertDialog, useModal } from './accessible-modal';
 
 // Timeline Components
 export { ClipContextMenu, LipSyncQuickModal } from './timeline';
