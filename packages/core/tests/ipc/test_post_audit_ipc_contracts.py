@@ -14,6 +14,7 @@ future refactor renames a method, deletes a handler, or removes the
 tests fail loudly instead of letting the bugs come back as silent UI
 failures.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -32,6 +33,7 @@ def ipc_server(tmp_path):
 # ----------------------------------------------------------------------
 # PR #48 — pipeline.start / pipeline.status aliases
 # ----------------------------------------------------------------------
+
 
 class TestPipelineIpcAliases:
     """The renderer's production-dashboard.tsx calls these names. The
@@ -59,6 +61,7 @@ class TestPipelineIpcAliases:
 # ----------------------------------------------------------------------
 # PR #49 — blockers.analyze / blockers.apply_fix
 # ----------------------------------------------------------------------
+
 
 class TestBlockersIpcHandlers:
     """Renderer's blockers-panel.tsx invokes these. Engine is real;
@@ -89,6 +92,7 @@ class TestBlockersIpcHandlers:
 # PR #50 — snapshots end-to-end
 # ----------------------------------------------------------------------
 
+
 class TestSnapshotsIpcContract:
     """Audit view (explainability.tsx) calls snapshots.list. Compare
     used to have wrong signature. Both must work after PR #50."""
@@ -107,6 +111,7 @@ class TestSnapshotsIpcContract:
         Without this method the run() loop's five snapshot calls would
         AttributeError; the test catches accidental deletion."""
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         assert hasattr(ProductionPipeline, "_snapshot_stage"), (
             "ProductionPipeline._snapshot_stage was the auto-create hook "
             "wired in PR #50; deleting it silently drops the audit trail."
@@ -116,7 +121,9 @@ class TestSnapshotsIpcContract:
         """Source-level assertion that the run() method invokes the
         snapshot hook at the documented stage boundaries."""
         import inspect
+
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         src = inspect.getsource(ProductionPipeline.run)
         # Five documented snapshot points
         assert src.count("await self._snapshot_stage(") >= 5, (
@@ -128,6 +135,7 @@ class TestSnapshotsIpcContract:
 # ----------------------------------------------------------------------
 # PR #51 — ipAdapter.getSettings / ipAdapter.updateSettings
 # ----------------------------------------------------------------------
+
 
 class TestIpAdapterIpcContract:
     """Renderer's ip-adapter-controls.tsx was using fetch() against a

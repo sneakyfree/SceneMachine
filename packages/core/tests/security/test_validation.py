@@ -9,7 +9,6 @@ from scenemachine.security.validation import (
     sanitize_html,
     sanitize_sql_identifier,
     validate_email,
-    validate_path,
     validate_url,
 )
 
@@ -62,7 +61,7 @@ class TestSanitizeFilename:
 
     def test_windows_reserved(self):
         """Should handle Windows reserved characters."""
-        result = sanitize_filename('file:name|test?.txt')
+        result = sanitize_filename("file:name|test?.txt")
         assert ":" not in result
         assert "|" not in result
         assert "?" not in result

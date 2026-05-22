@@ -22,13 +22,20 @@ vi.mock('../../components/command-palette', () => ({
         <ul data-testid="command-list">
           {commands?.map((cmd: any) => (
             <li key={cmd.id} data-testid={`command-${cmd.id}`}>
-              <button onClick={() => { cmd.action?.(); onClose(); }}>
+              <button
+                onClick={() => {
+                  cmd.action?.();
+                  onClose();
+                }}
+              >
                 {cmd.label}
               </button>
             </li>
           ))}
         </ul>
-        <button onClick={onClose} data-testid="close-button">Close</button>
+        <button onClick={onClose} data-testid="close-button">
+          Close
+        </button>
       </div>
     );
   },
@@ -88,11 +95,7 @@ describe('CommandPalette', () => {
   const renderPalette = (isOpen = true) => {
     return render(
       <MemoryRouter>
-        <CommandPalette
-          isOpen={isOpen}
-          onClose={vi.fn()}
-          commands={mockCommands}
-        />
+        <CommandPalette isOpen={isOpen} onClose={vi.fn()} commands={mockCommands} />
       </MemoryRouter>
     );
   };
@@ -147,11 +150,7 @@ describe('CommandPalette', () => {
       const onClose = vi.fn();
       render(
         <MemoryRouter>
-          <CommandPalette
-            isOpen={true}
-            onClose={onClose}
-            commands={mockCommands}
-          />
+          <CommandPalette isOpen={true} onClose={onClose} commands={mockCommands} />
         </MemoryRouter>
       );
 
@@ -163,11 +162,7 @@ describe('CommandPalette', () => {
       const onClose = vi.fn();
       render(
         <MemoryRouter>
-          <CommandPalette
-            isOpen={true}
-            onClose={onClose}
-            commands={mockCommands}
-          />
+          <CommandPalette isOpen={true} onClose={onClose} commands={mockCommands} />
         </MemoryRouter>
       );
 
@@ -186,11 +181,7 @@ describe('CommandPalette', () => {
       const onClose = vi.fn();
       render(
         <MemoryRouter>
-          <CommandPalette
-            isOpen={true}
-            onClose={onClose}
-            commands={mockCommands}
-          />
+          <CommandPalette isOpen={true} onClose={onClose} commands={mockCommands} />
         </MemoryRouter>
       );
 

@@ -10,9 +10,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +38,8 @@ class SecretMetadata:
 
     name: str
     source: str  # Provider name
-    last_rotated: Optional[str] = None
-    expires_at: Optional[str] = None
+    last_rotated: str | None = None
+    expires_at: str | None = None
 
 
 class SecretProvider(ABC):
@@ -54,7 +52,7 @@ class SecretProvider(ABC):
         pass
 
     @abstractmethod
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         """Get a secret value by key.
 
         Args:
@@ -77,7 +75,7 @@ class SecretProvider(ABC):
         """
         pass
 
-    def get_all_keys(self) -> List[str]:
+    def get_all_keys(self) -> list[str]:
         """Get all available secret keys.
 
         Returns:
@@ -93,7 +91,7 @@ class EnvironmentSecretProvider(SecretProvider):
     Supports optional prefix for namespacing secrets.
     """
 
-    def __init__(self, prefix: str = ""):
+    def __init__(self, prefix: str = "") -> None:
         """Initialize environment provider.
 
         Args:
@@ -109,7 +107,7 @@ class EnvironmentSecretProvider(SecretProvider):
         """Get the full environment variable name."""
         return f"{self._prefix}{key.upper()}"
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         """Get secret from environment variable."""
         env_key = self._get_key(key)
         value = os.environ.get(env_key)
@@ -121,15 +119,11 @@ class EnvironmentSecretProvider(SecretProvider):
         """Check if environment variable exists."""
         return self._get_key(key) in os.environ
 
-    def get_all_keys(self) -> List[str]:
+    def get_all_keys(self) -> list[str]:
         """Get all environment variables with prefix."""
         if not self._prefix:
             return []
-        return [
-            k[len(self._prefix) :].lower()
-            for k in os.environ.keys()
-            if k.startswith(self._prefix)
-        ]
+        return [k[len(self._prefix) :].lower() for k in os.environ if k.startswith(self._prefix)]
 
 
 class FileSecretProvider(SecretProvider):
@@ -139,14 +133,14 @@ class FileSecretProvider(SecretProvider):
     The file should be a JSON object with key-value pairs.
     """
 
-    def __init__(self, file_path: str | Path):
+    def __init__(self, file_path: str | Path) -> None:
         """Initialize file provider.
 
         Args:
             file_path: Path to the secrets JSON file
         """
         self._path = Path(file_path)
-        self._secrets: Dict[str, str] = {}
+        self._secrets: dict[str, str] = {}
         self._loaded = False
 
     @property
@@ -178,7 +172,7 @@ class FileSecretProvider(SecretProvider):
 
         self._loaded = True
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         """Get secret from file."""
         self._load()
         return self._secrets.get(key.lower())
@@ -188,7 +182,7 @@ class FileSecretProvider(SecretProvider):
         self._load()
         return key.lower() in self._secrets
 
-    def get_all_keys(self) -> List[str]:
+    def get_all_keys(self) -> list[str]:
         """Get all secret keys from file."""
         self._load()
         return list(self._secrets.keys())
@@ -218,9 +212,9 @@ class SecretsManager:
         re.compile(r".*credential.*", re.IGNORECASE),
     ]
 
-    def __init__(self):
-        self._providers: List[SecretProvider] = []
-        self._cache: Dict[str, str] = {}
+    def __init__(self) -> None:
+        self._providers: list[SecretProvider] = []
+        self._cache: dict[str, str] = {}
         self._cache_enabled = True
 
     def add_provider(self, provider: SecretProvider) -> "SecretsManager":
@@ -236,7 +230,7 @@ class SecretsManager:
         logger.debug(f"Added secret provider: {provider.name}")
         return self
 
-    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get(self, key: str, default: str | None = None) -> str | None:
         """Get a secret value.
 
         Args:
@@ -288,7 +282,7 @@ class SecretsManager:
         """
         return any(provider.exists(key) for provider in self._providers)
 
-    def get_metadata(self, key: str) -> Optional[SecretMetadata]:
+    def get_metadata(self, key: str) -> SecretMetadata | None:
         """Get metadata about a secret.
 
         Args:
@@ -322,7 +316,7 @@ class SecretsManager:
         self._cache_enabled = False
         self._cache.clear()
 
-    def validate_required(self, keys: List[str]) -> Dict[str, bool]:
+    def validate_required(self, keys: list[str]) -> dict[str, bool]:
         """Validate that required secrets exist.
 
         Args:
@@ -335,7 +329,7 @@ class SecretsManager:
 
 
 # Global instance
-_secrets_manager: Optional[SecretsManager] = None
+_secrets_manager: SecretsManager | None = None
 
 
 def get_secrets_manager() -> SecretsManager:

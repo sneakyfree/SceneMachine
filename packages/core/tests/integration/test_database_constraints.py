@@ -7,12 +7,7 @@ Tests validate:
 - Composite and partial indexes
 """
 
-import pytest
-import sqlite3
-from pathlib import Path
-from typing import Any
 from uuid import uuid4
-
 
 # Note: These tests are designed to work with SQLite for unit testing
 # Production uses PostgreSQL which has better constraint support
@@ -24,14 +19,14 @@ class TestProjectConstraints:
     def test_valid_project_states(self):
         """Test valid project states are accepted."""
         valid_states = [
-            'draft',
-            'screenplay_uploaded',
-            'planning',
-            'generating',
-            'assembly_in_progress',
-            'complete',
-            'exported',
-            'archived',
+            "draft",
+            "screenplay_uploaded",
+            "planning",
+            "generating",
+            "assembly_in_progress",
+            "complete",
+            "exported",
+            "archived",
         ]
         # All these states should be valid per constraint
         for state in valid_states:
@@ -40,16 +35,16 @@ class TestProjectConstraints:
 
     def test_invalid_project_state_rejected(self):
         """Test invalid project states would be rejected by constraint."""
-        invalid_states = ['invalid', 'running', 'paused', '']
+        invalid_states = ["invalid", "running", "paused", ""]
         valid_states = [
-            'draft',
-            'screenplay_uploaded',
-            'planning',
-            'generating',
-            'assembly_in_progress',
-            'complete',
-            'exported',
-            'archived',
+            "draft",
+            "screenplay_uploaded",
+            "planning",
+            "generating",
+            "assembly_in_progress",
+            "complete",
+            "exported",
+            "archived",
         ]
         for state in invalid_states:
             assert state not in valid_states
@@ -73,14 +68,14 @@ class TestSceneConstraints:
     def test_valid_time_of_day_values(self):
         """Test valid time of day values."""
         valid_times = [
-            'day',
-            'night',
-            'dawn',
-            'dusk',
-            'morning',
-            'afternoon',
-            'evening',
-            'unspecified',
+            "day",
+            "night",
+            "dawn",
+            "dusk",
+            "morning",
+            "afternoon",
+            "evening",
+            "unspecified",
         ]
         for time in valid_times:
             assert time in valid_times
@@ -88,16 +83,16 @@ class TestSceneConstraints:
     def test_invalid_time_of_day_rejected(self):
         """Test invalid time of day values."""
         valid_times = [
-            'day',
-            'night',
-            'dawn',
-            'dusk',
-            'morning',
-            'afternoon',
-            'evening',
-            'unspecified',
+            "day",
+            "night",
+            "dawn",
+            "dusk",
+            "morning",
+            "afternoon",
+            "evening",
+            "unspecified",
         ]
-        invalid_times = ['noon', 'midnight', 'daytime', '']
+        invalid_times = ["noon", "midnight", "daytime", ""]
         for time in invalid_times:
             assert time not in valid_times
 
@@ -108,14 +103,14 @@ class TestShotConstraints:
     def test_valid_shot_states(self):
         """Test valid shot states."""
         valid_states = [
-            'planned',
-            'queued',
-            'generating',
-            'generated',
-            'review',
-            'approved',
-            'rejected',
-            'failed',
+            "planned",
+            "queued",
+            "generating",
+            "generated",
+            "review",
+            "approved",
+            "rejected",
+            "failed",
         ]
         for state in valid_states:
             assert state in valid_states
@@ -123,16 +118,16 @@ class TestShotConstraints:
     def test_invalid_shot_state_rejected(self):
         """Test invalid shot states would be rejected."""
         valid_states = [
-            'planned',
-            'queued',
-            'generating',
-            'generated',
-            'review',
-            'approved',
-            'rejected',
-            'failed',
+            "planned",
+            "queued",
+            "generating",
+            "generated",
+            "review",
+            "approved",
+            "rejected",
+            "failed",
         ]
-        invalid_states = ['pending', 'complete', 'cancelled', '']
+        invalid_states = ["pending", "complete", "cancelled", ""]
         for state in invalid_states:
             assert state not in valid_states
 
@@ -165,14 +160,14 @@ class TestGenerationJobConstraints:
     def test_valid_job_statuses(self):
         """Test valid job statuses."""
         valid_statuses = [
-            'pending',
-            'preparing',
-            'running',
-            'post_processing',
-            'completed',
-            'failed',
-            'cancelled',
-            'timeout',
+            "pending",
+            "preparing",
+            "running",
+            "post_processing",
+            "completed",
+            "failed",
+            "cancelled",
+            "timeout",
         ]
         for status in valid_statuses:
             assert status in valid_statuses
@@ -214,13 +209,13 @@ class TestExportHistoryConstraints:
     def test_valid_export_statuses(self):
         """Test valid export statuses."""
         valid_statuses = [
-            'pending',
-            'in_progress',
-            'encoding',
-            'verifying',
-            'completed',
-            'failed',
-            'cancelled',
+            "pending",
+            "in_progress",
+            "encoding",
+            "verifying",
+            "completed",
+            "failed",
+            "cancelled",
         ]
         for status in valid_statuses:
             assert status in valid_statuses
@@ -253,13 +248,13 @@ class TestAssetConstraints:
     def test_valid_asset_types(self):
         """Test valid asset types."""
         valid_types = [
-            'video',
-            'image',
-            'audio',
-            'thumbnail',
-            'lut',
-            'subtitle',
-            'final_movie',
+            "video",
+            "image",
+            "audio",
+            "thumbnail",
+            "lut",
+            "subtitle",
+            "final_movie",
         ]
         for asset_type in valid_types:
             assert asset_type in valid_types
@@ -267,11 +262,11 @@ class TestAssetConstraints:
     def test_valid_asset_statuses(self):
         """Test valid asset statuses."""
         valid_statuses = [
-            'pending',
-            'processing',
-            'ready',
-            'failed',
-            'deleted',
+            "pending",
+            "processing",
+            "ready",
+            "failed",
+            "deleted",
         ]
         for status in valid_statuses:
             assert status in valid_statuses
@@ -282,7 +277,7 @@ class TestProjectShareConstraints:
 
     def test_valid_permission_levels(self):
         """Test valid permission levels."""
-        valid_permissions = ['view', 'comment', 'edit', 'admin']
+        valid_permissions = ["view", "comment", "edit", "admin"]
         for permission in valid_permissions:
             assert permission in valid_permissions
 
@@ -367,8 +362,7 @@ class TestIndexEfficiency:
 
         # Filter and sort
         p1_scenes = sorted(
-            [s for s in scenes if s["project_id"] == "p1"],
-            key=lambda x: x["sequence_number"]
+            [s for s in scenes if s["project_id"] == "p1"], key=lambda x: x["sequence_number"]
         )
 
         assert len(p1_scenes) == 3
@@ -386,8 +380,7 @@ class TestIndexEfficiency:
 
         # Filter and sort
         s1_shots = sorted(
-            [s for s in shots if s["scene_id"] == "s1"],
-            key=lambda x: x["sequence_number"]
+            [s for s in shots if s["scene_id"] == "s1"], key=lambda x: x["sequence_number"]
         )
 
         assert len(s1_shots) == 3
@@ -403,10 +396,7 @@ class TestIndexEfficiency:
         ]
 
         # Filter for active shots (simulating partial index)
-        active_shots = [
-            s for s in shots
-            if s["state"] not in ("rejected", "failed")
-        ]
+        active_shots = [s for s in shots if s["state"] not in ("rejected", "failed")]
 
         assert len(active_shots) == 2
         assert all(s["state"] not in ("rejected", "failed") for s in active_shots)
@@ -425,7 +415,7 @@ class TestIndexEfficiency:
         # Filter pending and sort by priority (desc), then queued_at (asc)
         pending_jobs = sorted(
             [j for j in jobs if j["status"] == "pending"],
-            key=lambda x: (-x["priority"], x["queued_at"])
+            key=lambda x: (-x["priority"], x["queued_at"]),
         )
 
         assert len(pending_jobs) == 3
@@ -482,7 +472,11 @@ class TestMigrationConstraintDefinitions:
             {"table": "shots", "columns": ["scene_id", "sequence_number"], "unique": False},
             {"table": "shots", "columns": ["scene_id", "state"], "unique": False},  # Partial
             {"table": "characters", "columns": ["project_id", "name"], "unique": True},
-            {"table": "generation_jobs", "columns": ["status", "priority", "queued_at"], "unique": False},
+            {
+                "table": "generation_jobs",
+                "columns": ["status", "priority", "queued_at"],
+                "unique": False,
+            },
             {"table": "generation_jobs", "columns": ["status", "started_at"], "unique": False},
         ]
 
@@ -516,6 +510,7 @@ class TestConstraintEdgeCases:
 
     def test_null_handling(self):
         """Test NULL value handling in constraints."""
+
         # file_size_bytes IS NULL OR file_size_bytes >= 0
         def is_valid_file_size(size):
             return size is None or size >= 0
@@ -558,5 +553,5 @@ class TestConstraintViolationBehavior:
             "ck_generation_jobs_progress": "Progress must be between 0 and 100",
         }
 
-        for constraint, message in expected_errors.items():
+        for _constraint, message in expected_errors.items():
             assert len(message) > 0

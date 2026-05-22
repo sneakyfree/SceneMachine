@@ -3,6 +3,7 @@
 Routing must be deterministic and side-effect-free — these tests don't
 touch any ComfyUI, model file, or filesystem state.
 """
+
 from uuid import uuid4
 
 
@@ -13,7 +14,7 @@ class TestStackRouter:
         """A shot with no prior frame and no character references uses T2V —
         the cheapest, fastest path. Establishing shots fall here by default.
         """
-        from scenemachine.services.stack_router import route_shot, MODEL_T2V
+        from scenemachine.services.stack_router import MODEL_T2V, route_shot
 
         decision = route_shot(
             {"character_ids": [], "shot_type": "establishing"},
@@ -30,7 +31,7 @@ class TestStackRouter:
         references are available, the router picks I2V for shot-to-shot
         continuity. This is the typical mid-scene shot.
         """
-        from scenemachine.services.stack_router import route_shot, MODEL_I2V
+        from scenemachine.services.stack_router import MODEL_I2V, route_shot
 
         decision = route_shot(
             {"character_ids": [], "shot_type": "medium"},
@@ -47,7 +48,7 @@ class TestStackRouter:
         character with a known reference image. Identity preservation is
         more valuable than frame-to-frame continuity for character shots.
         """
-        from scenemachine.services.stack_router import route_shot, MODEL_ANIMATE
+        from scenemachine.services.stack_router import MODEL_ANIMATE, route_shot
 
         hero_id = str(uuid4())
         decision = route_shot(
@@ -71,7 +72,7 @@ class TestStackRouter:
         haven't generated/uploaded a reference, fall back to the next
         available stack (I2V if there's continuity, else T2V).
         """
-        from scenemachine.services.stack_router import route_shot, MODEL_I2V, MODEL_T2V
+        from scenemachine.services.stack_router import MODEL_I2V, MODEL_T2V, route_shot
 
         hero_id = str(uuid4())
 
@@ -96,7 +97,7 @@ class TestStackRouter:
         Animate runs with the 2 we can resolve. The character_references
         list reflects only the refs we actually have.
         """
-        from scenemachine.services.stack_router import route_shot, MODEL_ANIMATE
+        from scenemachine.services.stack_router import MODEL_ANIMATE, route_shot
 
         a, b, c = str(uuid4()), str(uuid4()), str(uuid4())
         decision = route_shot(
@@ -115,7 +116,7 @@ class TestStackRouter:
         for "render this shot with T2V even though we have a character
         reference" workflows (quality A/B, debug, user choice in UI).
         """
-        from scenemachine.services.stack_router import route_shot, MODEL_T2V
+        from scenemachine.services.stack_router import MODEL_T2V, route_shot
 
         hero_id = str(uuid4())
         decision = route_shot(
@@ -136,8 +137,7 @@ class TestStackRouter:
         router must handle both — the keying into character_ref_paths
         should work either way.
         """
-        from uuid import UUID
-        from scenemachine.services.stack_router import route_shot, MODEL_ANIMATE
+        from scenemachine.services.stack_router import MODEL_ANIMATE, route_shot
 
         hero_uuid = uuid4()  # UUID object, not str
         decision = route_shot(
@@ -159,6 +159,5 @@ class TestStackRouter:
             ({"character_ids": []}, "prev.png", None),
             ({"character_ids": ["x"]}, None, {"x": "x.png"}),
         ]:
-            d = route_shot(shot_data, prev_shot_last_frame=prev,
-                           character_ref_paths=refs)
+            d = route_shot(shot_data, prev_shot_last_frame=prev, character_ref_paths=refs)
             assert d.reason, f"empty reason for inputs {shot_data}, {prev}, {refs}"

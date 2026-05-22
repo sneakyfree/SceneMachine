@@ -1,20 +1,20 @@
 """Tests for booking IPC handlers."""
 
-import pytest
+from datetime import UTC, datetime
 from uuid import uuid4
-from datetime import datetime, timezone
 
-from scenemachine.ipc.server import IPCServer
+import pytest
+
 from scenemachine.ipc.handlers import register_handlers
+from scenemachine.ipc.server import IPCServer
 from scenemachine.models import (
-    Performer,
-    PerformerType,
-    PerformerAvailability,
-    PerformerVerification,
     Booking,
     BookingMode,
     BookingStatus,
-    PaymentStatus,
+    Performer,
+    PerformerAvailability,
+    PerformerType,
+    PerformerVerification,
     Project,
 )
 from scenemachine.models.project import ProjectState
@@ -60,7 +60,7 @@ async def sample_performer(db_session):
         total_bookings=100,
         completed_bookings=95,
         lifetime_earnings_usd=25000.0,
-        joined_at=datetime.now(timezone.utc),
+        joined_at=datetime.now(UTC),
     )
     db_session.add(performer)
     await db_session.commit()
@@ -80,7 +80,7 @@ async def sample_booking(db_session, sample_project, sample_performer):
         status=BookingStatus.MATCHED,
         duration_requested_seconds=120,
         price_usd=50.0,
-        requested_at=datetime.now(timezone.utc),
+        requested_at=datetime.now(UTC),
     )
     db_session.add(booking)
     await db_session.commit()
@@ -92,9 +92,7 @@ class TestBlinkBookingHandler:
     """Tests for bookings.blink handler."""
 
     @pytest.mark.asyncio
-    async def test_blink_creates_booking_without_performer(
-        self, ipc_server, sample_project
-    ):
+    async def test_blink_creates_booking_without_performer(self, ipc_server, sample_project):
         """Test creating a Blink booking without specifying a performer."""
         handler = ipc_server.handlers.get("bookings.blink")
         assert handler is not None
@@ -164,9 +162,7 @@ class TestDeepBookingHandler:
         assert result["requirements"]["duration_seconds"] == 120
 
     @pytest.mark.asyncio
-    async def test_deep_with_emotion_markers(
-        self, ipc_server, sample_project, sample_performer
-    ):
+    async def test_deep_with_emotion_markers(self, ipc_server, sample_project, sample_performer):
         """Test creating a Deep booking with emotion markers."""
         handler = ipc_server.handlers.get("bookings.deep")
 
@@ -217,9 +213,7 @@ class TestEpicBookingHandler:
         assert result["requirements"]["duration_seconds"] == 300
 
     @pytest.mark.asyncio
-    async def test_epic_price_by_minute(
-        self, ipc_server, sample_project, sample_performer
-    ):
+    async def test_epic_price_by_minute(self, ipc_server, sample_project, sample_performer):
         """Test Epic booking price uses per-minute rate."""
         handler = ipc_server.handlers.get("bookings.epic")
 
@@ -274,9 +268,7 @@ class TestListProjectBookingsHandler:
     """Tests for bookings.listByProject handler."""
 
     @pytest.mark.asyncio
-    async def test_list_returns_project_bookings(
-        self, ipc_server, sample_project, sample_booking
-    ):
+    async def test_list_returns_project_bookings(self, ipc_server, sample_project, sample_booking):
         """Test listing bookings for a project."""
         handler = ipc_server.handlers.get("bookings.listByProject")
         assert handler is not None
@@ -321,8 +313,8 @@ class TestListProjectBookingsHandler:
             status=BookingStatus.ACCEPTED,
             duration_requested_seconds=10,
             price_usd=10.0,
-            requested_at=datetime.now(timezone.utc),
-            accepted_at=datetime.now(timezone.utc),
+            requested_at=datetime.now(UTC),
+            accepted_at=datetime.now(UTC),
         )
         db_session.add(accepted_booking)
         await db_session.commit()
@@ -371,8 +363,8 @@ class TestAcceptBookingHandler:
             status=BookingStatus.COMPLETED,
             duration_requested_seconds=10,
             price_usd=10.0,
-            requested_at=datetime.now(timezone.utc),
-            completed_at=datetime.now(timezone.utc),
+            requested_at=datetime.now(UTC),
+            completed_at=datetime.now(UTC),
         )
         db_session.add(completed_booking)
         await db_session.commit()
@@ -427,7 +419,7 @@ class TestApproveBookingHandler:
         """Test approving a delivered booking."""
         # Set booking to delivered status
         sample_booking.status = BookingStatus.DELIVERED
-        sample_booking.delivered_at = datetime.now(timezone.utc)
+        sample_booking.delivered_at = datetime.now(UTC)
         await db_session.commit()
         await db_session.refresh(sample_booking)
 
@@ -457,7 +449,7 @@ class TestDisputeBookingHandler:
         """Test disputing a delivered booking."""
         # Set booking to delivered status
         sample_booking.status = BookingStatus.DELIVERED
-        sample_booking.delivered_at = datetime.now(timezone.utc)
+        sample_booking.delivered_at = datetime.now(UTC)
         await db_session.commit()
         await db_session.refresh(sample_booking)
 
@@ -491,7 +483,7 @@ class TestRateBookingHandler:
         """Test rating a completed booking."""
         # Set booking to completed status
         sample_booking.status = BookingStatus.COMPLETED
-        sample_booking.completed_at = datetime.now(timezone.utc)
+        sample_booking.completed_at = datetime.now(UTC)
         await db_session.commit()
         await db_session.refresh(sample_booking)
 
@@ -509,15 +501,13 @@ class TestRateBookingHandler:
         assert result["review"] == "Excellent performance!"
 
     @pytest.mark.asyncio
-    async def test_rate_updates_existing_rating(
-        self, ipc_server, db_session, sample_booking
-    ):
+    async def test_rate_updates_existing_rating(self, ipc_server, db_session, sample_booking):
         """Test rating can be updated."""
         from scenemachine.models import PerformerRating
 
         # Set booking to completed and add initial rating
         sample_booking.status = BookingStatus.COMPLETED
-        sample_booking.completed_at = datetime.now(timezone.utc)
+        sample_booking.completed_at = datetime.now(UTC)
 
         rating = PerformerRating(
             id=uuid4(),
@@ -527,7 +517,7 @@ class TestRateBookingHandler:
             overall_score=3,
             review_text="Initial review",
             would_rehire=False,
-            rated_at=datetime.now(timezone.utc),
+            rated_at=datetime.now(UTC),
         )
         db_session.add(rating)
         await db_session.commit()

@@ -1,11 +1,10 @@
 """Tests for Text Overlays API routes."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 
 from scenemachine.api.main import app
 
@@ -126,9 +125,7 @@ class TestTextOverlaysRoutes:
         """Test duplicating a text overlay."""
         project_id = uuid4()
         overlay_id = uuid4()
-        response = await client.post(
-            f"/api/text-overlays/{project_id}/{overlay_id}/duplicate"
-        )
+        response = await client.post(f"/api/text-overlays/{project_id}/{overlay_id}/duplicate")
 
         assert response.status_code in (200, 201, 401, 403, 404)
 

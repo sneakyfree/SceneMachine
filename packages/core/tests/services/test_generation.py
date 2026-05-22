@@ -1,25 +1,23 @@
 """Tests for GenerationService and providers."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.models import Project, Scene, Shot, ProjectState
-from scenemachine.models.shot import ShotState, ShotType, CameraMovement
-from scenemachine.models.generation_job import GenerationJob, JobStatus, JobProvider
+from scenemachine.models import Project, Scene, Shot
+from scenemachine.models.generation_job import JobProvider, JobStatus
+from scenemachine.models.shot import CameraMovement, ShotState, ShotType
 from scenemachine.services.generation import (
-    GenerationService,
+    FalProvider,
+    GenerationProgress,
     GenerationRequest,
     GenerationResult,
-    GenerationProgress,
-    GenerationProvider,
+    GenerationService,
     MockGenerationProvider,
     ReplicateProvider,
-    FalProvider,
     VideoModel,
 )
 
@@ -232,8 +230,10 @@ class TestReplicateProvider:
 
         with patch.dict("sys.modules", {"replicate": None}):
             # Force import error
-            with patch("builtins.__import__", side_effect=ImportError("No module named 'replicate'")):
-                result = await provider.generate(request)
+            with patch(
+                "builtins.__import__", side_effect=ImportError("No module named 'replicate'")
+            ):
+                await provider.generate(request)
                 # Note: This test structure may need adjustment based on actual import handling
                 # The provider should handle ImportError gracefully
 
@@ -390,7 +390,7 @@ class TestFalProvider:
 async def sample_scene(db_session: AsyncSession, sample_project: Project) -> Scene:
     """Create a sample scene for testing."""
     from scenemachine.models.scene import SceneType, TimeOfDay
-    
+
     scene = Scene(
         project_id=sample_project.id,
         scene_number="1",

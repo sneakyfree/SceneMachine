@@ -4,7 +4,7 @@ Handles registration, discovery, and configuration of GPU providers.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional
 
 from scenemachine.gpu_exchange.base import (
     GPUExchangeProvider,
@@ -37,13 +37,13 @@ class GPUProviderRegistry:
 
     def __init__(self) -> None:
         # Map of provider_id -> provider class
-        self._provider_classes: Dict[str, Type[GPUExchangeProvider]] = {}
+        self._provider_classes: dict[str, type[GPUExchangeProvider]] = {}
         # Map of provider_id -> instantiated provider (cached)
-        self._provider_instances: Dict[str, GPUExchangeProvider] = {}
+        self._provider_instances: dict[str, GPUExchangeProvider] = {}
         # Provider configuration
-        self._provider_configs: Dict[str, Dict[str, Any]] = {}
+        self._provider_configs: dict[str, dict[str, Any]] = {}
         # Provider priority (lower = higher priority)
-        self._provider_priorities: Dict[str, int] = {}
+        self._provider_priorities: dict[str, int] = {}
 
     @classmethod
     def get_instance(cls) -> "GPUProviderRegistry":
@@ -60,8 +60,8 @@ class GPUProviderRegistry:
     def register(
         self,
         provider_id: str,
-        provider_class: Type[GPUExchangeProvider],
-        config: Optional[Dict[str, Any]] = None,
+        provider_class: type[GPUExchangeProvider],
+        config: dict[str, Any] | None = None,
         priority: int = 100,
     ) -> None:
         """Register a GPU provider class.
@@ -91,7 +91,7 @@ class GPUProviderRegistry:
         self,
         provider_id: str,
         **kwargs: Any,
-    ) -> Optional[GPUExchangeProvider]:
+    ) -> GPUExchangeProvider | None:
         """Get a provider instance.
 
         Args:
@@ -125,9 +125,7 @@ class GPUProviderRegistry:
             logger.error(f"Failed to instantiate GPU provider {provider_id}: {e}")
             return None
 
-    def get_provider_class(
-        self, provider_id: str
-    ) -> Optional[Type[GPUExchangeProvider]]:
+    def get_provider_class(self, provider_id: str) -> type[GPUExchangeProvider] | None:
         """Get provider class without instantiation."""
         return self._provider_classes.get(provider_id)
 
@@ -135,18 +133,18 @@ class GPUProviderRegistry:
         """Check if a provider is registered."""
         return provider_id in self._provider_classes
 
-    def list_providers(self) -> List[str]:
+    def list_providers(self) -> list[str]:
         """List all registered provider IDs."""
         return list(self._provider_classes.keys())
 
-    def list_providers_by_priority(self) -> List[str]:
+    def list_providers_by_priority(self) -> list[str]:
         """List providers sorted by priority (highest first)."""
         return sorted(
             self._provider_classes.keys(),
             key=lambda p: self._provider_priorities.get(p, 100),
         )
 
-    def get_providers_for_gpu(self, gpu_type: GPUType) -> List[str]:
+    def get_providers_for_gpu(self, gpu_type: GPUType) -> list[str]:
         """Get providers that support a specific GPU type."""
         providers = []
         for provider_id in self._provider_classes:
@@ -155,7 +153,7 @@ class GPUProviderRegistry:
                 providers.append(provider_id)
         return providers
 
-    async def list_available_providers(self) -> List[str]:
+    async def list_available_providers(self) -> list[str]:
         """List providers that are currently available."""
         available = []
         for provider_id in self._provider_classes:
@@ -164,7 +162,7 @@ class GPUProviderRegistry:
                 available.append(provider_id)
         return available
 
-    async def get_all_health(self) -> Dict[str, ProviderHealth]:
+    async def get_all_health(self) -> dict[str, ProviderHealth]:
         """Get health status of all registered providers."""
         health = {}
         for provider_id in self._provider_classes:
@@ -179,7 +177,7 @@ class GPUProviderRegistry:
                 )
         return health
 
-    def get_provider_info(self, provider_id: str) -> Optional[Dict[str, Any]]:
+    def get_provider_info(self, provider_id: str) -> dict[str, Any] | None:
         """Get information about a provider."""
         provider = self.get_provider(provider_id)
         if not provider:

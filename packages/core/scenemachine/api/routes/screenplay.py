@@ -7,12 +7,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from scenemachine.database import get_session
 from scenemachine.models import Character, Scene, Screenplay
 from scenemachine.schemas.screenplay import (
-    ScreenplayCreate,
     ScreenplayDetail,
     ScreenplayResponse,
     ScreenplaySummary,

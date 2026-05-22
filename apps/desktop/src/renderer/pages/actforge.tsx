@@ -150,7 +150,7 @@ export function ActForgePage(): JSX.Element {
                 <label className="block text-sm text-gray-400 mb-1">Type</label>
                 <select
                   value={filterType ?? ''}
-                  onChange={(e) => setFilterType(e.target.value as PerformerType || undefined)}
+                  onChange={(e) => setFilterType((e.target.value as PerformerType) || undefined)}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                 >
                   <option value="">All Types</option>
@@ -163,9 +163,7 @@ export function ActForgePage(): JSX.Element {
                 <select
                   value={filterVerified === undefined ? '' : filterVerified ? 'true' : 'false'}
                   onChange={(e) =>
-                    setFilterVerified(
-                      e.target.value === '' ? undefined : e.target.value === 'true'
-                    )
+                    setFilterVerified(e.target.value === '' ? undefined : e.target.value === 'true')
                   }
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                 >
@@ -242,9 +240,7 @@ export function ActForgePage(): JSX.Element {
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-blue-400" />
                 All Performers
-                <span className="text-sm text-gray-400 font-normal">
-                  ({searchTotal} total)
-                </span>
+                <span className="text-sm text-gray-400 font-normal">({searchTotal} total)</span>
               </h2>
             </div>
 
@@ -321,10 +317,10 @@ export function ActForgePage(): JSX.Element {
                           index === 0
                             ? 'bg-yellow-500 text-black'
                             : index === 1
-                            ? 'bg-gray-400 text-black'
-                            : index === 2
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-gray-700 text-gray-300'
+                              ? 'bg-gray-400 text-black'
+                              : index === 2
+                                ? 'bg-amber-600 text-white'
+                                : 'bg-gray-700 text-gray-300'
                         }`}
                       >
                         {entry.rank}

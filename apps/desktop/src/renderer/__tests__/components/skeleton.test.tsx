@@ -201,9 +201,7 @@ describe('SkeletonProjectCard', () => {
 describe('SkeletonList', () => {
   it('renders default count of items', () => {
     const { container } = render(
-      <SkeletonList>
-        {(index) => <Skeleton key={index} className="h-10" />}
-      </SkeletonList>
+      <SkeletonList>{(index) => <Skeleton key={index} className="h-10" />}</SkeletonList>
     );
 
     const skeletons = container.querySelectorAll('.h-10');
@@ -212,9 +210,7 @@ describe('SkeletonList', () => {
 
   it('renders custom count of items', () => {
     const { container } = render(
-      <SkeletonList count={5}>
-        {(index) => <Skeleton key={index} className="h-10" />}
-      </SkeletonList>
+      <SkeletonList count={5}>{(index) => <Skeleton key={index} className="h-10" />}</SkeletonList>
     );
 
     const skeletons = container.querySelectorAll('.h-10');
@@ -222,20 +218,14 @@ describe('SkeletonList', () => {
   });
 
   it('has proper accessibility label', () => {
-    render(
-      <SkeletonList>
-        {(index) => <Skeleton key={index} />}
-      </SkeletonList>
-    );
+    render(<SkeletonList>{(index) => <Skeleton key={index} />}</SkeletonList>);
 
     expect(screen.getByLabelText('Loading content')).toBeInTheDocument();
   });
 
   it('applies custom className to container', () => {
     const { container } = render(
-      <SkeletonList className="my-custom-list">
-        {(index) => <Skeleton key={index} />}
-      </SkeletonList>
+      <SkeletonList className="my-custom-list">{(index) => <Skeleton key={index} />}</SkeletonList>
     );
 
     const wrapper = container.firstChild as HTMLElement;
@@ -257,11 +247,7 @@ describe('SkeletonList', () => {
 
 describe('Skeleton Compositions', () => {
   it('can compose multiple skeletons for shot list loading', () => {
-    render(
-      <SkeletonList count={3}>
-        {(index) => <SkeletonShotCard key={index} />}
-      </SkeletonList>
-    );
+    render(<SkeletonList count={3}>{(index) => <SkeletonShotCard key={index} />}</SkeletonList>);
 
     // Should render 3 shot card skeletons
     const videoPlaceholders = document.querySelectorAll('.aspect-video');
@@ -269,11 +255,7 @@ describe('Skeleton Compositions', () => {
   });
 
   it('can compose multiple skeletons for queue loading', () => {
-    render(
-      <SkeletonList count={5}>
-        {(index) => <SkeletonQueueJob key={index} />}
-      </SkeletonList>
-    );
+    render(<SkeletonList count={5}>{(index) => <SkeletonQueueJob key={index} />}</SkeletonList>);
 
     // Should render 5 queue job skeletons
     const jobRows = document.querySelectorAll('.p-3');

@@ -45,7 +45,9 @@ describe('ScreenplayUpload', () => {
     it('renders supported format info', () => {
       render(<ScreenplayUpload {...defaultProps} />);
 
-      expect(screen.getByText(/Supports Fountain, PDF, Final Draft, and plain text/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Supports Fountain, PDF, Final Draft, and plain text/)
+      ).toBeInTheDocument();
     });
 
     it('renders format badges', () => {
@@ -107,7 +109,8 @@ describe('ScreenplayUpload', () => {
 
       mockBackendRequest
         .mockResolvedValueOnce(mockScreenplay) // screenplays.upload
-        .mockResolvedValueOnce({ // screenplays.parse
+        .mockResolvedValueOnce({
+          // screenplays.parse
           id: 'screenplay-1',
           isParsed: true,
           parseErrors: null,
@@ -346,7 +349,12 @@ describe('ScreenplayUpload', () => {
         });
         mockBackendRequest
           .mockResolvedValueOnce({ id: 'screenplay-1' })
-          .mockResolvedValueOnce({ id: 'screenplay-1', isParsed: true, parseErrors: null, metadata: {} })
+          .mockResolvedValueOnce({
+            id: 'screenplay-1',
+            isParsed: true,
+            parseErrors: null,
+            metadata: {},
+          })
           .mockResolvedValueOnce({ id: 'screenplay-1' });
       } else {
         mockOpenFile.mockResolvedValue({

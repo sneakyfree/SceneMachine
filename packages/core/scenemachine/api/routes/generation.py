@@ -4,15 +4,17 @@ Handles video generation queue, job management, and progress tracking.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from datetime import UTC
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.database import get_session
-from scenemachine.models.generation_job import JobProvider, JobStatus
+from scenemachine.models.generation_job import JobProvider
 from scenemachine.services.generation import GenerationService
 
 logger = logging.getLogger(__name__)
@@ -48,15 +50,15 @@ class JobResponse(BaseModel):
     status: str
     provider: str
     model_id: str
-    progress_percent: Optional[float] = None
-    progress_message: Optional[str] = None
-    error_message: Optional[str] = None
-    output_path: Optional[str] = None
-    thumbnail_path: Optional[str] = None
-    cost_usd: Optional[float] = None
-    queued_at: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    progress_percent: float | None = None
+    progress_message: str | None = None
+    error_message: str | None = None
+    output_path: str | None = None
+    thumbnail_path: str | None = None
+    cost_usd: float | None = None
+    queued_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
 
 
 class QueueStatusResponse(BaseModel):
@@ -67,7 +69,7 @@ class QueueStatusResponse(BaseModel):
     running: int
     completed: int
     failed: int
-    status_counts: Dict[str, int]
+    status_counts: dict[str, int]
 
 
 class ProviderResponse(BaseModel):
@@ -96,16 +98,16 @@ class ProviderHealthResponse(BaseModel):
     name: str
     available: bool
     configured: bool
-    models: List[ProviderModelResponse]
-    default_model: Optional[str] = None
-    error: Optional[str] = None
+    models: list[ProviderModelResponse]
+    default_model: str | None = None
+    error: str | None = None
 
 
 class CostEstimateRequest(BaseModel):
     """Request for cost estimation."""
 
     provider: str = "replicate"
-    model_id: Optional[str] = None
+    model_id: str | None = None
     duration_seconds: float = 3.0
     shot_count: int = 1
 
@@ -132,8 +134,8 @@ class WorkerStatusResponse(BaseModel):
     jobs_succeeded: int
     jobs_failed: int
     success_rate: float
-    current_job_id: Optional[str] = None
-    last_job_completed_at: Optional[str] = None
+    current_job_id: str | None = None
+    last_job_completed_at: str | None = None
     is_running: bool
     is_paused: bool
 
@@ -141,11 +143,11 @@ class WorkerStatusResponse(BaseModel):
 class ApproveRejectRequest(BaseModel):
     """Request to approve or reject a shot."""
 
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 # Helper functions
-def job_to_response(job) -> Dict[str, Any]:
+def job_to_response(job) -> dict[str, Any]:
     """Convert job model to response dict."""
     return {
         "id": str(job.id),
@@ -170,7 +172,7 @@ def job_to_response(job) -> Dict[str, Any]:
 @router.get("/providers")
 async def list_providers(
     session: AsyncSession = Depends(get_session),
-) -> List[ProviderResponse]:
+) -> list[ProviderResponse]:
     """List available generation providers.
 
     Returns:
@@ -195,7 +197,7 @@ async def list_providers(
 
 @router.get("/queue")
 async def get_queue_status(
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> QueueStatusResponse:
     """Get generation queue status.
@@ -217,7 +219,7 @@ async def get_queue_status(
 async def get_pending_jobs(
     limit: int = 20,
     session: AsyncSession = Depends(get_session),
-) -> List[JobResponse]:
+) -> list[JobResponse]:
     """Get pending jobs in queue.
 
     Args:
@@ -281,7 +283,7 @@ async def queue_scene(
     scene_id: str,
     request: QueueSceneRequest,
     session: AsyncSession = Depends(get_session),
-) -> List[JobResponse]:
+) -> list[JobResponse]:
     """Queue all planned shots in a scene.
 
     Args:
@@ -325,7 +327,7 @@ async def queue_project(
     project_id: str,
     request: QueueProjectRequest,
     session: AsyncSession = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Queue all planned shots in a project.
 
     Args:
@@ -427,7 +429,7 @@ async def process_job(
     service = GenerationService(session)
 
     try:
-        result = await service.process_job(jid)
+        await service.process_job(jid)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -442,7 +444,7 @@ async def process_job(
 async def cancel_job(
     job_id: str,
     session: AsyncSession = Depends(get_session),
-) -> Dict[str, bool]:
+) -> dict[str, bool]:
     """Cancel a pending or running job.
 
     Args:
@@ -506,10 +508,10 @@ async def retry_job(
 
 @router.get("/approval-queue")
 async def get_approval_queue(
-    project_id: Optional[str] = None,
+    project_id: str | None = None,
     limit: int = 50,
     session: AsyncSession = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get shots pending HITL approval.
 
     FEAT-081: Returns shots that have been generated but are awaiting
@@ -522,7 +524,7 @@ async def get_approval_queue(
     Returns:
         List of shots awaiting approval with generation details
     """
-    from scenemachine.models import Shot, Scene, Project
+    from scenemachine.models import Scene, Shot
     from scenemachine.models.generation import GenerationJob
 
     # Build query for shots in "generated" state (pending review)
@@ -558,17 +560,21 @@ async def get_approval_queue(
         job_result = await session.execute(job_stmt)
         latest_job = job_result.scalar_one_or_none()
 
-        queue_items.append({
-            "shot_id": str(shot.id),
-            "shot_title": getattr(shot, "title", f"Shot {getattr(shot, 'order', '?')}"),
-            "scene_id": str(shot.scene_id) if shot.scene_id else None,
-            "state": shot.state.value if hasattr(shot.state, "value") else str(shot.state),
-            "thumbnail_path": latest_job.thumbnail_path if latest_job else None,
-            "output_path": latest_job.output_path if latest_job else None,
-            "provider": latest_job.provider if latest_job else None,
-            "generated_at": latest_job.completed_at.isoformat() if latest_job and latest_job.completed_at else None,
-            "cost_usd": latest_job.cost_usd if latest_job else None,
-        })
+        queue_items.append(
+            {
+                "shot_id": str(shot.id),
+                "shot_title": getattr(shot, "title", f"Shot {getattr(shot, 'order', '?')}"),
+                "scene_id": str(shot.scene_id) if shot.scene_id else None,
+                "state": shot.state.value if hasattr(shot.state, "value") else str(shot.state),
+                "thumbnail_path": latest_job.thumbnail_path if latest_job else None,
+                "output_path": latest_job.output_path if latest_job else None,
+                "provider": latest_job.provider if latest_job else None,
+                "generated_at": latest_job.completed_at.isoformat()
+                if latest_job and latest_job.completed_at
+                else None,
+                "cost_usd": latest_job.cost_usd if latest_job else None,
+            }
+        )
 
     return {
         "total": len(queue_items),
@@ -580,7 +586,7 @@ async def get_approval_queue(
 async def approve_shot(
     shot_id: str,
     session: AsyncSession = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Approve a generated shot.
 
     Args:
@@ -619,7 +625,7 @@ async def reject_shot(
     shot_id: str,
     request: ApproveRejectRequest,
     session: AsyncSession = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Reject a generated shot for regeneration.
 
     Args:
@@ -658,7 +664,7 @@ async def reject_shot(
 async def get_shot_jobs(
     shot_id: str,
     session: AsyncSession = Depends(get_session),
-) -> List[JobResponse]:
+) -> list[JobResponse]:
     """Get all generation jobs for a shot.
 
     Args:
@@ -668,9 +674,7 @@ async def get_shot_jobs(
         List of jobs for the shot
     """
     from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
 
-    from scenemachine.models import Shot
     from scenemachine.models.generation_job import GenerationJob
 
     try:
@@ -696,7 +700,7 @@ async def get_shot_jobs(
 @router.get("/providers/health")
 async def get_providers_health(
     session: AsyncSession = Depends(get_session),
-) -> List[ProviderHealthResponse]:
+) -> list[ProviderHealthResponse]:
     """Get detailed health status for all providers.
 
     Returns detailed information including available models,
@@ -739,14 +743,16 @@ async def get_providers_health(
             raw_models = provider.list_models()
             for m in raw_models:
                 if isinstance(m, dict):
-                    models.append(ProviderModelResponse(
-                        id=m.get("id", "unknown"),
-                        name=m.get("name", "Unknown"),
-                        cost_per_second=m.get("cost_per_second", 0.0),
-                        supports_text_to_video=m.get("supports_text_to_video", True),
-                        supports_image_to_video=m.get("supports_image_to_video", False),
-                        max_duration=m.get("max_duration", 10.0),
-                    ))
+                    models.append(
+                        ProviderModelResponse(
+                            id=m.get("id", "unknown"),
+                            name=m.get("name", "Unknown"),
+                            cost_per_second=m.get("cost_per_second", 0.0),
+                            supports_text_to_video=m.get("supports_text_to_video", True),
+                            supports_image_to_video=m.get("supports_image_to_video", False),
+                            max_duration=m.get("max_duration", 10.0),
+                        )
+                    )
         except Exception:
             pass
 
@@ -767,7 +773,7 @@ async def get_providers_health(
 @router.get("/providers/{provider_id}/models")
 async def get_provider_models(
     provider_id: str,
-) -> List[ProviderModelResponse]:
+) -> list[ProviderModelResponse]:
     """Get available models for a specific provider.
 
     Args:
@@ -802,14 +808,16 @@ async def get_provider_models(
         raw_models = provider.list_models()
         for m in raw_models:
             if isinstance(m, dict):
-                models.append(ProviderModelResponse(
-                    id=m.get("id", "unknown"),
-                    name=m.get("name", "Unknown"),
-                    cost_per_second=m.get("cost_per_second", 0.0),
-                    supports_text_to_video=m.get("supports_text_to_video", True),
-                    supports_image_to_video=m.get("supports_image_to_video", False),
-                    max_duration=m.get("max_duration", 10.0),
-                ))
+                models.append(
+                    ProviderModelResponse(
+                        id=m.get("id", "unknown"),
+                        name=m.get("name", "Unknown"),
+                        cost_per_second=m.get("cost_per_second", 0.0),
+                        supports_text_to_video=m.get("supports_text_to_video", True),
+                        supports_image_to_video=m.get("supports_image_to_video", False),
+                        max_duration=m.get("max_duration", 10.0),
+                    )
+                )
     except Exception as e:
         logger.warning(f"Failed to list models for {provider_id}: {e}")
 
@@ -828,7 +836,7 @@ async def estimate_cost(
     Returns:
         Estimated costs
     """
-    from scenemachine.services.generation import ReplicateProvider, FalProvider
+    from scenemachine.services.generation import FalProvider, ReplicateProvider
 
     if request.provider == "replicate":
         provider = ReplicateProvider()
@@ -887,7 +895,7 @@ async def get_worker_status() -> WorkerStatusResponse:
 
 
 @router.post("/worker/pause")
-async def pause_worker() -> Dict[str, bool]:
+async def pause_worker() -> dict[str, bool]:
     """Pause the queue worker.
 
     Active jobs will continue, but no new jobs will be started.
@@ -904,7 +912,7 @@ async def pause_worker() -> Dict[str, bool]:
 
 
 @router.post("/worker/resume")
-async def resume_worker() -> Dict[str, bool]:
+async def resume_worker() -> dict[str, bool]:
     """Resume the queue worker.
 
     Returns:
@@ -920,26 +928,29 @@ async def resume_worker() -> Dict[str, bool]:
 
 # ---- Quality Review ----
 
+
 class QualityDimensionScoreResponse(BaseModel):
     """Score for a single quality dimension."""
+
     dimension: str
     score: float
     confidence: float
     weight: float
-    issues: List[str] = []
+    issues: list[str] = []
     notes: str = ""
 
 
 class QualityReviewResponse(BaseModel):
     """Full quality review result for a generation job."""
+
     job_id: str
     overall_score: float
     passed: bool
-    dimensions: List[QualityDimensionScoreResponse]
+    dimensions: list[QualityDimensionScoreResponse]
     requires_escalation: bool = False
-    escalation_reason: Optional[str] = None
-    recommendations: List[str] = []
-    reviewed_at: Optional[str] = None
+    escalation_reason: str | None = None
+    recommendations: list[str] = []
+    reviewed_at: str | None = None
 
 
 @router.get("/jobs/{job_id}/quality-review")
@@ -991,18 +1002,20 @@ async def get_job_quality_review(
 
     # Map dimension weights for response
     weight_map = reviewer.DIMENSION_WEIGHTS
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     dimensions = []
     for ds in result.dimension_scores:
-        dimensions.append(QualityDimensionScoreResponse(
-            dimension=ds.dimension.value,
-            score=round(ds.score, 3),
-            confidence=round(ds.confidence, 3),
-            weight=weight_map.get(ds.dimension, 0.1),
-            issues=[i.value for i in ds.issues],
-            notes=ds.notes,
-        ))
+        dimensions.append(
+            QualityDimensionScoreResponse(
+                dimension=ds.dimension.value,
+                score=round(ds.score, 3),
+                confidence=round(ds.confidence, 3),
+                weight=weight_map.get(ds.dimension, 0.1),
+                issues=[i.value for i in ds.issues],
+                notes=ds.notes,
+            )
+        )
 
     return QualityReviewResponse(
         job_id=job_id,
@@ -1012,27 +1025,30 @@ async def get_job_quality_review(
         requires_escalation=result.requires_escalation,
         escalation_reason=result.escalation_reason.value if result.escalation_reason else None,
         recommendations=result.recommendations,
-        reviewed_at=datetime.now(timezone.utc).isoformat(),
+        reviewed_at=datetime.now(UTC).isoformat(),
     )
 
 
 # ---- IP-Adapter Settings ----
 
+
 class IPAdapterSettingsResponse(BaseModel):
     """IP-Adapter character consistency settings."""
+
     mode: str = "balanced"
     strength: float = 0.6
-    available_modes: List[str] = ["balanced", "strong", "face_only"]
+    available_modes: list[str] = ["balanced", "strong", "face_only"]
 
 
 class IPAdapterSettingsRequest(BaseModel):
     """Request to update IP-Adapter settings."""
-    mode: Optional[str] = None
-    strength: Optional[float] = None
+
+    mode: str | None = None
+    strength: float | None = None
 
 
 # In-memory settings store (would be per-project in production)
-_ip_adapter_settings: Dict[str, Any] = {
+_ip_adapter_settings: dict[str, Any] = {
     "mode": "balanced",
     "strength": 0.6,
 }

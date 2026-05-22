@@ -99,9 +99,10 @@ describe('Generation Page', () => {
   describe('Provider Selection', () => {
     it('should have provider selection', () => {
       renderGenerationPage();
-      const providerSelect = screen.queryByRole('combobox') ||
-                             screen.queryByLabelText(/provider/i) ||
-                             screen.queryByText(/replicate|fal|provider/i);
+      const providerSelect =
+        screen.queryByRole('combobox') ||
+        screen.queryByLabelText(/provider/i) ||
+        screen.queryByText(/replicate|fal|provider/i);
       expect(providerSelect !== null || true).toBe(true);
     });
   });
@@ -124,8 +125,8 @@ describe('Generation Page', () => {
 
       renderGenerationPage();
       // Should display job info
-      const jobIndicator = screen.queryByText(/running|in progress|generating/i) ||
-                           screen.queryByRole('progressbar');
+      const jobIndicator =
+        screen.queryByText(/running|in progress|generating/i) || screen.queryByRole('progressbar');
       expect(jobIndicator !== null || true).toBe(true);
     });
   });
@@ -141,8 +142,7 @@ describe('Generation Page', () => {
       }));
 
       renderGenerationPage();
-      const progressBar = screen.queryByRole('progressbar') ||
-                          screen.queryByText(/50%/);
+      const progressBar = screen.queryByRole('progressbar') || screen.queryByText(/50%/);
       expect(progressBar !== null || true).toBe(true);
     });
   });

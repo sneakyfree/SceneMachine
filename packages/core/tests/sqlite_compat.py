@@ -6,8 +6,10 @@ This module provides utilities to make PostgreSQL-specific model definitions
 work with SQLite for testing purposes. It patches ARRAY columns to use JSON.
 """
 
+import contextlib
 import json
-from typing import Any, List, Optional
+from typing import Any
+
 from sqlalchemy import JSON, TypeDecorator, event
 from sqlalchemy.engine import Engine
 
@@ -17,16 +19,17 @@ class JSONEncodedList(TypeDecorator):
 
     Stores list data as JSON text in SQLite.
     """
+
     impl = JSON
     cache_ok = True
 
-    def process_bind_param(self, value: Optional[List[Any]], dialect) -> Optional[str]:
+    def process_bind_param(self, value: list[Any] | None, dialect) -> str | None:
         """Convert Python list to JSON string for storage."""
         if value is None:
             return None
         return value if isinstance(value, list) else []
 
-    def process_result_value(self, value: Optional[str], dialect) -> Optional[List[Any]]:
+    def process_result_value(self, value: str | None, dialect) -> list[Any] | None:
         """Convert stored JSON string back to Python list."""
         if value is None:
             return None
@@ -46,17 +49,15 @@ def patch_models_for_sqlite():
 
     This must be called BEFORE importing models if you want to use SQLite.
     """
-    from sqlalchemy.dialects.postgresql import ARRAY
     from sqlalchemy import Column
 
     # Store original ARRAY for reference
-    original_array = ARRAY
 
     # Create a patched Column that replaces ARRAY with JSON
-    original_column = Column
 
     class PatchedColumn(Column):
         """Column that auto-converts ARRAY to JSON."""
+
         pass
 
     # We'll use a different approach - patch at the Base metadata level
@@ -71,8 +72,7 @@ def create_sqlite_compatible_tables(engine, base):
         engine: SQLAlchemy engine (async or sync)
         base: SQLAlchemy declarative base (Base)
     """
-    from sqlalchemy import MetaData, Table, Column, JSON
-    from sqlalchemy.dialects.postgresql import ARRAY
+    from sqlalchemy import JSON, Column, MetaData, Table
 
     # Create a new metadata that will hold modified table definitions
     new_metadata = MetaData()
@@ -84,7 +84,7 @@ def create_sqlite_compatible_tables(engine, base):
             col_type = column.type
 
             # Handle ARRAY columns
-            if hasattr(col_type, '__class__') and col_type.__class__.__name__ == 'ARRAY':
+            if hasattr(col_type, "__class__") and col_type.__class__.__name__ == "ARRAY":
                 # Replace with JSON
                 new_col = Column(
                     column.name,
@@ -117,29 +117,32 @@ def get_sqlite_compatible_metadata(base):
 
     Replaces ARRAY types with JSON types in all table definitions.
     """
-    from sqlalchemy import MetaData, Table, Column, JSON, ForeignKey, Index
-    from sqlalchemy import String, Integer, Float, Boolean, Text, DateTime, Enum
-    from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB, ARRAY
-    from sqlalchemy.sql.sqltypes import TypeEngine
+    from sqlalchemy import (
+        JSON,
+        Column,
+        ForeignKey,
+        MetaData,
+        String,
+        Table,
+    )
 
     new_metadata = MetaData()
 
     for table_name, table in base.metadata.tables.items():
         new_columns = []
-        foreign_keys = []
 
         for column in table.columns:
             col_type = column.type
             col_type_name = col_type.__class__.__name__
 
             # Determine the new type
-            if col_type_name == 'ARRAY':
+            if col_type_name == "ARRAY":
                 # Replace ARRAY with JSON
                 new_type = JSON()
-            elif col_type_name == 'JSONB':
+            elif col_type_name == "JSONB":
                 # Replace JSONB with JSON
                 new_type = JSON()
-            elif col_type_name == 'UUID':
+            elif col_type_name == "UUID":
                 # Replace PostgreSQL UUID with String(36)
                 new_type = String(36)
             else:
@@ -158,13 +161,12 @@ def get_sqlite_compatible_metadata(base):
                 *fks,
                 nullable=column.nullable,
                 primary_key=column.primary_key,
-                autoincrement=column.autoincrement if hasattr(column, 'autoincrement') else False,
+                autoincrement=column.autoincrement if hasattr(column, "autoincrement") else False,
             )
 
             # Copy default if present
-            if column.default is not None:
-                if hasattr(column.default, 'arg'):
-                    new_col.default = column.default
+            if column.default is not None and hasattr(column.default, "arg"):
+                new_col.default = column.default
 
             new_columns.append(new_col)
 
@@ -180,9 +182,9 @@ async def create_all_tables_sqlite(engine, base):
 
     This is the main function to use for creating test databases.
     """
-    from sqlalchemy import inspect, text, Column, JSON, String, ForeignKey, MetaData, Table
-    from sqlalchemy import Integer, Float, Boolean, Text, DateTime
-    from sqlalchemy import Enum as SAEnum
+    from sqlalchemy import (
+        text,
+    )
 
     async with engine.begin() as conn:
         # Get all table names from the base metadata
@@ -196,28 +198,26 @@ async def create_all_tables_sqlite(engine, base):
                 col_type_name = col_type.__class__.__name__
 
                 # Map PostgreSQL types to SQLite types
-                if col_type_name == 'ARRAY':
+                if col_type_name == "ARRAY" or col_type_name == "JSONB":
                     sql_type = "TEXT"  # Store as JSON text
-                elif col_type_name == 'JSONB':
-                    sql_type = "TEXT"  # Store as JSON text
-                elif col_type_name == 'UUID':
+                elif col_type_name == "UUID":
                     sql_type = "VARCHAR(36)"
-                elif col_type_name in ('String', 'VARCHAR'):
-                    length = getattr(col_type, 'length', None)
+                elif col_type_name in ("String", "VARCHAR"):
+                    length = getattr(col_type, "length", None)
                     sql_type = f"VARCHAR({length})" if length else "TEXT"
-                elif col_type_name == 'Integer':
+                elif col_type_name == "Integer":
                     sql_type = "INTEGER"
-                elif col_type_name == 'Float':
+                elif col_type_name == "Float":
                     sql_type = "REAL"
-                elif col_type_name == 'Boolean':
+                elif col_type_name == "Boolean":
                     sql_type = "INTEGER"  # SQLite has no native boolean
-                elif col_type_name == 'Text':
+                elif col_type_name == "Text":
                     sql_type = "TEXT"
-                elif col_type_name == 'DateTime':
+                elif col_type_name == "DateTime":
                     sql_type = "TIMESTAMP"
-                elif col_type_name == 'Enum':
+                elif col_type_name == "Enum":
                     sql_type = "VARCHAR(50)"
-                elif col_type_name == 'JSON':
+                elif col_type_name == "JSON":
                     sql_type = "TEXT"
                 else:
                     sql_type = "TEXT"  # Default fallback
@@ -232,9 +232,12 @@ async def create_all_tables_sqlite(engine, base):
                 if column.server_default is not None:
                     # Check if it's a func.now() or similar
                     default_text = str(column.server_default.arg)
-                    if 'now()' in default_text.lower() or 'current_timestamp' in default_text.lower():
+                    if (
+                        "now()" in default_text.lower()
+                        or "current_timestamp" in default_text.lower()
+                    ):
                         col_def += " DEFAULT CURRENT_TIMESTAMP"
-                    elif 'uuid' in default_text.lower():
+                    elif "uuid" in default_text.lower():
                         # Skip UUID generation - handled by Python
                         pass
                     else:
@@ -253,7 +256,7 @@ async def create_all_tables_sqlite(engine, base):
                 # Handle foreign keys
                 for fk in column.foreign_keys:
                     target = fk.target_fullname
-                    target_table, target_col = target.rsplit('.', 1)
+                    target_table, target_col = target.rsplit(".", 1)
                     ondelete = f" ON DELETE {fk.ondelete}" if fk.ondelete else ""
                     foreign_keys.append(
                         f'FOREIGN KEY ("{column.name}") REFERENCES "{target_table}"("{target_col}"){ondelete}'
@@ -277,6 +280,7 @@ async def create_all_tables_sqlite(engine, base):
 
 def enable_sqlite_foreign_keys(engine):
     """Enable foreign key support in SQLite."""
+
     @event.listens_for(Engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
@@ -335,7 +339,7 @@ class SQLiteTestDatabase:
     """
 
     def __init__(self, database_url: str):
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
         self.database_url = database_url
         self.engine = create_async_engine(database_url, echo=False)
@@ -359,16 +363,15 @@ class SQLiteTestDatabase:
     async def drop_tables(self):
         """Drop all tables."""
         from sqlalchemy import text
+
         from scenemachine.models.base import Base
 
         async with self.engine.begin() as conn:
             # Get all table names in reverse order for foreign key safety
             tables = list(Base.metadata.tables.keys())
             for table_name in reversed(tables):
-                try:
+                with contextlib.suppress(Exception):
                     await conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
-                except Exception:
-                    pass
 
         self._tables_created = False
 

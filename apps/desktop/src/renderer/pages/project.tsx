@@ -42,7 +42,11 @@ const workflowSteps = [
     title: 'Movie Plan',
     description: 'Review AI-generated movie plan',
     icon: Film,
-    states: [ProjectState.SCREENPLAY_UPLOADED, ProjectState.SCREENPLAY_PARSED, ProjectState.PLAN_GENERATED],
+    states: [
+      ProjectState.SCREENPLAY_UPLOADED,
+      ProjectState.SCREENPLAY_PARSED,
+      ProjectState.PLAN_GENERATED,
+    ],
   },
   {
     id: 'characters',
@@ -63,7 +67,11 @@ const workflowSteps = [
     title: 'Generate',
     description: 'Generate video content',
     icon: Play,
-    states: [ProjectState.SCENES_APPROVED, ProjectState.GENERATING, ProjectState.GENERATION_COMPLETE],
+    states: [
+      ProjectState.SCENES_APPROVED,
+      ProjectState.GENERATING,
+      ProjectState.GENERATION_COMPLETE,
+    ],
   },
   {
     id: 'export',
@@ -100,7 +108,11 @@ export function ProjectPage() {
   const toast = useToast();
 
   // Fetch project details
-  const { data: project, isLoading, error } = useQuery({
+  const {
+    data: project,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => api.getProject(projectId!),
     enabled: !!projectId,
@@ -199,10 +211,7 @@ export function ProjectPage() {
     setIsDuplicating(true);
     try {
       const result = await api.duplicateProject(projectId);
-      toast.success(
-        'Project Duplicated',
-        `Created "${result.name}"`
-      );
+      toast.success('Project Duplicated', `Created "${result.name}"`);
       // Invalidate projects list to show the new project
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       // Navigate to the new project
@@ -243,9 +252,7 @@ export function ProjectPage() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">{project.name}</h1>
-          {project.description && (
-            <p className="text-surface-400 mt-1">{project.description}</p>
-          )}
+          {project.description && <p className="text-surface-400 mt-1">{project.description}</p>}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -280,9 +287,7 @@ export function ProjectPage() {
             <Share2 className="w-4 h-4" />
             <span className="text-sm">Share</span>
             {shares.length > 0 && (
-              <span className="px-1.5 py-0.5 bg-white/20 text-xs rounded">
-                {shares.length}
-              </span>
+              <span className="px-1.5 py-0.5 bg-white/20 text-xs rounded">{shares.length}</span>
             )}
           </button>
         </div>
@@ -356,8 +361,8 @@ export function ProjectPage() {
               <Loader2 className="w-12 h-12 text-brand-400 animate-spin mb-4" />
               <h3 className="text-lg font-medium mb-2">Generating Movie Plan</h3>
               <p className="text-surface-400 text-center max-w-md">
-                Analyzing your screenplay to create a comprehensive movie plan.
-                This includes character analysis, scene breakdowns, and visual style recommendations.
+                Analyzing your screenplay to create a comprehensive movie plan. This includes
+                character analysis, scene breakdowns, and visual style recommendations.
               </p>
             </div>
           ) : moviePlan ? (
@@ -375,10 +380,7 @@ export function ProjectPage() {
               <p className="text-surface-400 mb-4">
                 Generate a movie plan to analyze your screenplay.
               </p>
-              <button
-                onClick={() => generatePlanMutation.mutate(false)}
-                className="btn-primary"
-              >
+              <button onClick={() => generatePlanMutation.mutate(false)} className="btn-primary">
                 Generate Movie Plan
               </button>
             </div>
@@ -414,8 +416,7 @@ export function ProjectPage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-surface-400">Characters Locked</span>
                 <span className="text-sm font-medium">
-                  {project.characters.filter((c) => c.isLocked).length}/
-                  {project.characters.length}
+                  {project.characters.filter((c) => c.isLocked).length}/{project.characters.length}
                 </span>
               </div>
               <div className="w-full h-2 bg-surface-700 rounded-full overflow-hidden">
@@ -539,9 +540,7 @@ export function ProjectPage() {
                 <Download className="w-5 h-5 text-brand-400" />
                 Export
               </h3>
-              <p className="text-surface-400 text-sm mt-1">
-                Assemble and export your final movie.
-              </p>
+              <p className="text-surface-400 text-sm mt-1">Assemble and export your final movie.</p>
             </div>
             <button
               onClick={() => navigate(`/project/${projectId}/export`)}
@@ -611,9 +610,7 @@ export function ProjectPage() {
             )}
           </div>
           {project.screenplay?.title && (
-            <div className="text-sm text-surface-500 mt-1 truncate">
-              {project.screenplay.title}
-            </div>
+            <div className="text-sm text-surface-500 mt-1 truncate">{project.screenplay.title}</div>
           )}
         </div>
       </div>

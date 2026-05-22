@@ -1,16 +1,16 @@
 """Tests for assembly and export service."""
 
-import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
+
 from scenemachine.models.project import Project, ProjectState
-from scenemachine.models.scene import Scene, SceneState, SceneType, TimeOfDay
-from scenemachine.models.shot import Shot, ShotState, ShotType, CameraMovement
+from scenemachine.models.scene import Scene, SceneState
+from scenemachine.models.shot import Shot, ShotState
 from scenemachine.services.assembly import (
-    AssemblyService,
     AssemblyProgress,
+    AssemblyService,
     ExportFormat,
     ExportQuality,
     ExportResult,
@@ -298,9 +298,7 @@ class TestAssemblyService:
             assert "bitrate" in preset
 
     @pytest.mark.asyncio
-    async def test_get_timeline_empty_project(
-        self, service, mock_session, mock_project
-    ):
+    async def test_get_timeline_empty_project(self, service, mock_session, mock_project):
         """Test getting timeline for project with no scenes."""
         mock_project.scenes = []
 

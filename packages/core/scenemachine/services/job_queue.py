@@ -10,19 +10,20 @@ Uses APScheduler for lightweight background task management.
 """
 
 import asyncio
+import contextlib
 import logging
-from collections import deque
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Set
+from datetime import UTC, datetime
+from enum import Enum, StrEnum
+from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.config import get_settings
-from scenemachine.models.generation_job import GenerationJob, JobStatus, JobProvider
+from scenemachine.models.generation_job import GenerationJob, JobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class JobPriority(int, Enum):
     URGENT = 3
 
 
-class JobType(str, Enum):
+class JobType(StrEnum):
     """Types of background jobs."""
 
     GENERATION = "generation"
@@ -47,9 +48,9 @@ class JobType(str, Enum):
     BATCH_OPERATION = "batch_operation"
 
 
-class RetryStrategy(str, Enum):
+class RetryStrategy(StrEnum):
     """Retry strategy for failed jobs."""
-    
+
     EXPONENTIAL = "exponential"  # Standard exponential backoff
     LINEAR = "linear"  # Linear backoff (for rate limits)
     IMMEDIATE = "immediate"  # Retry immediately (transient errors)
@@ -92,20 +93,20 @@ NON_RETRYABLE_ERROR_PATTERNS = [
 
 def classify_error(error_message: str) -> RetryStrategy:
     """Classify an error message to determine retry strategy.
-    
+
     Args:
         error_message: The error message to classify
-        
+
     Returns:
         RetryStrategy indicating how to handle the error
     """
     error_lower = error_message.lower()
-    
+
     # Check for non-retryable (permanent) errors first
     for pattern in NON_RETRYABLE_ERROR_PATTERNS:
         if pattern.lower() in error_lower:
             return RetryStrategy.NO_RETRY
-    
+
     # Check for retryable errors
     for pattern in RETRYABLE_ERROR_PATTERNS:
         if pattern.lower() in error_lower:
@@ -119,7 +120,7 @@ def classify_error(error_message: str) -> RetryStrategy:
             if any(x in error_lower for x in ["gpu", "cuda", "memory"]):
                 return RetryStrategy.EXPONENTIAL
             return RetryStrategy.EXPONENTIAL
-    
+
     # Default: retry with exponential for unknown errors
     return RetryStrategy.EXPONENTIAL
 
@@ -133,16 +134,16 @@ class QueuedJob:
     priority: JobPriority
     handler: Callable[..., Coroutine[Any, Any, Any]]
     args: tuple = field(default_factory=tuple)
-    kwargs: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    started_at: Optional[datetime] = None
-    db_job_id: Optional[UUID] = None  # Link to GenerationJob if applicable
+    kwargs: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime | None = None
+    db_job_id: UUID | None = None  # Link to GenerationJob if applicable
     retry_count: int = 0
     max_retries: int = 3
     timeout_seconds: int = 600  # 10 minutes default
-    on_progress: Optional[Callable[[float, str], Coroutine[Any, Any, None]]] = None
-    on_complete: Optional[Callable[[Any], Coroutine[Any, Any, None]]] = None
-    on_error: Optional[Callable[[Exception], Coroutine[Any, Any, None]]] = None
+    on_progress: Callable[[float, str], Coroutine[Any, Any, None]] | None = None
+    on_complete: Callable[[Any], Coroutine[Any, Any, None]] | None = None
+    on_error: Callable[[Exception], Coroutine[Any, Any, None]] | None = None
 
     def __lt__(self, other: "QueuedJob") -> bool:
         """Compare jobs for priority queue ordering."""
@@ -158,7 +159,7 @@ class JobResult:
     job_id: UUID
     success: bool
     result: Any = None
-    error: Optional[str] = None
+    error: str | None = None
     duration_seconds: float = 0.0
     retry_count: int = 0
 
@@ -178,21 +179,21 @@ class BackgroundJobQueue:
     def __init__(
         self,
         max_concurrent: int = 2,
-        session_factory: Optional[Callable[[], AsyncSession]] = None,
-    ):
+        session_factory: Callable[[], AsyncSession] | None = None,
+    ) -> None:
         self.max_concurrent = max_concurrent
         self.session_factory = session_factory
 
         # Job storage
-        self._pending: List[QueuedJob] = []  # Priority queue (heapq)
-        self._running: Dict[UUID, QueuedJob] = {}
-        self._completed: Dict[UUID, JobResult] = {}
+        self._pending: list[QueuedJob] = []  # Priority queue (heapq)
+        self._running: dict[UUID, QueuedJob] = {}
+        self._completed: dict[UUID, JobResult] = {}
 
         # Control
-        self._running_tasks: Dict[UUID, asyncio.Task] = {}
-        self._cancelled: Set[UUID] = set()
+        self._running_tasks: dict[UUID, asyncio.Task] = {}
+        self._cancelled: set[UUID] = set()
         self._shutdown = False
-        self._processor_task: Optional[asyncio.Task] = None
+        self._processor_task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
 
         # Metrics
@@ -216,12 +217,10 @@ class BackgroundJobQueue:
         if self._processor_task:
             try:
                 await asyncio.wait_for(self._processor_task, timeout=timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._processor_task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await self._processor_task
-                except asyncio.CancelledError:
-                    pass
             self._processor_task = None
 
         # Cancel running tasks
@@ -236,12 +235,12 @@ class BackgroundJobQueue:
         handler: Callable[..., Coroutine[Any, Any, Any]],
         *args,
         priority: JobPriority = JobPriority.NORMAL,
-        db_job_id: Optional[UUID] = None,
+        db_job_id: UUID | None = None,
         timeout_seconds: int = 600,
         max_retries: int = 3,
-        on_progress: Optional[Callable[[float, str], Coroutine[Any, Any, None]]] = None,
-        on_complete: Optional[Callable[[Any], Coroutine[Any, Any, None]]] = None,
-        on_error: Optional[Callable[[Exception], Coroutine[Any, Any, None]]] = None,
+        on_progress: Callable[[float, str], Coroutine[Any, Any, None]] | None = None,
+        on_complete: Callable[[Any], Coroutine[Any, Any, None]] | None = None,
+        on_error: Callable[[Exception], Coroutine[Any, Any, None]] | None = None,
         **kwargs,
     ) -> UUID:
         """Submit a job to the queue.
@@ -318,7 +317,7 @@ class BackgroundJobQueue:
 
         return False
 
-    async def get_status(self, job_id: UUID) -> Optional[Dict[str, Any]]:
+    async def get_status(self, job_id: UUID) -> dict[str, Any] | None:
         """Get status of a specific job."""
         async with self._lock:
             # Check pending
@@ -356,7 +355,7 @@ class BackgroundJobQueue:
 
         return None
 
-    async def get_queue_status(self) -> Dict[str, Any]:
+    async def get_queue_status(self) -> dict[str, Any]:
         """Get overall queue status."""
         async with self._lock:
             pending_by_type = {}
@@ -382,7 +381,7 @@ class BackgroundJobQueue:
                 "is_running": self._processor_task is not None,
             }
 
-    async def wait_for_job(self, job_id: UUID, timeout: Optional[float] = None) -> Optional[JobResult]:
+    async def wait_for_job(self, job_id: UUID, timeout: float | None = None) -> JobResult | None:
         """Wait for a job to complete.
 
         Args:
@@ -427,11 +426,7 @@ class BackgroundJobQueue:
     async def _process_pending(self) -> None:
         """Process pending jobs up to concurrency limit."""
         async with self._lock:
-            while (
-                len(self._running) < self.max_concurrent
-                and self._pending
-                and not self._shutdown
-            ):
+            while len(self._running) < self.max_concurrent and self._pending and not self._shutdown:
                 job = self._pending.pop(0)
                 self._running[job.id] = job
 
@@ -441,7 +436,7 @@ class BackgroundJobQueue:
 
     async def _execute_job(self, job: QueuedJob) -> None:
         """Execute a single job with timeout and error handling."""
-        job.started_at = datetime.now(timezone.utc)
+        job.started_at = datetime.now(UTC)
 
         logger.info(f"Job {job.id} started ({job.job_type.value})")
 
@@ -453,8 +448,8 @@ class BackgroundJobQueue:
                 started_at=job.started_at,
             )
 
-        result: Optional[Any] = None
-        error: Optional[str] = None
+        result: Any | None = None
+        error: str | None = None
 
         try:
             # Execute with timeout
@@ -464,8 +459,8 @@ class BackgroundJobQueue:
             )
 
             # Success
-            duration = (datetime.now(timezone.utc) - job.started_at).total_seconds()
-            job_result = JobResult(
+            duration = (datetime.now(UTC) - job.started_at).total_seconds()
+            JobResult(
                 job_id=job.id,
                 success=True,
                 result=result,
@@ -481,7 +476,7 @@ class BackgroundJobQueue:
                 await self._update_db_job_status(
                     job.db_job_id,
                     JobStatus.COMPLETED,
-                    completed_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(UTC),
                 )
 
             # Call completion callback
@@ -491,7 +486,7 @@ class BackgroundJobQueue:
                 except Exception as e:
                     logger.warning(f"Error in job completion callback: {e}")
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             error = f"Job timed out after {job.timeout_seconds}s"
             logger.error(f"Job {job.id} timed out")
 
@@ -526,8 +521,10 @@ class BackgroundJobQueue:
                 self._total_retried += 1
 
                 # Exponential backoff
-                delay = min(30, 2 ** job.retry_count)
-                logger.info(f"Job {job.id} will retry in {delay}s (attempt {job.retry_count}/{job.max_retries})")
+                delay = min(30, 2**job.retry_count)
+                logger.info(
+                    f"Job {job.id} will retry in {delay}s (attempt {job.retry_count}/{job.max_retries})"
+                )
 
                 # Re-queue with delay
                 async with self._lock:
@@ -557,7 +554,7 @@ class BackgroundJobQueue:
                     job.db_job_id,
                     JobStatus.FAILED,
                     error_message=error,
-                    completed_at=datetime.now(timezone.utc),
+                    completed_at=datetime.now(UTC),
                 )
 
             # Call error callback
@@ -575,7 +572,7 @@ class BackgroundJobQueue:
                 self._cancelled.discard(job.id)
 
                 # Store result
-                duration = (datetime.now(timezone.utc) - job.started_at).total_seconds()
+                duration = (datetime.now(UTC) - job.started_at).total_seconds()
                 self._completed[job.id] = JobResult(
                     job_id=job.id,
                     success=error is None,
@@ -587,17 +584,19 @@ class BackgroundJobQueue:
 
                 # Limit completed job history
                 if len(self._completed) > 1000:
-                    oldest = min(self._completed.keys(), key=lambda k: self._completed[k].duration_seconds)
+                    oldest = min(
+                        self._completed.keys(), key=lambda k: self._completed[k].duration_seconds
+                    )
                     del self._completed[oldest]
 
     async def _update_db_job_status(
         self,
         job_id: UUID,
         status: JobStatus,
-        started_at: Optional[datetime] = None,
-        completed_at: Optional[datetime] = None,
-        error_message: Optional[str] = None,
-        retry_count: Optional[int] = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        error_message: str | None = None,
+        retry_count: int | None = None,
     ) -> None:
         """Update job status in database."""
         if not self.session_factory:
@@ -605,7 +604,7 @@ class BackgroundJobQueue:
 
         try:
             async with self.session_factory() as session:
-                values: Dict[str, Any] = {"status": status}
+                values: dict[str, Any] = {"status": status}
 
                 if started_at:
                     values["started_at"] = started_at
@@ -616,11 +615,7 @@ class BackgroundJobQueue:
                 if retry_count is not None:
                     values["retry_count"] = retry_count
 
-                stmt = (
-                    update(GenerationJob)
-                    .where(GenerationJob.id == job_id)
-                    .values(**values)
-                )
+                stmt = update(GenerationJob).where(GenerationJob.id == job_id).values(**values)
                 await session.execute(stmt)
                 await session.commit()
 
@@ -629,7 +624,7 @@ class BackgroundJobQueue:
 
 
 # Global job queue instance
-_job_queue: Optional[BackgroundJobQueue] = None
+_job_queue: BackgroundJobQueue | None = None
 
 
 def get_job_queue() -> BackgroundJobQueue:
@@ -645,7 +640,9 @@ def get_job_queue() -> BackgroundJobQueue:
     return _job_queue
 
 
-async def init_job_queue(session_factory: Optional[Callable[[], AsyncSession]] = None) -> BackgroundJobQueue:
+async def init_job_queue(
+    session_factory: Callable[[], AsyncSession] | None = None,
+) -> BackgroundJobQueue:
     """Initialize and start the global job queue."""
     global _job_queue
 

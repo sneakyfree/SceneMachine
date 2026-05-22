@@ -5,13 +5,11 @@ and provides utilities for provider discovery.
 """
 
 import logging
-from typing import Optional
 
 from scenemachine.config import get_settings
 from scenemachine.models.generation_job import JobProvider
 
 from .base import (
-    GenerationProvider,
     ProviderRegistry,
     get_provider_registry,
 )
@@ -19,7 +17,7 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 
-def register_builtin_providers(registry: Optional[ProviderRegistry] = None) -> None:
+def register_builtin_providers(registry: ProviderRegistry | None = None) -> None:
     """Register all built-in providers with the registry.
 
     This is called automatically during application startup.
@@ -33,10 +31,10 @@ def register_builtin_providers(registry: Optional[ProviderRegistry] = None) -> N
 
     # Import providers here to avoid circular imports
     from .actcore import ActCoreProvider
+    from .comfyui import ComfyUIProvider
+    from .fal import FalProvider
     from .mock import MockGenerationProvider
     from .replicate import ReplicateProvider
-    from .fal import FalProvider
-    from .comfyui import ComfyUIProvider
     from .runpod import RunPodProvider
 
     # Register the local ComfyUI provider FIRST as JobProvider.LOCAL —

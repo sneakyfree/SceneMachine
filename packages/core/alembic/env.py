@@ -4,13 +4,12 @@ import os
 import sys
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Add the package to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from scenemachine.models.base import Base  # noqa: E402
 
 # Import all models so they are registered with Base.metadata
 from scenemachine.models import (  # noqa: E402, F401
@@ -23,6 +22,7 @@ from scenemachine.models import (  # noqa: E402, F401
     Shot,
     UserSettings,
 )
+from scenemachine.models.base import Base  # noqa: E402
 
 # Alembic Config object
 config = context.config

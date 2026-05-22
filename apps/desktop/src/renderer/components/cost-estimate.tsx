@@ -7,13 +7,7 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  DollarSign,
-  AlertTriangle,
-  Loader2,
-  Info,
-  TrendingUp,
-} from 'lucide-react';
+import { DollarSign, AlertTriangle, Loader2, Info, TrendingUp } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { api } from '../api/client';
 import { useGenerationStore } from '../stores/generation-store';
@@ -80,10 +74,9 @@ export function CostEstimate({
 
   if (isLoading) {
     return (
-      <div className={cn(
-        'flex items-center gap-2 text-surface-500',
-        compact ? 'text-xs' : 'text-sm'
-      )}>
+      <div
+        className={cn('flex items-center gap-2 text-surface-500', compact ? 'text-xs' : 'text-sm')}
+      >
         <Loader2 className="w-3 h-3 animate-spin" />
         <span>Estimating cost...</span>
       </div>
@@ -92,10 +85,9 @@ export function CostEstimate({
 
   if (error || !estimate) {
     return (
-      <div className={cn(
-        'flex items-center gap-2 text-surface-500',
-        compact ? 'text-xs' : 'text-sm'
-      )}>
+      <div
+        className={cn('flex items-center gap-2 text-surface-500', compact ? 'text-xs' : 'text-sm')}
+      >
         <Info className="w-3 h-3" />
         <span>Cost unavailable</span>
       </div>
@@ -104,40 +96,42 @@ export function CostEstimate({
 
   if (compact) {
     return (
-      <CostBadge
-        amount={estimate.total_cost}
-        currency={estimate.currency}
-        level={costLevel}
-      />
+      <CostBadge amount={estimate.total_cost} currency={estimate.currency} level={costLevel} />
     );
   }
 
   return (
     <div className="space-y-2">
       {/* Main cost display */}
-      <div className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-lg',
-        costLevel === 'normal' && 'bg-surface-800',
-        costLevel === 'warning' && 'bg-yellow-500/10 border border-yellow-500/30',
-        costLevel === 'danger' && 'bg-red-500/10 border border-red-500/30'
-      )}>
-        <div className={cn(
-          'p-2 rounded-lg',
-          costLevel === 'normal' && 'bg-brand-500/20 text-brand-400',
-          costLevel === 'warning' && 'bg-yellow-500/20 text-yellow-400',
-          costLevel === 'danger' && 'bg-red-500/20 text-red-400'
-        )}>
+      <div
+        className={cn(
+          'flex items-center gap-3 px-3 py-2 rounded-lg',
+          costLevel === 'normal' && 'bg-surface-800',
+          costLevel === 'warning' && 'bg-yellow-500/10 border border-yellow-500/30',
+          costLevel === 'danger' && 'bg-red-500/10 border border-red-500/30'
+        )}
+      >
+        <div
+          className={cn(
+            'p-2 rounded-lg',
+            costLevel === 'normal' && 'bg-brand-500/20 text-brand-400',
+            costLevel === 'warning' && 'bg-yellow-500/20 text-yellow-400',
+            costLevel === 'danger' && 'bg-red-500/20 text-red-400'
+          )}
+        >
           <DollarSign className="w-5 h-5" />
         </div>
 
         <div className="flex-1">
           <div className="flex items-baseline gap-2">
-            <span className={cn(
-              'text-xl font-bold',
-              costLevel === 'normal' && 'text-surface-100',
-              costLevel === 'warning' && 'text-yellow-300',
-              costLevel === 'danger' && 'text-red-300'
-            )}>
+            <span
+              className={cn(
+                'text-xl font-bold',
+                costLevel === 'normal' && 'text-surface-100',
+                costLevel === 'warning' && 'text-yellow-300',
+                costLevel === 'danger' && 'text-red-300'
+              )}
+            >
               ${estimate.total_cost.toFixed(2)}
             </span>
             <span className="text-sm text-surface-500">{estimate.currency}</span>
@@ -150,11 +144,13 @@ export function CostEstimate({
         </div>
 
         {costLevel !== 'normal' && (
-          <AlertTriangle className={cn(
-            'w-5 h-5',
-            costLevel === 'warning' && 'text-yellow-400',
-            costLevel === 'danger' && 'text-red-400'
-          )} />
+          <AlertTriangle
+            className={cn(
+              'w-5 h-5',
+              costLevel === 'warning' && 'text-yellow-400',
+              costLevel === 'danger' && 'text-red-400'
+            )}
+          />
         )}
       </div>
 
@@ -190,9 +186,7 @@ export function CostEstimate({
       {costLevel === 'danger' && (
         <div className="flex items-start gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>
-            This is a high-cost operation. Consider reducing shot count or duration.
-          </span>
+          <span>This is a high-cost operation. Consider reducing shot count or duration.</span>
         </div>
       )}
     </div>
@@ -212,13 +206,15 @@ export function CostBadge({
   level?: 'normal' | 'warning' | 'danger' | 'unknown';
 }) {
   return (
-    <span className={cn(
-      'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium',
-      level === 'normal' && 'bg-surface-800 text-surface-300',
-      level === 'warning' && 'bg-yellow-500/20 text-yellow-400',
-      level === 'danger' && 'bg-red-500/20 text-red-400',
-      level === 'unknown' && 'bg-surface-700 text-surface-400'
-    )}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium',
+        level === 'normal' && 'bg-surface-800 text-surface-300',
+        level === 'warning' && 'bg-yellow-500/20 text-yellow-400',
+        level === 'danger' && 'bg-red-500/20 text-red-400',
+        level === 'unknown' && 'bg-surface-700 text-surface-400'
+      )}
+    >
       <DollarSign className="w-3 h-3" />
       {level === 'unknown' ? '—' : `${amount.toFixed(2)}`}
     </span>
@@ -257,19 +253,11 @@ export function CostTooltip({
   });
 
   if (isLoading) {
-    return (
-      <div className="p-2 text-xs text-surface-400">
-        Calculating cost...
-      </div>
-    );
+    return <div className="p-2 text-xs text-surface-400">Calculating cost...</div>;
   }
 
   if (!estimate) {
-    return (
-      <div className="p-2 text-xs text-surface-400">
-        Cost unavailable
-      </div>
-    );
+    return <div className="p-2 text-xs text-surface-400">Cost unavailable</div>;
   }
 
   return (
@@ -350,9 +338,7 @@ export function BatchCostSummary({
             ${estimate.total_cost.toFixed(2)}
           </span>
         </div>
-        <div className="text-xs text-surface-500">
-          Estimated total
-        </div>
+        <div className="text-xs text-surface-500">Estimated total</div>
       </div>
     </div>
   );

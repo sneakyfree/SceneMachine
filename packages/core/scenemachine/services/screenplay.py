@@ -1,9 +1,8 @@
 """Screenplay service for parsing and managing screenplay documents."""
 
-import hashlib
 import logging
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional, Tuple
+from typing import Any, BinaryIO
 from uuid import UUID
 
 from sqlalchemy import select
@@ -91,9 +90,7 @@ class ScreenplayService:
         screenplay_format = self.SUPPORTED_FORMATS[suffix]
 
         # Save file
-        file_path, file_hash = await self.storage.save_screenplay(
-            project_id, file, filename
-        )
+        file_path, file_hash = await self.storage.save_screenplay(project_id, file, filename)
 
         # Create screenplay record
         screenplay = Screenplay(
@@ -135,7 +132,7 @@ class ScreenplayService:
         # Parse based on format
         try:
             if screenplay.original_format == ScreenplayFormat.FOUNTAIN:
-                with open(file_path, "r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     content = f.read()
                 parsed = parse_fountain(content)
 
@@ -148,7 +145,7 @@ class ScreenplayService:
 
             else:
                 # Plain text - attempt as Fountain
-                with open(file_path, "r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     content = f.read()
                 parsed = parse_fountain(content)
 
@@ -181,7 +178,7 @@ class ScreenplayService:
 
         return screenplay
 
-    async def _parse_fdx(self, file_path: Path) -> Dict[str, Any]:
+    async def _parse_fdx(self, file_path: Path) -> dict[str, Any]:
         """Parse Final Draft XML format.
 
         Args:
@@ -195,10 +192,10 @@ class ScreenplayService:
         tree = ET.parse(file_path)
         root = tree.getroot()
 
-        elements: List[Dict[str, Any]] = []
+        elements: list[dict[str, Any]] = []
         characters: set[str] = set()
-        scenes: List[Dict[str, Any]] = []
-        current_scene: Optional[Dict[str, Any]] = None
+        scenes: list[dict[str, Any]] = []
+        current_scene: dict[str, Any] | None = None
         scene_count = 0
 
         # Find content element
@@ -284,7 +281,7 @@ class ScreenplayService:
         }
         return mapping.get(fdx_type, "action")
 
-    def _parse_scene_heading_text(self, text: str) -> Dict[str, str]:
+    def _parse_scene_heading_text(self, text: str) -> dict[str, str]:
         """Parse scene heading text into components."""
         import re
 
@@ -318,8 +315,8 @@ class ScreenplayService:
         elements = screenplay.parsed_content.get("elements", [])
 
         # Count dialogue per character
-        dialogue_counts: Dict[str, int] = {}
-        current_character: Optional[str] = None
+        dialogue_counts: dict[str, int] = {}
+        current_character: str | None = None
 
         for elem in elements:
             if elem.get("type") == "character":
@@ -328,7 +325,7 @@ class ScreenplayService:
                 dialogue_counts[current_character] = dialogue_counts.get(current_character, 0) + 1
 
         # Count scenes per character
-        scene_counts: Dict[str, int] = {}
+        scene_counts: dict[str, int] = {}
         for scene in screenplay.parsed_content.get("scenes", []):
             for char in scene.get("characters", []):
                 scene_counts[char] = scene_counts.get(char, 0) + 1
@@ -416,13 +413,13 @@ class ScreenplayService:
 
         return True
 
-    async def _get_project(self, project_id: UUID) -> Optional[Project]:
+    async def _get_project(self, project_id: UUID) -> Project | None:
         """Get project by ID."""
         stmt = select(Project).where(Project.id == project_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _get_screenplay(self, screenplay_id: UUID) -> Optional[Screenplay]:
+    async def _get_screenplay(self, screenplay_id: UUID) -> Screenplay | None:
         """Get screenplay by ID."""
         stmt = select(Screenplay).where(Screenplay.id == screenplay_id)
         result = await self.session.execute(stmt)

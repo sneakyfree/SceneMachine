@@ -4,16 +4,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import {
-  X,
-  Play,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  Trash2,
-  Download,
-} from 'lucide-react';
+import { X, Play, Loader2, AlertCircle, CheckCircle, Info, Trash2, Download } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   useLipSyncStore,

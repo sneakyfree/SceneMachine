@@ -30,10 +30,7 @@ import {
 import { cn } from '../lib/utils';
 import { VoiceSelector } from './voice-selector';
 import { FaceSimilarityPanel } from './face-similarity-panel';
-import {
-  PhysicalDescriptionForm,
-  type PhysicalDescription,
-} from './physical-description-form';
+import { PhysicalDescriptionForm, type PhysicalDescription } from './physical-description-form';
 import { useExperienceStore } from '../stores/experience-store';
 
 interface ReferenceAsset {
@@ -82,7 +79,12 @@ interface CharacterCardProps {
   onDeleteReference: (characterId: string, assetId: string) => void;
   onGenerateDescription: (characterId: string) => void;
   onUpdatePhysicalDescription?: (characterId: string, data: PhysicalDescription) => void;
-  onVoiceChange?: (characterId: string, voiceId: string, provider: string, voiceName: string) => void;
+  onVoiceChange?: (
+    characterId: string,
+    voiceId: string,
+    provider: string,
+    voiceName: string
+  ) => void;
   onSuggestVoice?: (characterId: string) => void;
   onCheckConsistency?: (characterId: string) => void;
   isExpanded?: boolean;
@@ -153,9 +155,7 @@ export function CharacterCard({
     <div
       className={cn(
         'card border transition-all',
-        character.isLocked
-          ? 'border-green-500/30 bg-green-500/5'
-          : 'border-surface-800',
+        character.isLocked ? 'border-green-500/30 bg-green-500/5' : 'border-surface-800',
         character.isProtagonist && 'ring-2 ring-brand-500/50'
       )}
     >
@@ -180,14 +180,10 @@ export function CharacterCard({
               {character.isProtagonist && (
                 <Star className="w-4 h-4 text-brand-400 fill-brand-400" />
               )}
-              {character.isLocked && (
-                <Lock className="w-4 h-4 text-green-400" />
-              )}
+              {character.isLocked && <Lock className="w-4 h-4 text-green-400" />}
             </div>
             {character.name !== character.screenplayName && (
-              <p className="text-sm text-surface-500">
-                as "{character.screenplayName}"
-              </p>
+              <p className="text-sm text-surface-500">as "{character.screenplayName}"</p>
             )}
           </div>
         </div>
@@ -225,9 +221,7 @@ export function CharacterCard({
 
       {/* Description */}
       {character.description && (
-        <p className="mt-3 text-sm text-surface-300 line-clamp-2">
-          {character.description}
-        </p>
+        <p className="mt-3 text-sm text-surface-300 line-clamp-2">{character.description}</p>
       )}
 
       {/* Personality Traits */}
@@ -273,9 +267,7 @@ export function CharacterCard({
           {/* Physical Description */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-surface-400">
-                Physical Description
-              </h4>
+              <h4 className="text-sm font-medium text-surface-400">Physical Description</h4>
               {!character.isLocked && !isEditingPhysical && (
                 <button
                   onClick={() => setIsEditingPhysical(true)}
@@ -340,9 +332,7 @@ export function CharacterCard({
                   {character.ageRangeDisplay && (
                     <div>
                       <span className="text-surface-500">Age:</span>{' '}
-                      <span className="text-surface-200">
-                        {character.ageRangeDisplay}
-                      </span>
+                      <span className="text-surface-200">{character.ageRangeDisplay}</span>
                     </div>
                   )}
                   {character.physicalDescription.height && (
@@ -375,16 +365,14 @@ export function CharacterCard({
                     <div className="mt-2">
                       <span className="text-surface-500 text-sm">Features:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {character.physicalDescription.distinguishing_features.map(
-                          (feature, i) => (
-                            <span
-                              key={i}
-                              className="px-2 py-0.5 bg-surface-800 rounded text-xs text-surface-300"
-                            >
-                              {feature}
-                            </span>
-                          )
-                        )}
+                        {character.physicalDescription.distinguishing_features.map((feature, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 bg-surface-800 rounded text-xs text-surface-300"
+                          >
+                            {feature}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -407,9 +395,7 @@ export function CharacterCard({
           {/* Reference Images */}
           {character.referenceAssets && character.referenceAssets.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-surface-400 mb-2">
-                Reference Images
-              </h4>
+              <h4 className="text-sm font-medium text-surface-400 mb-2">Reference Images</h4>
               <div className="grid grid-cols-4 gap-2">
                 {character.referenceAssets.map((asset) => (
                   <div
@@ -461,9 +447,7 @@ export function CharacterCard({
                     <Mic className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium">
-                      {character.voiceName || 'No voice assigned'}
-                    </div>
+                    <div className="font-medium">{character.voiceName || 'No voice assigned'}</div>
                     {character.voiceProvider && (
                       <div className="text-sm text-surface-400">
                         Provider: {character.voiceProvider}
@@ -549,34 +533,36 @@ export function CharacterCard({
                 )}
 
                 {/* FEAT-027: Check Consistency */}
-                {character.isLocked && (character.referenceAssets?.length ?? 0) > 0 && onCheckConsistency && (
-                  <button
-                    onClick={async () => {
-                      setIsCheckingConsistency(true);
-                      try {
-                        const result = await window.electronAPI.backendRequest<{ score: number }>(
-                          'characters.checkConsistency',
-                          { character_id: character.id }
-                        );
-                        setConsistencyScore(result.score);
-                      } catch {
-                        setConsistencyScore(null);
-                      } finally {
-                        setIsCheckingConsistency(false);
-                      }
-                    }}
-                    disabled={disabled || isCheckingConsistency}
-                    className="btn-secondary text-sm"
-                    title="Compare reference images with generated shots"
-                  >
-                    {isCheckingConsistency ? (
-                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                    ) : (
-                      <ScanFace className="w-4 h-4 mr-1" />
-                    )}
-                    Check Consistency
-                  </button>
-                )}
+                {character.isLocked &&
+                  (character.referenceAssets?.length ?? 0) > 0 &&
+                  onCheckConsistency && (
+                    <button
+                      onClick={async () => {
+                        setIsCheckingConsistency(true);
+                        try {
+                          const result = await window.electronAPI.backendRequest<{ score: number }>(
+                            'characters.checkConsistency',
+                            { character_id: character.id }
+                          );
+                          setConsistencyScore(result.score);
+                        } catch {
+                          setConsistencyScore(null);
+                        } finally {
+                          setIsCheckingConsistency(false);
+                        }
+                      }}
+                      disabled={disabled || isCheckingConsistency}
+                      className="btn-secondary text-sm"
+                      title="Compare reference images with generated shots"
+                    >
+                      {isCheckingConsistency ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <ScanFace className="w-4 h-4 mr-1" />
+                      )}
+                      Check Consistency
+                    </button>
+                  )}
 
                 <button
                   onClick={() => onLock(character.id)}

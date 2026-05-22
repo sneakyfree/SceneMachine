@@ -9,11 +9,11 @@ writers to focus on content while maintaining proper screenplay formatting.
 
 import re
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from enum import StrEnum
+from typing import Any
 
 
-class ElementType(str, Enum):
+class ElementType(StrEnum):
     """Types of screenplay elements."""
 
     TITLE_PAGE = "title_page"
@@ -37,16 +37,16 @@ class ElementType(str, Enum):
 class TitlePage:
     """Parsed title page information."""
 
-    title: Optional[str] = None
-    credit: Optional[str] = None
-    author: Optional[str] = None
-    source: Optional[str] = None
-    draft_date: Optional[str] = None
-    contact: Optional[str] = None
-    copyright: Optional[str] = None
-    notes: Optional[str] = None
-    revision: Optional[str] = None
-    custom: Dict[str, str] = field(default_factory=dict)
+    title: str | None = None
+    credit: str | None = None
+    author: str | None = None
+    source: str | None = None
+    draft_date: str | None = None
+    contact: str | None = None
+    copyright: str | None = None
+    notes: str | None = None
+    revision: str | None = None
+    custom: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -57,7 +57,7 @@ class SceneHeading:
     scene_type: str  # INT, EXT, INT./EXT., I/E, etc.
     location: str
     time_of_day: str
-    scene_number: Optional[str] = None
+    scene_number: str | None = None
 
 
 @dataclass
@@ -69,12 +69,12 @@ class Element:
     raw_text: str
     line_number: int
     # Additional metadata based on element type
-    scene_heading: Optional[SceneHeading] = None
-    character_name: Optional[str] = None
-    character_extension: Optional[str] = None  # (V.O.), (O.S.), etc.
+    scene_heading: SceneHeading | None = None
+    character_name: str | None = None
+    character_extension: str | None = None  # (V.O.), (O.S.), etc.
     is_dual_dialogue: bool = False
     section_depth: int = 0
-    scene_number: Optional[str] = None
+    scene_number: str | None = None
 
 
 @dataclass
@@ -82,10 +82,10 @@ class ParsedScreenplay:
     """Complete parsed screenplay."""
 
     title_page: TitlePage
-    elements: List[Element]
-    characters: List[str]
-    scenes: List[Dict[str, Any]]
-    metadata: Dict[str, Any]
+    elements: list[Element]
+    characters: list[str]
+    scenes: list[dict[str, Any]]
+    metadata: dict[str, Any]
 
 
 class FountainParser:
@@ -121,9 +121,7 @@ class FountainParser:
     TRANSITION_PATTERN = re.compile(r"^[A-Z\s]+TO:$")
 
     # Character name pattern (all caps, may have extension)
-    CHARACTER_PATTERN = re.compile(
-        r"^([A-Z][A-Z0-9\s\-\'\.]+?)(\s*\([^)]+\))?(\s*\^)?$"
-    )
+    CHARACTER_PATTERN = re.compile(r"^([A-Z][A-Z0-9\s\-\'\.]+?)(\s*\([^)]+\))?(\s*\^)?$")
 
     # Parenthetical pattern
     PARENTHETICAL_PATTERN = re.compile(r"^\([^)]+\)$")
@@ -162,8 +160,8 @@ class FountainParser:
     def __init__(self) -> None:
         """Initialize the parser."""
         self._line_number = 0
-        self._lines: List[str] = []
-        self._elements: List[Element] = []
+        self._lines: list[str] = []
+        self._elements: list[Element] = []
         self._characters: set[str] = set()
         self._current_index = 0
 
@@ -185,7 +183,7 @@ class FountainParser:
         content = self.BONEYARD_PATTERN.sub("", content)
 
         # Extract and remove notes (store for later)
-        notes: List[Tuple[int, str]] = []
+        notes: list[tuple[int, str]] = []
         for match in self.NOTE_PATTERN.finditer(content):
             notes.append((match.start(), match.group(1)))
         content = self.NOTE_PATTERN.sub("", content)
@@ -240,8 +238,8 @@ class FountainParser:
             return title_page
 
         # Parse title page entries
-        current_key: Optional[str] = None
-        current_value: List[str] = []
+        current_key: str | None = None
+        current_value: list[str] = []
 
         while self._current_index < len(self._lines):
             line = self._lines[self._current_index]
@@ -250,9 +248,7 @@ class FountainParser:
             if not line.strip():
                 # Save last entry
                 if current_key:
-                    self._set_title_page_value(
-                        title_page, current_key, "\n".join(current_value)
-                    )
+                    self._set_title_page_value(title_page, current_key, "\n".join(current_value))
                 self._current_index += 1
                 break
 
@@ -260,9 +256,7 @@ class FountainParser:
             if ":" in line and not line.startswith(" ") and not line.startswith("\t"):
                 # Save previous entry
                 if current_key:
-                    self._set_title_page_value(
-                        title_page, current_key, "\n".join(current_value)
-                    )
+                    self._set_title_page_value(title_page, current_key, "\n".join(current_value))
 
                 # Parse new entry
                 key, _, value = line.partition(":")
@@ -277,9 +271,7 @@ class FountainParser:
 
         return title_page
 
-    def _set_title_page_value(
-        self, title_page: TitlePage, key: str, value: str
-    ) -> None:
+    def _set_title_page_value(self, title_page: TitlePage, key: str, value: str) -> None:
         """Set a title page value based on key."""
         key_mapping = {
             "title": "title",
@@ -319,7 +311,7 @@ class FountainParser:
 
             self._current_index += 1
 
-    def _parse_element(self, line: str) -> Optional[Element]:
+    def _parse_element(self, line: str) -> Element | None:
         """Parse a single line into an element."""
         stripped = line.strip()
 
@@ -434,9 +426,7 @@ class FountainParser:
                     return True
         return False
 
-    def _parse_scene_heading(
-        self, text: str, raw_line: str, forced: bool = False
-    ) -> Element:
+    def _parse_scene_heading(self, text: str, raw_line: str, forced: bool = False) -> Element:
         """Parse a scene heading into its components."""
         # Extract scene number if present
         scene_number = None
@@ -519,9 +509,7 @@ class FountainParser:
 
         return False
 
-    def _parse_character(
-        self, text: str, raw_line: str, forced: bool = False
-    ) -> Element:
+    def _parse_character(self, text: str, raw_line: str, forced: bool = False) -> Element:
         """Parse a character element."""
         match = self.CHARACTER_PATTERN.match(text)
 
@@ -602,10 +590,10 @@ class FountainParser:
         text = self.UNDERLINE_PATTERN.sub(r"\1", text)
         return text
 
-    def _extract_scenes(self) -> List[Dict[str, Any]]:
+    def _extract_scenes(self) -> list[dict[str, Any]]:
         """Extract scene information from parsed elements."""
-        scenes: List[Dict[str, Any]] = []
-        current_scene: Optional[Dict[str, Any]] = None
+        scenes: list[dict[str, Any]] = []
+        current_scene: dict[str, Any] | None = None
         scene_number = 0
 
         for element in self._elements:
@@ -657,7 +645,7 @@ class FountainParser:
         return scenes
 
 
-def parse_fountain(content: str) -> Dict[str, Any]:
+def parse_fountain(content: str) -> dict[str, Any]:
     """Convenience function to parse Fountain content.
 
     Args:

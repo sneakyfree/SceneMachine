@@ -46,7 +46,7 @@ const mockCharacter = {
     hair_style: 'short',
     eye_color: 'blue',
     build: 'athletic',
-    height: "6'0\"",
+    height: '6\'0"',
     skin_tone: 'fair',
   },
   personalityTraits: ['determined', 'cautious', 'intelligent', 'resourceful', 'stubborn'],
@@ -287,7 +287,12 @@ describe('CharacterCard', () => {
       const charWithRefs = {
         ...mockCharacter,
         referenceAssets: [
-          { id: 'ref-1', originalFilename: 'ref.jpg', filePath: '/path/to/ref.jpg', isPrimary: true },
+          {
+            id: 'ref-1',
+            originalFilename: 'ref.jpg',
+            filePath: '/path/to/ref.jpg',
+            isPrimary: true,
+          },
         ],
         referenceCount: 1,
       };

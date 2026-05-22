@@ -44,29 +44,61 @@ interface PhysicalDescriptionFormProps {
 
 // Preset options for dropdowns
 const HAIR_COLORS = [
-  'Black', 'Brown', 'Blonde', 'Auburn', 'Red', 'Gray', 'White',
-  'Silver', 'Platinum', 'Strawberry Blonde', 'Chestnut', 'Salt and Pepper'
+  'Black',
+  'Brown',
+  'Blonde',
+  'Auburn',
+  'Red',
+  'Gray',
+  'White',
+  'Silver',
+  'Platinum',
+  'Strawberry Blonde',
+  'Chestnut',
+  'Salt and Pepper',
 ];
 
 const HAIR_STYLES = [
-  'Short', 'Medium', 'Long', 'Curly', 'Wavy', 'Straight', 'Bald', 'Shaved',
-  'Braided', 'Ponytail', 'Bun', 'Afro', 'Dreadlocks', 'Pixie Cut', 'Buzz Cut'
+  'Short',
+  'Medium',
+  'Long',
+  'Curly',
+  'Wavy',
+  'Straight',
+  'Bald',
+  'Shaved',
+  'Braided',
+  'Ponytail',
+  'Bun',
+  'Afro',
+  'Dreadlocks',
+  'Pixie Cut',
+  'Buzz Cut',
 ];
 
-const EYE_COLORS = [
-  'Brown', 'Blue', 'Green', 'Hazel', 'Gray', 'Amber', 'Black'
-];
+const EYE_COLORS = ['Brown', 'Blue', 'Green', 'Hazel', 'Gray', 'Amber', 'Black'];
 
-const SKIN_TONES = [
-  'Fair', 'Light', 'Medium', 'Olive', 'Tan', 'Brown', 'Dark Brown', 'Dark'
-];
+const SKIN_TONES = ['Fair', 'Light', 'Medium', 'Olive', 'Tan', 'Brown', 'Dark Brown', 'Dark'];
 
 const HEIGHT_OPTIONS = [
-  'Very Short', 'Short', 'Below Average', 'Average', 'Above Average', 'Tall', 'Very Tall'
+  'Very Short',
+  'Short',
+  'Below Average',
+  'Average',
+  'Above Average',
+  'Tall',
+  'Very Tall',
 ];
 
 const BUILD_OPTIONS = [
-  'Slim', 'Lean', 'Average', 'Athletic', 'Muscular', 'Stocky', 'Heavy', 'Plus-size'
+  'Slim',
+  'Lean',
+  'Average',
+  'Athletic',
+  'Muscular',
+  'Stocky',
+  'Heavy',
+  'Plus-size',
 ];
 
 const emptyDescription: PhysicalDescription = {
@@ -98,33 +130,42 @@ export function PhysicalDescriptionForm({
   const [newFeature, setNewFeature] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
 
-  const updateField = useCallback(<K extends keyof PhysicalDescription>(
-    field: K,
-    value: PhysicalDescription[K]
-  ) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setHasChanges(true);
-  }, []);
+  const updateField = useCallback(
+    <K extends keyof PhysicalDescription>(field: K, value: PhysicalDescription[K]) => {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+      setHasChanges(true);
+    },
+    []
+  );
 
   const addFeature = useCallback(() => {
     if (newFeature.trim() && !formData.distinguishing_features.includes(newFeature.trim())) {
-      updateField('distinguishing_features', [...formData.distinguishing_features, newFeature.trim()]);
+      updateField('distinguishing_features', [
+        ...formData.distinguishing_features,
+        newFeature.trim(),
+      ]);
       setNewFeature('');
     }
   }, [newFeature, formData.distinguishing_features, updateField]);
 
-  const removeFeature = useCallback((feature: string) => {
-    updateField(
-      'distinguishing_features',
-      formData.distinguishing_features.filter(f => f !== feature)
-    );
-  }, [formData.distinguishing_features, updateField]);
+  const removeFeature = useCallback(
+    (feature: string) => {
+      updateField(
+        'distinguishing_features',
+        formData.distinguishing_features.filter((f) => f !== feature)
+      );
+    },
+    [formData.distinguishing_features, updateField]
+  );
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-    setHasChanges(false);
-  }, [formData, onSave]);
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      onSave(formData);
+      setHasChanges(false);
+    },
+    [formData, onSave]
+  );
 
   const handleReset = useCallback(() => {
     setFormData({
@@ -155,9 +196,10 @@ export function PhysicalDescriptionForm({
       </label>
       <div className="flex gap-2">
         <select
-          value={options.map(o => o.toLowerCase()).includes((formData[field] as string).toLowerCase())
-            ? formData[field] as string
-            : ''
+          value={
+            options.map((o) => o.toLowerCase()).includes((formData[field] as string).toLowerCase())
+              ? (formData[field] as string)
+              : ''
           }
           onChange={(e) => updateField(field, e.target.value as any)}
           disabled={isLocked || isLoading}
@@ -169,17 +211,22 @@ export function PhysicalDescriptionForm({
           )}
         >
           <option value="">Select {label.toLowerCase()}...</option>
-          {options.map(opt => (
-            <option key={opt} value={opt}>{opt}</option>
+          {options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
           ))}
         </select>
         {allowCustom && (
           <input
             type="text"
             placeholder="Custom..."
-            value={options.map(o => o.toLowerCase()).includes((formData[field] as string).toLowerCase())
-              ? ''
-              : formData[field] as string
+            value={
+              options
+                .map((o) => o.toLowerCase())
+                .includes((formData[field] as string).toLowerCase())
+                ? ''
+                : (formData[field] as string)
             }
             onChange={(e) => updateField(field, e.target.value as any)}
             disabled={isLocked || isLoading}
@@ -199,34 +246,14 @@ export function PhysicalDescriptionForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Hair Section */}
       <div className="grid grid-cols-2 gap-4">
-        <SelectField
-          label="Hair Color"
-          icon={Palette}
-          field="hair_color"
-          options={HAIR_COLORS}
-        />
-        <SelectField
-          label="Hair Style"
-          icon={Scissors}
-          field="hair_style"
-          options={HAIR_STYLES}
-        />
+        <SelectField label="Hair Color" icon={Palette} field="hair_color" options={HAIR_COLORS} />
+        <SelectField label="Hair Style" icon={Scissors} field="hair_style" options={HAIR_STYLES} />
       </div>
 
       {/* Eyes & Skin */}
       <div className="grid grid-cols-2 gap-4">
-        <SelectField
-          label="Eye Color"
-          icon={Eye}
-          field="eye_color"
-          options={EYE_COLORS}
-        />
-        <SelectField
-          label="Skin Tone"
-          icon={Palette}
-          field="skin_tone"
-          options={SKIN_TONES}
-        />
+        <SelectField label="Eye Color" icon={Eye} field="eye_color" options={EYE_COLORS} />
+        <SelectField label="Skin Tone" icon={Palette} field="skin_tone" options={SKIN_TONES} />
       </div>
 
       {/* Height & Build */}
@@ -238,12 +265,7 @@ export function PhysicalDescriptionForm({
           options={HEIGHT_OPTIONS}
           allowCustom={false}
         />
-        <SelectField
-          label="Build"
-          icon={User}
-          field="build"
-          options={BUILD_OPTIONS}
-        />
+        <SelectField label="Build" icon={User} field="build" options={BUILD_OPTIONS} />
       </div>
 
       {/* Clothing Style */}
@@ -417,11 +439,7 @@ export function PhysicalDescriptionForm({
  * Read-only summary view of physical description.
  * Used when showing collapsed character info.
  */
-export function PhysicalDescriptionSummary({
-  data,
-}: {
-  data?: Partial<PhysicalDescription>;
-}) {
+export function PhysicalDescriptionSummary({ data }: { data?: Partial<PhysicalDescription> }) {
   if (!data) return null;
 
   const parts: string[] = [];
@@ -438,9 +456,5 @@ export function PhysicalDescriptionSummary({
 
   if (parts.length === 0) return null;
 
-  return (
-    <p className="text-sm text-surface-300">
-      {parts.join(' • ')}
-    </p>
-  );
+  return <p className="text-sm text-surface-300">{parts.join(' • ')}</p>;
 }

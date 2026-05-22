@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from scenemachine.workflows.base import (
@@ -19,13 +19,13 @@ class ScreenplayWorkflowContext:
     """Context for screenplay processing workflow."""
 
     project_id: UUID
-    screenplay_id: Optional[UUID] = None
-    file_path: Optional[str] = None
-    raw_content: Optional[str] = None
-    parsed_content: Optional[Dict] = None
-    movie_plan: Optional[Dict] = None
-    characters: List[Dict] = None
-    scenes: List[Dict] = None
+    screenplay_id: UUID | None = None
+    file_path: str | None = None
+    raw_content: str | None = None
+    parsed_content: dict | None = None
+    movie_plan: dict | None = None
+    characters: list[dict] = None
+    scenes: list[dict] = None
 
     def __post_init__(self):
         if self.characters is None:
@@ -42,7 +42,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
     def workflow_type(self) -> str:
         return "screenplay_processing"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="validate",
@@ -87,7 +87,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
             ),
         ]
 
-    async def step_validate(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_validate(self, context: dict[str, Any]) -> dict[str, Any]:
         """Validate the screenplay file."""
         logger.info("Validating screenplay...")
 
@@ -99,7 +99,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
 
         # If file path provided, read content
         if file_path and not raw_content:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 raw_content = f.read()
 
         if not raw_content or len(raw_content.strip()) < 100:
@@ -107,7 +107,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
 
         return {"raw_content": raw_content, "validated": True}
 
-    async def step_parse(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_parse(self, context: dict[str, Any]) -> dict[str, Any]:
         """Parse screenplay into structured format."""
         logger.info("Parsing screenplay...")
 
@@ -123,7 +123,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
 
         return {"parsed_content": parsed}
 
-    async def step_extract_characters(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_extract_characters(self, context: dict[str, Any]) -> dict[str, Any]:
         """Extract characters from parsed screenplay."""
         logger.info("Extracting characters...")
 
@@ -145,7 +145,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
 
         return {"characters": list(characters.values())}
 
-    async def step_extract_scenes(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_extract_scenes(self, context: dict[str, Any]) -> dict[str, Any]:
         """Extract scenes from parsed screenplay."""
         logger.info("Extracting scenes...")
 
@@ -184,7 +184,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
 
         return {"scenes": scenes}
 
-    async def step_analyze_structure(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_analyze_structure(self, context: dict[str, Any]) -> dict[str, Any]:
         """Analyze screenplay structure."""
         logger.info("Analyzing structure...")
 
@@ -201,7 +201,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
 
         return {"structure_analysis": analysis}
 
-    async def step_generate_plan(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_generate_plan(self, context: dict[str, Any]) -> dict[str, Any]:
         """Generate movie plan."""
         logger.info("Generating movie plan...")
 
@@ -254,7 +254,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
                 return line.replace("Title:", "").strip()
         return "Untitled"
 
-    def _extract_author(self, content: str) -> Optional[str]:
+    def _extract_author(self, content: str) -> str | None:
         """Extract author from screenplay."""
         lines = content.split("\n")
         for line in lines[:20]:
@@ -263,7 +263,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
                 return line.split(" ", 1)[-1].strip()
         return None
 
-    def _parse_elements(self, content: str) -> List[Dict]:
+    def _parse_elements(self, content: str) -> list[dict]:
         """Parse screenplay into elements."""
         elements = []
         lines = content.split("\n")
@@ -277,7 +277,11 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
             if stripped.startswith(("INT.", "EXT.", "INT/EXT", "I/E")):
                 elements.append({"type": "scene_heading", "text": stripped})
             # Character name (all caps before dialogue)
-            elif stripped.isupper() and len(stripped) < 50 and not stripped.startswith(("INT", "EXT")):
+            elif (
+                stripped.isupper()
+                and len(stripped) < 50
+                and not stripped.startswith(("INT", "EXT"))
+            ):
                 elements.append({"type": "character", "text": stripped})
             # Parenthetical
             elif stripped.startswith("(") and stripped.endswith(")"):
@@ -317,7 +321,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
             return "dusk"
         return "day"
 
-    def _identify_acts(self, scenes: List[Dict]) -> Dict:
+    def _identify_acts(self, scenes: list[dict]) -> dict:
         """Identify act structure."""
         total = len(scenes)
         return {
@@ -327,7 +331,7 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
             "act3_start": int(total * 0.75),
         }
 
-    def _analyze_pacing(self, scenes: List[Dict]) -> List[str]:
+    def _analyze_pacing(self, scenes: list[dict]) -> list[str]:
         """Analyze pacing."""
         notes = []
         if len(scenes) > 100:
@@ -336,14 +340,14 @@ class ScreenplayProcessingWorkflow(Workflow[ScreenplayWorkflowContext]):
             notes.append("Short screenplay - may need expansion")
         return notes
 
-    def _generate_logline(self, scenes: List[Dict]) -> str:
+    def _generate_logline(self, scenes: list[dict]) -> str:
         """Generate a placeholder logline."""
         return "A compelling story unfolds across multiple locations and characters."
 
-    def _detect_genre(self, scenes: List[Dict]) -> str:
+    def _detect_genre(self, scenes: list[dict]) -> str:
         """Detect genre from scenes."""
         return "drama"
 
-    def _detect_tone(self, scenes: List[Dict]) -> str:
+    def _detect_tone(self, scenes: list[dict]) -> str:
         """Detect tone from scenes."""
         return "dramatic"

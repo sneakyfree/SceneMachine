@@ -12,10 +12,7 @@ import { ShortcutsOverlay, useShortcutsOverlay } from './components/shortcuts-ov
 import { SkipLinks } from './components/skip-links';
 import { useSettingsStore } from './stores/settings-store';
 import { Loader2 } from 'lucide-react';
-import {
-  initializeAnnouncer,
-  initializeFocusVisible,
-} from './lib/accessibility';
+import { initializeAnnouncer, initializeFocusVisible } from './lib/accessibility';
 
 // Import accessibility styles
 import './styles/accessibility.css';
@@ -89,10 +86,7 @@ export function App() {
       <SkipLinks />
       <RouterProvider router={router} />
       <ToastContainer />
-      <ShortcutsOverlay
-        isOpen={shortcutsOverlay.isOpen}
-        onClose={shortcutsOverlay.close}
-      />
+      <ShortcutsOverlay isOpen={shortcutsOverlay.isOpen} onClose={shortcutsOverlay.close} />
     </ErrorBoundary>
   );
 }

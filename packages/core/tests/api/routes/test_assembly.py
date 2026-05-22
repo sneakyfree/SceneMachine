@@ -7,10 +7,10 @@ Tests cover:
 - Audio mixing
 """
 
-import pytest
 from datetime import datetime
 from uuid import uuid4
-from typing import Dict, Any
+
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
@@ -20,16 +20,13 @@ class MockAssemblyRouter:
 
     def __init__(self):
         self.app = FastAPI()
-        self.exports: Dict[str, Dict] = {}
+        self.exports: dict[str, dict] = {}
         self._setup_routes()
 
     def _setup_routes(self):
         @self.app.post("/api/v1/projects/{project_id}/assemble")
         async def assemble_project(
-            project_id: str,
-            format: str = "mp4",
-            quality: str = "high",
-            resolution: str = "1080p"
+            project_id: str, format: str = "mp4", quality: str = "high", resolution: str = "1080p"
         ):
             export = {
                 "id": str(uuid4()),
@@ -103,7 +100,7 @@ class MockAssemblyRouter:
             lut_intensity: float = 1.0,
             brightness: float = 0.0,
             contrast: float = 1.0,
-            saturation: float = 1.0
+            saturation: float = 1.0,
         ):
             return {
                 "project_id": project_id,
@@ -114,7 +111,7 @@ class MockAssemblyRouter:
                     "contrast": contrast,
                     "saturation": saturation,
                 },
-                "status": "applied"
+                "status": "applied",
             }
 
 
@@ -133,8 +130,7 @@ class TestAssemblyWorkflow:
     def test_start_assembly(self, client, project_id):
         """Test starting assembly process."""
         response = client.post(
-            f"/api/v1/projects/{project_id}/assemble",
-            params={"format": "mp4", "quality": "high"}
+            f"/api/v1/projects/{project_id}/assemble", params={"format": "mp4", "quality": "high"}
         )
 
         assert response.status_code == 200
@@ -145,8 +141,7 @@ class TestAssemblyWorkflow:
     def test_assembly_with_resolution(self, client, project_id):
         """Test assembly with specific resolution."""
         response = client.post(
-            f"/api/v1/projects/{project_id}/assemble",
-            params={"resolution": "4K"}
+            f"/api/v1/projects/{project_id}/assemble", params={"resolution": "4K"}
         )
 
         assert response.status_code == 200
@@ -202,8 +197,7 @@ class TestPreview:
         scene_id = str(uuid4())
 
         response = client.post(
-            f"/api/v1/projects/{project_id}/preview",
-            params={"scene_id": scene_id}
+            f"/api/v1/projects/{project_id}/preview", params={"scene_id": scene_id}
         )
 
         assert response.status_code == 200
@@ -273,7 +267,7 @@ class TestColorGrading:
         """Test applying LUT to project."""
         response = client.post(
             f"/api/v1/projects/{project_id}/color-grade",
-            params={"lut_path": "/luts/cinematic.cube", "lut_intensity": 0.8}
+            params={"lut_path": "/luts/cinematic.cube", "lut_intensity": 0.8},
         )
 
         assert response.status_code == 200
@@ -285,7 +279,7 @@ class TestColorGrading:
         """Test adjusting brightness and contrast."""
         response = client.post(
             f"/api/v1/projects/{project_id}/color-grade",
-            params={"brightness": 0.1, "contrast": 1.2}
+            params={"brightness": 0.1, "contrast": 1.2},
         )
 
         assert response.status_code == 200
@@ -296,8 +290,7 @@ class TestColorGrading:
     def test_adjust_saturation(self, client, project_id):
         """Test adjusting saturation."""
         response = client.post(
-            f"/api/v1/projects/{project_id}/color-grade",
-            params={"saturation": 1.5}
+            f"/api/v1/projects/{project_id}/color-grade", params={"saturation": 1.5}
         )
 
         assert response.status_code == 200
@@ -347,6 +340,7 @@ class TestValidation:
 
     def test_lut_intensity_range(self):
         """Test LUT intensity range."""
+
         def validate_intensity(intensity: float) -> bool:
             return 0.0 <= intensity <= 1.0
 

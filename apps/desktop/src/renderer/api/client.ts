@@ -525,10 +525,7 @@ class APIClient {
   /**
    * Validate an API key for a provider.
    */
-  async validateApiKey(
-    provider: string,
-    apiKey?: string
-  ): Promise<ProviderStatus> {
+  async validateApiKey(provider: string, apiKey?: string): Promise<ProviderStatus> {
     return this.request<ProviderStatus>('settings.validateApiKey', { provider, apiKey });
   }
 
@@ -563,9 +560,7 @@ class APIClient {
   /**
    * Clear cache.
    */
-  async clearCache(
-    cacheType: 'model' | 'temp' | 'output' | 'all' = 'all'
-  ): Promise<{
+  async clearCache(cacheType: 'model' | 'temp' | 'output' | 'all' = 'all'): Promise<{
     success: boolean;
     modelCacheCleared: boolean;
     tempFilesCleared: boolean;
@@ -612,7 +607,10 @@ class APIClient {
    * Estimate cost for video generation.
    */
   async estimateCost(params: CostEstimateRequest): Promise<CostEstimateResponse> {
-    return this.request<CostEstimateResponse>('generation.estimateCost', params as unknown as Record<string, unknown>);
+    return this.request<CostEstimateResponse>(
+      'generation.estimateCost',
+      params as unknown as Record<string, unknown>
+    );
   }
 
   /**
@@ -649,7 +647,9 @@ class APIClient {
    * Reset a circuit breaker to closed state.
    */
   async resetCircuitBreaker(name: string): Promise<{ success: boolean; error?: string }> {
-    return this.request<{ success: boolean; error?: string }>('health.resetCircuitBreaker', { name });
+    return this.request<{ success: boolean; error?: string }>('health.resetCircuitBreaker', {
+      name,
+    });
   }
 
   // ============ Watermarks ============
@@ -664,10 +664,7 @@ class APIClient {
   /**
    * Upload a new watermark image.
    */
-  async uploadWatermark(
-    filename: string,
-    contentBase64: string
-  ): Promise<WatermarkUploadResponse> {
+  async uploadWatermark(filename: string, contentBase64: string): Promise<WatermarkUploadResponse> {
     return this.request<WatermarkUploadResponse>('watermarks.upload', {
       filename,
       content_base64: contentBase64,
@@ -677,9 +674,7 @@ class APIClient {
   /**
    * Delete a watermark.
    */
-  async deleteWatermark(
-    watermarkId: string
-  ): Promise<{ success: boolean; error?: string }> {
+  async deleteWatermark(watermarkId: string): Promise<{ success: boolean; error?: string }> {
     return this.request<{ success: boolean; error?: string }>('watermarks.delete', {
       watermark_id: watermarkId,
     });
@@ -736,10 +731,7 @@ class APIClient {
   /**
    * Update a performer profile.
    */
-  async updatePerformer(
-    id: string,
-    data: Partial<PerformerCreateRequest>
-  ): Promise<Performer> {
+  async updatePerformer(id: string, data: Partial<PerformerCreateRequest>): Promise<Performer> {
     return this.request<Performer>('performers.update', { id, ...data });
   }
 
@@ -790,11 +782,7 @@ class APIClient {
   /**
    * Mark a booking as delivered (performer action).
    */
-  async deliverBooking(
-    bookingId: string,
-    deliveryUrl: string,
-    notes?: string
-  ): Promise<Booking> {
+  async deliverBooking(bookingId: string, deliveryUrl: string, notes?: string): Promise<Booking> {
     return this.request<Booking>('bookings.deliver', { bookingId, deliveryUrl, notes });
   }
 
@@ -827,7 +815,10 @@ class APIClient {
   /**
    * Calculate payout for a booking.
    */
-  async calculatePayout(bookingPriceUsd: number, lifetimeEarningsUsd: number): Promise<PayoutCalculation> {
+  async calculatePayout(
+    bookingPriceUsd: number,
+    lifetimeEarningsUsd: number
+  ): Promise<PayoutCalculation> {
     return this.request<PayoutCalculation>('bookings.calculatePayout', {
       bookingPriceUsd,
       lifetimeEarningsUsd,
@@ -874,11 +865,7 @@ class APIClient {
   /**
    * Get pricing for a GPU type from a provider.
    */
-  async getGPUPricing(
-    providerId: string,
-    gpuType: string,
-    region?: string
-  ): Promise<GPUPricing> {
+  async getGPUPricing(providerId: string, gpuType: string, region?: string): Promise<GPUPricing> {
     return this.request<GPUPricing>('gpuExchange.getPricing', {
       providerId,
       gpuType,
@@ -985,7 +972,10 @@ class APIClient {
    * Send a chat message to the co-pilot.
    */
   async sendCopilotMessage(request: CopilotChatRequest): Promise<CopilotChatResponse> {
-    return this.request<CopilotChatResponse>('copilot.chat', request as unknown as Record<string, unknown>);
+    return this.request<CopilotChatResponse>(
+      'copilot.chat',
+      request as unknown as Record<string, unknown>
+    );
   }
 
   /**
@@ -1011,10 +1001,7 @@ class APIClient {
   /**
    * Get suggestions for a shot.
    */
-  async getCopilotShotSuggestions(
-    projectId: string,
-    shotId: string
-  ): Promise<CopilotSuggestion[]> {
+  async getCopilotShotSuggestions(projectId: string, shotId: string): Promise<CopilotSuggestion[]> {
     return this.request<CopilotSuggestion[]>('copilot.suggestShot', {
       projectId,
       shotId,
@@ -1113,10 +1100,7 @@ class APIClient {
   /**
    * Generate a movie plan for a screenplay.
    */
-  async generateMoviePlan(
-    screenplayId: string,
-    regenerate: boolean = false
-  ): Promise<MoviePlan> {
+  async generateMoviePlan(screenplayId: string, regenerate: boolean = false): Promise<MoviePlan> {
     return this.request<MoviePlan>('moviePlan.generate', {
       screenplay_id: screenplayId,
       regenerate,
@@ -1215,7 +1199,13 @@ class APIClient {
   async lockCharacter(
     characterId: string,
     primaryReferenceId?: string
-  ): Promise<{ id: string; name: string; lockState: string; isLocked: boolean; lockedLikeness: Record<string, unknown> | null }> {
+  ): Promise<{
+    id: string;
+    name: string;
+    lockState: string;
+    isLocked: boolean;
+    lockedLikeness: Record<string, unknown> | null;
+  }> {
     return this.request('characters.lock', {
       character_id: characterId,
       primary_reference_id: primaryReferenceId,
@@ -1239,7 +1229,13 @@ class APIClient {
     voiceId: string,
     voiceProvider: string,
     voiceName: string
-  ): Promise<{ id: string; name: string; voiceId: string; voiceProvider: string; voiceName: string }> {
+  ): Promise<{
+    id: string;
+    name: string;
+    voiceId: string;
+    voiceProvider: string;
+    voiceName: string;
+  }> {
     return this.request('characters.updateVoice', {
       character_id: characterId,
       voice_id: voiceId,
@@ -1251,10 +1247,7 @@ class APIClient {
   /**
    * Get AI generation prompts for a character.
    */
-  async getCharacterPrompt(
-    characterId: string,
-    sceneContext?: string
-  ): Promise<CharacterPrompt> {
+  async getCharacterPrompt(characterId: string, sceneContext?: string): Promise<CharacterPrompt> {
     return this.request<CharacterPrompt>('characters.getPrompt', {
       character_id: characterId,
       scene_context: sceneContext,
@@ -1384,7 +1377,9 @@ class APIClient {
   /**
    * Get available generation providers.
    */
-  async getGenerationProviders(): Promise<Array<{ provider: string; name: string; available: boolean }>> {
+  async getGenerationProviders(): Promise<
+    Array<{ provider: string; name: string; available: boolean }>
+  > {
     return this.request('generation.getProviders');
   }
 
@@ -1469,7 +1464,9 @@ class APIClient {
   /**
    * Approve a generated shot.
    */
-  async approveGeneratedShot(shotId: string): Promise<{ id: string; state: string; approved: boolean }> {
+  async approveGeneratedShot(
+    shotId: string
+  ): Promise<{ id: string; state: string; approved: boolean }> {
     return this.request('generation.approveShot', { shot_id: shotId });
   }
 
@@ -1534,10 +1531,7 @@ class APIClient {
   /**
    * Update IP-Adapter character consistency settings.
    */
-  async updateIPAdapterSettings(settings: {
-    mode?: string;
-    strength?: number;
-  }): Promise<{
+  async updateIPAdapterSettings(settings: { mode?: string; strength?: number }): Promise<{
     mode: string;
     strength: number;
     available_modes: string[];
@@ -1657,7 +1651,10 @@ class APIClient {
    * Export the assembled movie.
    */
   async exportMovie(request: ExportRequest): Promise<ExportJobResult> {
-    return this.request<ExportJobResult>('assembly.export', request as unknown as Record<string, unknown>);
+    return this.request<ExportJobResult>(
+      'assembly.export',
+      request as unknown as Record<string, unknown>
+    );
   }
 
   /**
@@ -1703,7 +1700,10 @@ class APIClient {
    * Generate speech from text.
    */
   async generateSpeech(request: GenerateSpeechRequest): Promise<GenerateSpeechResult> {
-    return this.request<GenerateSpeechResult>('audio.generateSpeech', request as unknown as Record<string, unknown>);
+    return this.request<GenerateSpeechResult>(
+      'audio.generateSpeech',
+      request as unknown as Record<string, unknown>
+    );
   }
 
   /**
@@ -1793,7 +1793,10 @@ class APIClient {
    * Create a text overlay.
    */
   async createTextOverlay(data: TextOverlayCreateRequest): Promise<TextOverlay> {
-    return this.request<TextOverlay>('textOverlays.create', data as unknown as Record<string, unknown>);
+    return this.request<TextOverlay>(
+      'textOverlays.create',
+      data as unknown as Record<string, unknown>
+    );
   }
 
   /**
@@ -2022,10 +2025,7 @@ class APIClient {
   /**
    * Save timeline state.
    */
-  async saveTimeline(
-    projectId: string,
-    timeline: TimelineSaveData
-  ): Promise<{ success: boolean }> {
+  async saveTimeline(projectId: string, timeline: TimelineSaveData): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>('timeline.save', {
       project_id: projectId,
       timeline,
@@ -2046,10 +2046,7 @@ class APIClient {
   /**
    * Save overlay settings for a shot.
    */
-  async saveOverlays(
-    shotId: string,
-    overlays: OverlaySaveData[]
-  ): Promise<{ success: boolean }> {
+  async saveOverlays(shotId: string, overlays: OverlaySaveData[]): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>('overlays.save', {
       shot_id: shotId,
       overlays,
@@ -2275,10 +2272,13 @@ export interface SystemHealthStatus {
     latencyMs?: number;
     lastCheck: string;
   }>;
-  circuitBreakers: Record<string, {
-    state: string;
-    failureCount: number;
-  }>;
+  circuitBreakers: Record<
+    string,
+    {
+      state: string;
+      failureCount: number;
+    }
+  >;
   version: string;
   environment: string;
 }
@@ -2826,7 +2826,14 @@ export interface CharacterPrompt {
 
 // ============ Scene Types ============
 
-export type SceneState = 'draft' | 'analyzed' | 'breakdown_generated' | 'breakdown_approved' | 'generating' | 'generated' | 'approved';
+export type SceneState =
+  | 'draft'
+  | 'analyzed'
+  | 'breakdown_generated'
+  | 'breakdown_approved'
+  | 'generating'
+  | 'generated'
+  | 'approved';
 
 export interface Scene {
   id: string;
@@ -2875,12 +2882,52 @@ export interface ShotBreakdown {
 // ============ Shot Types ============
 
 export type ShotState = 'planned' | 'queued' | 'generating' | 'generated' | 'approved' | 'rejected';
-export type ShotType = 'wide' | 'medium' | 'close_up' | 'extreme_close_up' | 'two_shot' | 'over_shoulder' | 'pov' | 'insert' | 'establishing' | 'aerial' | 'dutch_angle' | 'low_angle' | 'high_angle' | 'tracking' | 'dolly' | 'crane' | 'handheld' | 'steadicam' | 'custom';
-export type CameraMovement = 'static' | 'pan_left' | 'pan_right' | 'tilt_up' | 'tilt_down' | 'dolly_in' | 'dolly_out' | 'truck_left' | 'truck_right' | 'crane_up' | 'crane_down' | 'zoom_in' | 'zoom_out' | 'tracking' | 'arc' | 'roll' | 'handheld' | 'custom';
+export type ShotType =
+  | 'wide'
+  | 'medium'
+  | 'close_up'
+  | 'extreme_close_up'
+  | 'two_shot'
+  | 'over_shoulder'
+  | 'pov'
+  | 'insert'
+  | 'establishing'
+  | 'aerial'
+  | 'dutch_angle'
+  | 'low_angle'
+  | 'high_angle'
+  | 'tracking'
+  | 'dolly'
+  | 'crane'
+  | 'handheld'
+  | 'steadicam'
+  | 'custom';
+export type CameraMovement =
+  | 'static'
+  | 'pan_left'
+  | 'pan_right'
+  | 'tilt_up'
+  | 'tilt_down'
+  | 'dolly_in'
+  | 'dolly_out'
+  | 'truck_left'
+  | 'truck_right'
+  | 'crane_up'
+  | 'crane_down'
+  | 'zoom_in'
+  | 'zoom_out'
+  | 'tracking'
+  | 'arc'
+  | 'roll'
+  | 'handheld'
+  | 'custom';
 
 export interface Shot {
   id: string;
-  sceneId?: string;
+  // Every shot in the DB has a scene_id FK (NOT NULL on the backend) — the
+  // optionality here was a leftover from an earlier draft. Marking as
+  // required to satisfy strict TypeScript indexing in stores/shot-store.ts.
+  sceneId: string;
   shotNumber: string;
   sequenceNumber: number;
   shotType: ShotType;
@@ -3157,9 +3204,34 @@ export interface DialogueLine {
 
 // ============ Text Overlay Types ============
 
-export type TextOverlayType = 'title' | 'subtitle' | 'lower_third' | 'caption' | 'credit' | 'custom';
-export type TextPosition = 'top_left' | 'top_center' | 'top_right' | 'center_left' | 'center' | 'center_right' | 'bottom_left' | 'bottom_center' | 'bottom_right' | 'custom';
-export type TextAnimation = 'none' | 'fade_in' | 'fade_out' | 'slide_in_left' | 'slide_in_right' | 'slide_in_top' | 'slide_in_bottom' | 'typewriter' | 'scale_in';
+export type TextOverlayType =
+  | 'title'
+  | 'subtitle'
+  | 'lower_third'
+  | 'caption'
+  | 'credit'
+  | 'custom';
+export type TextPosition =
+  | 'top_left'
+  | 'top_center'
+  | 'top_right'
+  | 'center_left'
+  | 'center'
+  | 'center_right'
+  | 'bottom_left'
+  | 'bottom_center'
+  | 'bottom_right'
+  | 'custom';
+export type TextAnimation =
+  | 'none'
+  | 'fade_in'
+  | 'fade_out'
+  | 'slide_in_left'
+  | 'slide_in_right'
+  | 'slide_in_top'
+  | 'slide_in_bottom'
+  | 'typewriter'
+  | 'scale_in';
 
 export interface TextOverlayStyle {
   fontFamily: string;

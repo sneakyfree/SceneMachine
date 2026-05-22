@@ -1,13 +1,13 @@
 """Tests for the sharing service."""
 
-import pytest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models import Project, ProjectState
-from scenemachine.models.share import ProjectShare, SharePermission, ShareStatus
+from scenemachine.models.share import SharePermission, ShareStatus
 from scenemachine.services.sharing import SharingService
 
 
@@ -83,7 +83,7 @@ class TestCreateShare:
         share = await sharing_service.get_share_by_code(result.share_code)
         assert share is not None
         assert share.expires_at is not None
-        assert share.expires_at > datetime.now(timezone.utc)
+        assert share.expires_at > datetime.now(UTC)
 
     @pytest.mark.asyncio
     async def test_create_share_public(
@@ -103,9 +103,7 @@ class TestCreateShare:
         assert share.is_public is True
 
     @pytest.mark.asyncio
-    async def test_create_share_nonexistent_project(
-        self, sharing_service: SharingService
-    ) -> None:
+    async def test_create_share_nonexistent_project(self, sharing_service: SharingService) -> None:
         """Test creating a share for nonexistent project fails."""
         result = await sharing_service.create_share(
             project_id=uuid4(),
@@ -140,9 +138,7 @@ class TestGetShare:
         assert share.project.id == project.id
 
     @pytest.mark.asyncio
-    async def test_get_share_invalid_code(
-        self, sharing_service: SharingService
-    ) -> None:
+    async def test_get_share_invalid_code(self, sharing_service: SharingService) -> None:
         """Test getting a share with invalid code returns None."""
         share = await sharing_service.get_share_by_code("invalid_code")
         assert share is None
@@ -204,9 +200,7 @@ class TestAcceptShare:
         assert share.access_count > 0
 
     @pytest.mark.asyncio
-    async def test_accept_invalid_share(
-        self, sharing_service: SharingService
-    ) -> None:
+    async def test_accept_invalid_share(self, sharing_service: SharingService) -> None:
         """Test accepting invalid share fails."""
         result = await sharing_service.accept_share("invalid_code")
         assert result["success"] is False
@@ -216,9 +210,7 @@ class TestRevokeShare:
     """Tests for revoking shares."""
 
     @pytest.mark.asyncio
-    async def test_revoke_share(
-        self, sharing_service: SharingService, project: Project
-    ) -> None:
+    async def test_revoke_share(self, sharing_service: SharingService, project: Project) -> None:
         """Test revoking a share."""
         result = await sharing_service.create_share(
             project_id=project.id,
@@ -275,9 +267,7 @@ class TestComments:
     """Tests for comment functionality."""
 
     @pytest.mark.asyncio
-    async def test_add_comment(
-        self, sharing_service: SharingService, project: Project
-    ) -> None:
+    async def test_add_comment(self, sharing_service: SharingService, project: Project) -> None:
         """Test adding a comment to a project."""
         comment = await sharing_service.add_comment(
             project_id=project.id,
@@ -310,9 +300,7 @@ class TestComments:
         assert len(comments) == 2
 
     @pytest.mark.asyncio
-    async def test_resolve_comment(
-        self, sharing_service: SharingService, project: Project
-    ) -> None:
+    async def test_resolve_comment(self, sharing_service: SharingService, project: Project) -> None:
         """Test resolving a comment."""
         comment = await sharing_service.add_comment(
             project_id=project.id,
@@ -323,16 +311,12 @@ class TestComments:
         resolved = await sharing_service.resolve_comment(comment.id)
         assert resolved is True
 
-        comments = await sharing_service.get_project_comments(
-            project.id, include_resolved=True
-        )
+        comments = await sharing_service.get_project_comments(project.id, include_resolved=True)
         resolved_comment = next(c for c in comments if c["id"] == str(comment.id))
         assert resolved_comment["isResolved"] is True
 
     @pytest.mark.asyncio
-    async def test_delete_comment(
-        self, sharing_service: SharingService, project: Project
-    ) -> None:
+    async def test_delete_comment(self, sharing_service: SharingService, project: Project) -> None:
         """Test deleting a comment."""
         comment = await sharing_service.add_comment(
             project_id=project.id,
@@ -382,9 +366,7 @@ class TestSharePermissions:
         assert share.can_edit() is False
 
     @pytest.mark.asyncio
-    async def test_edit_permission(
-        self, sharing_service: SharingService, project: Project
-    ) -> None:
+    async def test_edit_permission(self, sharing_service: SharingService, project: Project) -> None:
         """Test edit permission allows all except admin."""
         result = await sharing_service.create_share(
             project_id=project.id,

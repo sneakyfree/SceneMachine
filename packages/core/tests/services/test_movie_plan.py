@@ -1,25 +1,21 @@
 """Tests for MoviePlanService."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models import (
-    Project,
-    ProjectState,
-    Screenplay,
     Character,
+    Project,
     Scene,
+    Screenplay,
 )
 from scenemachine.models.scene import SceneType, TimeOfDay
 from scenemachine.services.movie_plan import (
-    MoviePlanService,
     MoviePlan,
-    CharacterAnalysis,
-    SceneAnalysis,
+    MoviePlanService,
 )
 
 
@@ -70,7 +66,10 @@ async def screenplay_with_content(db_session: AsyncSession, sample_project: Proj
                 {"type": "dialogue", "text": "Relax! Everything is fine."},
                 {"type": "action", "text": "They embrace."},
                 {"type": "scene_heading", "text": "EXT. CITY STREET - NIGHT"},
-                {"type": "action", "text": "John runs through the dark street. An EXPLOSION echoes behind him."},
+                {
+                    "type": "action",
+                    "text": "John runs through the dark street. An EXPLOSION echoes behind him.",
+                },
             ],
             "metadata": {"scene_count": 2, "character_count": 2},
         },
@@ -479,9 +478,7 @@ class TestSpecialEffects:
 
     async def test_identify_sfx_weather(self, movie_plan_service: MoviePlanService):
         """Test weather effects identification."""
-        elements = [
-            {"type": "action", "text": "Rain pours down as snow begins to fall."}
-        ]
+        elements = [{"type": "action", "text": "Rain pours down as snow begins to fall."}]
         sfx = movie_plan_service._identify_special_effects(elements)
         assert any("rain" in note.lower() for note in sfx)
         assert any("snow" in note.lower() for note in sfx)
@@ -542,9 +539,7 @@ class TestWarnings:
             characters.append(char)
         await db_session.commit()
 
-        warnings = movie_plan_service._generate_warnings(
-            screenplay_with_content, characters, []
-        )
+        warnings = movie_plan_service._generate_warnings(screenplay_with_content, characters, [])
         assert any("cast" in w.lower() for w in warnings)
 
 
@@ -558,9 +553,7 @@ class TestCharacterAnalysis:
         sample_scenes: list[Scene],
     ):
         """Test protagonist identification."""
-        protagonist = movie_plan_service._identify_protagonist(
-            sample_characters, sample_scenes
-        )
+        protagonist = movie_plan_service._identify_protagonist(sample_characters, sample_scenes)
         # JOHN has more dialogue (5) vs SARAH (3)
         assert protagonist == "JOHN"
 
@@ -585,9 +578,7 @@ class TestCharacterAnalysis:
         sample_scenes: list[Scene],
     ):
         """Test character analysis."""
-        analysis = movie_plan_service._analyze_character(
-            sample_characters[0], sample_scenes, []
-        )
+        analysis = movie_plan_service._analyze_character(sample_characters[0], sample_scenes, [])
         assert analysis["name"] == "JOHN"
         assert analysis["dialogue_count"] == 5
         assert "estimated_screen_time_percent" in analysis

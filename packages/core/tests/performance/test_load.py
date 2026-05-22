@@ -11,12 +11,10 @@ Run with: pytest tests/performance/test_load.py -v
 
 import asyncio
 import time
-from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Any, List
+from typing import Any
 from uuid import uuid4
 
 import pytest
-
 
 # =============================================================================
 # Load Test Utilities
@@ -32,8 +30,8 @@ class LoadTestResult:
         self.duration = duration
         self.successful_requests = 0
         self.failed_requests = 0
-        self.response_times: List[float] = []
-        self.errors: List[str] = []
+        self.response_times: list[float] = []
+        self.errors: list[str] = []
 
     def record_success(self, response_time: float):
         """Record a successful request."""
@@ -84,7 +82,7 @@ class LoadTestResult:
         idx = int(len(sorted_times) * 0.99)
         return sorted_times[idx] if idx < len(sorted_times) else sorted_times[-1]
 
-    def report(self) -> Dict[str, Any]:
+    def report(self) -> dict[str, Any]:
         """Generate report."""
         return {
             "name": self.name,
@@ -94,9 +92,9 @@ class LoadTestResult:
             "success_rate": f"{self.success_rate:.1f}%",
             "duration_s": f"{self.duration:.2f}",
             "rps": f"{self.requests_per_second:.1f}",
-            "avg_ms": f"{self.avg_response_time*1000:.2f}",
-            "p95_ms": f"{self.p95_response_time*1000:.2f}",
-            "p99_ms": f"{self.p99_response_time*1000:.2f}",
+            "avg_ms": f"{self.avg_response_time * 1000:.2f}",
+            "p95_ms": f"{self.p95_response_time * 1000:.2f}",
+            "p99_ms": f"{self.p99_response_time * 1000:.2f}",
         }
 
 
@@ -110,7 +108,7 @@ class MockDatabase:
 
     def __init__(self, latency_ms: float = 1.0):
         self.latency_ms = latency_ms
-        self.data: Dict[str, Any] = {}
+        self.data: dict[str, Any] = {}
         self._lock = asyncio.Lock()
         self.query_count = 0
 
@@ -128,7 +126,7 @@ class MockDatabase:
             self.query_count += 1
             return self.data.get(key)
 
-    async def select_many(self, keys: List[str]) -> List[Any]:
+    async def select_many(self, keys: list[str]) -> list[Any]:
         """Select multiple with simulated latency."""
         await asyncio.sleep(self.latency_ms / 1000 * len(keys) * 0.1)  # Batched
         async with self._lock:
@@ -159,12 +157,12 @@ class MockGenerationQueue:
             self.running += 1
 
         try:
-            job_id = await asyncio.wait_for(self.queue.get(), timeout=0.1)
+            await asyncio.wait_for(self.queue.get(), timeout=0.1)
             await asyncio.sleep(0.01)  # Simulate processing
             async with self._lock:
                 self.completed += 1
             return True
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
         finally:
             async with self._lock:
@@ -177,7 +175,7 @@ class MockRateLimiter:
     def __init__(self, max_requests: int, window_seconds: float):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.requests: List[float] = []
+        self.requests: list[float] = []
         self._lock = asyncio.Lock()
 
     async def allow(self) -> bool:
@@ -306,15 +304,13 @@ class TestQueueThroughput:
         # Process until empty
         processed = 0
         while processed < num_jobs:
-            results = await asyncio.gather(*[
-                queue.process_one() for _ in range(10)
-            ])
+            results = await asyncio.gather(*[queue.process_one() for _ in range(10)])
             processed += sum(1 for r in results if r)
             await asyncio.sleep(0.01)  # Small delay
 
         duration = time.time() - start
 
-        print(f"\nQueue throughput: {num_jobs/duration:.1f} jobs/sec")
+        print(f"\nQueue throughput: {num_jobs / duration:.1f} jobs/sec")
         assert queue.completed == num_jobs
 
     @pytest.mark.asyncio
@@ -327,9 +323,7 @@ class TestQueueThroughput:
             await queue.enqueue(f"job_{i}")
 
         # Try to process more than max concurrent
-        results = await asyncio.gather(*[
-            queue.process_one() for _ in range(10)
-        ])
+        results = await asyncio.gather(*[queue.process_one() for _ in range(10)])
 
         # Only max_concurrent should succeed immediately
         successful = sum(1 for r in results if r)
@@ -402,12 +396,14 @@ class TestMemoryUsage:
         # Create large dataset
         data = []
         for i in range(10000):
-            data.append({
-                "id": str(uuid4()),
-                "name": f"Item {i}",
-                "description": "A" * 100,
-                "metadata": {"key": f"value_{i}"},
-            })
+            data.append(
+                {
+                    "id": str(uuid4()),
+                    "name": f"Item {i}",
+                    "description": "A" * 100,
+                    "metadata": {"key": f"value_{i}"},
+                }
+            )
 
         size_mb = sys.getsizeof(data) / (1024 * 1024)
         print(f"\nLarge dataset size: {size_mb:.2f} MB")
@@ -417,7 +413,7 @@ class TestMemoryUsage:
         filtered = [d for d in data if d["metadata"]["key"].endswith("_5")]
         duration = time.time() - start
 
-        print(f"Filtered {len(filtered)} items in {duration*1000:.2f}ms")
+        print(f"Filtered {len(filtered)} items in {duration * 1000:.2f}ms")
 
     def test_many_small_objects(self):
         """Test handling many small objects."""
@@ -438,7 +434,7 @@ class TestMemoryUsage:
             _ = objects[key]
         duration = time.time() - start
 
-        print(f"1000 lookups in {duration*1000:.2f}ms")
+        print(f"1000 lookups in {duration * 1000:.2f}ms")
 
 
 # =============================================================================
@@ -517,9 +513,9 @@ class TestLoadSummary:
     @pytest.mark.asyncio
     async def test_generate_load_summary(self):
         """Generate comprehensive load test summary."""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("LOAD TEST SUMMARY")
-        print("="*70)
+        print("=" * 70)
 
         db = MockDatabase(latency_ms=1.0)
         results = []
@@ -552,11 +548,13 @@ class TestLoadSummary:
 
         # Print summary table
         print(f"\n{'Test':<25} {'Reqs':<8} {'RPS':<10} {'Avg(ms)':<10} {'P95(ms)':<10}")
-        print("-"*70)
+        print("-" * 70)
         for r in results:
-            print(f"{r.name:<25} {r.total_requests:<8} "
-                  f"{r.requests_per_second:>8.1f} "
-                  f"{r.avg_response_time*1000:>9.2f} "
-                  f"{r.p95_response_time*1000:>9.2f}")
+            print(
+                f"{r.name:<25} {r.total_requests:<8} "
+                f"{r.requests_per_second:>8.1f} "
+                f"{r.avg_response_time * 1000:>9.2f} "
+                f"{r.p95_response_time * 1000:>9.2f}"
+            )
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)

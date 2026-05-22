@@ -4,15 +4,7 @@
  */
 
 import React from 'react';
-import {
-  Star,
-  Verified,
-  PlayCircle,
-  Calendar,
-  TrendingUp,
-  Clock,
-  User,
-} from 'lucide-react';
+import { Star, Verified, PlayCircle, Calendar, TrendingUp, Clock, User } from 'lucide-react';
 import type { Performer, BookingMode } from '../api/client';
 import { cn } from '../lib/utils';
 
@@ -54,11 +46,7 @@ function getACIBadgeColor(score: number): string {
   return 'bg-red-500/20 border-red-500/30';
 }
 
-export function PerformerCard({
-  performer,
-  onSelect,
-  onBook,
-}: PerformerCardProps): JSX.Element {
+export function PerformerCard({ performer, onSelect, onBook }: PerformerCardProps): JSX.Element {
   const isHuman = performer.performer_type === 'HUMAN';
   const hasProfileImage = !!performer.profile_image_url;
 
@@ -127,12 +115,8 @@ export function PerformerCard({
       <div className="p-4">
         {/* Name and Verified */}
         <div className="flex items-center gap-2 mb-2">
-          <h3 className="text-lg font-semibold text-white truncate">
-            {performer.stage_name}
-          </h3>
-          {performer.is_verified && (
-            <Verified className="w-4 h-4 text-blue-400 flex-shrink-0" />
-          )}
+          <h3 className="text-lg font-semibold text-white truncate">{performer.stage_name}</h3>
+          {performer.is_verified && <Verified className="w-4 h-4 text-blue-400 flex-shrink-0" />}
         </div>
 
         {/* Specialties */}

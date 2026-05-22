@@ -39,10 +39,7 @@ export const SkipLinks = memo(function SkipLinks({
   const { links, handleSkipClick } = useSkipLinks(customLinks);
 
   return (
-    <nav
-      className={`skip-links ${className || ''}`}
-      aria-label="Skip navigation"
-    >
+    <nav className={`skip-links ${className || ''}`} aria-label="Skip navigation">
       {links.map((link, index) => (
         <a
           key={link.id}

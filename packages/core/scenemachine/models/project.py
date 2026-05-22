@@ -4,26 +4,26 @@ Project Model
 A SceneMachine project representing a single movie production.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy import Enum as SAEnum
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType
+from scenemachine.models.base import Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
-    from scenemachine.models.screenplay import Screenplay
     from scenemachine.models.character import Character
-    from scenemachine.models.scene import Scene
-    from scenemachine.models.share import ProjectShare
     from scenemachine.models.export_history import ExportHistory
+    from scenemachine.models.scene import Scene
+    from scenemachine.models.screenplay import Screenplay
+    from scenemachine.models.share import ProjectShare
     from scenemachine.models.user import User
 
 
-class ProjectState(str, Enum):
+class ProjectState(StrEnum):
     """
     Project workflow states.
 
@@ -67,7 +67,7 @@ class Project(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "projects"
 
     # Owner (foreign key to User)
-    owner_id: Mapped[Optional[UUID]] = mapped_column(
+    owner_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,  # Nullable for backward compatibility with existing projects
         index=True,
@@ -75,7 +75,7 @@ class Project(Base, UUIDMixin, TimestampMixin):
 
     # Basic metadata
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # State management
     state: Mapped[ProjectState] = mapped_column(
@@ -171,7 +171,7 @@ class Project(Base, UUIDMixin, TimestampMixin):
         return state_validators.get(self.state, False)
 
     @property
-    def next_state(self) -> Optional[ProjectState]:
+    def next_state(self) -> ProjectState | None:
         """Get the next logical state in the workflow."""
         state_order = list(ProjectState)
         try:

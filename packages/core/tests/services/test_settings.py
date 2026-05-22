@@ -1,13 +1,12 @@
 """Tests for Settings service."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.settings import SettingsService
 from scenemachine.models import Project
+from scenemachine.services.settings import SettingsService
 
 
 class TestSettingsService:

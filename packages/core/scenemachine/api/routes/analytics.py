@@ -1,6 +1,7 @@
 """Analytics API endpoints."""
 
-from typing import Any, Dict, List, Optional
+from datetime import UTC
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -16,9 +17,9 @@ router = APIRouter()
 @router.get("/generation-stats")
 async def get_generation_stats(
     time_range: str = Query("7d", regex="^(24h|7d|30d|all)$"),
-    project_id: Optional[UUID] = None,
+    project_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get generation job statistics.
 
     Args:
@@ -44,9 +45,9 @@ async def get_generation_stats(
 @router.get("/cost-stats")
 async def get_cost_stats(
     time_range: str = Query("7d", regex="^(24h|7d|30d|all)$"),
-    project_id: Optional[UUID] = None,
+    project_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get cost statistics.
 
     Args:
@@ -68,7 +69,7 @@ async def get_cost_stats(
 @router.get("/project-stats")
 async def get_project_stats(
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get project statistics."""
     service = AnalyticsService(db)
     stats = await service.get_project_stats()
@@ -85,7 +86,7 @@ async def get_project_stats(
 @router.get("/performance-stats")
 async def get_performance_stats(
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get performance statistics."""
     service = AnalyticsService(db)
     stats = await service.get_performance_stats()
@@ -102,7 +103,7 @@ async def get_performance_stats(
 async def get_provider_usage(
     time_range: str = Query("7d", regex="^(24h|7d|30d|all)$"),
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get usage statistics by provider.
 
     Args:
@@ -127,9 +128,9 @@ async def get_provider_usage(
 @router.get("/daily-stats")
 async def get_daily_stats(
     days: int = Query(7, ge=1, le=90),
-    project_id: Optional[UUID] = None,
+    project_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get daily generation statistics.
 
     Args:
@@ -156,7 +157,7 @@ async def get_daily_stats(
 async def get_dashboard_stats(
     time_range: str = Query("7d", regex="^(24h|7d|30d|all)$"),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get combined dashboard statistics.
 
     Returns all stats needed for the analytics dashboard in one call.
@@ -229,7 +230,7 @@ async def get_dashboard_stats(
 async def get_project_costs(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get detailed cost breakdown for a project."""
     cost_service = CostTrackingService(db)
     breakdown = await cost_service.get_project_costs(project_id)
@@ -249,10 +250,10 @@ async def get_project_costs(
 @router.get("/cost-estimate")
 async def estimate_generation_cost(
     provider: str = Query(..., description="Provider name"),
-    model: Optional[str] = Query(None, description="Model ID"),
+    model: str | None = Query(None, description="Model ID"),
     duration_seconds: float = Query(3.0, ge=1.0, le=30.0),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Estimate cost for a video generation.
 
     Args:
@@ -291,7 +292,7 @@ async def set_budget(
     limit_usd: float = Query(..., gt=0, description="Budget limit in USD"),
     period_days: int = Query(30, ge=1, le=365, description="Budget period in days"),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """FEAT-038: Set a budget limit for cost tracking alerts.
 
     When spending reaches 80% of the limit, a warning is surfaced.
@@ -314,18 +315,18 @@ async def set_budget(
 @router.get("/budget")
 async def get_budget(
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """FEAT-038: Get current budget status.
 
     Returns the current budget limit, spending, remaining balance,
     and alert status.
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     cost_service = CostTrackingService(db)
 
     # Get current period costs
-    end_date = datetime.now(timezone.utc)
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=cost_service._budget_period_days)
     stats = await cost_service.get_period_costs(start_date, end_date)
 
@@ -344,19 +345,17 @@ async def get_budget(
 
 @router.get("/provider-comparison")
 async def get_provider_comparison(
-    project_id: Optional[UUID] = None,
+    project_id: UUID | None = None,
     days: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """FEAT-038: Compare cost efficiency across providers.
 
     Shows cost, speed, and reliability metrics per provider to help
     users optimize their generation budget.
     """
     cost_service = CostTrackingService(db)
-    comparison = await cost_service.get_provider_comparison(
-        project_id=project_id, days=days
-    )
+    comparison = await cost_service.get_provider_comparison(project_id=project_id, days=days)
 
     return {
         "periodDays": days,

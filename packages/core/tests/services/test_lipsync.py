@@ -1,10 +1,9 @@
 """Tests for Lip Sync service."""
 
-import pytest
-import pytest_asyncio
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.services.lipsync import LipSyncService
@@ -78,7 +77,7 @@ class TestLipSyncService:
         audio_file.write_bytes(b"RIFF" + b"\x00" * 100)
 
         if hasattr(lipsync_service, "apply_to_video"):
-            result = await lipsync_service.apply_to_video(
+            await lipsync_service.apply_to_video(
                 video_path=str(video_file),
                 audio_path=str(audio_file),
                 output_path=str(temp_dir / "output.mp4"),
@@ -115,7 +114,7 @@ class TestLipSyncService:
         character_id = uuid4()
 
         if hasattr(lipsync_service, "sync_with_character"):
-            result = await lipsync_service.sync_with_character(
+            await lipsync_service.sync_with_character(
                 character_id=character_id,
                 audio_path="/path/to/audio.wav",
             )
@@ -132,7 +131,7 @@ class TestLipSyncService:
         audio_file.write_bytes(b"RIFF" + b"\x00" * 100)
 
         if hasattr(lipsync_service, "start_preview"):
-            result = await lipsync_service.start_preview(str(audio_file))
+            await lipsync_service.start_preview(str(audio_file))
             # May return preview session or None
 
     @pytest.mark.asyncio
@@ -146,7 +145,7 @@ class TestLipSyncService:
         audio_file.write_bytes(b"RIFF" + b"\x00" * 100)
 
         if hasattr(lipsync_service, "export_sync_data"):
-            result = await lipsync_service.export_sync_data(
+            await lipsync_service.export_sync_data(
                 audio_path=str(audio_file),
                 format="json",
             )
@@ -202,5 +201,5 @@ class TestLipSyncService:
     ):
         """Test canceling a lip sync job."""
         if hasattr(lipsync_service, "cancel_job"):
-            result = await lipsync_service.cancel_job(job_id=uuid4())
+            await lipsync_service.cancel_job(job_id=uuid4())
             # May return False for non-existent job

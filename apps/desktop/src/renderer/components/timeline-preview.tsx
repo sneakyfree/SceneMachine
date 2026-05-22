@@ -80,9 +80,7 @@ export function TimelinePreview({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Film className="w-4 h-4 text-surface-400" />
-            <span className="text-sm text-surface-400">
-              {scenes.length} scenes
-            </span>
+            <span className="text-sm text-surface-400">{scenes.length} scenes</span>
           </div>
           <div className="flex items-center gap-2">
             <Image className="w-4 h-4 text-surface-400" />
@@ -92,17 +90,13 @@ export function TimelinePreview({
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-surface-400" />
-            <span className="text-sm text-surface-400">
-              {formatDuration(totalDuration)}
-            </span>
+            <span className="text-sm text-surface-400">{formatDuration(totalDuration)}</span>
           </div>
         </div>
 
         {/* Progress indicator */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-surface-400">
-            {stats.progress.toFixed(0)}% ready
-          </span>
+          <span className="text-sm text-surface-400">{stats.progress.toFixed(0)}% ready</span>
           {stats.isComplete && (
             <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">
               Ready to export
@@ -155,9 +149,7 @@ export function TimelinePreview({
               <div className="absolute inset-0 flex">
                 {scene.shots.map((shot, idx) => {
                   const shotWidth =
-                    scene.duration > 0
-                      ? `${(shot.duration / scene.duration) * 100}%`
-                      : '0%';
+                    scene.duration > 0 ? `${(shot.duration / scene.duration) * 100}%` : '0%';
 
                   return (
                     <div
@@ -165,9 +157,7 @@ export function TimelinePreview({
                       className={cn(
                         'h-full border-r border-surface-700 last:border-r-0',
                         'flex items-center justify-center',
-                        shot.hasOutput
-                          ? 'bg-green-500/20'
-                          : 'bg-surface-700/50',
+                        shot.hasOutput ? 'bg-green-500/20' : 'bg-surface-700/50',
                         selectedShotId === shot.shotId && 'ring-2 ring-brand-400'
                       )}
                       style={{ width: shotWidth, minWidth: '4px' }}
@@ -219,9 +209,7 @@ export function TimelinePreview({
                     Scene {scene.sceneNumber}
                     {scene.title && ` - ${scene.title}`}
                   </span>
-                  <span className="text-sm text-surface-400">
-                    {formatDuration(scene.duration)}
-                  </span>
+                  <span className="text-sm text-surface-400">{formatDuration(scene.duration)}</span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {scene.shots.map((shot) => (

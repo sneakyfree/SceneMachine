@@ -73,11 +73,15 @@ export function useAutoSave<T>({
     }
 
     // Start auto-save
-    manager.start(projectId, () => getDataRef.current(), (data) => {
-      if (onRecover) {
-        onRecover(data as T);
+    manager.start(
+      projectId,
+      () => getDataRef.current(),
+      (data) => {
+        if (onRecover) {
+          onRecover(data as T);
+        }
       }
-    });
+    );
 
     return () => {
       manager.stop();
@@ -218,11 +222,7 @@ export function useAutoSaveSettings(): {
 /**
  * Simple hook for marking state changes as dirty
  */
-export function useDirtyState<T>(
-  value: T,
-  markDirty: () => void,
-  deps: any[] = []
-): void {
+export function useDirtyState<T>(value: T, markDirty: () => void, deps: any[] = []): void {
   const prevRef = useRef<T>(value);
   const isFirstRender = useRef(true);
 

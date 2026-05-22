@@ -12,14 +12,14 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
-from typing import Any, Dict, List, Optional, Set
-from uuid import UUID, uuid4
+from enum import StrEnum
+from typing import Any, Optional
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 
-class EditLockType(str, Enum):
+class EditLockType(StrEnum):
     """Types of edit locks."""
 
     SCRIPT_SECTION = "script_section"
@@ -35,15 +35,15 @@ class StudioUser:
 
     user_id: str
     display_name: str
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
     color: str = "#3B82F6"  # User color for cursors/selections
-    cursor_position: Optional[Dict[str, Any]] = None
-    selection: Optional[Dict[str, Any]] = None
+    cursor_position: dict[str, Any] | None = None
+    selection: dict[str, Any] | None = None
     joined_at: datetime = field(default_factory=datetime.utcnow)
     last_activity: datetime = field(default_factory=datetime.utcnow)
     is_active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "user_id": self.user_id,
@@ -72,7 +72,7 @@ class EditLock:
         """Check if lock has expired."""
         return datetime.utcnow() > self.expires_at
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "lock_id": self.lock_id,
@@ -96,7 +96,7 @@ class ChatMessage:
     timestamp: datetime = field(default_factory=datetime.utcnow)
     message_type: str = "text"  # text, system, notification
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "message_id": self.message_id,
@@ -115,13 +115,13 @@ class StudioSession:
     session_id: str
     project_id: str
     created_at: datetime = field(default_factory=datetime.utcnow)
-    users: Dict[str, StudioUser] = field(default_factory=dict)
-    edit_locks: Dict[str, EditLock] = field(default_factory=dict)
-    chat_history: List[ChatMessage] = field(default_factory=list)
-    timeline_state: Optional[Dict[str, Any]] = None
-    preview_state: Optional[Dict[str, Any]] = None
+    users: dict[str, StudioUser] = field(default_factory=dict)
+    edit_locks: dict[str, EditLock] = field(default_factory=dict)
+    chat_history: list[ChatMessage] = field(default_factory=list)
+    timeline_state: dict[str, Any] | None = None
+    preview_state: dict[str, Any] | None = None
 
-    def get_active_users(self) -> List[StudioUser]:
+    def get_active_users(self) -> list[StudioUser]:
         """Get list of active users."""
         return [u for u in self.users.values() if u.is_active]
 
@@ -129,7 +129,7 @@ class StudioSession:
         """Get count of active users."""
         return len(self.get_active_users())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "session_id": self.session_id,
@@ -173,9 +173,9 @@ class LiveStudioService:
     INACTIVITY_TIMEOUT = timedelta(minutes=5)
 
     def __init__(self) -> None:
-        self._sessions: Dict[str, StudioSession] = {}  # project_id -> session
-        self._user_sessions: Dict[str, str] = {}  # user_id -> project_id
-        self._color_assignments: Dict[str, int] = {}  # project_id -> next_color_index
+        self._sessions: dict[str, StudioSession] = {}  # project_id -> session
+        self._user_sessions: dict[str, str] = {}  # user_id -> project_id
+        self._color_assignments: dict[str, int] = {}  # project_id -> next_color_index
         self._lock = asyncio.Lock()
 
     @classmethod
@@ -199,7 +199,7 @@ class LiveStudioService:
         project_id: str,
         user_id: str,
         display_name: str,
-        avatar_url: Optional[str] = None,
+        avatar_url: str | None = None,
     ) -> StudioSession:
         """Join or create a studio session for a project.
 
@@ -254,7 +254,7 @@ class LiveStudioService:
             logger.info(f"User {user_id} joined studio session for project {project_id}")
             return session
 
-    async def leave_session(self, project_id: str, user_id: str) -> Optional[StudioSession]:
+    async def leave_session(self, project_id: str, user_id: str) -> StudioSession | None:
         """Leave a studio session.
 
         Args:
@@ -304,7 +304,7 @@ class LiveStudioService:
         self,
         project_id: str,
         user_id: str,
-        cursor_position: Dict[str, Any],
+        cursor_position: dict[str, Any],
     ) -> bool:
         """Update a user's cursor position.
 
@@ -329,7 +329,7 @@ class LiveStudioService:
         self,
         project_id: str,
         user_id: str,
-        selection: Dict[str, Any],
+        selection: dict[str, Any],
     ) -> bool:
         """Update a user's selection.
 
@@ -356,7 +356,7 @@ class LiveStudioService:
         user_id: str,
         lock_type: EditLockType,
         resource_id: str,
-    ) -> Optional[EditLock]:
+    ) -> EditLock | None:
         """Acquire an edit lock on a resource.
 
         Args:
@@ -440,7 +440,7 @@ class LiveStudioService:
         user_id: str,
         lock_type: EditLockType,
         resource_id: str,
-    ) -> Optional[EditLock]:
+    ) -> EditLock | None:
         """Refresh an existing lock to extend its expiry.
 
         Args:
@@ -472,11 +472,7 @@ class LiveStudioService:
         Returns:
             Number of locks removed
         """
-        expired = [
-            lock_key
-            for lock_key, lock in session.edit_locks.items()
-            if lock.is_expired()
-        ]
+        expired = [lock_key for lock_key, lock in session.edit_locks.items() if lock.is_expired()]
 
         for lock_key in expired:
             del session.edit_locks[lock_key]
@@ -488,7 +484,7 @@ class LiveStudioService:
         project_id: str,
         user_id: str,
         content: str,
-    ) -> Optional[ChatMessage]:
+    ) -> ChatMessage | None:
         """Send a chat message in a session.
 
         Args:
@@ -524,7 +520,7 @@ class LiveStudioService:
         self,
         project_id: str,
         user_id: str,
-        timeline_state: Dict[str, Any],
+        timeline_state: dict[str, Any],
     ) -> bool:
         """Update shared timeline state.
 
@@ -550,7 +546,7 @@ class LiveStudioService:
     async def update_preview_state(
         self,
         project_id: str,
-        preview_state: Dict[str, Any],
+        preview_state: dict[str, Any],
     ) -> bool:
         """Update shared preview state.
 
@@ -571,15 +567,15 @@ class LiveStudioService:
         }
         return True
 
-    def get_session(self, project_id: str) -> Optional[StudioSession]:
+    def get_session(self, project_id: str) -> StudioSession | None:
         """Get a studio session by project ID."""
         return self._sessions.get(project_id)
 
-    def get_active_sessions(self) -> List[StudioSession]:
+    def get_active_sessions(self) -> list[StudioSession]:
         """Get all active sessions."""
         return [s for s in self._sessions.values() if s.get_user_count() > 0]
 
-    def get_user_session(self, user_id: str) -> Optional[StudioSession]:
+    def get_user_session(self, user_id: str) -> StudioSession | None:
         """Get the session a user is currently in."""
         project_id = self._user_sessions.get(user_id)
         if project_id:

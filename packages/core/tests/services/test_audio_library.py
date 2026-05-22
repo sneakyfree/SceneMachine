@@ -1,14 +1,13 @@
 """Tests for Audio Library service."""
 
-import pytest
-import pytest_asyncio
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.audio_library import AudioLibraryService
 from scenemachine.models import Project
+from scenemachine.services.audio_library import AudioLibraryService
 
 
 class TestAudioLibraryService:
@@ -120,7 +119,7 @@ class TestAudioLibraryService:
 
         if all_tracks and hasattr(audio_library, "get_waveform"):
             track_id = all_tracks[0].id if hasattr(all_tracks[0], "id") else all_tracks[0].get("id")
-            waveform = await audio_library.get_waveform(track_id)
+            await audio_library.get_waveform(track_id)
             # May return None if waveform not generated
 
     @pytest.mark.asyncio

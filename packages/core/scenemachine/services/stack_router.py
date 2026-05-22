@@ -18,11 +18,11 @@ The caller (the production pipeline) is responsible for actually:
   * uploading character reference images to ComfyUI's input dir
   * passing the decision into a GenerationRequest before calling the provider
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
-
+from typing import Any
 
 # Canonical model_ids — must match scenemachine/generators/comfyui.py MODELS
 MODEL_T2V = "wan22-t2v-14b-fp8"
@@ -47,7 +47,7 @@ class StackDecision:
     """
 
     model_id: str
-    input_image_path: Optional[str] = None
+    input_image_path: str | None = None
     character_references: list[dict[str, Any]] = field(default_factory=list)
     extra_params: dict[str, Any] = field(default_factory=dict)
     reason: str = ""
@@ -56,9 +56,9 @@ class StackDecision:
 def route_shot(
     shot_data: dict[str, Any],
     *,
-    prev_shot_last_frame: Optional[str] = None,
-    character_ref_paths: Optional[dict[str, str]] = None,
-    force_model_id: Optional[str] = None,
+    prev_shot_last_frame: str | None = None,
+    character_ref_paths: dict[str, str] | None = None,
+    force_model_id: str | None = None,
 ) -> StackDecision:
     """Pick the right stack for a shot.
 
@@ -104,8 +104,7 @@ def route_shot(
             model_id=MODEL_ANIMATE,
             character_references=refs,
             reason=(
-                f"animate: {len(refs)} character reference"
-                f"{'s' if len(refs) != 1 else ''} available"
+                f"animate: {len(refs)} character reference{'s' if len(refs) != 1 else ''} available"
             ),
         )
 
@@ -141,8 +140,10 @@ def _build_character_refs(
         path = character_ref_paths.get(key)
         if not path:
             continue
-        refs.append({
-            "character_id": key,
-            "reference_image_path": path,
-        })
+        refs.append(
+            {
+                "character_id": key,
+                "reference_image_path": path,
+            }
+        )
     return refs

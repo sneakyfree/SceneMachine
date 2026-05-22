@@ -1,12 +1,11 @@
 """Tests for Bookings API routes."""
 
+from datetime import datetime, timedelta
+from uuid import uuid4
+
 import pytest
 import pytest_asyncio
-from uuid import uuid4
-from datetime import datetime, timedelta
-
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession
+from httpx import ASGITransport, AsyncClient
 
 from scenemachine.api.main import app
 

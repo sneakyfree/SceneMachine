@@ -7,16 +7,15 @@ Requires human approval before final publish/distribution.
 from __future__ import annotations
 
 import logging
-from enum import Enum
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from enum import StrEnum
+from typing import Any
 
-from .base import BaseAgent, AgentActionLogger
+from .base import AgentActionLogger, BaseAgent
 
 logger = logging.getLogger(__name__)
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     """Supported export formats."""
 
     MP4_H264 = "mp4_h264"
@@ -25,7 +24,7 @@ class ExportFormat(str, Enum):
     WEBM_VP9 = "webm_vp9"
 
 
-class ExportPreset(str, Enum):
+class ExportPreset(StrEnum):
     """Platform-optimized export presets."""
 
     YOUTUBE_4K = "youtube_4k"
@@ -38,7 +37,7 @@ class ExportPreset(str, Enum):
 
 
 # Preset configurations
-PRESET_CONFIGS: Dict[ExportPreset, Dict[str, Any]] = {
+PRESET_CONFIGS: dict[ExportPreset, dict[str, Any]] = {
     ExportPreset.YOUTUBE_4K: {
         "format": ExportFormat.MP4_H264,
         "resolution": "3840x2160",
@@ -112,11 +111,11 @@ class ExportAgent(BaseAgent):
     def __init__(
         self,
         session: Any,
-        action_logger: Optional[AgentActionLogger] = None,
+        action_logger: AgentActionLogger | None = None,
     ) -> None:
         super().__init__(session=session, action_logger=action_logger)
 
-    async def process(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    async def process(self, task: dict[str, Any]) -> dict[str, Any]:
         """Process an export task.
 
         Args:
@@ -174,8 +173,7 @@ class ExportAgent(BaseAgent):
 
         await self._log_action(
             "transcode_complete",
-            f"Transcoded to {output.get('format', 'mp4')} — "
-            f"{output.get('file_size_mb', 0):.1f} MB",
+            f"Transcoded to {output.get('format', 'mp4')} — {output.get('file_size_mb', 0):.1f} MB",
             confidence=0.95,
         )
 
@@ -212,8 +210,8 @@ class ExportAgent(BaseAgent):
     async def _resolve_settings(
         self,
         preset_name: str,
-        custom_settings: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        custom_settings: dict[str, Any],
+    ) -> dict[str, Any]:
         """Resolve final export settings from preset + custom overrides."""
         try:
             preset = ExportPreset(preset_name)
@@ -234,9 +232,7 @@ class ExportAgent(BaseAgent):
 
         return settings
 
-    async def _check_export_readiness(
-        self, project_id: Optional[str]
-    ) -> Dict[str, Any]:
+    async def _check_export_readiness(self, project_id: str | None) -> dict[str, Any]:
         """Verify the project is ready for export."""
         # In production, this would check:
         # - All shots generated successfully
@@ -252,20 +248,18 @@ class ExportAgent(BaseAgent):
 
     async def _apply_watermark(
         self,
-        project_id: Optional[str],
-        watermark_config: Dict[str, Any],
+        project_id: str | None,
+        watermark_config: dict[str, Any],
     ) -> None:
         """Apply watermark to the assembled video."""
         # Delegates to AssemblyService.apply_watermark
-        logger.info(
-            "Applying watermark to project %s: %s", project_id, watermark_config
-        )
+        logger.info("Applying watermark to project %s: %s", project_id, watermark_config)
 
     async def _transcode(
         self,
-        project_id: Optional[str],
-        settings: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        project_id: str | None,
+        settings: dict[str, Any],
+    ) -> dict[str, Any]:
         """Transcode assembled video to target format."""
         # In production, this calls FFmpeg via the assembly service
         logger.info(
@@ -285,9 +279,9 @@ class ExportAgent(BaseAgent):
 
     async def _prepare_distribution(
         self,
-        output: Dict[str, Any],
+        output: dict[str, Any],
         preset_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Prepare distribution metadata for the target platform."""
         return {
             "platform": preset_name,

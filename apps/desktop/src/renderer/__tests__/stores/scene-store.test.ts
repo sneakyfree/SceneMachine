@@ -46,8 +46,20 @@ describe('SceneStore', () => {
       const { setScenes } = useSceneStore.getState();
 
       const scenes = [
-        { id: 'scene-1', sceneNumber: 1, state: 'draft' as const, shotCount: 5, projectId: 'proj-1' },
-        { id: 'scene-2', sceneNumber: 2, state: 'analyzed' as const, shotCount: 3, projectId: 'proj-1' },
+        {
+          id: 'scene-1',
+          sceneNumber: 1,
+          state: 'draft' as const,
+          shotCount: 5,
+          projectId: 'proj-1',
+        },
+        {
+          id: 'scene-2',
+          sceneNumber: 2,
+          state: 'analyzed' as const,
+          shotCount: 3,
+          projectId: 'proj-1',
+        },
       ];
 
       setScenes(scenes as any);
@@ -62,9 +74,7 @@ describe('SceneStore', () => {
     it('should update sceneMap when setting scenes', () => {
       const { setScenes } = useSceneStore.getState();
 
-      setScenes([
-        { id: 'scene-1', sceneNumber: 1, state: 'draft' as const, shotCount: 5 },
-      ] as any);
+      setScenes([{ id: 'scene-1', sceneNumber: 1, state: 'draft' as const, shotCount: 5 }] as any);
 
       setScenes([
         { id: 'scene-2', sceneNumber: 2, state: 'analyzed' as const, shotCount: 3 },
@@ -97,9 +107,7 @@ describe('SceneStore', () => {
     it('should clear selection when null is passed', () => {
       const { setScenes, setSelectedSceneId } = useSceneStore.getState();
 
-      setScenes([
-        { id: 'scene-1', sceneNumber: 1, state: 'draft' as const, shotCount: 5 },
-      ] as any);
+      setScenes([{ id: 'scene-1', sceneNumber: 1, state: 'draft' as const, shotCount: 5 }] as any);
 
       setSelectedSceneId('scene-1');
       setSelectedSceneId(null);
@@ -178,9 +186,9 @@ describe('SceneStore', () => {
 
       const readyScenes = getScenesReadyForGeneration();
       expect(readyScenes).toHaveLength(3);
-      expect(readyScenes.map(s => s.id)).toContain('scene-3');
-      expect(readyScenes.map(s => s.id)).toContain('scene-4');
-      expect(readyScenes.map(s => s.id)).toContain('scene-5');
+      expect(readyScenes.map((s) => s.id)).toContain('scene-3');
+      expect(readyScenes.map((s) => s.id)).toContain('scene-4');
+      expect(readyScenes.map((s) => s.id)).toContain('scene-5');
     });
 
     it('should get scenes needing breakdown', () => {
@@ -188,8 +196,8 @@ describe('SceneStore', () => {
 
       const needingBreakdown = getScenesNeedingBreakdown();
       expect(needingBreakdown).toHaveLength(2);
-      expect(needingBreakdown.map(s => s.id)).toContain('scene-1');
-      expect(needingBreakdown.map(s => s.id)).toContain('scene-2');
+      expect(needingBreakdown.map((s) => s.id)).toContain('scene-1');
+      expect(needingBreakdown.map((s) => s.id)).toContain('scene-2');
     });
 
     it('should get total shot count', () => {
@@ -285,9 +293,7 @@ describe('SceneStore', () => {
       const { setScenes, setSelectedSceneId, setError, reset } = useSceneStore.getState();
 
       // Modify state
-      setScenes([
-        { id: 'scene-1', sceneNumber: 1, state: 'draft' as const, shotCount: 5 },
-      ] as any);
+      setScenes([{ id: 'scene-1', sceneNumber: 1, state: 'draft' as const, shotCount: 5 }] as any);
       setSelectedSceneId('scene-1');
       setError('Some error');
 

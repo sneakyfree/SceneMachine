@@ -58,7 +58,9 @@ describe('VideoPlayer', () => {
     });
 
     it('should apply custom className', () => {
-      const { container } = render(<VideoPlayer src="/path/to/video.mp4" className="custom-class" />);
+      const { container } = render(
+        <VideoPlayer src="/path/to/video.mp4" className="custom-class" />
+      );
       expect(container.firstChild).toHaveClass('custom-class');
     });
 
@@ -219,9 +221,7 @@ describe('VideoPlayer', () => {
 
     it('should call onEnded callback when video ends', () => {
       const onEnded = vi.fn();
-      const { container } = render(
-        <VideoPlayer src="/path/to/video.mp4" onEnded={onEnded} />
-      );
+      const { container } = render(<VideoPlayer src="/path/to/video.mp4" onEnded={onEnded} />);
 
       const video = container.querySelector('video');
       if (video) {
@@ -231,9 +231,7 @@ describe('VideoPlayer', () => {
 
     it('should call onError callback on error', () => {
       const onError = vi.fn();
-      const { container } = render(
-        <VideoPlayer src="/path/to/video.mp4" onError={onError} />
-      );
+      const { container } = render(<VideoPlayer src="/path/to/video.mp4" onError={onError} />);
 
       const video = container.querySelector('video');
       if (video) {

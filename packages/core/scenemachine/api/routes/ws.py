@@ -40,56 +40,70 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     project_id = message.get("project_id")
                     if project_id:
                         await manager.subscribe_to_project(connection_id, project_id)
-                        await websocket.send_json({
-                            "type": "subscribed",
-                            "project_id": project_id,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "subscribed",
+                                "project_id": project_id,
+                            }
+                        )
 
                 elif action == "subscribe_job":
                     job_id = message.get("job_id")
                     if job_id:
                         await manager.subscribe_to_job(connection_id, job_id)
-                        await websocket.send_json({
-                            "type": "subscribed_job",
-                            "job_id": job_id,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "subscribed_job",
+                                "job_id": job_id,
+                            }
+                        )
 
                 elif action == "unsubscribe":
                     project_id = message.get("project_id")
                     if project_id:
                         await manager.unsubscribe_from_project(connection_id, project_id)
-                        await websocket.send_json({
-                            "type": "unsubscribed",
-                            "project_id": project_id,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "unsubscribed",
+                                "project_id": project_id,
+                            }
+                        )
 
                 elif action == "unsubscribe_job":
                     job_id = message.get("job_id")
                     if job_id:
                         await manager.unsubscribe_from_job(connection_id, job_id)
-                        await websocket.send_json({
-                            "type": "unsubscribed_job",
-                            "job_id": job_id,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "unsubscribed_job",
+                                "job_id": job_id,
+                            }
+                        )
 
                 elif action == "ping":
-                    await websocket.send_json({
-                        "type": "pong",
-                        "connection_id": connection_id,
-                        "connections": manager.get_connection_count(),
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "pong",
+                            "connection_id": connection_id,
+                            "connections": manager.get_connection_count(),
+                        }
+                    )
 
                 else:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": f"Unknown action: {action}",
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "message": f"Unknown action: {action}",
+                        }
+                    )
 
             except json.JSONDecodeError:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Invalid JSON",
-                })
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "Invalid JSON",
+                    }
+                )
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected: {connection_id}")

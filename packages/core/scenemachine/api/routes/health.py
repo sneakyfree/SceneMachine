@@ -5,7 +5,7 @@ import os
 import platform
 import time
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -139,15 +139,15 @@ class ProviderHealthResponse(BaseModel):
     name: str
     available: bool
     message: str
-    latency_ms: Optional[float] = None
+    latency_ms: float | None = None
     models_available: int = 0
-    queue_length: Optional[int] = None
+    queue_length: int | None = None
 
 
 class ProvidersHealthResponse(BaseModel):
     """Health status of all video generation providers."""
 
-    providers: List[ProviderHealthResponse]
+    providers: list[ProviderHealthResponse]
     total_registered: int
     total_available: int
     timestamp: str
@@ -304,9 +304,7 @@ async def detailed_health_check(
     }
 
     # Determine overall status
-    all_ok = all(
-        c.get("status") == "ok" for c in checks.values()
-    )
+    all_ok = all(c.get("status") == "ok" for c in checks.values())
     status = "healthy" if all_ok else "degraded"
 
     return DetailedHealthResponse(
@@ -331,8 +329,8 @@ class CircuitBreakerStatusResponse(BaseModel):
     rejected_calls: int
     consecutive_failures: int
     consecutive_successes: int
-    last_failure_time: Optional[float] = None
-    last_success_time: Optional[float] = None
+    last_failure_time: float | None = None
+    last_success_time: float | None = None
     failure_threshold: int
     recovery_timeout: float
     remaining_timeout: float = 0.0
@@ -342,7 +340,7 @@ class CircuitBreakerStatusResponse(BaseModel):
 class AllCircuitBreakersResponse(BaseModel):
     """Status of all circuit breakers."""
 
-    circuits: List[CircuitBreakerStatusResponse]
+    circuits: list[CircuitBreakerStatusResponse]
     total_count: int
     open_count: int
     half_open_count: int
@@ -430,6 +428,7 @@ async def reset_circuit_breaker(circuit_name: str) -> dict[str, Any]:
 # FEAT-119: Prometheus-Compatible /metrics Endpoint
 # ---------------------------------------------------------------------------
 
+
 @router.get("/metrics", response_class=None)
 async def prometheus_metrics(
     db: AsyncSession = Depends(get_db),
@@ -453,7 +452,7 @@ async def prometheus_metrics(
 
     lines: list[str] = []
 
-    def _gauge(name: str, help_text: str, value: float, labels: str = ""):
+    def _gauge(name: str, help_text: str, value: float, labels: str = "") -> None:
         label_part = f"{{{labels}}}" if labels else ""
         lines.append(f"# HELP {name} {help_text}")
         lines.append(f"# TYPE {name} gauge")
@@ -470,8 +469,7 @@ async def prometheus_metrics(
     lines.append("# HELP scenemachine_info Application version info")
     lines.append("# TYPE scenemachine_info gauge")
     lines.append(
-        f'scenemachine_info{{version="{settings.version}",'
-        f'environment="{settings.environment}"}} 1'
+        f'scenemachine_info{{version="{settings.version}",environment="{settings.environment}"}} 1'
     )
 
     # Database health
@@ -501,9 +499,7 @@ async def prometheus_metrics(
         lines.append("# TYPE scenemachine_provider_available gauge")
         for ptype, pstatus in health.items():
             val = 1 if pstatus.available else 0
-            lines.append(
-                f'scenemachine_provider_available{{provider="{ptype.value}"}} {val}'
-            )
+            lines.append(f'scenemachine_provider_available{{provider="{ptype.value}"}} {val}')
     except Exception:
         pass  # Providers not yet initialized
 
@@ -522,9 +518,7 @@ async def prometheus_metrics(
             lines.append("# TYPE scenemachine_circuit_breaker_state gauge")
             for cb_name, cb_status in all_cb.items():
                 state_val = state_map.get(cb_status.get("state", "closed"), 0)
-                lines.append(
-                    f'scenemachine_circuit_breaker_state{{name="{cb_name}"}} {state_val}'
-                )
+                lines.append(f'scenemachine_circuit_breaker_state{{name="{cb_name}"}} {state_val}')
     except Exception:
         pass
 

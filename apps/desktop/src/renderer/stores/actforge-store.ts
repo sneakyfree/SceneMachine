@@ -60,14 +60,36 @@ interface ActForgeStoreState {
 
   // Actions: Bookings
   fetchProjectBookings: (projectId: string, status?: BookingStatus) => Promise<void>;
-  createBlinkBooking: (projectId: string, shotId?: string, performerId?: string, durationSeconds?: number) => Promise<Booking | null>;
-  createDeepBooking: (projectId: string, performerId: string, shotId?: string, durationSeconds?: number, requirements?: { emotion_markers?: string[]; special_instructions?: string }) => Promise<Booking | null>;
-  createEpicBooking: (projectId: string, performerId: string, shotId?: string, durationSeconds?: number, requirements?: { emotion_markers?: string[]; special_instructions?: string }) => Promise<Booking | null>;
+  createBlinkBooking: (
+    projectId: string,
+    shotId?: string,
+    performerId?: string,
+    durationSeconds?: number
+  ) => Promise<Booking | null>;
+  createDeepBooking: (
+    projectId: string,
+    performerId: string,
+    shotId?: string,
+    durationSeconds?: number,
+    requirements?: { emotion_markers?: string[]; special_instructions?: string }
+  ) => Promise<Booking | null>;
+  createEpicBooking: (
+    projectId: string,
+    performerId: string,
+    shotId?: string,
+    durationSeconds?: number,
+    requirements?: { emotion_markers?: string[]; special_instructions?: string }
+  ) => Promise<Booking | null>;
   acceptBooking: (bookingId: string) => Promise<boolean>;
   deliverBooking: (bookingId: string, deliveryUrl: string, notes?: string) => Promise<boolean>;
   approveBooking: (bookingId: string) => Promise<boolean>;
   disputeBooking: (bookingId: string, reason: string) => Promise<boolean>;
-  rateBooking: (bookingId: string, rating: number, review?: string, wouldRehire?: boolean) => Promise<boolean>;
+  rateBooking: (
+    bookingId: string,
+    rating: number,
+    review?: string,
+    wouldRehire?: boolean
+  ) => Promise<boolean>;
   selectBooking: (booking: Booking | null) => void;
 
   // Actions: Payout Calculator
@@ -273,7 +295,13 @@ export const useActForgeStore = create<ActForgeStoreState>()(
           }
         },
 
-        createDeepBooking: async (projectId, performerId, shotId, durationSeconds = 60, requirements) => {
+        createDeepBooking: async (
+          projectId,
+          performerId,
+          shotId,
+          durationSeconds = 60,
+          requirements
+        ) => {
           set((state) => {
             state.isCreatingBooking = true;
             state.error = null;
@@ -304,7 +332,13 @@ export const useActForgeStore = create<ActForgeStoreState>()(
           }
         },
 
-        createEpicBooking: async (projectId, performerId, shotId, durationSeconds = 300, requirements) => {
+        createEpicBooking: async (
+          projectId,
+          performerId,
+          shotId,
+          durationSeconds = 300,
+          requirements
+        ) => {
           set((state) => {
             state.isCreatingBooking = true;
             state.error = null;

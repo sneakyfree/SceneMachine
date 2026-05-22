@@ -131,17 +131,17 @@ vi.mock('../../components/cost-dashboard', () => ({
 import { CostDashboard } from '../../components/cost-dashboard';
 
 const mockDailyCosts = [
-  { date: '2024-01-01', cost: 12.50 },
+  { date: '2024-01-01', cost: 12.5 },
   { date: '2024-01-02', cost: 8.75 },
-  { date: '2024-01-03', cost: 15.00 },
+  { date: '2024-01-03', cost: 15.0 },
   { date: '2024-01-04', cost: 5.25 },
-  { date: '2024-01-05', cost: 10.00 },
+  { date: '2024-01-05', cost: 10.0 },
 ];
 
 const mockProviderCosts = [
-  { id: 'replicate', name: 'Replicate', cost: 35.50, percentage: 68.9 },
-  { id: 'fal', name: 'Fal.ai', cost: 12.00, percentage: 23.3 },
-  { id: 'runpod', name: 'RunPod', cost: 4.00, percentage: 7.8 },
+  { id: 'replicate', name: 'Replicate', cost: 35.5, percentage: 68.9 },
+  { id: 'fal', name: 'Fal.ai', cost: 12.0, percentage: 23.3 },
+  { id: 'runpod', name: 'RunPod', cost: 4.0, percentage: 7.8 },
 ];
 
 describe('CostDashboard', () => {
@@ -158,7 +158,7 @@ describe('CostDashboard', () => {
   const renderDashboard = (props = {}) => {
     return render(
       <CostDashboard
-        totalSpent={51.50}
+        totalSpent={51.5}
         budget={100}
         dailyCosts={mockDailyCosts}
         providerCosts={mockProviderCosts}

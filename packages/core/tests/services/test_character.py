@@ -1,17 +1,15 @@
 """Tests for CharacterService."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.models import Character, Project, ProjectState
+from scenemachine.models import Character, Project
 from scenemachine.models.character import CharacterGender, CharacterLockState
 from scenemachine.services.character import (
     CharacterService,
     PhysicalDescription,
-    CharacterPrompt,
 )
 
 

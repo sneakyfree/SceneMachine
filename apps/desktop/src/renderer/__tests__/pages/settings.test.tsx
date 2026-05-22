@@ -66,8 +66,8 @@ describe('Settings Page', () => {
     it('should have theme selection options', () => {
       renderSettingsPage();
       // Look for theme-related elements
-      const themeElement = screen.queryByText(/theme|appearance/i) ||
-                           screen.queryByLabelText(/theme/i);
+      const themeElement =
+        screen.queryByText(/theme|appearance/i) || screen.queryByLabelText(/theme/i);
       expect(themeElement !== null || true).toBe(true);
     });
   });

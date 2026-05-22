@@ -1,15 +1,13 @@
 """Tests for Project Archive service."""
 
-import pytest
-import pytest_asyncio
-from datetime import datetime, timedelta
-from uuid import uuid4
 from pathlib import Path
+from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from scenemachine.models import Project
 from scenemachine.services.project_archive import ProjectArchiveService
-from scenemachine.models import Project, ProjectState
 
 
 class TestProjectArchiveService:
@@ -102,7 +100,7 @@ class TestProjectArchiveService:
             archive_file = temp_dir / "test_archive.zip"
             archive_file.write_bytes(b"mock archive content")
 
-            result = await archive_service.import_archive(archive_file)
+            await archive_service.import_archive(archive_file)
             # May fail with invalid archive, just check it handles gracefully
 
     @pytest.mark.asyncio

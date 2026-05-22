@@ -123,16 +123,10 @@ function TrackItem({
         }}
         className={cn(
           'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors',
-          isPlaying
-            ? 'bg-brand-500 text-white'
-            : 'bg-surface-700 hover:bg-surface-600'
+          isPlaying ? 'bg-brand-500 text-white' : 'bg-surface-700 hover:bg-surface-600'
         )}
       >
-        {isPlaying ? (
-          <Pause className="w-4 h-4" />
-        ) : (
-          <Play className="w-4 h-4 ml-0.5" />
-        )}
+        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
       </button>
 
       {/* Track info */}
@@ -161,10 +155,7 @@ function TrackItem({
       {/* Mood tags */}
       <div className="hidden md:flex items-center gap-1">
         {track.mood.slice(0, 2).map((mood) => (
-          <span
-            key={mood}
-            className="px-2 py-0.5 bg-surface-700 rounded text-xs text-surface-300"
-          >
+          <span key={mood} className="px-2 py-0.5 bg-surface-700 rounded text-xs text-surface-300">
             {mood}
           </span>
         ))}
@@ -308,9 +299,7 @@ export function MusicLibrary({
     try {
       const result = await window.electronAPI.openFile({
         title: 'Select Music File',
-        filters: [
-          { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac'] },
-        ],
+        filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac'] }],
         properties: ['openFile'],
       });
 
@@ -330,9 +319,7 @@ export function MusicLibrary({
           <Music className="w-5 h-5 text-brand-400" />
           <h2 className="font-semibold">Music Library</h2>
           {tracks && (
-            <span className="text-sm text-surface-400">
-              ({filteredTracks?.length ?? 0} tracks)
-            </span>
+            <span className="text-sm text-surface-400">({filteredTracks?.length ?? 0} tracks)</span>
           )}
         </div>
 
@@ -392,11 +379,7 @@ export function MusicLibrary({
         >
           <Filter className="w-4 h-4" />
           Filters
-          {showFilters ? (
-            <ChevronDown className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-4 h-4" />
-          )}
+          {showFilters ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
 
         {/* Filters */}
@@ -581,7 +564,9 @@ export function MusicSelector({
             </>
           )}
         </div>
-        <ChevronDown className={cn('w-5 h-5 text-surface-400 transition-transform', isOpen && 'rotate-180')} />
+        <ChevronDown
+          className={cn('w-5 h-5 text-surface-400 transition-transform', isOpen && 'rotate-180')}
+        />
       </button>
 
       {isOpen && (

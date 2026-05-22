@@ -2,8 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -34,8 +33,8 @@ class CostStats:
     """Cost statistics."""
 
     total_cost_usd: float
-    cost_by_provider: Dict[str, float]
-    cost_by_project: Dict[str, float]
+    cost_by_provider: dict[str, float]
+    cost_by_project: dict[str, float]
     avg_cost_per_shot: float
 
 
@@ -63,12 +62,12 @@ class PerformanceStats:
 class AnalyticsService:
     """Service for gathering analytics and metrics."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    def _get_time_filter(self, time_range: str) -> Optional[datetime]:
+    def _get_time_filter(self, time_range: str) -> datetime | None:
         """Convert time range string to datetime filter."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if time_range == "24h":
             return now - timedelta(hours=24)
@@ -84,7 +83,7 @@ class AnalyticsService:
     async def get_generation_stats(
         self,
         time_range: str = "7d",
-        project_id: Optional[UUID] = None,
+        project_id: UUID | None = None,
     ) -> GenerationStats:
         """Get generation job statistics.
 
@@ -119,7 +118,9 @@ class AnalyticsService:
             status_counts[status] = result.scalar() or 0
 
         completed_jobs = status_counts.get(JobStatus.COMPLETED, 0)
-        failed_jobs = status_counts.get(JobStatus.FAILED, 0) + status_counts.get(JobStatus.TIMEOUT, 0)
+        failed_jobs = status_counts.get(JobStatus.FAILED, 0) + status_counts.get(
+            JobStatus.TIMEOUT, 0
+        )
         cancelled_jobs = status_counts.get(JobStatus.CANCELLED, 0)
         pending_jobs = status_counts.get(JobStatus.PENDING, 0)
 
@@ -133,11 +134,12 @@ class AnalyticsService:
         completed_jobs_list = time_result.scalars().all()
 
         generation_times = [
-            j.duration_seconds for j in completed_jobs_list
-            if j.duration_seconds is not None
+            j.duration_seconds for j in completed_jobs_list if j.duration_seconds is not None
         ]
 
-        avg_generation_time = sum(generation_times) / len(generation_times) if generation_times else 0.0
+        avg_generation_time = (
+            sum(generation_times) / len(generation_times) if generation_times else 0.0
+        )
         total_generation_time = sum(generation_times)
 
         return GenerationStats(
@@ -154,7 +156,7 @@ class AnalyticsService:
     async def get_cost_stats(
         self,
         time_range: str = "7d",
-        project_id: Optional[UUID] = None,
+        project_id: UUID | None = None,
     ) -> CostStats:
         """Get cost statistics.
 
@@ -181,13 +183,15 @@ class AnalyticsService:
         total_cost = sum(j.cost_usd or 0 for j in jobs)
 
         # Cost by provider
-        cost_by_provider: Dict[str, float] = {}
+        cost_by_provider: dict[str, float] = {}
         for job in jobs:
             provider_name = job.provider.value
-            cost_by_provider[provider_name] = cost_by_provider.get(provider_name, 0) + (job.cost_usd or 0)
+            cost_by_provider[provider_name] = cost_by_provider.get(provider_name, 0) + (
+                job.cost_usd or 0
+            )
 
         # Cost by project (requires joining through shots)
-        cost_by_project: Dict[str, float] = {}
+        cost_by_project: dict[str, float] = {}
         if not project_id:
             # Get shot -> project mappings
             shot_ids = [j.shot_id for j in jobs]
@@ -207,7 +211,9 @@ class AnalyticsService:
                         shot = shots.get(job.shot_id)
                         if shot:
                             project_name = projects.get(shot.project_id, "Unknown")
-                            cost_by_project[project_name] = cost_by_project.get(project_name, 0) + (job.cost_usd or 0)
+                            cost_by_project[project_name] = cost_by_project.get(project_name, 0) + (
+                                job.cost_usd or 0
+                            )
 
         # Average cost per completed shot
         completed_count = len([j for j in jobs if j.status == JobStatus.COMPLETED])
@@ -227,7 +233,7 @@ class AnalyticsService:
         total_projects = total_result.scalar() or 0
 
         # Active projects (have activity in last 7 days)
-        week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+        week_ago = datetime.now(UTC) - timedelta(days=7)
         active_result = await self.session.execute(
             select(func.count(Project.id)).where(Project.updated_at >= week_ago)
         )
@@ -256,26 +262,25 @@ class AnalyticsService:
     async def get_performance_stats(self) -> PerformanceStats:
         """Get performance statistics."""
         # Get all completed jobs for wait/processing time
-        completed_query = select(GenerationJob).where(
-            GenerationJob.status == JobStatus.COMPLETED
-        ).order_by(GenerationJob.completed_at.desc()).limit(100)
+        completed_query = (
+            select(GenerationJob)
+            .where(GenerationJob.status == JobStatus.COMPLETED)
+            .order_by(GenerationJob.completed_at.desc())
+            .limit(100)
+        )
 
         result = await self.session.execute(completed_query)
         jobs = result.scalars().all()
 
         # Calculate average wait time
-        wait_times = [
-            j.wait_time_seconds for j in jobs
-            if j.wait_time_seconds is not None
-        ]
+        wait_times = [j.wait_time_seconds for j in jobs if j.wait_time_seconds is not None]
         avg_wait_time = sum(wait_times) / len(wait_times) if wait_times else 0.0
 
         # Calculate average processing time
-        processing_times = [
-            j.duration_seconds for j in jobs
-            if j.duration_seconds is not None
-        ]
-        avg_processing_time = sum(processing_times) / len(processing_times) if processing_times else 0.0
+        processing_times = [j.duration_seconds for j in jobs if j.duration_seconds is not None]
+        avg_processing_time = (
+            sum(processing_times) / len(processing_times) if processing_times else 0.0
+        )
 
         # Peak concurrent jobs (estimate from overlapping time ranges)
         # For simplicity, count max running jobs at any point
@@ -298,7 +303,7 @@ class AnalyticsService:
     async def _estimate_peak_concurrent(self) -> int:
         """Estimate peak concurrent jobs from history."""
         # Get running jobs from last 24 hours
-        day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+        day_ago = datetime.now(UTC) - timedelta(days=1)
 
         running_query = select(GenerationJob).where(
             GenerationJob.started_at >= day_ago,
@@ -312,7 +317,7 @@ class AnalyticsService:
             return 0
 
         # Create events list (start and end times)
-        events: List[tuple[datetime, int]] = []
+        events: list[tuple[datetime, int]] = []
         for job in jobs:
             if job.started_at:
                 events.append((job.started_at, 1))  # Job started
@@ -334,7 +339,7 @@ class AnalyticsService:
     async def get_provider_usage(
         self,
         time_range: str = "7d",
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Get usage statistics by provider.
 
         Args:
@@ -358,22 +363,24 @@ class AnalyticsService:
                 failed = len([j for j in jobs if j.status in (JobStatus.FAILED, JobStatus.TIMEOUT)])
                 total_cost = sum(j.cost_usd or 0 for j in jobs)
 
-                results.append({
-                    "provider": provider.value,
-                    "total_jobs": total_jobs,
-                    "completed_jobs": completed,
-                    "failed_jobs": failed,
-                    "success_rate": (completed / total_jobs * 100) if total_jobs > 0 else 0,
-                    "total_cost_usd": total_cost,
-                })
+                results.append(
+                    {
+                        "provider": provider.value,
+                        "total_jobs": total_jobs,
+                        "completed_jobs": completed,
+                        "failed_jobs": failed,
+                        "success_rate": (completed / total_jobs * 100) if total_jobs > 0 else 0,
+                        "total_cost_usd": total_cost,
+                    }
+                )
 
         return results
 
     async def get_daily_stats(
         self,
         days: int = 7,
-        project_id: Optional[UUID] = None,
-    ) -> List[Dict]:
+        project_id: UUID | None = None,
+    ) -> list[dict]:
         """Get daily generation statistics.
 
         Args:
@@ -381,7 +388,7 @@ class AnalyticsService:
             project_id: Optional project filter
         """
         results = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for i in range(days):
             day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -402,14 +409,16 @@ class AnalyticsService:
             failed = len([j for j in jobs if j.status in (JobStatus.FAILED, JobStatus.TIMEOUT)])
             total_cost = sum(j.cost_usd or 0 for j in jobs)
 
-            results.append({
-                "date": day_start.date().isoformat(),
-                "total_jobs": len(jobs),
-                "completed_jobs": completed,
-                "failed_jobs": failed,
-                "success_rate": (completed / len(jobs) * 100) if jobs else 0,
-                "total_cost_usd": total_cost,
-            })
+            results.append(
+                {
+                    "date": day_start.date().isoformat(),
+                    "total_jobs": len(jobs),
+                    "completed_jobs": completed,
+                    "failed_jobs": failed,
+                    "success_rate": (completed / len(jobs) * 100) if jobs else 0,
+                    "total_cost_usd": total_cost,
+                }
+            )
 
         # Reverse to get chronological order
         results.reverse()

@@ -4,9 +4,9 @@ Vast.ai offers a GPU marketplace with competitive spot pricing
 from individual hosts and data centers.
 """
 
-import asyncio
+import contextlib
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -39,7 +39,7 @@ class VastAIProvider(GPUExchangeProvider):
 
     # Typical Vast.ai pricing ranges (USD/hr)
     # Prices vary by host - these are typical ranges
-    TYPICAL_PRICING: Dict[GPUType, tuple] = {
+    TYPICAL_PRICING: dict[GPUType, tuple] = {
         GPUType.RTX_3090: (0.20, 0.40),
         GPUType.RTX_4090: (0.35, 0.60),
         GPUType.A10: (0.35, 0.55),
@@ -52,15 +52,15 @@ class VastAIProvider(GPUExchangeProvider):
     # Vast.ai API base URL
     API_BASE = "https://console.vast.ai/api/v0"
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         """Initialize Vast.ai provider.
 
         Args:
             api_key: Vast.ai API key
         """
         self.api_key = api_key
-        self._cached_offers: List[Dict[str, Any]] = []
-        self._client: Optional[httpx.AsyncClient] = None
+        self._cached_offers: list[dict[str, Any]] = []
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client with auth."""
@@ -79,7 +79,7 @@ class VastAIProvider(GPUExchangeProvider):
         method: str,
         endpoint: str,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make an authenticated API request."""
         client = await self._get_client()
         # Vast.ai uses query param for API key
@@ -98,7 +98,7 @@ class VastAIProvider(GPUExchangeProvider):
         return "vast_ai"
 
     @property
-    def capabilities(self) -> List[ProviderCapability]:
+    def capabilities(self) -> list[ProviderCapability]:
         return [
             ProviderCapability.VIDEO_GENERATION,
             ProviderCapability.IMAGE_GENERATION,
@@ -109,19 +109,19 @@ class VastAIProvider(GPUExchangeProvider):
         ]
 
     @property
-    def supported_gpu_types(self) -> List[GPUType]:
+    def supported_gpu_types(self) -> list[GPUType]:
         return list(self.TYPICAL_PRICING.keys())
 
     @property
-    def regions(self) -> List[str]:
+    def regions(self) -> list[str]:
         # Vast.ai has hosts globally
         return ["us", "eu", "asia", "global"]
 
     async def get_available_instances(
         self,
-        gpu_type: Optional[GPUType] = None,
-        region: Optional[str] = None,
-    ) -> List[GPUInstance]:
+        gpu_type: GPUType | None = None,
+        region: str | None = None,
+    ) -> list[GPUInstance]:
         """Get available Vast.ai instances from the marketplace."""
         if not self.api_key:
             logger.warning("Vast.ai API key not configured")
@@ -204,7 +204,7 @@ class VastAIProvider(GPUExchangeProvider):
             logger.error(f"Failed to get Vast.ai instances: {e}")
             return []
 
-    def _get_gpu_name(self, gpu_type: GPUType) -> Optional[str]:
+    def _get_gpu_name(self, gpu_type: GPUType) -> str | None:
         """Get Vast.ai GPU name from our type."""
         gpu_names = {
             GPUType.RTX_3090: "RTX 3090",
@@ -217,7 +217,7 @@ class VastAIProvider(GPUExchangeProvider):
         }
         return gpu_names.get(gpu_type)
 
-    def _map_gpu_type(self, gpu_name: str) -> Optional[GPUType]:
+    def _map_gpu_type(self, gpu_name: str) -> GPUType | None:
         """Map GPU name to our GPUType enum."""
         name_lower = gpu_name.lower()
         if "h100" in name_lower:
@@ -252,8 +252,8 @@ class VastAIProvider(GPUExchangeProvider):
     async def get_current_pricing(
         self,
         gpu_type: GPUType,
-        region: Optional[str] = None,
-    ) -> Optional[GPUPricing]:
+        region: str | None = None,
+    ) -> GPUPricing | None:
         """Get current Vast.ai pricing (cheapest available)."""
         if gpu_type not in self.TYPICAL_PRICING:
             return None
@@ -276,7 +276,7 @@ class VastAIProvider(GPUExchangeProvider):
         self,
         gpu_type: GPUType,
         max_price_per_hour: float,
-        region: Optional[str] = None,
+        region: str | None = None,
         spot: bool = False,
     ) -> ProvisionResult:
         """Provision a Vast.ai instance."""
@@ -312,8 +312,7 @@ class VastAIProvider(GPUExchangeProvider):
 
             # Filter by price and sort by best value
             matching = [
-                i for i in instances
-                if i.pricing and i.pricing.price_per_hour <= max_price_per_hour
+                i for i in instances if i.pricing and i.pricing.price_per_hour <= max_price_per_hour
             ]
 
             if not matching:
@@ -324,7 +323,7 @@ class VastAIProvider(GPUExchangeProvider):
                 )
 
             # Sort by price (cheapest first)
-            matching.sort(key=lambda x: x.pricing.price_per_hour if x.pricing else float('inf'))
+            matching.sort(key=lambda x: x.pricing.price_per_hour if x.pricing else float("inf"))
             best_offer = matching[0]
 
             # Create instance via Vast.ai API
@@ -377,10 +376,8 @@ class VastAIProvider(GPUExchangeProvider):
 
         except httpx.HTTPStatusError as e:
             error_msg = str(e)
-            try:
+            with contextlib.suppress(Exception):
                 error_msg = e.response.json().get("msg", str(e))
-            except Exception:
-                pass
             logger.error(f"Vast.ai API error during provision: {error_msg}")
             return ProvisionResult(
                 success=False,

@@ -7,16 +7,17 @@ Tests cover:
 - Project listing and filtering
 """
 
-import pytest
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
-from typing import Dict, Any, List
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
 # Mock project data
-def create_mock_project(name: str = "Test Project", state: str = "draft") -> Dict[str, Any]:
+def create_mock_project(name: str = "Test Project", state: str = "draft") -> dict[str, Any]:
     """Create a mock project."""
     return {
         "id": str(uuid4()),
@@ -28,7 +29,7 @@ def create_mock_project(name: str = "Test Project", state: str = "draft") -> Dic
         "settings": {
             "visual_style": "cinematic",
             "aspect_ratio": "16:9",
-        }
+        },
     }
 
 
@@ -37,7 +38,7 @@ class MockProjectsRouter:
 
     def __init__(self):
         self.app = FastAPI()
-        self.projects: Dict[str, Dict] = {}
+        self.projects: dict[str, dict] = {}
         self._setup_routes()
 
     def _setup_routes(self):
@@ -47,7 +48,7 @@ class MockProjectsRouter:
             if state:
                 projects = [p for p in projects if p["state"] == state]
             return {
-                "items": projects[offset:offset + limit],
+                "items": projects[offset : offset + limit],
                 "total": len(projects),
                 "limit": limit,
                 "offset": offset,
@@ -64,6 +65,7 @@ class MockProjectsRouter:
         async def get_project(project_id: str):
             if project_id not in self.projects:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=404, detail="Project not found")
             return self.projects[project_id]
 
@@ -71,6 +73,7 @@ class MockProjectsRouter:
         async def update_project(project_id: str, name: str = None, description: str = None):
             if project_id not in self.projects:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=404, detail="Project not found")
 
             project = self.projects[project_id]
@@ -85,6 +88,7 @@ class MockProjectsRouter:
         async def delete_project(project_id: str):
             if project_id not in self.projects:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=404, detail="Project not found")
             del self.projects[project_id]
             return {"status": "deleted"}
@@ -93,15 +97,22 @@ class MockProjectsRouter:
         async def update_project_state(project_id: str, state: str):
             if project_id not in self.projects:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=404, detail="Project not found")
 
             valid_states = [
-                "draft", "screenplay_uploaded", "planning",
-                "generating", "assembly_in_progress", "complete",
-                "exported", "archived"
+                "draft",
+                "screenplay_uploaded",
+                "planning",
+                "generating",
+                "assembly_in_progress",
+                "complete",
+                "exported",
+                "archived",
             ]
             if state not in valid_states:
                 from fastapi import HTTPException
+
                 raise HTTPException(status_code=400, detail="Invalid state")
 
             self.projects[project_id]["state"] = state
@@ -119,8 +130,7 @@ class TestProjectsCRUD:
     def test_create_project(self, client):
         """Test creating a new project."""
         response = client.post(
-            "/api/v1/projects",
-            params={"name": "My Movie", "description": "A great movie"}
+            "/api/v1/projects", params={"name": "My Movie", "description": "A great movie"}
         )
 
         assert response.status_code == 200
@@ -154,10 +164,7 @@ class TestProjectsCRUD:
     def test_get_project(self, client):
         """Test getting a single project."""
         # Create project
-        create_response = client.post(
-            "/api/v1/projects",
-            params={"name": "Test Project"}
-        )
+        create_response = client.post("/api/v1/projects", params={"name": "Test Project"})
         project_id = create_response.json()["id"]
 
         response = client.get(f"/api/v1/projects/{project_id}")
@@ -174,17 +181,11 @@ class TestProjectsCRUD:
     def test_update_project(self, client):
         """Test updating a project."""
         # Create project
-        create_response = client.post(
-            "/api/v1/projects",
-            params={"name": "Original Name"}
-        )
+        create_response = client.post("/api/v1/projects", params={"name": "Original Name"})
         project_id = create_response.json()["id"]
 
         # Update project
-        response = client.put(
-            f"/api/v1/projects/{project_id}",
-            params={"name": "Updated Name"}
-        )
+        response = client.put(f"/api/v1/projects/{project_id}", params={"name": "Updated Name"})
 
         assert response.status_code == 200
         data = response.json()
@@ -193,10 +194,7 @@ class TestProjectsCRUD:
     def test_delete_project(self, client):
         """Test deleting a project."""
         # Create project
-        create_response = client.post(
-            "/api/v1/projects",
-            params={"name": "To Delete"}
-        )
+        create_response = client.post("/api/v1/projects", params={"name": "To Delete"})
         project_id = create_response.json()["id"]
 
         # Delete project
@@ -224,8 +222,7 @@ class TestProjectStateManagement:
 
         # Update state
         response = client.post(
-            f"/api/v1/projects/{project_id}/state",
-            params={"state": "screenplay_uploaded"}
+            f"/api/v1/projects/{project_id}/state", params={"state": "screenplay_uploaded"}
         )
 
         assert response.status_code == 200
@@ -240,8 +237,7 @@ class TestProjectStateManagement:
 
         # Try invalid state
         response = client.post(
-            f"/api/v1/projects/{project_id}/state",
-            params={"state": "invalid_state"}
+            f"/api/v1/projects/{project_id}/state", params={"state": "invalid_state"}
         )
 
         assert response.status_code == 400
@@ -316,6 +312,7 @@ class TestProjectValidation:
 
     def test_project_name_not_empty(self):
         """Test project name cannot be empty."""
+
         def validate_name(name: str) -> bool:
             return name is not None and len(name.strip()) > 0
 
@@ -334,5 +331,6 @@ class TestProjectValidation:
 
         # All settings should be JSON-serializable
         import json
+
         json_str = json.dumps(valid_settings)
         assert len(json_str) > 0

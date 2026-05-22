@@ -13,22 +13,20 @@ and can apply lip-sync to video files.
 import asyncio
 import json
 import logging
-import subprocess
 import tempfile
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from uuid import UUID
+from typing import Any
 
 from scenemachine.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-class LipSyncProvider(str, Enum):
+class LipSyncProvider(StrEnum):
     """Supported lip sync providers."""
 
     MOCK = "mock"
@@ -38,7 +36,7 @@ class LipSyncProvider(str, Enum):
     LATENTSYNC = "latentsync"
 
 
-class Phoneme(str, Enum):
+class Phoneme(StrEnum):
     """Universal phoneme set based on Preston Blair shapes."""
 
     # Preston Blair mouth shapes
@@ -65,7 +63,7 @@ class PhonemeEvent:
     def duration(self) -> float:
         return self.end_time - self.start_time
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "phoneme": self.phoneme.value,
             "start": round(self.start_time, 3),
@@ -80,11 +78,11 @@ class LipSyncData:
 
     audio_path: str
     duration_seconds: float
-    phonemes: List[PhonemeEvent] = field(default_factory=list)
+    phonemes: list[PhonemeEvent] = field(default_factory=list)
     sample_rate: int = 44100
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "audio_path": self.audio_path,
             "duration_seconds": self.duration_seconds,
@@ -98,7 +96,7 @@ class LipSyncData:
         return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LipSyncData":
+    def from_dict(cls, data: dict[str, Any]) -> "LipSyncData":
         phonemes = [
             PhonemeEvent(
                 phoneme=Phoneme(p["phoneme"]),
@@ -122,41 +120,35 @@ class LipSyncData:
 
 # Extended IPA to Preston Blair phoneme mapping for precision
 # Maps International Phonetic Alphabet symbols to mouth shapes
-IPA_TO_PHONEME: Dict[str, Phoneme] = {
+IPA_TO_PHONEME: dict[str, Phoneme] = {
     # Vowels - Open mouth (A shape)
     "ɑ": Phoneme.A,  # father
     "ɔ": Phoneme.A,  # thought
     "æ": Phoneme.A,  # cat
     "a": Phoneme.A,  # general open
-    
     # Closed mouth (B shape) - bilabials
     "m": Phoneme.B,  # mom
     "b": Phoneme.B,  # boy
     "p": Phoneme.B,  # pop
-    
     # Rounded/tight O (C shape)
     "u": Phoneme.C,  # boot
     "ʊ": Phoneme.C,  # foot
     "o": Phoneme.C,  # general O
     "w": Phoneme.C,  # we
-    
     # Wide O/R sounds (D shape)
     "ɝ": Phoneme.D,  # bird
     "ɚ": Phoneme.D,  # butter
     "r": Phoneme.D,  # run
     "ɹ": Phoneme.D,  # red
-    
     # Bite/tight (E shape) - palatals
     "tʃ": Phoneme.E,  # church
     "dʒ": Phoneme.E,  # judge
     "ʃ": Phoneme.E,  # she
     "ʒ": Phoneme.E,  # measure
     "j": Phoneme.E,  # yes
-    
     # Lip curl (F shape) - labiodentals
     "f": Phoneme.F,  # fox
     "v": Phoneme.F,  # van
-    
     # Tongue visible (G shape) - dentals/alveolars
     "θ": Phoneme.G,  # think
     "ð": Phoneme.G,  # this
@@ -164,20 +156,18 @@ IPA_TO_PHONEME: Dict[str, Phoneme] = {
     "d": Phoneme.G,  # dog
     "t": Phoneme.G,  # top
     "n": Phoneme.G,  # no
-    
     # Wide/smile (H shape) - front vowels
     "i": Phoneme.H,  # see
     "ɪ": Phoneme.H,  # sit
     "e": Phoneme.H,  # say
     "ɛ": Phoneme.H,  # bed
-    
     # Rest/neutral
     "": Phoneme.X,
     " ": Phoneme.X,
 }
 
 # ARPAbet to Preston Blair mapping for CMU dictionary compatibility
-ARPABET_TO_PHONEME: Dict[str, Phoneme] = {
+ARPABET_TO_PHONEME: dict[str, Phoneme] = {
     # Vowels
     "AA": Phoneme.A,  # odd
     "AE": Phoneme.A,  # at
@@ -194,24 +184,23 @@ ARPABET_TO_PHONEME: Dict[str, Phoneme] = {
     "OY": Phoneme.C,  # toy
     "UH": Phoneme.C,  # hood
     "UW": Phoneme.C,  # two
-    
     # Consonants
     "B": Phoneme.B,
     "CH": Phoneme.E,
     "D": Phoneme.G,
     "DH": Phoneme.G,  # the
     "F": Phoneme.F,
-    "G": Phoneme.A,   # go (back of mouth)
+    "G": Phoneme.A,  # go (back of mouth)
     "HH": Phoneme.A,  # he
     "JH": Phoneme.E,  # gee
-    "K": Phoneme.A,   # key (back)
+    "K": Phoneme.A,  # key (back)
     "L": Phoneme.G,
     "M": Phoneme.B,
     "N": Phoneme.G,
     "NG": Phoneme.A,  # sing
     "P": Phoneme.B,
     "R": Phoneme.D,
-    "S": Phoneme.H,   # slight smile
+    "S": Phoneme.H,  # slight smile
     "SH": Phoneme.E,
     "T": Phoneme.G,
     "TH": Phoneme.G,  # thing
@@ -226,134 +215,138 @@ ARPABET_TO_PHONEME: Dict[str, Phoneme] = {
 @dataclass
 class LipSyncPrecisionConfig:
     """Configuration for precision lip-sync generation.
-    
+
     S-P1-05: Provides fine-tuned control over phoneme timing,
     smoothing, and transition handling for natural lip movement.
     """
-    
+
     # Timing precision settings
-    min_phoneme_duration_ms: float = 40.0    # Minimum phoneme display time
-    max_phoneme_duration_ms: float = 200.0   # Maximum before splitting
-    transition_blend_ms: float = 20.0        # Blend time between phonemes
-    
+    min_phoneme_duration_ms: float = 40.0  # Minimum phoneme display time
+    max_phoneme_duration_ms: float = 200.0  # Maximum before splitting
+    transition_blend_ms: float = 20.0  # Blend time between phonemes
+
     # Smoothing settings
     apply_coarticulation: bool = True  # Blend adjacent phonemes
     coarticulation_factor: float = 0.3  # How much neighbors influence (0-1)
-    
+
     # Silence handling
     silence_threshold_ms: float = 100.0  # Min silence to show rest pose
-    rest_transition_ms: float = 50.0     # Time to transition to rest
-    
+    rest_transition_ms: float = 50.0  # Time to transition to rest
+
     def smooth_phoneme_sequence(
         self,
-        phonemes: List[PhonemeEvent],
-    ) -> List[PhonemeEvent]:
+        phonemes: list[PhonemeEvent],
+    ) -> list[PhonemeEvent]:
         """Apply coarticulation smoothing to phoneme sequence.
-        
+
         Coarticulation accounts for how adjacent sounds influence
         mouth shape, creating more natural lip movement.
-        
+
         Args:
             phonemes: Raw phoneme sequence
-            
+
         Returns:
             Smoothed phoneme sequence with adjusted timings
         """
         if not phonemes or not self.apply_coarticulation:
             return phonemes
-        
+
         smoothed = []
-        
+
         for i, current in enumerate(phonemes):
             # Check duration
             duration_ms = current.duration * 1000
-            
+
             if duration_ms < self.min_phoneme_duration_ms:
                 # Skip very short phonemes (merge with neighbors)
                 continue
-            
+
             # Apply blend transitions
             adjusted_start = current.start_time
             adjusted_end = current.end_time
-            
+
             if i > 0:
                 # Blend with previous
                 blend_time = self.transition_blend_ms / 1000
-                adjusted_start = max(
-                    phonemes[i-1].end_time - blend_time,
-                    current.start_time
-                )
-            
+                adjusted_start = max(phonemes[i - 1].end_time - blend_time, current.start_time)
+
             if i < len(phonemes) - 1:
                 # Blend with next
                 blend_time = self.transition_blend_ms / 1000
-                adjusted_end = min(
-                    phonemes[i+1].start_time + blend_time,
-                    current.end_time
+                adjusted_end = min(phonemes[i + 1].start_time + blend_time, current.end_time)
+
+            smoothed.append(
+                PhonemeEvent(
+                    phoneme=current.phoneme,
+                    start_time=adjusted_start,
+                    end_time=adjusted_end,
                 )
-            
-            smoothed.append(PhonemeEvent(
-                phoneme=current.phoneme,
-                start_time=adjusted_start,
-                end_time=adjusted_end,
-            ))
-        
+            )
+
         return smoothed
-    
+
     def insert_rest_poses(
         self,
-        phonemes: List[PhonemeEvent],
+        phonemes: list[PhonemeEvent],
         total_duration: float,
-    ) -> List[PhonemeEvent]:
+    ) -> list[PhonemeEvent]:
         """Insert rest poses during silence gaps.
-        
+
         Args:
             phonemes: Phoneme sequence
             total_duration: Total audio duration
-            
+
         Returns:
             Phoneme sequence with rest poses added
         """
         if not phonemes:
-            return [PhonemeEvent(
-                phoneme=Phoneme.X,
-                start_time=0.0,
-                end_time=total_duration,
-            )]
-        
+            return [
+                PhonemeEvent(
+                    phoneme=Phoneme.X,
+                    start_time=0.0,
+                    end_time=total_duration,
+                )
+            ]
+
         result = []
-        
+
         # Check for initial silence
         if phonemes[0].start_time > self.silence_threshold_ms / 1000:
-            result.append(PhonemeEvent(
-                phoneme=Phoneme.X,
-                start_time=0.0,
-                end_time=phonemes[0].start_time,
-            ))
-        
+            result.append(
+                PhonemeEvent(
+                    phoneme=Phoneme.X,
+                    start_time=0.0,
+                    end_time=phonemes[0].start_time,
+                )
+            )
+
         for i, current in enumerate(phonemes):
             result.append(current)
-            
+
             # Check for gaps between phonemes
             if i < len(phonemes) - 1:
                 next_phoneme = phonemes[i + 1]
                 gap = next_phoneme.start_time - current.end_time
-                
+
                 if gap > self.silence_threshold_ms / 1000:
-                    result.append(PhonemeEvent(
-                        phoneme=Phoneme.X,
-                        start_time=current.end_time,
-                        end_time=next_phoneme.start_time,
-                    ))
-        
+                    result.append(
+                        PhonemeEvent(
+                            phoneme=Phoneme.X,
+                            start_time=current.end_time,
+                            end_time=next_phoneme.start_time,
+                        )
+                    )
+
         # Check for trailing silence
         if phonemes[-1].end_time < total_duration - self.silence_threshold_ms / 1000:
-            result.append(PhonemeEvent(
-                phoneme=Phoneme.X,
-                start_time=phonemes[-1].end_time,
-                end_time=total_duration,
-            ))
-        
+            result.append(
+                PhonemeEvent(
+                    phoneme=Phoneme.X,
+                    start_time=phonemes[-1].end_time,
+                    end_time=total_duration,
+                )
+            )
+
         return result
 
 
@@ -362,9 +355,9 @@ class LipSyncResult:
     """Result of lip sync processing."""
 
     success: bool
-    lip_sync_data: Optional[LipSyncData] = None
-    output_video_path: Optional[str] = None
-    error_message: Optional[str] = None
+    lip_sync_data: LipSyncData | None = None
+    output_video_path: str | None = None
+    error_message: str | None = None
     processing_time_seconds: float = 0.0
 
 
@@ -396,7 +389,7 @@ class LipSyncProviderBase(ABC):
     async def analyze_audio(
         self,
         audio_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Analyze audio and extract phoneme timing."""
         pass
@@ -407,7 +400,7 @@ class LipSyncProviderBase(ABC):
         video_path: str,
         lip_sync_data: LipSyncData,
         output_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Apply lip sync to a video file."""
         pass
@@ -432,28 +425,33 @@ class MockLipSyncProvider(LipSyncProviderBase):
     async def analyze_audio(
         self,
         audio_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Generate mock phoneme data."""
         import time
+
         start_time = time.time()
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=10,
-                stage="analyzing",
-                message="Analyzing audio file...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=10,
+                    stage="analyzing",
+                    message="Analyzing audio file...",
+                )
+            )
 
         # Simulate processing
         await asyncio.sleep(0.3)
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=50,
-                stage="extracting",
-                message="Extracting phonemes...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=50,
+                    stage="extracting",
+                    message="Extracting phonemes...",
+                )
+            )
 
         await asyncio.sleep(0.2)
 
@@ -463,11 +461,13 @@ class MockLipSyncProvider(LipSyncProviderBase):
         phonemes = self._generate_mock_phonemes(duration)
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=100,
-                stage="complete",
-                message="Analysis complete",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=100,
+                    stage="complete",
+                    message="Analysis complete",
+                )
+            )
 
         lip_sync_data = LipSyncData(
             audio_path=audio_path,
@@ -482,7 +482,7 @@ class MockLipSyncProvider(LipSyncProviderBase):
             processing_time_seconds=time.time() - start_time,
         )
 
-    def _generate_mock_phonemes(self, duration: float) -> List[PhonemeEvent]:
+    def _generate_mock_phonemes(self, duration: float) -> list[PhonemeEvent]:
         """Generate a mock phoneme sequence."""
         phonemes = []
         current_time = 0.0
@@ -491,14 +491,17 @@ class MockLipSyncProvider(LipSyncProviderBase):
         while current_time < duration:
             # Random phoneme duration 0.05-0.15 seconds
             import random
+
             phoneme_duration = random.uniform(0.05, 0.15)
             end_time = min(current_time + phoneme_duration, duration)
 
-            phonemes.append(PhonemeEvent(
-                phoneme=random.choice(phoneme_list),
-                start_time=current_time,
-                end_time=end_time,
-            ))
+            phonemes.append(
+                PhonemeEvent(
+                    phoneme=random.choice(phoneme_list),
+                    start_time=current_time,
+                    end_time=end_time,
+                )
+            )
 
             current_time = end_time
 
@@ -509,7 +512,7 @@ class MockLipSyncProvider(LipSyncProviderBase):
         video_path: str,
         lip_sync_data: LipSyncData,
         output_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Mock lip sync application (copies input to output)."""
         import shutil
@@ -518,11 +521,13 @@ class MockLipSyncProvider(LipSyncProviderBase):
         start_time = time.time()
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=50,
-                stage="applying",
-                message="Applying lip sync to video...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=50,
+                    stage="applying",
+                    message="Applying lip sync to video...",
+                )
+            )
 
         await asyncio.sleep(0.5)
 
@@ -530,11 +535,13 @@ class MockLipSyncProvider(LipSyncProviderBase):
         shutil.copy(video_path, output_path)
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=100,
-                stage="complete",
-                message="Lip sync applied",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=100,
+                    stage="complete",
+                    message="Lip sync applied",
+                )
+            )
 
         return LipSyncResult(
             success=True,
@@ -556,7 +563,7 @@ class RhubarbLipSyncProvider(LipSyncProviderBase):
     https://github.com/DanielSWolf/rhubarb-lip-sync
     """
 
-    def __init__(self, executable_path: Optional[str] = None):
+    def __init__(self, executable_path: str | None = None) -> None:
         self.executable_path = executable_path or "rhubarb"
 
     @property
@@ -570,18 +577,21 @@ class RhubarbLipSyncProvider(LipSyncProviderBase):
     async def analyze_audio(
         self,
         audio_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Analyze audio using Rhubarb."""
         import time
+
         start_time = time.time()
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=10,
-                stage="preparing",
-                message="Preparing audio for analysis...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=10,
+                    stage="preparing",
+                    message="Preparing audio for analysis...",
+                )
+            )
 
         try:
             # Run Rhubarb
@@ -590,18 +600,22 @@ class RhubarbLipSyncProvider(LipSyncProviderBase):
 
             cmd = [
                 self.executable_path,
-                "-f", "json",
-                "-o", output_json,
+                "-f",
+                "json",
+                "-o",
+                output_json,
                 "--machineReadable",
                 audio_path,
             ]
 
             if progress_callback:
-                await progress_callback(LipSyncProgress(
-                    percent=20,
-                    stage="analyzing",
-                    message="Running Rhubarb analysis...",
-                ))
+                await progress_callback(
+                    LipSyncProgress(
+                        percent=20,
+                        stage="analyzing",
+                        message="Running Rhubarb analysis...",
+                    )
+                )
 
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -616,32 +630,36 @@ class RhubarbLipSyncProvider(LipSyncProviderBase):
                 return LipSyncResult(success=False, error_message=error_msg)
 
             if progress_callback:
-                await progress_callback(LipSyncProgress(
-                    percent=80,
-                    stage="parsing",
-                    message="Parsing phoneme data...",
-                ))
+                await progress_callback(
+                    LipSyncProgress(
+                        percent=80,
+                        stage="parsing",
+                        message="Parsing phoneme data...",
+                    )
+                )
 
             # Parse Rhubarb output
-            with open(output_json, "r") as f:
+            with open(output_json) as f:
                 rhubarb_data = json.load(f)
 
             # Convert to our format
             phonemes = []
             mouth_cues = rhubarb_data.get("mouthCues", [])
 
-            for i, cue in enumerate(mouth_cues):
+            for _i, cue in enumerate(mouth_cues):
                 start = cue["start"]
                 end = cue["end"]
                 shape = cue["value"]
 
                 # Map Rhubarb shapes to our phonemes
                 phoneme = self._map_rhubarb_shape(shape)
-                phonemes.append(PhonemeEvent(
-                    phoneme=phoneme,
-                    start_time=start,
-                    end_time=end,
-                ))
+                phonemes.append(
+                    PhonemeEvent(
+                        phoneme=phoneme,
+                        start_time=start,
+                        end_time=end,
+                    )
+                )
 
             # Get audio duration
             duration = rhubarb_data.get("metadata", {}).get("duration", 0.0)
@@ -650,11 +668,13 @@ class RhubarbLipSyncProvider(LipSyncProviderBase):
             Path(output_json).unlink(missing_ok=True)
 
             if progress_callback:
-                await progress_callback(LipSyncProgress(
-                    percent=100,
-                    stage="complete",
-                    message="Analysis complete",
-                ))
+                await progress_callback(
+                    LipSyncProgress(
+                        percent=100,
+                        stage="complete",
+                        message="Analysis complete",
+                    )
+                )
 
             lip_sync_data = LipSyncData(
                 audio_path=audio_path,
@@ -702,7 +722,7 @@ class RhubarbLipSyncProvider(LipSyncProviderBase):
         video_path: str,
         lip_sync_data: LipSyncData,
         output_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Apply lip sync to video using FFmpeg with phoneme data.
 
@@ -719,7 +739,8 @@ class RhubarbLipSyncProvider(LipSyncProviderBase):
         """Check if Rhubarb is installed."""
         try:
             process = await asyncio.create_subprocess_exec(
-                self.executable_path, "--version",
+                self.executable_path,
+                "--version",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -743,10 +764,10 @@ class LatentSyncProvider(LipSyncProviderBase):
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
+        model_path: str | None = None,
         gpu_memory_limit_mb: int = 8000,
         fallback_enabled: bool = True,
-    ):
+    ) -> None:
         self.model_path = model_path
         self.gpu_memory_limit_mb = gpu_memory_limit_mb
         self.fallback_enabled = fallback_enabled
@@ -761,7 +782,7 @@ class LatentSyncProvider(LipSyncProviderBase):
     def provider_type(self) -> LipSyncProvider:
         return LipSyncProvider.LATENTSYNC
 
-    async def _check_gpu_resources(self) -> Tuple[bool, int]:
+    async def _check_gpu_resources(self) -> tuple[bool, int]:
         """Check if sufficient GPU resources are available.
 
         Returns:
@@ -799,8 +820,7 @@ class LatentSyncProvider(LipSyncProviderBase):
 
             if not gpu_ok:
                 logger.warning(
-                    f"Insufficient GPU memory: {available_memory}MB available, "
-                    f"need at least 2000MB"
+                    f"Insufficient GPU memory: {available_memory}MB available, need at least 2000MB"
                 )
                 return False
 
@@ -817,7 +837,7 @@ class LatentSyncProvider(LipSyncProviderBase):
     async def analyze_audio(
         self,
         audio_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Analyze audio and extract latent representations.
 
@@ -825,14 +845,17 @@ class LatentSyncProvider(LipSyncProviderBase):
         higher-quality lip synchronization.
         """
         import time
+
         start_time = time.time()
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=5,
-                stage="initializing",
-                message="Initializing LatentSync...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=5,
+                    stage="initializing",
+                    message="Initializing LatentSync...",
+                )
+            )
 
         # Try to load the model
         model_loaded = await self._load_model()
@@ -850,20 +873,24 @@ class LatentSyncProvider(LipSyncProviderBase):
                 )
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=20,
-                stage="extracting",
-                message="Extracting audio features...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=20,
+                    stage="extracting",
+                    message="Extracting audio features...",
+                )
+            )
 
         await asyncio.sleep(0.3)  # Simulate processing
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=60,
-                stage="embedding",
-                message="Computing latent embeddings...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=60,
+                    stage="embedding",
+                    message="Computing latent embeddings...",
+                )
+            )
 
         await asyncio.sleep(0.3)  # Simulate processing
 
@@ -872,11 +899,13 @@ class LatentSyncProvider(LipSyncProviderBase):
         phonemes = self._latent_to_phonemes(duration)
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=100,
-                stage="complete",
-                message="Audio analysis complete",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=100,
+                    stage="complete",
+                    message="Audio analysis complete",
+                )
+            )
 
         lip_sync_data = LipSyncData(
             audio_path=audio_path,
@@ -900,9 +929,12 @@ class LatentSyncProvider(LipSyncProviderBase):
         try:
             result = await asyncio.create_subprocess_exec(
                 "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 audio_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -912,13 +944,14 @@ class LatentSyncProvider(LipSyncProviderBase):
         except Exception:
             return 3.0  # Default duration
 
-    def _latent_to_phonemes(self, duration: float) -> List[PhonemeEvent]:
+    def _latent_to_phonemes(self, duration: float) -> list[PhonemeEvent]:
         """Convert latent embeddings to phoneme events.
 
         In the full implementation, this would use the latent
         representations to generate precise mouth shape timings.
         """
         import random
+
         phonemes = []
         current_time = 0.0
         phoneme_list = list(Phoneme)
@@ -928,11 +961,13 @@ class LatentSyncProvider(LipSyncProviderBase):
             phoneme_duration = random.uniform(0.08, 0.18)
             end_time = min(current_time + phoneme_duration, duration)
 
-            phonemes.append(PhonemeEvent(
-                phoneme=random.choice(phoneme_list),
-                start_time=current_time,
-                end_time=end_time,
-            ))
+            phonemes.append(
+                PhonemeEvent(
+                    phoneme=random.choice(phoneme_list),
+                    start_time=current_time,
+                    end_time=end_time,
+                )
+            )
 
             current_time = end_time
 
@@ -941,18 +976,21 @@ class LatentSyncProvider(LipSyncProviderBase):
     async def _generate_mock_analysis(
         self,
         audio_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Generate mock analysis when GPU is unavailable."""
         import time
+
         start_time = time.time()
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=50,
-                stage="fallback",
-                message="Using fallback mode...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=50,
+                    stage="fallback",
+                    message="Using fallback mode...",
+                )
+            )
 
         await asyncio.sleep(0.2)
 
@@ -960,11 +998,13 @@ class LatentSyncProvider(LipSyncProviderBase):
         phonemes = self._latent_to_phonemes(duration)
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=100,
-                stage="complete",
-                message="Fallback analysis complete",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=100,
+                    stage="complete",
+                    message="Fallback analysis complete",
+                )
+            )
 
         lip_sync_data = LipSyncData(
             audio_path=audio_path,
@@ -988,7 +1028,7 @@ class LatentSyncProvider(LipSyncProviderBase):
         video_path: str,
         lip_sync_data: LipSyncData,
         output_path: str,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Apply lip sync to video using LatentSync.
 
@@ -1001,11 +1041,13 @@ class LatentSyncProvider(LipSyncProviderBase):
         start_time = time.time()
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=10,
-                stage="preparing",
-                message="Preparing video frames...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=10,
+                    stage="preparing",
+                    message="Preparing video frames...",
+                )
+            )
 
         # Check GPU resources for video processing
         gpu_ok, available_memory = await self._check_gpu_resources()
@@ -1017,11 +1059,13 @@ class LatentSyncProvider(LipSyncProviderBase):
                 shutil.copy(video_path, output_path)
 
                 if progress_callback:
-                    await progress_callback(LipSyncProgress(
-                        percent=100,
-                        stage="complete",
-                        message="Video processed (fallback mode)",
-                    ))
+                    await progress_callback(
+                        LipSyncProgress(
+                            percent=100,
+                            stage="complete",
+                            message="Video processed (fallback mode)",
+                        )
+                    )
 
                 return LipSyncResult(
                     success=True,
@@ -1036,29 +1080,35 @@ class LatentSyncProvider(LipSyncProviderBase):
                 )
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=30,
-                stage="loading",
-                message="Loading model into GPU memory...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=30,
+                    stage="loading",
+                    message="Loading model into GPU memory...",
+                )
+            )
 
         await asyncio.sleep(0.3)  # Simulate model loading
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=50,
-                stage="synthesizing",
-                message="Synthesizing lip movements...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=50,
+                    stage="synthesizing",
+                    message="Synthesizing lip movements...",
+                )
+            )
 
         await asyncio.sleep(0.5)  # Simulate synthesis
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=80,
-                stage="encoding",
-                message="Encoding output video...",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=80,
+                    stage="encoding",
+                    message="Encoding output video...",
+                )
+            )
 
         # For now, copy the input video (real implementation would synthesize)
         shutil.copy(video_path, output_path)
@@ -1066,11 +1116,13 @@ class LatentSyncProvider(LipSyncProviderBase):
         await asyncio.sleep(0.2)
 
         if progress_callback:
-            await progress_callback(LipSyncProgress(
-                percent=100,
-                stage="complete",
-                message="Lip sync applied successfully",
-            ))
+            await progress_callback(
+                LipSyncProgress(
+                    percent=100,
+                    stage="complete",
+                    message="Lip sync applied successfully",
+                )
+            )
 
         return LipSyncResult(
             success=True,
@@ -1093,8 +1145,8 @@ class LatentSyncProvider(LipSyncProviderBase):
 class LipSyncService:
     """Service for managing lip sync operations."""
 
-    def __init__(self):
-        self._providers: Dict[LipSyncProvider, LipSyncProviderBase] = {
+    def __init__(self) -> None:
+        self._providers: dict[LipSyncProvider, LipSyncProviderBase] = {
             LipSyncProvider.MOCK: MockLipSyncProvider(),
         }
         self._settings = get_settings()
@@ -1110,7 +1162,7 @@ class LipSyncService:
     def get_provider(
         self,
         provider_type: LipSyncProvider,
-    ) -> Optional[LipSyncProviderBase]:
+    ) -> LipSyncProviderBase | None:
         """Get a registered provider."""
         return self._providers.get(provider_type)
 
@@ -1136,7 +1188,7 @@ class LipSyncService:
         self,
         audio_path: str,
         provider: LipSyncProvider = LipSyncProvider.MOCK,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Analyze audio and extract phoneme timing."""
         provider_instance = self._providers.get(provider)
@@ -1154,7 +1206,7 @@ class LipSyncService:
         audio_path: str,
         output_path: str,
         provider: LipSyncProvider = LipSyncProvider.MOCK,
-        progress_callback: Optional[Callable[[LipSyncProgress], Any]] = None,
+        progress_callback: Callable[[LipSyncProgress], Any] | None = None,
     ) -> LipSyncResult:
         """Full pipeline: analyze audio and apply lip sync to video."""
         provider_instance = self._providers.get(provider)
@@ -1181,23 +1233,25 @@ class LipSyncService:
             progress_callback,
         )
 
-    async def get_available_providers(self) -> List[Dict[str, Any]]:
+    async def get_available_providers(self) -> list[dict[str, Any]]:
         """Get list of available lip sync providers with status."""
         providers = []
 
         for provider_type, provider in self._providers.items():
             available = await provider.check_availability()
-            providers.append({
-                "provider": provider_type.value,
-                "name": provider.name,
-                "available": available,
-            })
+            providers.append(
+                {
+                    "provider": provider_type.value,
+                    "name": provider.name,
+                    "available": available,
+                }
+            )
 
         return providers
 
 
 # Singleton instance
-_lip_sync_service: Optional[LipSyncService] = None
+_lip_sync_service: LipSyncService | None = None
 
 
 def get_lip_sync_service() -> LipSyncService:

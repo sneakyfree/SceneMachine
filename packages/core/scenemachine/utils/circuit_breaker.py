@@ -7,17 +7,18 @@ LLM services, etc.) by preventing cascading failures.
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     """Circuit breaker states."""
 
     CLOSED = "closed"  # Normal operation, requests flow through
@@ -33,11 +34,11 @@ class CircuitStats:
     successful_calls: int = 0
     failed_calls: int = 0
     rejected_calls: int = 0
-    last_failure_time: Optional[float] = None
-    last_success_time: Optional[float] = None
+    last_failure_time: float | None = None
+    last_success_time: float | None = None
     consecutive_failures: int = 0
     consecutive_successes: int = 0
-    state_changes: List[Dict[str, Any]] = field(default_factory=list)
+    state_changes: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -54,7 +55,7 @@ class CircuitBreakerConfig:
     success_threshold: int = 3
 
     # Timeout for individual calls
-    call_timeout: Optional[float] = 30.0
+    call_timeout: float | None = 30.0
 
     # Exceptions that should trip the circuit
     failure_exceptions: tuple = (Exception,)
@@ -78,12 +79,11 @@ class CircuitBreakerError(Exception):
 class CircuitOpenError(CircuitBreakerError):
     """Raised when circuit is open and request is rejected."""
 
-    def __init__(self, circuit_name: str, remaining_time: float):
+    def __init__(self, circuit_name: str, remaining_time: float) -> None:
         self.circuit_name = circuit_name
         self.remaining_time = remaining_time
         super().__init__(
-            f"Circuit '{circuit_name}' is open. "
-            f"Retry after {remaining_time:.1f} seconds."
+            f"Circuit '{circuit_name}' is open. Retry after {remaining_time:.1f} seconds."
         )
 
 
@@ -110,8 +110,8 @@ class CircuitBreaker:
     def __init__(
         self,
         name: str,
-        config: Optional[CircuitBreakerConfig] = None,
-    ):
+        config: CircuitBreakerConfig | None = None,
+    ) -> None:
         """
         Initialize circuit breaker.
 
@@ -123,7 +123,7 @@ class CircuitBreaker:
         self.config = config or CircuitBreakerConfig()
         self._state = CircuitState.CLOSED
         self._stats = CircuitStats()
-        self._opened_at: Optional[float] = None
+        self._opened_at: float | None = None
         self._half_open_calls: int = 0
         self._lock = asyncio.Lock()
 
@@ -182,17 +182,19 @@ class CircuitBreaker:
         self._state = new_state
 
         # Record state change
-        self._stats.state_changes.append({
-            "from": old_state.value,
-            "to": new_state.value,
-            "timestamp": time.time(),
-            "consecutive_failures": self._stats.consecutive_failures,
-            "consecutive_successes": self._stats.consecutive_successes,
-        })
+        self._stats.state_changes.append(
+            {
+                "from": old_state.value,
+                "to": new_state.value,
+                "timestamp": time.time(),
+                "consecutive_failures": self._stats.consecutive_failures,
+                "consecutive_successes": self._stats.consecutive_successes,
+            }
+        )
 
         # Trim history
         if len(self._stats.state_changes) > self.config.max_history:
-            self._stats.state_changes = self._stats.state_changes[-self.config.max_history:]
+            self._stats.state_changes = self._stats.state_changes[-self.config.max_history :]
 
         logger.info(
             f"Circuit '{self.name}' transitioned from {old_state.value} to {new_state.value}"
@@ -231,9 +233,7 @@ class CircuitBreaker:
         self._stats.consecutive_failures += 1
         self._stats.consecutive_successes = 0
 
-        logger.warning(
-            f"Circuit '{self.name}' recorded failure: {type(error).__name__}: {error}"
-        )
+        logger.warning(f"Circuit '{self.name}' recorded failure: {type(error).__name__}: {error}")
 
         if self._state == CircuitState.HALF_OPEN:
             # Any failure in half-open goes back to open
@@ -307,7 +307,7 @@ class CircuitBreaker:
 
             return result
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             if self.config.timeout_as_failure:
                 async with self._lock:
                     self._record_failure(e)
@@ -344,7 +344,7 @@ class CircuitBreaker:
         """Force circuit to closed state."""
         self._transition_to(CircuitState.CLOSED)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get detailed status information."""
         remaining_timeout = 0.0
         if self._state == CircuitState.OPEN and self._opened_at:
@@ -385,8 +385,8 @@ class CircuitBreakerRegistry:
 
     _instance: Optional["CircuitBreakerRegistry"] = None
 
-    def __init__(self):
-        self._circuits: Dict[str, CircuitBreaker] = {}
+    def __init__(self) -> None:
+        self._circuits: dict[str, CircuitBreaker] = {}
         self._lock = asyncio.Lock()
 
     @classmethod
@@ -399,22 +399,22 @@ class CircuitBreakerRegistry:
     def get_or_create(
         self,
         name: str,
-        config: Optional[CircuitBreakerConfig] = None,
+        config: CircuitBreakerConfig | None = None,
     ) -> CircuitBreaker:
         """Get existing or create new circuit breaker."""
         if name not in self._circuits:
             self._circuits[name] = CircuitBreaker(name, config)
         return self._circuits[name]
 
-    def get(self, name: str) -> Optional[CircuitBreaker]:
+    def get(self, name: str) -> CircuitBreaker | None:
         """Get circuit breaker by name."""
         return self._circuits.get(name)
 
-    def get_all(self) -> Dict[str, CircuitBreaker]:
+    def get_all(self) -> dict[str, CircuitBreaker]:
         """Get all circuit breakers."""
         return dict(self._circuits)
 
-    def get_all_status(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_status(self) -> dict[str, dict[str, Any]]:
         """Get status of all circuit breakers."""
         return {name: cb.get_status() for name, cb in self._circuits.items()}
 
@@ -500,7 +500,7 @@ def get_llm_circuit_breaker(provider: str = "default") -> CircuitBreaker:
 
 def circuit_breaker(
     name: str,
-    config: Optional[CircuitBreakerConfig] = None,
+    config: CircuitBreakerConfig | None = None,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Decorator factory for circuit breaker.

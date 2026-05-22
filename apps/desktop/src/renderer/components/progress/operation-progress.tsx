@@ -9,7 +9,13 @@ import { memo, useMemo } from 'react';
 import { X, Loader2, CheckCircle, AlertCircle, Clock, Pause, Play } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-export type ProgressStatus = 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+export type ProgressStatus =
+  | 'pending'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 
 export interface ProgressData {
   /**

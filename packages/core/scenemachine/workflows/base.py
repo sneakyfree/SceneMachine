@@ -3,16 +3,17 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any, Generic, TypeVar
 from uuid import UUID, uuid4
 
 logger = logging.getLogger(__name__)
 
 
-class StepStatus(str, Enum):
+class StepStatus(StrEnum):
     """Status of a workflow step."""
 
     PENDING = "pending"
@@ -23,7 +24,7 @@ class StepStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class WorkflowStatus(str, Enum):
+class WorkflowStatus(StrEnum):
     """Status of the overall workflow."""
 
     PENDING = "pending"
@@ -39,8 +40,8 @@ class StepResult:
     """Result of executing a workflow step."""
 
     success: bool
-    data: Optional[Any] = None
-    error: Optional[str] = None
+    data: Any | None = None
+    error: str | None = None
     duration_seconds: float = 0.0
 
 
@@ -53,16 +54,16 @@ class WorkflowStep:
     description: str
     handler: str  # Name of the method to call
     status: StepStatus = StepStatus.PENDING
-    result: Optional[StepResult] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    result: StepResult | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     retries: int = 0
     max_retries: int = 3
-    dependencies: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    dependencies: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Calculate step duration."""
         if self.started_at and self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()
@@ -77,35 +78,35 @@ class WorkflowState:
     workflow_type: str
     status: WorkflowStatus = WorkflowStatus.PENDING
     current_step_index: int = 0
-    steps: List[WorkflowStep] = field(default_factory=list)
-    context: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    steps: list[WorkflowStep] = field(default_factory=list)
+    context: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     progress_percent: float = 0.0
 
     @property
-    def current_step(self) -> Optional[WorkflowStep]:
+    def current_step(self) -> WorkflowStep | None:
         """Get the current step."""
         if 0 <= self.current_step_index < len(self.steps):
             return self.steps[self.current_step_index]
         return None
 
     @property
-    def completed_steps(self) -> List[WorkflowStep]:
+    def completed_steps(self) -> list[WorkflowStep]:
         """Get completed steps."""
         return [s for s in self.steps if s.status == StepStatus.COMPLETED]
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Calculate workflow duration."""
         if self.started_at:
-            end_time = self.completed_at or datetime.now(timezone.utc)
+            end_time = self.completed_at or datetime.now(UTC)
             return (end_time - self.started_at).total_seconds()
         return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "workflowId": str(self.workflow_id),
@@ -149,14 +150,14 @@ class Workflow(ABC, Generic[T]):
 
     def __init__(
         self,
-        workflow_id: Optional[UUID] = None,
-        context: Optional[T] = None,
-    ):
+        workflow_id: UUID | None = None,
+        context: T | None = None,
+    ) -> None:
         self.workflow_id = workflow_id or uuid4()
         self._context = context
-        self._state: Optional[WorkflowState] = None
-        self._on_progress: Optional[Callable[[WorkflowState], None]] = None
-        self._on_step_complete: Optional[Callable[[WorkflowStep], None]] = None
+        self._state: WorkflowState | None = None
+        self._on_progress: Callable[[WorkflowState], None] | None = None
+        self._on_step_complete: Callable[[WorkflowStep], None] | None = None
         self._cancelled = False
 
     @property
@@ -166,17 +167,17 @@ class Workflow(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         """Define the workflow steps."""
         pass
 
     @property
-    def state(self) -> Optional[WorkflowState]:
+    def state(self) -> WorkflowState | None:
         """Get current workflow state."""
         return self._state
 
     @property
-    def context(self) -> Optional[T]:
+    def context(self) -> T | None:
         """Get workflow context."""
         return self._context
 
@@ -207,9 +208,7 @@ class Workflow(ABC, Generic[T]):
             return
 
         completed = sum(
-            1
-            for s in self._state.steps
-            if s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
+            1 for s in self._state.steps if s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
         )
         self._state.progress_percent = (completed / total) * 100
 
@@ -225,7 +224,7 @@ class Workflow(ABC, Generic[T]):
                 error=f"Handler '{step.handler}' not found",
             )
 
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         step.started_at = start_time
         step.status = StepStatus.RUNNING
         self._update_progress()
@@ -237,7 +236,7 @@ class Workflow(ABC, Generic[T]):
             else:
                 result_data = handler(self._state.context if self._state else {})
 
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             duration = (end_time - start_time).total_seconds()
 
             return StepResult(
@@ -248,7 +247,7 @@ class Workflow(ABC, Generic[T]):
 
         except Exception as e:
             logger.exception(f"Step '{step.name}' failed: {e}")
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(UTC)
             duration = (end_time - start_time).total_seconds()
 
             return StepResult(
@@ -279,7 +278,7 @@ class Workflow(ABC, Generic[T]):
             context=self._context.__dict__ if self._context else {},
         )
         self._state.status = WorkflowStatus.RUNNING
-        self._state.started_at = datetime.now(timezone.utc)
+        self._state.started_at = datetime.now(UTC)
         self._update_progress()
 
         logger.info(f"Starting workflow {self.workflow_type} ({self.workflow_id})")
@@ -302,7 +301,7 @@ class Workflow(ABC, Generic[T]):
                 while step.retries <= step.max_retries:
                     result = await self._execute_step(step)
                     step.result = result
-                    step.completed_at = datetime.now(timezone.utc)
+                    step.completed_at = datetime.now(UTC)
 
                     if result.success:
                         step.status = StepStatus.COMPLETED
@@ -339,7 +338,7 @@ class Workflow(ABC, Generic[T]):
             self._state.error = str(e)
 
         finally:
-            self._state.completed_at = datetime.now(timezone.utc)
+            self._state.completed_at = datetime.now(UTC)
             self._update_progress()
 
         logger.info(
@@ -373,7 +372,7 @@ class Workflow(ABC, Generic[T]):
 
             result = await self._execute_step(step)
             step.result = result
-            step.completed_at = datetime.now(timezone.utc)
+            step.completed_at = datetime.now(UTC)
 
             if result.success:
                 step.status = StepStatus.COMPLETED
@@ -390,14 +389,14 @@ class Workflow(ABC, Generic[T]):
         if self._state.status == WorkflowStatus.RUNNING:
             self._state.status = WorkflowStatus.COMPLETED
 
-        self._state.completed_at = datetime.now(timezone.utc)
+        self._state.completed_at = datetime.now(UTC)
         return self._state
 
 
 class WorkflowRegistry:
     """Registry for workflow types."""
 
-    _workflows: Dict[str, type] = {}
+    _workflows: dict[str, type] = {}
 
     @classmethod
     def register(cls, workflow_class: type) -> type:
@@ -407,11 +406,11 @@ class WorkflowRegistry:
         return workflow_class
 
     @classmethod
-    def get(cls, workflow_type: str) -> Optional[type]:
+    def get(cls, workflow_type: str) -> type | None:
         """Get a workflow class by type."""
         return cls._workflows.get(workflow_type)
 
     @classmethod
-    def list_types(cls) -> List[str]:
+    def list_types(cls) -> list[str]:
         """List all registered workflow types."""
         return list(cls._workflows.keys())

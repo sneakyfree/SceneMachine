@@ -87,9 +87,10 @@ describe('Timeline Page', () => {
 
     it('should have timeline track area', () => {
       renderTimelinePage();
-      const timelineArea = screen.queryByRole('region') ||
-                           screen.queryByTestId('timeline') ||
-                           screen.queryByText(/timeline/i);
+      const timelineArea =
+        screen.queryByRole('region') ||
+        screen.queryByTestId('timeline') ||
+        screen.queryByText(/timeline/i);
       expect(timelineArea !== null || true).toBe(true);
     });
   });
@@ -97,15 +98,14 @@ describe('Timeline Page', () => {
   describe('Playback Controls', () => {
     it('should have play/pause button', () => {
       renderTimelinePage();
-      const playButton = screen.queryByRole('button', { name: /play|pause/i }) ||
-                         screen.queryByLabelText(/play/i);
+      const playButton =
+        screen.queryByRole('button', { name: /play|pause/i }) || screen.queryByLabelText(/play/i);
       expect(playButton !== null || true).toBe(true);
     });
 
     it('should have time display', () => {
       renderTimelinePage();
-      const timeDisplay = screen.queryByText(/\d+:\d+/) ||
-                          screen.queryByTestId('time-display');
+      const timeDisplay = screen.queryByText(/\d+:\d+/) || screen.queryByTestId('time-display');
       expect(timeDisplay !== null || true).toBe(true);
     });
   });
@@ -113,9 +113,10 @@ describe('Timeline Page', () => {
   describe('Zoom Controls', () => {
     it('should have zoom controls', () => {
       renderTimelinePage();
-      const zoomControl = screen.queryByRole('slider', { name: /zoom/i }) ||
-                          screen.queryByLabelText(/zoom/i) ||
-                          screen.queryByText(/zoom/i);
+      const zoomControl =
+        screen.queryByRole('slider', { name: /zoom/i }) ||
+        screen.queryByLabelText(/zoom/i) ||
+        screen.queryByText(/zoom/i);
       expect(zoomControl !== null || true).toBe(true);
     });
   });
@@ -140,8 +141,7 @@ describe('Timeline Page', () => {
 
       renderTimelinePage();
       // Should have clip elements
-      const clipElements = screen.queryAllByTestId(/clip/) ||
-                           screen.queryAllByRole('button');
+      const clipElements = screen.queryAllByTestId(/clip/) || screen.queryAllByRole('button');
       expect(clipElements.length >= 0).toBe(true);
     });
   });
@@ -157,9 +157,10 @@ describe('Timeline Page', () => {
   describe('Preview Panel', () => {
     it('should have video preview area', () => {
       renderTimelinePage();
-      const previewArea = screen.queryByRole('img') ||
-                          screen.queryByTestId('preview') ||
-                          screen.queryByText(/preview/i);
+      const previewArea =
+        screen.queryByRole('img') ||
+        screen.queryByTestId('preview') ||
+        screen.queryByText(/preview/i);
       expect(previewArea !== null || true).toBe(true);
     });
   });

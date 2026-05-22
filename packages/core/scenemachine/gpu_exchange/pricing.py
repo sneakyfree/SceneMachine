@@ -8,8 +8,8 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from enum import StrEnum
+from typing import Any, Optional
 
 from scenemachine.gpu_exchange.base import GPUPricing, GPUType
 from scenemachine.gpu_exchange.registry import get_provider_registry
@@ -17,7 +17,7 @@ from scenemachine.gpu_exchange.registry import get_provider_registry
 logger = logging.getLogger(__name__)
 
 
-class PricingTier(str, Enum):
+class PricingTier(StrEnum):
     """Pricing tier for cost optimization."""
 
     BUDGET = "budget"  # Cheapest available (may use spot)
@@ -33,7 +33,7 @@ class PricingRecord:
     provider_id: str
     gpu_type: GPUType
     price_per_hour: float
-    spot_price: Optional[float]
+    spot_price: float | None
     availability: int
     region: str
     recorded_at: datetime = field(default_factory=datetime.utcnow)
@@ -49,7 +49,7 @@ class PricingComparison:
     cheapest_price: float
     fastest_provider: str
     best_value_provider: str
-    all_options: List[Dict[str, Any]]
+    all_options: list[dict[str, Any]]
     generated_at: datetime = field(default_factory=datetime.utcnow)
 
 
@@ -69,10 +69,10 @@ class PricingService:
     CACHE_DURATION = timedelta(minutes=5)
 
     def __init__(self) -> None:
-        self._pricing_cache: Dict[Tuple[str, GPUType, str], GPUPricing] = {}
-        self._cache_timestamps: Dict[Tuple[str, GPUType, str], datetime] = {}
-        self._price_history: List[PricingRecord] = []
-        self._budget_limits: Dict[str, float] = {}  # project_id -> limit_usd
+        self._pricing_cache: dict[tuple[str, GPUType, str], GPUPricing] = {}
+        self._cache_timestamps: dict[tuple[str, GPUType, str], datetime] = {}
+        self._price_history: list[PricingRecord] = []
+        self._budget_limits: dict[str, float] = {}  # project_id -> limit_usd
 
     @classmethod
     def get_instance(cls) -> "PricingService":
@@ -83,11 +83,11 @@ class PricingService:
 
     def _cache_key(
         self, provider_id: str, gpu_type: GPUType, region: str
-    ) -> Tuple[str, GPUType, str]:
+    ) -> tuple[str, GPUType, str]:
         """Generate cache key for pricing data."""
         return (provider_id, gpu_type, region)
 
-    def _is_cache_valid(self, key: Tuple[str, GPUType, str]) -> bool:
+    def _is_cache_valid(self, key: tuple[str, GPUType, str]) -> bool:
         """Check if cached pricing is still valid."""
         if key not in self._cache_timestamps:
             return False
@@ -100,7 +100,7 @@ class PricingService:
         gpu_type: GPUType,
         region: str = "us-east-1",
         force_refresh: bool = False,
-    ) -> Optional[GPUPricing]:
+    ) -> GPUPricing | None:
         """Get current pricing for a GPU type from a provider.
 
         Args:
@@ -152,7 +152,7 @@ class PricingService:
         self,
         gpu_type: GPUType,
         region: str = "us-east-1",
-    ) -> Dict[str, GPUPricing]:
+    ) -> dict[str, GPUPricing]:
         """Get pricing from all providers for a GPU type.
 
         Args:
@@ -173,7 +173,7 @@ class PricingService:
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for provider_id, result in zip(providers, results):
+        for provider_id, result in zip(providers, results, strict=False):
             if isinstance(result, GPUPricing):
                 pricing_dict[provider_id] = result
 
@@ -253,10 +253,10 @@ class PricingService:
         self,
         gpu_type: GPUType,
         duration_seconds: float,
-        max_price_usd: Optional[float] = None,
+        max_price_usd: float | None = None,
         tier: PricingTier = PricingTier.STANDARD,
-        region: Optional[str] = None,
-    ) -> Optional[Tuple[str, GPUPricing]]:
+        region: str | None = None,
+    ) -> tuple[str, GPUPricing] | None:
         """Get the optimal provider for a job.
 
         Args:
@@ -321,7 +321,7 @@ class PricingService:
         gpu_type: GPUType,
         duration_seconds: float,
         use_spot: bool = False,
-    ) -> Optional[float]:
+    ) -> float | None:
         """Estimate cost for a job using cached pricing.
 
         Args:
@@ -360,7 +360,7 @@ class PricingService:
         project_id: str,
         estimated_cost: float,
         current_spent: float,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Check if a job would exceed budget.
 
         Args:
@@ -394,10 +394,10 @@ class PricingService:
 
     def get_price_history(
         self,
-        provider_id: Optional[str] = None,
-        gpu_type: Optional[GPUType] = None,
+        provider_id: str | None = None,
+        gpu_type: GPUType | None = None,
         hours: int = 24,
-    ) -> List[PricingRecord]:
+    ) -> list[PricingRecord]:
         """Get historical pricing data.
 
         Args:

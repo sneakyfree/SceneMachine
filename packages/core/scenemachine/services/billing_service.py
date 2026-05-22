@@ -5,9 +5,7 @@ Stripe integration for subscriptions and payments.
 """
 
 import logging
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import select
@@ -19,8 +17,9 @@ from scenemachine.models.user import User
 logger = logging.getLogger(__name__)
 
 
-class SubscriptionTier(str, Enum):
+class SubscriptionTier(StrEnum):
     """Available subscription tiers."""
+
     FREE = "free"
     PRO = "pro"
     TEAM = "team"
@@ -28,6 +27,7 @@ class SubscriptionTier(str, Enum):
 
 class PlanConfig:
     """Stripe plan configuration."""
+
     PLANS = {
         SubscriptionTier.FREE: {
             "name": "Free",
@@ -97,7 +97,8 @@ class PlanConfig:
 
 class BillingServiceError(Exception):
     """Base exception for billing service."""
-    def __init__(self, message: str, code: str = "billing_error"):
+
+    def __init__(self, message: str, code: str = "billing_error") -> None:
         self.message = message
         self.code = code
         super().__init__(message)
@@ -106,7 +107,7 @@ class BillingServiceError(Exception):
 class BillingService:
     """Service for Stripe billing and subscriptions."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.settings = get_settings()
         self._stripe = None
@@ -116,12 +117,12 @@ class BillingService:
         if self._stripe is None:
             try:
                 import stripe
+
                 stripe.api_key = self.settings.stripe_secret_key
                 self._stripe = stripe
             except ImportError:
                 raise BillingServiceError(
-                    "Stripe library not installed", 
-                    code="stripe_not_installed"
+                    "Stripe library not installed", code="stripe_not_installed"
                 )
         return self._stripe
 
@@ -146,9 +147,7 @@ class BillingService:
         stripe = self._get_stripe()
 
         # Get user
-        result = await self.session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -193,9 +192,7 @@ class BillingService:
         stripe = self._get_stripe()
 
         # Get user's customer ID (would be stored in user model)
-        result = await self.session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -206,10 +203,7 @@ class BillingService:
         try:
             customers = stripe.Customer.list(email=user.email, limit=1)
             if not customers.data:
-                raise BillingServiceError(
-                    "No billing profile found",
-                    code="no_customer"
-                )
+                raise BillingServiceError("No billing profile found", code="no_customer")
 
             portal_session = stripe.billing_portal.Session.create(
                 customer=customers.data[0].id,
@@ -241,10 +235,7 @@ class BillingService:
                 self.settings.stripe_webhook_secret,
             )
         except stripe.error.SignatureVerificationError:
-            raise BillingServiceError(
-                "Invalid webhook signature",
-                code="invalid_signature"
-            )
+            raise BillingServiceError("Invalid webhook signature", code="invalid_signature")
 
         event_type = event["type"]
         data = event["data"]["object"]
@@ -273,12 +264,9 @@ class BillingService:
             return
 
         subscription_id = data.get("subscription")
-        customer_id = data.get("customer")
+        data.get("customer")
 
-        logger.info(
-            f"Checkout completed for user {user_id}, "
-            f"subscription {subscription_id}"
-        )
+        logger.info(f"Checkout completed for user {user_id}, subscription {subscription_id}")
 
         # TODO: Update user's subscription status in database
 
@@ -286,11 +274,9 @@ class BillingService:
         """Handle subscription update."""
         user_id = data.get("metadata", {}).get("user_id")
         status = data.get("status")
-        current_period_end = data.get("current_period_end")
+        data.get("current_period_end")
 
-        logger.info(
-            f"Subscription updated for user {user_id}: {status}"
-        )
+        logger.info(f"Subscription updated for user {user_id}: {status}")
 
         # TODO: Update user's subscription status in database
 
@@ -307,15 +293,12 @@ class BillingService:
         subscription_id = data.get("subscription")
         amount_paid = data.get("amount_paid")
 
-        logger.info(
-            f"Invoice paid for subscription {subscription_id}: "
-            f"${amount_paid / 100:.2f}"
-        )
+        logger.info(f"Invoice paid for subscription {subscription_id}: ${amount_paid / 100:.2f}")
 
     async def _handle_payment_failed(self, data: dict) -> None:
         """Handle failed payment."""
         subscription_id = data.get("subscription")
-        
+
         logger.warning(f"Payment failed for subscription {subscription_id}")
 
         # TODO: Send notification to user, potentially downgrade

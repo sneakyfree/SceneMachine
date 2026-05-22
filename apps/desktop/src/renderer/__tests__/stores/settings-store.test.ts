@@ -101,8 +101,22 @@ describe('SettingsStore', () => {
       const { setProviderStatuses } = useSettingsStore.getState();
 
       const statuses = [
-        { provider: 'anthropic', name: 'Anthropic', available: true, configured: true, message: 'OK', latencyMs: 100 },
-        { provider: 'replicate', name: 'Replicate', available: true, configured: false, message: 'API key not set', latencyMs: null },
+        {
+          provider: 'anthropic',
+          name: 'Anthropic',
+          available: true,
+          configured: true,
+          message: 'OK',
+          latencyMs: 100,
+        },
+        {
+          provider: 'replicate',
+          name: 'Replicate',
+          available: true,
+          configured: false,
+          message: 'API key not set',
+          latencyMs: null,
+        },
       ];
 
       setProviderStatuses(statuses);
@@ -155,7 +169,12 @@ describe('SettingsStore', () => {
       const { setVideoProviders } = useSettingsStore.getState();
 
       const providers = [
-        { value: 'replicate', label: 'Replicate', description: 'Cloud video gen', requiresKey: true },
+        {
+          value: 'replicate',
+          label: 'Replicate',
+          description: 'Cloud video gen',
+          requiresKey: true,
+        },
         { value: 'local', label: 'Local', description: 'Local ComfyUI', requiresKey: false },
       ];
 
@@ -326,7 +345,16 @@ describe('SettingsStore', () => {
         createdAt: '2024-01-01',
         updatedAt: '2024-01-01',
       });
-      setProviderStatuses([{ provider: 'test', name: 'Test', available: true, configured: true, message: 'OK', latencyMs: 50 }]);
+      setProviderStatuses([
+        {
+          provider: 'test',
+          name: 'Test',
+          available: true,
+          configured: true,
+          message: 'OK',
+          latencyMs: 50,
+        },
+      ]);
       setError('Some error');
 
       // Reset

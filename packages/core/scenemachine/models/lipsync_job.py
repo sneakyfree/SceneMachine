@@ -1,19 +1,18 @@
 """Lip Sync Job Model for tracking lip sync processing jobs."""
 
 from datetime import datetime
-from enum import Enum
-from typing import Optional
-from uuid import UUID, uuid4
+from enum import StrEnum
+from uuid import UUID
 
-from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy import Enum as SAEnum
+from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin, UUIDMixin
 
 
-class LipsyncJobStatus(str, Enum):
+class LipsyncJobStatus(StrEnum):
     """Status of a lip sync job."""
 
     QUEUED = "queued"
@@ -46,7 +45,7 @@ class LipsyncJob(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "lipsync_jobs"
 
     # Optional shot association
-    shot_id: Mapped[Optional[UUID]] = mapped_column(
+    shot_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("shots.id", ondelete="SET NULL"),
         nullable=True,
@@ -68,7 +67,7 @@ class LipsyncJob(Base, UUIDMixin, TimestampMixin):
     )
 
     # Output asset (created when job completes)
-    output_asset_id: Mapped[Optional[UUID]] = mapped_column(
+    output_asset_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("assets.id", ondelete="SET NULL"),
         nullable=True,
@@ -93,7 +92,7 @@ class LipsyncJob(Base, UUIDMixin, TimestampMixin):
     )
 
     # Error tracking
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Provider information
     provider: Mapped[str] = mapped_column(
@@ -103,10 +102,10 @@ class LipsyncJob(Base, UUIDMixin, TimestampMixin):
     )
 
     # Output path (temporary until asset is created)
-    output_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    output_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # Completion timestamp
-    completed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     @property
     def is_finished(self) -> bool:

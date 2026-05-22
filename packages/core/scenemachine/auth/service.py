@@ -6,15 +6,13 @@ Business logic for user authentication and management.
 
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.auth.jwt import (
-    TokenData,
     TokenType,
     create_access_token,
     create_refresh_token,
@@ -29,7 +27,7 @@ from scenemachine.models.user import RefreshToken, User
 class AuthServiceError(Exception):
     """Base exception for auth service errors."""
 
-    def __init__(self, message: str, code: str = "auth_error"):
+    def __init__(self, message: str, code: str = "auth_error") -> None:
         self.message = message
         self.code = code
         super().__init__(self.message)
@@ -38,7 +36,7 @@ class AuthServiceError(Exception):
 class UserExistsError(AuthServiceError):
     """Raised when attempting to create a user that already exists."""
 
-    def __init__(self, field: str):
+    def __init__(self, field: str) -> None:
         super().__init__(
             f"User with this {field} already exists",
             code="user_exists",
@@ -48,7 +46,7 @@ class UserExistsError(AuthServiceError):
 class InvalidCredentialsError(AuthServiceError):
     """Raised when login credentials are invalid."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "Invalid email or password",
             code="invalid_credentials",
@@ -58,17 +56,15 @@ class InvalidCredentialsError(AuthServiceError):
 class TokenError(AuthServiceError):
     """Raised when there's an issue with a token."""
 
-    def __init__(self, message: str = "Invalid or expired token"):
+    def __init__(self, message: str = "Invalid or expired token") -> None:
         super().__init__(message, code="token_error")
 
 
 class AccountLockedError(AuthServiceError):
     """Raised when account is locked due to too many failed login attempts."""
 
-    def __init__(self, locked_until: datetime):
-        minutes_remaining = max(
-            1, int((locked_until - datetime.now(timezone.utc)).total_seconds() / 60)
-        )
+    def __init__(self, locked_until: datetime) -> None:
+        minutes_remaining = max(1, int((locked_until - datetime.now(UTC)).total_seconds() / 60))
         super().__init__(
             f"Account locked due to too many failed attempts. Try again in {minutes_remaining} minute(s).",
             code="account_locked",
@@ -85,7 +81,7 @@ class AuthService:
     MAX_LOGIN_ATTEMPTS: int = 5
     LOCKOUT_DURATION_MINUTES: int = 15
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         """Initialize auth service.
 
         Args:
@@ -99,7 +95,7 @@ class AuthService:
         email: str,
         username: str,
         password: str,
-        full_name: Optional[str] = None,
+        full_name: str | None = None,
     ) -> User:
         """Register a new user.
 
@@ -116,16 +112,12 @@ class AuthService:
             UserExistsError: If email or username already exists
         """
         # Check for existing email
-        result = await self.session.execute(
-            select(User).where(User.email == email.lower())
-        )
+        result = await self.session.execute(select(User).where(User.email == email.lower()))
         if result.scalar_one_or_none():
             raise UserExistsError("email")
 
         # Check for existing username
-        result = await self.session.execute(
-            select(User).where(User.username == username.lower())
-        )
+        result = await self.session.execute(select(User).where(User.username == username.lower()))
         if result.scalar_one_or_none():
             raise UserExistsError("username")
 
@@ -143,9 +135,7 @@ class AuthService:
 
         return user
 
-    async def authenticate_user(
-        self, email: str, password: str
-    ) -> Tuple[User, str, str]:
+    async def authenticate_user(self, email: str, password: str) -> tuple[User, str, str]:
         """Authenticate user and generate tokens.
 
         Args:
@@ -160,16 +150,14 @@ class AuthService:
             AccountLockedError: If account is locked due to too many failed attempts
         """
         # Find user
-        result = await self.session.execute(
-            select(User).where(User.email == email.lower())
-        )
+        result = await self.session.execute(select(User).where(User.email == email.lower()))
         user = result.scalar_one_or_none()
 
         if not user:
             raise InvalidCredentialsError()
 
         # FEAT-006: Check account lockout
-        if user.locked_until and user.locked_until > datetime.now(timezone.utc):
+        if user.locked_until and user.locked_until > datetime.now(UTC):
             logger.warning(f"Login attempt on locked account: {email}")
             raise AccountLockedError(user.locked_until)
 
@@ -177,18 +165,14 @@ class AuthService:
         if not verify_password(password, user.hashed_password):
             # Increment failed attempts
             user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-            logger.warning(
-                f"Failed login for {email}: attempt {user.failed_login_attempts}"
-            )
+            logger.warning(f"Failed login for {email}: attempt {user.failed_login_attempts}")
 
             # Lock account after MAX_LOGIN_ATTEMPTS failures
             if user.failed_login_attempts >= self.MAX_LOGIN_ATTEMPTS:
-                user.locked_until = datetime.now(timezone.utc) + timedelta(
+                user.locked_until = datetime.now(UTC) + timedelta(
                     minutes=self.LOCKOUT_DURATION_MINUTES
                 )
-                logger.warning(
-                    f"Account locked for {email} until {user.locked_until}"
-                )
+                logger.warning(f"Account locked for {email} until {user.locked_until}")
 
             await self.session.commit()
             raise InvalidCredentialsError()
@@ -202,7 +186,7 @@ class AuthService:
         # FEAT-006: Reset failed attempts on successful login
         user.failed_login_attempts = 0
         user.locked_until = None
-        user.last_login_at = datetime.now(timezone.utc)
+        user.last_login_at = datetime.now(UTC)
 
         # Generate tokens
         access_token = create_access_token(user.id)
@@ -221,9 +205,7 @@ class AuthService:
 
         return user, access_token, refresh_token
 
-    async def refresh_tokens(
-        self, refresh_token: str
-    ) -> Tuple[str, str]:
+    async def refresh_tokens(self, refresh_token: str) -> tuple[str, str]:
         """Refresh access and refresh tokens.
 
         Args:
@@ -251,7 +233,7 @@ class AuthService:
             select(RefreshToken).where(
                 RefreshToken.user_id == token_data.user_id,
                 RefreshToken.is_revoked == False,  # noqa: E712
-                RefreshToken.expires_at > datetime.now(timezone.utc),
+                RefreshToken.expires_at > datetime.now(UTC),
             )
         )
         stored_tokens = result.scalars().all()
@@ -268,7 +250,7 @@ class AuthService:
 
         # Revoke old refresh token
         valid_token.is_revoked = True
-        valid_token.revoked_at = datetime.now(timezone.utc)
+        valid_token.revoked_at = datetime.now(UTC)
 
         # Generate new tokens
         new_access_token = create_access_token(token_data.user_id)
@@ -287,7 +269,7 @@ class AuthService:
 
         return new_access_token, new_refresh_token
 
-    async def logout(self, user_id: UUID, refresh_token: Optional[str] = None) -> None:
+    async def logout(self, user_id: UUID, refresh_token: str | None = None) -> None:
         """Logout user by revoking refresh tokens.
 
         Args:
@@ -308,7 +290,7 @@ class AuthService:
                     for stored_token in result.scalars():
                         if verify_password(token_data.jti, stored_token.token_hash):
                             stored_token.is_revoked = True
-                            stored_token.revoked_at = datetime.now(timezone.utc)
+                            stored_token.revoked_at = datetime.now(UTC)
                             break
             except Exception:
                 pass  # Ignore invalid tokens on logout
@@ -322,7 +304,7 @@ class AuthService:
             )
             for token in result.scalars():
                 token.is_revoked = True
-                token.revoked_at = datetime.now(timezone.utc)
+                token.revoked_at = datetime.now(UTC)
 
         await self.session.commit()
 
@@ -356,11 +338,11 @@ class AuthService:
         )
         for token in result.scalars():
             token.is_revoked = True
-            token.revoked_at = datetime.now(timezone.utc)
+            token.revoked_at = datetime.now(UTC)
 
         await self.session.commit()
 
-    async def get_user_by_id(self, user_id: UUID) -> Optional[User]:
+    async def get_user_by_id(self, user_id: UUID) -> User | None:
         """Get user by ID.
 
         Args:
@@ -369,12 +351,10 @@ class AuthService:
         Returns:
             User object or None
         """
-        result = await self.session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
-    async def get_user_by_email(self, email: str) -> Optional[User]:
+    async def get_user_by_email(self, email: str) -> User | None:
         """Get user by email.
 
         Args:
@@ -383,17 +363,15 @@ class AuthService:
         Returns:
             User object or None
         """
-        result = await self.session.execute(
-            select(User).where(User.email == email.lower())
-        )
+        result = await self.session.execute(select(User).where(User.email == email.lower()))
         return result.scalar_one_or_none()
 
     async def update_user(
         self,
         user: User,
-        full_name: Optional[str] = None,
-        bio: Optional[str] = None,
-        avatar_url: Optional[str] = None,
+        full_name: str | None = None,
+        bio: str | None = None,
+        avatar_url: str | None = None,
     ) -> User:
         """Update user profile.
 

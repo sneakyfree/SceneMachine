@@ -22,5 +22,3 @@ export { TimelineMinimap, useTimelineViewport } from './timeline-minimap';
 
 // Clip editing
 export { ClipTrimmerSplitter, useClipEditor } from './clip-trimmer-splitter';
-
-

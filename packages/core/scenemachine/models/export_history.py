@@ -4,18 +4,18 @@ Tracks all exports for projects with detailed metadata and status.
 """
 
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, Optional
+from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType
+from scenemachine.models.base import Base, JSONType, TimestampMixin, UUIDMixin
 
 
-class ExportStatus(str, Enum):
+class ExportStatus(StrEnum):
     """Export status states."""
 
     PENDING = "pending"
@@ -27,7 +27,7 @@ class ExportStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     """Supported export formats."""
 
     MP4_H264 = "mp4_h264"
@@ -37,7 +37,7 @@ class ExportFormat(str, Enum):
     MKV_H264 = "mkv_h264"
 
 
-class ExportQuality(str, Enum):
+class ExportQuality(StrEnum):
     """Export quality presets."""
 
     DRAFT = "draft"
@@ -84,11 +84,11 @@ class ExportHistory(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         default=24,
     )
-    video_bitrate: Mapped[Optional[str]] = mapped_column(
+    video_bitrate: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
     )
-    audio_bitrate: Mapped[Optional[str]] = mapped_column(
+    audio_bitrate: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
     )
@@ -105,77 +105,77 @@ class ExportHistory(Base, UUIDMixin, TimestampMixin):
         nullable=False,
         default=0.0,
     )
-    progress_message: Mapped[Optional[str]] = mapped_column(
+    progress_message: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
 
     # Output information
-    output_filename: Mapped[Optional[str]] = mapped_column(
+    output_filename: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
-    output_path: Mapped[Optional[str]] = mapped_column(
+    output_path: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    file_size_bytes: Mapped[Optional[int]] = mapped_column(
+    file_size_bytes: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
     )
 
     # Verified metadata from FFmpeg probe
-    actual_duration_seconds: Mapped[Optional[float]] = mapped_column(
+    actual_duration_seconds: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )
-    actual_resolution: Mapped[Optional[str]] = mapped_column(
+    actual_resolution: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
     )
-    actual_fps: Mapped[Optional[float]] = mapped_column(
+    actual_fps: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )
-    video_codec: Mapped[Optional[str]] = mapped_column(
+    video_codec: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
-    audio_codec: Mapped[Optional[str]] = mapped_column(
+    audio_codec: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
 
     # Timing
-    started_at: Mapped[Optional[datetime]] = mapped_column(
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    encoding_duration_seconds: Mapped[Optional[float]] = mapped_column(
+    encoding_duration_seconds: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
     )
 
     # Error tracking
-    error_message: Mapped[Optional[str]] = mapped_column(
+    error_message: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )
-    error_code: Mapped[Optional[str]] = mapped_column(
+    error_code: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
 
     # Additional metadata
-    export_settings: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    export_settings: Mapped[dict[str, Any] | None] = mapped_column(
         JSONType,
         nullable=True,
     )
-    verification_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    verification_result: Mapped[dict[str, Any] | None] = mapped_column(
         JSONType,
         nullable=True,
     )
@@ -248,7 +248,7 @@ class ExportHistory(Base, UUIDMixin, TimestampMixin):
             return f"{hours}:{mins:02d}:{secs:02d}"
         return f"{mins}:{secs:02d}"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API responses."""
         return {
             "id": str(self.id),

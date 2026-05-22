@@ -1,6 +1,5 @@
 """Project API endpoints."""
 
-from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,12 +21,12 @@ from scenemachine.services.project_duplicator import duplicate_project
 router = APIRouter()
 
 
-@router.get("", response_model=List[ProjectSummary])
+@router.get("", response_model=list[ProjectSummary])
 async def list_projects(
     db: AsyncSession = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-) -> List[ProjectSummary]:
+) -> list[ProjectSummary]:
     """List all projects.
 
     Returns a paginated list of projects with summary information.
@@ -254,17 +253,18 @@ async def delete_project(
 
 
 from pydantic import BaseModel
-from typing import Optional
 
 
 class ProjectDuplicateRequest(BaseModel):
     """Request to duplicate a project."""
 
-    new_name: Optional[str] = None
+    new_name: str | None = None
     include_generated_videos: bool = False
 
 
-@router.post("/{project_id}/duplicate", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{project_id}/duplicate", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED
+)
 async def duplicate_project_endpoint(
     project_id: UUID,
     request: ProjectDuplicateRequest,

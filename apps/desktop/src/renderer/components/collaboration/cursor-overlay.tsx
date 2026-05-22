@@ -26,13 +26,8 @@ interface CursorOverlayProps {
 const CURSOR_UPDATE_INTERVAL_MS = 50;
 
 export function CursorOverlay({ trackLocalCursor = true, className }: CursorOverlayProps) {
-  const {
-    isConnected,
-    currentUserId,
-    collaborators,
-    cursors,
-    setLocalCursor,
-  } = useCollaborationStore();
+  const { isConnected, currentUserId, collaborators, cursors, setLocalCursor } =
+    useCollaborationStore();
 
   const lastUpdateRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
@@ -104,13 +99,7 @@ export function CursorOverlay({ trackLocalCursor = true, className }: CursorOver
     });
 
   return (
-    <div
-      className={cn(
-        "fixed inset-0 pointer-events-none z-[9999]",
-        className
-      )}
-      aria-hidden="true"
-    >
+    <div className={cn('fixed inset-0 pointer-events-none z-[9999]', className)} aria-hidden="true">
       {otherCursors.map((cursor) => (
         <Cursor
           key={cursor.userId}

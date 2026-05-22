@@ -4,8 +4,8 @@ Scene Model
 A scene from the screenplay with generation plan and status.
 """
 
-from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from enum import StrEnum
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
@@ -13,14 +13,14 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType, ArrayType
+from scenemachine.models.base import ArrayType, Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from scenemachine.models.project import Project
     from scenemachine.models.shot import Shot
 
 
-class SceneType(str, Enum):
+class SceneType(StrEnum):
     """Scene type classification based on location."""
 
     INTERIOR = "interior"  # INT.
@@ -28,7 +28,7 @@ class SceneType(str, Enum):
     INTERIOR_EXTERIOR = "interior_exterior"  # INT./EXT.
 
 
-class TimeOfDay(str, Enum):
+class TimeOfDay(StrEnum):
     """Time of day for scene lighting and mood."""
 
     DAY = "day"
@@ -44,7 +44,7 @@ class TimeOfDay(str, Enum):
     MOMENTS_LATER = "moments_later"
 
 
-class SceneState(str, Enum):
+class SceneState(StrEnum):
     """Scene workflow states."""
 
     PARSED = "parsed"  # Extracted from screenplay
@@ -103,7 +103,7 @@ class Scene(Base, UUIDMixin, TimestampMixin):
         nullable=False,
     )
     location: Mapped[str] = mapped_column(String(255), nullable=False)
-    sub_location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    sub_location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     time_of_day: Mapped[TimeOfDay] = mapped_column(
         SAEnum(TimeOfDay, name="time_of_day"),
         nullable=False,
@@ -111,10 +111,8 @@ class Scene(Base, UUIDMixin, TimestampMixin):
 
     # Scene content (from screenplay)
     raw_content: Mapped[str] = mapped_column(Text, nullable=False)
-    action_lines: Mapped[list[str]] = mapped_column(
-        ArrayType(Text), default=list, nullable=False
-    )
-    dialogue_blocks: Mapped[Optional[list]] = mapped_column(JSONType, nullable=True)
+    action_lines: Mapped[list[str]] = mapped_column(ArrayType(Text), default=list, nullable=False)
+    dialogue_blocks: Mapped[list | None] = mapped_column(JSONType, nullable=True)
     # Dialogue blocks structure:
     # [
     #     {
@@ -130,7 +128,7 @@ class Scene(Base, UUIDMixin, TimestampMixin):
     )
 
     # Scene analysis (AI-generated)
-    analysis: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    analysis: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "summary": "Sarah confronts her fears...",
@@ -162,10 +160,8 @@ class Scene(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Shot breakdown (AI-generated, user-editable)
-    shot_breakdown: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
-    shot_breakdown_approved: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    shot_breakdown: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
+    shot_breakdown_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Shot breakdown structure:
     # {
     #     "version": 1,
@@ -202,7 +198,7 @@ class Scene(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Generation settings (can override project defaults)
-    generation_settings: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    generation_settings: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "quality_preset": "high",
@@ -214,12 +210,8 @@ class Scene(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Timing
-    estimated_duration_seconds: Mapped[Optional[float]] = mapped_column(
-        Float, nullable=True
-    )
-    actual_duration_seconds: Mapped[Optional[float]] = mapped_column(
-        Float, nullable=True
-    )
+    estimated_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    actual_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # State
     state: Mapped[SceneState] = mapped_column(

@@ -4,22 +4,22 @@ Asset Model
 Digital assets (images, videos, etc.) used throughout the project.
 """
 
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from scenemachine.models.base import Base, TimestampMixin, UUIDMixin, JSONType
+from scenemachine.models.base import Base, JSONType, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from scenemachine.models.character import Character
 
 
-class AssetType(str, Enum):
+class AssetType(StrEnum):
     """Types of assets in the system."""
 
     # Reference images
@@ -45,7 +45,7 @@ class AssetType(str, Enum):
     WORKING_FILE = "working_file"  # Intermediate working file
 
 
-class AssetStatus(str, Enum):
+class AssetStatus(StrEnum):
     """Asset processing status."""
 
     UPLOADING = "uploading"  # Upload in progress
@@ -89,19 +89,19 @@ class Asset(Base, UUIDMixin, TimestampMixin):
     )
 
     # Optional associations
-    character_id: Mapped[Optional[UUID]] = mapped_column(
+    character_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("characters.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    shot_id: Mapped[Optional[UUID]] = mapped_column(
+    shot_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("shots.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
-    scene_id: Mapped[Optional[UUID]] = mapped_column(
+    scene_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         ForeignKey("scenes.id", ondelete="SET NULL"),
         nullable=True,
@@ -123,16 +123,16 @@ class Asset(Base, UUIDMixin, TimestampMixin):
     # File information
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_path: Mapped[str] = mapped_column(String(512), nullable=False)
-    file_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # SHA-256
-    file_size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    mime_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Display information
-    display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Type-specific metadata (named asset_metadata to avoid SQLAlchemy reserved attribute)
-    asset_metadata: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    asset_metadata: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure varies by asset_type:
     #
     # For images (CHARACTER_REFERENCE, CHARACTER_GENERATED, etc.):
@@ -178,7 +178,7 @@ class Asset(Base, UUIDMixin, TimestampMixin):
     # }
 
     # Source tracking (for generated assets)
-    source_info: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    source_info: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     # Structure:
     # {
     #     "generated": true,
@@ -246,7 +246,7 @@ class Asset(Base, UUIDMixin, TimestampMixin):
         return f"{size:.1f} TB"
 
     @property
-    def dimensions(self) -> Optional[tuple[int, int]]:
+    def dimensions(self) -> tuple[int, int] | None:
         """Get image/video dimensions if available."""
         if self.asset_metadata:
             width = self.asset_metadata.get("width")
@@ -256,7 +256,7 @@ class Asset(Base, UUIDMixin, TimestampMixin):
         return None
 
     @property
-    def duration_seconds(self) -> Optional[float]:
+    def duration_seconds(self) -> float | None:
         """Get video duration if available."""
         if self.is_video and self.asset_metadata:
             return self.asset_metadata.get("duration_seconds")

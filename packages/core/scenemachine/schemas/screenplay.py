@@ -1,7 +1,7 @@
 """Screenplay API schemas."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -23,7 +23,7 @@ class ScreenplayResponse(BaseModel):
     original_filename: str
     original_format: ScreenplayFormat
     is_parsed: bool
-    parse_errors: Optional[List[str]] = None
+    parse_errors: list[str] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -71,12 +71,12 @@ class ScreenplayDetail(BaseModel):
     original_filename: str
     original_format: ScreenplayFormat
     is_parsed: bool
-    parse_errors: Optional[List[str]] = None
-    parsed_content: Optional[Dict[str, Any]] = None
+    parse_errors: list[str] | None = None
+    parsed_content: dict[str, Any] | None = None
     character_count: int = 0
     scene_count: int = 0
-    characters: List[Dict[str, Any]] = Field(default_factory=list)
-    scenes: List[Dict[str, Any]] = Field(default_factory=list)
+    characters: list[dict[str, Any]] = Field(default_factory=list)
+    scenes: list[dict[str, Any]] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -91,5 +91,5 @@ class ParseResult(BaseModel):
     character_count: int
     scene_count: int
     element_count: int
-    errors: Optional[List[str]] = None
-    warnings: Optional[List[str]] = None
+    errors: list[str] | None = None
+    warnings: list[str] | None = None

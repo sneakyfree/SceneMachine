@@ -239,5 +239,3 @@ export class IPCClient extends EventEmitter {
     this.connected = false;
   }
 }
-
-

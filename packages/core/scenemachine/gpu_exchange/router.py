@@ -12,21 +12,18 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from enum import StrEnum
+from typing import Any, Optional
 from uuid import UUID
 
 from scenemachine.gpu_exchange.base import (
     GPUExchangeProvider,
-    GPUInstance,
     GPUPricing,
     GPUType,
     ProviderCapability,
     ProvisionResult,
 )
 from scenemachine.gpu_exchange.pricing import (
-    PricingService,
-    PricingTier,
     get_pricing_service,
 )
 from scenemachine.gpu_exchange.registry import get_provider_registry
@@ -34,7 +31,7 @@ from scenemachine.gpu_exchange.registry import get_provider_registry
 logger = logging.getLogger(__name__)
 
 
-class RoutingPriority(str, Enum):
+class RoutingPriority(StrEnum):
     """Job priority levels for routing decisions."""
 
     LOW = "low"  # Cost-optimized, can wait
@@ -48,10 +45,10 @@ class RoutingConfig:
     """Configuration for routing decisions."""
 
     priority: RoutingPriority = RoutingPriority.NORMAL
-    max_price_usd: Optional[float] = None
-    preferred_providers: List[str] = field(default_factory=list)
-    excluded_providers: List[str] = field(default_factory=list)
-    preferred_regions: List[str] = field(default_factory=lambda: ["us-east-1"])
+    max_price_usd: float | None = None
+    preferred_providers: list[str] = field(default_factory=list)
+    excluded_providers: list[str] = field(default_factory=list)
+    preferred_regions: list[str] = field(default_factory=lambda: ["us-east-1"])
     allow_spot: bool = True
     max_queue_depth: int = 100
     max_latency_ms: float = 5000
@@ -68,9 +65,9 @@ class ProviderScore:
     latency_score: float
     reliability_score: float
     queue_score: float
-    pricing: Optional[GPUPricing] = None
+    pricing: GPUPricing | None = None
     is_eligible: bool = True
-    disqualification_reason: Optional[str] = None
+    disqualification_reason: str | None = None
 
 
 @dataclass
@@ -81,7 +78,7 @@ class ProviderSelection:
     provider: GPUExchangeProvider
     pricing: GPUPricing
     score: ProviderScore
-    fallback_providers: List[str]
+    fallback_providers: list[str]
     estimated_cost: float
     use_spot: bool = False
 
@@ -93,15 +90,15 @@ class RoutingDecision:
     decision_id: str
     job_id: UUID
     selected_provider: str
-    fallback_providers: List[str]
-    scores: List[ProviderScore]
+    fallback_providers: list[str]
+    scores: list[ProviderScore]
     config: RoutingConfig
     estimated_cost: float
-    actual_cost: Optional[float] = None
-    success: Optional[bool] = None
+    actual_cost: float | None = None
+    success: bool | None = None
     failover_used: bool = False
     created_at: datetime = field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 class GPUExchangeRouter:
@@ -130,12 +127,12 @@ class GPUExchangeRouter:
     QUEUE_WEIGHT = 0.15
 
     # Circuit breaker tracking
-    _circuit_breakers: Dict[str, Dict[str, Any]] = {}
-    _provider_reliability: Dict[str, float] = {}
+    _circuit_breakers: dict[str, dict[str, Any]] = {}
+    _provider_reliability: dict[str, float] = {}
 
     def __init__(self) -> None:
-        self._routing_history: List[RoutingDecision] = []
-        self._active_jobs: Dict[str, str] = {}  # job_id -> provider_id
+        self._routing_history: list[RoutingDecision] = []
+        self._active_jobs: dict[str, str] = {}  # job_id -> provider_id
 
     @classmethod
     def get_instance(cls) -> "GPUExchangeRouter":
@@ -148,9 +145,9 @@ class GPUExchangeRouter:
         self,
         gpu_type: GPUType,
         duration_seconds: float,
-        config: Optional[RoutingConfig] = None,
+        config: RoutingConfig | None = None,
         required_capability: ProviderCapability = ProviderCapability.VIDEO_GENERATION,
-    ) -> Optional[ProviderSelection]:
+    ) -> ProviderSelection | None:
         """Select optimal provider for a job.
 
         Args:
@@ -164,21 +161,17 @@ class GPUExchangeRouter:
         """
         config = config or RoutingConfig()
         registry = get_provider_registry()
-        pricing_service = get_pricing_service()
+        get_pricing_service()
 
         # Phase 1: Filter by capability and circuit breaker
-        candidates = await self._filter_candidates(
-            gpu_type, required_capability, config
-        )
+        candidates = await self._filter_candidates(gpu_type, required_capability, config)
 
         if not candidates:
             logger.warning(f"No eligible providers for {gpu_type}")
             return None
 
         # Phase 2: Get pricing and score all candidates
-        scores = await self._score_candidates(
-            candidates, gpu_type, duration_seconds, config
-        )
+        scores = await self._score_candidates(candidates, gpu_type, duration_seconds, config)
 
         # Filter out ineligible providers
         eligible_scores = [s for s in scores if s.is_eligible]
@@ -207,9 +200,7 @@ class GPUExchangeRouter:
         )
 
         if use_spot and best_score.pricing.spot_price_per_hour:
-            estimated_cost = (
-                best_score.pricing.spot_price_per_hour / 3600
-            ) * duration_seconds
+            estimated_cost = (best_score.pricing.spot_price_per_hour / 3600) * duration_seconds
 
         return ProviderSelection(
             provider_id=best_score.provider_id,
@@ -226,7 +217,7 @@ class GPUExchangeRouter:
         gpu_type: GPUType,
         required_capability: ProviderCapability,
         config: RoutingConfig,
-    ) -> List[str]:
+    ) -> list[str]:
         """Filter providers by capability and availability."""
         registry = get_provider_registry()
         candidates = []
@@ -265,20 +256,18 @@ class GPUExchangeRouter:
 
     async def _score_candidates(
         self,
-        candidates: List[str],
+        candidates: list[str],
         gpu_type: GPUType,
         duration_seconds: float,
         config: RoutingConfig,
-    ) -> List[ProviderScore]:
+    ) -> list[ProviderScore]:
         """Score all candidate providers."""
         registry = get_provider_registry()
         pricing_service = get_pricing_service()
         scores = []
 
         # Get all pricing in parallel
-        pricing_tasks = [
-            pricing_service.get_pricing(p, gpu_type) for p in candidates
-        ]
+        pricing_tasks = [pricing_service.get_pricing(p, gpu_type) for p in candidates]
         pricing_results = await asyncio.gather(*pricing_tasks, return_exceptions=True)
 
         # Get health in parallel
@@ -293,11 +282,7 @@ class GPUExchangeRouter:
         health_results = await asyncio.gather(*health_tasks, return_exceptions=True)
 
         # Find price range for normalization
-        valid_prices = [
-            p.price_per_hour
-            for p in pricing_results
-            if isinstance(p, GPUPricing)
-        ]
+        valid_prices = [p.price_per_hour for p in pricing_results if isinstance(p, GPUPricing)]
         min_price = min(valid_prices) if valid_prices else 1.0
         max_price = max(valid_prices) if valid_prices else 2.0
         price_range = max_price - min_price if max_price > min_price else 1.0
@@ -327,7 +312,9 @@ class GPUExchangeRouter:
             job_cost = (pricing.price_per_hour / 3600) * duration_seconds
             if config.max_price_usd and job_cost > config.max_price_usd:
                 score.is_eligible = False
-                score.disqualification_reason = f"Exceeds budget (${job_cost:.2f} > ${config.max_price_usd:.2f})"
+                score.disqualification_reason = (
+                    f"Exceeds budget (${job_cost:.2f} > ${config.max_price_usd:.2f})"
+                )
                 scores.append(score)
                 continue
 
@@ -443,7 +430,7 @@ class GPUExchangeRouter:
         job_id: UUID,
         provision_callback: Any,
         timeout: float = 30.0,
-    ) -> Tuple[bool, Optional[ProvisionResult], str]:
+    ) -> tuple[bool, ProvisionResult | None, str]:
         """Route a job with automatic failover.
 
         Args:
@@ -483,7 +470,7 @@ class GPUExchangeRouter:
                     last_error = result.error_message if result else "Unknown error"
                     self._mark_provider_failure(provider_id)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(f"Provider {provider_id} timed out for job {job_id}")
                 self._mark_provider_failure(provider_id)
                 last_error = "Timeout"
@@ -502,7 +489,7 @@ class GPUExchangeRouter:
         self,
         job_id: UUID,
         selection: ProviderSelection,
-        scores: List[ProviderScore],
+        scores: list[ProviderScore],
         config: RoutingConfig,
     ) -> RoutingDecision:
         """Record a routing decision for auditing."""
@@ -524,7 +511,7 @@ class GPUExchangeRouter:
 
         return decision
 
-    def get_routing_stats(self) -> Dict[str, Any]:
+    def get_routing_stats(self) -> dict[str, Any]:
         """Get routing statistics."""
         total = len(self._routing_history)
         successful = sum(1 for d in self._routing_history if d.success)
@@ -546,8 +533,7 @@ class GPUExchangeRouter:
             "failovers_used": failovers,
             "by_provider": by_provider,
             "circuit_breakers": {
-                p: b.get("state", "closed")
-                for p, b in self._circuit_breakers.items()
+                p: b.get("state", "closed") for p, b in self._circuit_breakers.items()
             },
             "reliability_scores": dict(self._provider_reliability),
         }

@@ -15,13 +15,13 @@ Design principles (from DNA Strand Master Plan):
 - Immutable audit trail: All actions logged
 """
 
-import asyncio
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any
 from uuid import UUID, uuid4
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 class AgentType(Enum):
     """Types of agents in the SceneMachine crew."""
+
     ORCHESTRATOR = "orchestrator"
     PARSER = "parser"
     CHARACTER = "character"
@@ -40,6 +41,7 @@ class AgentType(Enum):
 
 class ActionStatus(Enum):
     """Status of an agent action."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -50,6 +52,7 @@ class ActionStatus(Enum):
 
 class EscalationReason(Enum):
     """Reasons for escalating to human."""
+
     LOW_CONFIDENCE = "low_confidence"
     BUDGET_EXCEEDED = "budget_exceeded"
     SENSITIVE_CONTENT = "sensitive_content"
@@ -62,48 +65,51 @@ class EscalationReason(Enum):
 @dataclass
 class ActionContext:
     """Context passed to agent actions."""
+
     project_id: UUID
-    user_id: Optional[UUID] = None
+    user_id: UUID | None = None
     session_id: UUID = field(default_factory=uuid4)
     budget_remaining_usd: float = 100.0
     dry_run: bool = False
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ActionResult:
     """Result of an agent action."""
+
     action_id: UUID
     status: ActionStatus
     success: bool
     output: Any = None
-    error_message: Optional[str] = None
+    error_message: str | None = None
     confidence: float = 1.0
     cost_usd: float = 0.0
     duration_seconds: float = 0.0
-    escalation_reason: Optional[EscalationReason] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    escalation_reason: EscalationReason | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ActionLog:
     """Immutable log entry for an agent action."""
+
     id: UUID
     agent_type: AgentType
     agent_name: str
     action_name: str
     started_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
     status: ActionStatus = ActionStatus.PENDING
     input_summary: str = ""
     output_summary: str = ""
     confidence: float = 1.0
     cost_usd: float = 0.0
-    error_message: Optional[str] = None
-    escalation_reason: Optional[EscalationReason] = None
-    provenance: Dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
+    escalation_reason: EscalationReason | None = None
+    provenance: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": str(self.id),
@@ -126,23 +132,23 @@ class ActionLog:
 class AgentActionLogger:
     """
     Centralized action logging for audit trail.
-    
+
     All agent actions are logged here for:
     - Audit compliance
     - Debugging
     - Cost tracking
     - Reproducibility
     """
-    
+
     _instance = None
-    _logs: List[ActionLog] = []
-    
+    _logs: list[ActionLog] = []
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._logs = []
         return cls._instance
-    
+
     def log_action(self, log_entry: ActionLog) -> None:
         """Add an action log entry."""
         self._logs.append(log_entry)
@@ -150,85 +156,85 @@ class AgentActionLogger:
             f"[{log_entry.agent_type.value}] {log_entry.action_name}: "
             f"{log_entry.status.value} (confidence={log_entry.confidence:.2f})"
         )
-    
+
     def get_logs(
         self,
-        agent_type: Optional[AgentType] = None,
+        agent_type: AgentType | None = None,
         limit: int = 100,
-    ) -> List[ActionLog]:
+    ) -> list[ActionLog]:
         """Get action logs, optionally filtered by agent type."""
         logs = self._logs
         if agent_type:
             logs = [l for l in logs if l.agent_type == agent_type]
         return logs[-limit:]
-    
+
     def get_total_cost(self) -> float:
         """Get total cost of all logged actions."""
         return sum(log.cost_usd for log in self._logs)
-    
+
     def clear(self) -> None:
         """Clear all logs (for testing only)."""
         self._logs = []
 
 
 # Type for approval callbacks
-ApprovalCallback = Callable[[str, Dict[str, Any]], bool]
+ApprovalCallback = Callable[[str, dict[str, Any]], bool]
 
 
 class BaseAgent(ABC):
     """
     Abstract base class for all SceneMachine agents.
-    
+
     Provides:
     - Guardrails enforcement
     - Action logging
     - Human escalation
     - Confidence-based decision making
     """
-    
+
     # Class-level configuration
     CONFIDENCE_THRESHOLD = 0.6  # Below this, escalate to human
     MAX_RETRIES = 3
-    
+
     def __init__(
         self,
-        name: Optional[str] = None,
-        approval_callback: Optional[ApprovalCallback] = None,
-    ):
+        name: str | None = None,
+        approval_callback: ApprovalCallback | None = None,
+    ) -> None:
         self.id = uuid4()
         self.name = name or f"{self.agent_type.value}_{str(self.id)[:8]}"
         self._logger = AgentActionLogger()
         self._approval_callback = approval_callback
         self._is_running = False
-    
+
     @property
     @abstractmethod
     def agent_type(self) -> AgentType:
         """Return the type of this agent."""
         pass
-    
+
     @property
     @abstractmethod
-    def capabilities(self) -> List[str]:
+    def capabilities(self) -> list[str]:
         """Return list of capabilities this agent provides."""
         pass
-    
+
     @property
-    def can_act_autonomously(self) -> List[str]:
+    def can_act_autonomously(self) -> list[str]:
         """
         Actions that can be performed without human approval.
         Override in subclasses to restrict autonomy.
         """
         return self.capabilities
-    
+
     @property
-    def requires_approval(self) -> List[str]:
+    def requires_approval(self) -> list[str]:
         """
         Actions that always require human approval.
         Override in subclasses to add approval gates.
         """
         return []
-    
+
     async def execute(
         self,
         action_name: str,
@@ -237,12 +243,12 @@ class BaseAgent(ABC):
     ) -> ActionResult:
         """
         Execute an action with full guardrails.
-        
+
         This is the main entry point for all agent actions.
         """
         action_id = uuid4()
-        start_time = datetime.now(timezone.utc)
-        
+        start_time = datetime.now(UTC)
+
         # Create log entry
         log_entry = ActionLog(
             id=action_id,
@@ -255,7 +261,7 @@ class BaseAgent(ABC):
             provenance={"context": str(context.session_id)},
         )
         self._logger.log_action(log_entry)
-        
+
         try:
             # Check if action requires approval
             if action_name in self.requires_approval:
@@ -273,7 +279,7 @@ class BaseAgent(ABC):
                         success=False,
                         escalation_reason=EscalationReason.EXPLICIT_REQUEST,
                     )
-            
+
             # Check budget
             if context.budget_remaining_usd <= 0:
                 approved = await self._request_approval(
@@ -290,11 +296,11 @@ class BaseAgent(ABC):
                         success=False,
                         escalation_reason=EscalationReason.BUDGET_EXCEEDED,
                     )
-            
+
             # Execute the actual action
             self._is_running = True
             result = await self._execute_action(action_name, context, **kwargs)
-            
+
             # Check confidence threshold
             if result.confidence < self.CONFIDENCE_THRESHOLD:
                 approved = await self._request_approval(
@@ -305,22 +311,22 @@ class BaseAgent(ABC):
                 if not approved:
                     result.status = ActionStatus.ESCALATED
                     result.escalation_reason = EscalationReason.LOW_CONFIDENCE
-            
+
             # Update log entry
-            log_entry.completed_at = datetime.now(timezone.utc)
+            log_entry.completed_at = datetime.now(UTC)
             log_entry.status = result.status
             log_entry.confidence = result.confidence
             log_entry.cost_usd = result.cost_usd
             log_entry.output_summary = self._summarize_output(result.output)
-            
+
             return result
-            
+
         except Exception as e:
             logger.exception(f"Agent {self.name} failed on {action_name}: {e}")
-            log_entry.completed_at = datetime.now(timezone.utc)
+            log_entry.completed_at = datetime.now(UTC)
             log_entry.status = ActionStatus.FAILED
             log_entry.error_message = str(e)
-            
+
             return ActionResult(
                 action_id=action_id,
                 status=ActionStatus.FAILED,
@@ -329,7 +335,7 @@ class BaseAgent(ABC):
             )
         finally:
             self._is_running = False
-    
+
     @abstractmethod
     async def _execute_action(
         self,
@@ -339,49 +345,47 @@ class BaseAgent(ABC):
     ) -> ActionResult:
         """
         Execute the actual action logic.
-        
+
         Subclasses implement this to define their behavior.
         """
         pass
-    
+
     async def _request_approval(
         self,
         action_name: str,
         reason: EscalationReason,
-        details: Dict[str, Any],
+        details: dict[str, Any],
     ) -> bool:
         """
         Request human approval for an action.
-        
+
         Returns True if approved, False if rejected.
         """
-        logger.warning(
-            f"[{self.name}] Requesting approval for '{action_name}': {reason.value}"
-        )
-        
+        logger.warning(f"[{self.name}] Requesting approval for '{action_name}': {reason.value}")
+
         if self._approval_callback:
             return self._approval_callback(
                 f"{self.name}:{action_name}",
                 {"reason": reason.value, **details},
             )
-        
+
         # Default: auto-approve in dry run, reject otherwise
         return False
-    
-    def _summarize_input(self, action_name: str, kwargs: Dict[str, Any]) -> str:
+
+    def _summarize_input(self, action_name: str, kwargs: dict[str, Any]) -> str:
         """Create a brief summary of action input for logging."""
         parts = [action_name]
         for k, v in list(kwargs.items())[:3]:  # First 3 params
             v_str = str(v)[:50] + "..." if len(str(v)) > 50 else str(v)
             parts.append(f"{k}={v_str}")
         return ", ".join(parts)
-    
+
     def _summarize_output(self, output: Any) -> str:
         """Create a brief summary of action output for logging."""
         if output is None:
             return "None"
         output_str = str(output)
         return output_str[:100] + "..." if len(output_str) > 100 else output_str
-    
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}(name={self.name}, type={self.agent_type.value})>"

@@ -6,19 +6,18 @@ completing bookings.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, Boolean
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from scenemachine.models.base import Base, TimestampMixin, UUIDMixin
 
-
 if TYPE_CHECKING:
-    from scenemachine.models.performer import Performer
     from scenemachine.models.booking import Booking
+    from scenemachine.models.performer import Performer
 
 
 class PerformerRating(Base, UUIDMixin, TimestampMixin):
@@ -67,16 +66,16 @@ class PerformerRating(Base, UUIDMixin, TimestampMixin):
     # 1.0 - 5.0 scale (half stars allowed)
 
     # Detailed scores (all 1.0-5.0)
-    motion_quality_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    motion_quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Quality of motion capture data
 
-    emotion_accuracy_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    emotion_accuracy_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     # How accurately emotions were portrayed
 
-    professionalism_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    professionalism_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Communication, responsiveness, behavior
 
-    timeliness_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    timeliness_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Delivery within expected timeframe
 
     # Rehire indicator (important for ACI)
@@ -84,8 +83,8 @@ class PerformerRating(Base, UUIDMixin, TimestampMixin):
     # This is weighted heavily in ACI calculation
 
     # Written review
-    review_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    review_title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    review_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    review_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Visibility
     is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -101,15 +100,13 @@ class PerformerRating(Base, UUIDMixin, TimestampMixin):
 
     # Moderation
     is_flagged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    flag_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    flag_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Verified = from actual completed booking
 
     # Performer response
-    performer_response: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    responded_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    performer_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Timestamps
     rated_at: Mapped[datetime] = mapped_column(
@@ -128,15 +125,17 @@ class PerformerRating(Base, UUIDMixin, TimestampMixin):
     )
 
     @property
-    def average_detailed_score(self) -> Optional[float]:
+    def average_detailed_score(self) -> float | None:
         """Calculate average of detailed scores."""
         scores = [
-            s for s in [
+            s
+            for s in [
                 self.motion_quality_score,
                 self.emotion_accuracy_score,
                 self.professionalism_score,
                 self.timeliness_score,
-            ] if s is not None
+            ]
+            if s is not None
         ]
         if scores:
             return sum(scores) / len(scores)
@@ -145,12 +144,14 @@ class PerformerRating(Base, UUIDMixin, TimestampMixin):
     @property
     def has_detailed_scores(self) -> bool:
         """Check if rating has detailed scores."""
-        return any([
-            self.motion_quality_score is not None,
-            self.emotion_accuracy_score is not None,
-            self.professionalism_score is not None,
-            self.timeliness_score is not None,
-        ])
+        return any(
+            [
+                self.motion_quality_score is not None,
+                self.emotion_accuracy_score is not None,
+                self.professionalism_score is not None,
+                self.timeliness_score is not None,
+            ]
+        )
 
     @property
     def engagement_score(self) -> float:

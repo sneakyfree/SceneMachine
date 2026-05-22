@@ -4,7 +4,7 @@ Authentication Dependencies
 FastAPI dependencies for extracting and validating user authentication.
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.auth.jwt import (
     AuthenticationError,
-    TokenData,
     TokenType,
     decode_token,
 )
@@ -25,9 +24,7 @@ security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: Annotated[
-        Optional[HTTPAuthorizationCredentials], Depends(security)
-    ],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> User:
     """Get the current authenticated user from JWT token.
@@ -61,9 +58,7 @@ async def get_current_user(
             )
 
         # Get user from database
-        result = await session.execute(
-            select(User).where(User.id == token_data.user_id)
-        )
+        result = await session.execute(select(User).where(User.id == token_data.user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -106,11 +101,9 @@ async def get_current_active_user(
 
 
 async def get_optional_user(
-    credentials: Annotated[
-        Optional[HTTPAuthorizationCredentials], Depends(security)
-    ],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> Optional[User]:
+) -> User | None:
     """Get the current user if authenticated, or None if not.
 
     Useful for endpoints that work differently for authenticated vs anonymous users.
@@ -131,9 +124,7 @@ async def get_optional_user(
         if token_data.token_type != TokenType.ACCESS:
             return None
 
-        result = await session.execute(
-            select(User).where(User.id == token_data.user_id)
-        )
+        result = await session.execute(select(User).where(User.id == token_data.user_id))
         user = result.scalar_one_or_none()
 
         if user and user.is_active:
@@ -147,4 +138,4 @@ async def get_optional_user(
 # Type aliases for cleaner dependency injection
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
-OptionalUser = Annotated[Optional[User], Depends(get_optional_user)]
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]

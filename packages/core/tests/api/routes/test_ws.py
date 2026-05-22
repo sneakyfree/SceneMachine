@@ -1,13 +1,10 @@
 """Tests for WebSocket API routes."""
 
+from uuid import uuid4
+
 import pytest
 import pytest_asyncio
-import asyncio
-from uuid import uuid4
-from unittest.mock import AsyncMock, patch
-
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession
+from httpx import ASGITransport, AsyncClient
 
 from scenemachine.api.main import app
 
@@ -182,7 +179,7 @@ class TestWebSocketMessageHandling:
         """Test that messages are properly serialized."""
         from scenemachine.api.routes.ws import serialize_message
 
-        if callable(serialize_message) if 'serialize_message' in dir() else False:
+        if callable(serialize_message) if "serialize_message" in dir() else False:
             message = {"type": "status", "data": {"progress": 50}}
             serialized = serialize_message(message)
             assert isinstance(serialized, (str, bytes))

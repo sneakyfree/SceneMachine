@@ -1,6 +1,6 @@
 """Settings API endpoints."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -16,25 +16,25 @@ router = APIRouter()
 class UpdateSettingsRequest(BaseModel):
     """Request to update settings."""
 
-    llm_provider: Optional[str] = None
-    video_provider: Optional[str] = None
-    max_concurrent_generations: Optional[int] = None
-    generation_timeout_seconds: Optional[int] = None
-    default_video_resolution: Optional[str] = None
-    default_video_fps: Optional[int] = None
-    theme_mode: Optional[str] = None
-    auto_save_enabled: Optional[bool] = None
-    show_advanced_options: Optional[bool] = None
-    auto_cleanup_temp_files: Optional[bool] = None
-    max_cache_size_gb: Optional[int] = None
-    default_export_format: Optional[str] = None
-    default_export_quality: Optional[str] = None
+    llm_provider: str | None = None
+    video_provider: str | None = None
+    max_concurrent_generations: int | None = None
+    generation_timeout_seconds: int | None = None
+    default_video_resolution: str | None = None
+    default_video_fps: int | None = None
+    theme_mode: str | None = None
+    auto_save_enabled: bool | None = None
+    show_advanced_options: bool | None = None
+    auto_cleanup_temp_files: bool | None = None
+    max_cache_size_gb: int | None = None
+    default_export_format: str | None = None
+    default_export_quality: str | None = None
     # Accessibility settings
-    font_size_scale: Optional[str] = None
-    high_contrast_enabled: Optional[bool] = None
-    reduce_motion_enabled: Optional[bool] = None
-    large_click_targets_enabled: Optional[bool] = None
-    additional_settings: Optional[Dict[str, Any]] = None
+    font_size_scale: str | None = None
+    high_contrast_enabled: bool | None = None
+    reduce_motion_enabled: bool | None = None
+    large_click_targets_enabled: bool | None = None
+    additional_settings: dict[str, Any] | None = None
 
 
 class SetApiKeyRequest(BaseModel):
@@ -47,14 +47,14 @@ class SetApiKeyRequest(BaseModel):
 class ImportSettingsRequest(BaseModel):
     """Request to import settings."""
 
-    settings: Dict[str, Any]
+    settings: dict[str, Any]
 
 
 # Routes
 @router.get("")
 async def get_settings(
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get current user settings."""
     service = SettingsService(db)
     settings = await service.get_settings()
@@ -66,7 +66,7 @@ async def get_settings(
 async def update_settings(
     request: UpdateSettingsRequest,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Update user settings."""
     service = SettingsService(db)
 
@@ -106,7 +106,7 @@ async def update_settings(
 async def set_api_key(
     request: SetApiKeyRequest,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Set API key for a provider."""
     service = SettingsService(db)
 
@@ -124,7 +124,7 @@ async def set_api_key(
 async def remove_api_key(
     provider: str,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Remove API key for a provider."""
     service = SettingsService(db)
 
@@ -141,9 +141,9 @@ async def remove_api_key(
 @router.post("/api-keys/{provider}/validate")
 async def validate_api_key(
     provider: str,
-    api_key: Optional[str] = Query(None, description="API key to test (uses stored if not provided)"),
+    api_key: str | None = Query(None, description="API key to test (uses stored if not provided)"),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validate an API key by testing the provider."""
     service = SettingsService(db)
     status_result = await service.validate_api_key(provider, api_key)
@@ -161,7 +161,7 @@ async def validate_api_key(
 @router.get("/providers/status")
 async def check_all_providers(
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Check status of all configured providers."""
     service = SettingsService(db)
     statuses = await service.check_all_providers()
@@ -182,7 +182,7 @@ async def check_all_providers(
 @router.get("/providers/llm")
 async def get_llm_providers(
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get list of available LLM providers."""
     service = SettingsService(db)
     return await service.get_available_llm_providers()
@@ -191,7 +191,7 @@ async def get_llm_providers(
 @router.get("/providers/video")
 async def get_video_providers(
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get list of available video generation providers."""
     service = SettingsService(db)
     return await service.get_available_video_providers()
@@ -200,7 +200,7 @@ async def get_video_providers(
 @router.get("/themes")
 async def get_themes(
     db: AsyncSession = Depends(get_db),
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Get available theme options."""
     service = SettingsService(db)
     return await service.get_theme_options()
@@ -209,7 +209,7 @@ async def get_themes(
 @router.get("/storage")
 async def get_storage_stats(
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get storage statistics."""
     service = SettingsService(db)
     stats = await service.get_storage_stats()
@@ -236,7 +236,7 @@ async def get_storage_stats(
 async def clear_cache(
     cache_type: str = Query("all", regex="^(model|temp|output|all)$"),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Clear cached files.
 
     Args:
@@ -257,7 +257,7 @@ async def clear_cache(
 @router.get("/export")
 async def export_settings(
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export settings for backup (excluding API keys)."""
     service = SettingsService(db)
     return await service.export_settings()
@@ -267,7 +267,7 @@ async def export_settings(
 async def import_settings(
     request: ImportSettingsRequest,
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Import settings from backup."""
     service = SettingsService(db)
 

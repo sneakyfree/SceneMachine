@@ -5,12 +5,10 @@ various video models like AnimateDiff, SVD, and Wan2.
 """
 
 import asyncio
-import json
 import logging
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from urllib.parse import urljoin
+from typing import Any
 
 from scenemachine.config import get_settings
 from scenemachine.models.generation_job import JobProvider
@@ -105,7 +103,7 @@ class ComfyUIProvider(GenerationProvider):
         "svd": "stable_video_diffusion",
     }
 
-    MODELS: Dict[str, VideoModel] = {
+    MODELS: dict[str, VideoModel] = {
         # ============================================================
         # PRIMARY STACK — Wan 2.2 14B FP8 (fits 32 GB VRAM cleanly)
         # ============================================================
@@ -321,7 +319,7 @@ class ComfyUIProvider(GenerationProvider):
     def __init__(
         self,
         comfyui_url: str = "http://127.0.0.1:8188",
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
         output_format: str = "mp4",
     ) -> None:
         """Initialize ComfyUI provider.
@@ -335,7 +333,7 @@ class ComfyUIProvider(GenerationProvider):
         self.model_id = model_id or self.DEFAULT_MODEL
         self.output_format = output_format
         self._client_id = str(uuid.uuid4())
-        self._active_prompts: Dict[str, str] = {}  # shot_id -> prompt_id
+        self._active_prompts: dict[str, str] = {}  # shot_id -> prompt_id
 
     @property
     def name(self) -> str:
@@ -369,7 +367,7 @@ class ComfyUIProvider(GenerationProvider):
     async def generate(
         self,
         request: GenerationRequest,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> GenerationResult:
         """Generate video using ComfyUI."""
         try:
@@ -482,9 +480,7 @@ class ComfyUIProvider(GenerationProvider):
             #   request.extra_params['expected_timeout_seconds']
             #     > model.extra_params['expected_timeout_seconds']
             #     > self.POLL_TIMEOUT
-            poll_timeout = self._p(
-                request, model, "expected_timeout_seconds", self.POLL_TIMEOUT
-            )
+            poll_timeout = self._p(request, model, "expected_timeout_seconds", self.POLL_TIMEOUT)
             output_files = await self._poll_completion(
                 prompt_id,
                 request.shot_id,
@@ -555,7 +551,7 @@ class ComfyUIProvider(GenerationProvider):
                 },
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._active_prompts.pop(str(request.shot_id), None)
             return GenerationResult(
                 success=False,
@@ -576,7 +572,7 @@ class ComfyUIProvider(GenerationProvider):
         self,
         request: GenerationRequest,
         model: VideoModel,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build a ComfyUI API-format workflow for the given model + request.
 
         Dispatches to a model-specific builder. The builders produce dicts in
@@ -617,7 +613,7 @@ class ComfyUIProvider(GenerationProvider):
         request: GenerationRequest,
         model: VideoModel,
         num_frames: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build AnimateDiff workflow."""
         seed = request.seed or 42
 
@@ -704,7 +700,7 @@ class ComfyUIProvider(GenerationProvider):
         request: GenerationRequest,
         model: VideoModel,
         num_frames: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build Stable Video Diffusion workflow."""
         if not request.input_image_path:
             raise ValueError("SVD requires an input image")
@@ -777,7 +773,7 @@ class ComfyUIProvider(GenerationProvider):
         default: Any,
     ) -> Any:
         """Resolve a workflow parameter with this priority:
-            request.extra_params[key]  >>  model.extra_params[key]  >>  default
+        request.extra_params[key]  >>  model.extra_params[key]  >>  default
         """
         if key in request.extra_params:
             return request.extra_params[key]
@@ -785,7 +781,7 @@ class ComfyUIProvider(GenerationProvider):
             return model.extra_params[key]
         return default
 
-    def _fetch_available_models(self) -> Dict[str, set]:
+    def _fetch_available_models(self) -> dict[str, set]:
         """Query the live ComfyUI for which model files are actually loadable.
 
         Returns a dict keyed by ComfyUI node type (e.g. "WanVideoModelLoader",
@@ -816,15 +812,19 @@ class ComfyUIProvider(GenerationProvider):
             logger.warning(f"Could not fetch ComfyUI object_info: {e}")
             return {}
 
-        out: Dict[str, set] = {}
+        out: dict[str, set] = {}
         # Each loader's first-arg dropdown is the canonical "what files exist"
         for node_name, spec in oi.items():
             inputs = (spec.get("input") or {}).get("required") or {}
-            for input_name, input_spec in inputs.items():
+            for _input_name, input_spec in inputs.items():
                 if not isinstance(input_spec, list) or not input_spec:
                     continue
                 choices = input_spec[0]
-                if isinstance(choices, list) and choices and all(isinstance(c, str) for c in choices):
+                if (
+                    isinstance(choices, list)
+                    and choices
+                    and all(isinstance(c, str) for c in choices)
+                ):
                     # This is an enum/dropdown — record its options.
                     out.setdefault(node_name, set()).update(choices)
         self._available_models_cache = out
@@ -851,7 +851,7 @@ class ComfyUIProvider(GenerationProvider):
         # bf16 / fp16 / unquantized
         return "disabled"
 
-    def _resolve_first_available(self, node_type: str, candidates: List[str]) -> Optional[str]:
+    def _resolve_first_available(self, node_type: str, candidates: list[str]) -> str | None:
         """Return the first candidate filename that ComfyUI's node loader of
         type ``node_type`` actually has. If ComfyUI is unreachable or none of
         the candidates are present, falls back to the FIRST candidate (so
@@ -886,7 +886,7 @@ class ComfyUIProvider(GenerationProvider):
         self,
         request: GenerationRequest,
         model: VideoModel,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Pick the LoRA filename to use, preferring an explicit override.
 
         Returns None when no candidate exists on disk and no override
@@ -905,7 +905,7 @@ class ComfyUIProvider(GenerationProvider):
         return resolved
 
     @staticmethod
-    def _extract_reference_image(request: GenerationRequest) -> Optional[str]:
+    def _extract_reference_image(request: GenerationRequest) -> str | None:
         """Get the first usable character-reference image path from a request.
 
         Looks in this order:
@@ -931,7 +931,7 @@ class ComfyUIProvider(GenerationProvider):
         request: GenerationRequest,
         model: VideoModel,
         num_frames: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build Wan 2.2 T2V (14B FP8) workflow.
 
         Uses the Kijai WanVideoWrapper custom nodes:
@@ -1038,7 +1038,7 @@ class ComfyUIProvider(GenerationProvider):
         request: GenerationRequest,
         model: VideoModel,
         num_frames: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build Wan 2.2 I2V workflow.
 
         Uses CLIP-Vision to encode the input image, then I2V sampling.
@@ -1160,7 +1160,7 @@ class ComfyUIProvider(GenerationProvider):
         request: GenerationRequest,
         model: VideoModel,
         num_frames: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build Wan 2.2 Animate workflow for ID-preserving generation.
 
         Reference image is required. Priority order:
@@ -1211,10 +1211,13 @@ class ComfyUIProvider(GenerationProvider):
         # Kijai FP8 quant (~14 GB) is preferred when present because the BF16
         # weight is 32 GB and tight on a 32 GB-VRAM card, but we fall back to
         # BF16 cleanly when the FP8 hasn't been downloaded yet.
-        animate_weight = self._resolve_first_available(
-            "WanVideoModelLoader",
-            [params.get("model_file_fp8"), params["model_file"]],
-        ) or params["model_file"]
+        animate_weight = (
+            self._resolve_first_available(
+                "WanVideoModelLoader",
+                [params.get("model_file_fp8"), params["model_file"]],
+            )
+            or params["model_file"]
+        )
 
         # Lightx2v 4-step distillation LoRA. When enabled this attaches a
         # WanVideoLoraSelect node and feeds its WANVIDLORA output into the
@@ -1222,18 +1225,14 @@ class ComfyUIProvider(GenerationProvider):
         # ~4 steps instead of 30, an ~7× speedup for the sampling phase.
         # Weight-load time is unchanged.
         use_speed_lora = self._should_use_speed_lora(request, model)
-        speed_lora_file = (
-            self._resolve_speed_lora_file(request, model) if use_speed_lora else None
-        )
+        speed_lora_file = self._resolve_speed_lora_file(request, model) if use_speed_lora else None
         speed_lora_active = use_speed_lora and bool(speed_lora_file)
 
-        model_loader_inputs: Dict[str, Any] = {
+        model_loader_inputs: dict[str, Any] = {
             "model": animate_weight,
             "base_precision": "fp16",
             "quantization": self._infer_wan_quantization(animate_weight),
-            "load_device": self._p(
-                request, model, "load_device", "main_device"
-            ),
+            "load_device": self._p(request, model, "load_device", "main_device"),
         }
         if speed_lora_active:
             # WanVideoLoraSelect → ModelLoader.lora (a WANVIDLORA link).
@@ -1259,14 +1258,12 @@ class ComfyUIProvider(GenerationProvider):
             sampler_steps = request.num_inference_steps or self._p(
                 request, model, "speed_lora_steps", 4
             )
-            sampler_cfg = request.guidance_scale or self._p(
-                request, model, "speed_lora_cfg", 1.0
-            )
+            sampler_cfg = request.guidance_scale or self._p(request, model, "speed_lora_cfg", 1.0)
         else:
             sampler_steps = request.num_inference_steps or model.default_steps
             sampler_cfg = request.guidance_scale or model.default_cfg_scale
 
-        workflow: Dict[str, Any] = {
+        workflow: dict[str, Any] = {
             "1": {
                 "class_type": "WanVideoModelLoader",
                 "inputs": model_loader_inputs,
@@ -1331,9 +1328,7 @@ class ComfyUIProvider(GenerationProvider):
                     "height": request.height,
                     "num_frames": num_frames,
                     "force_offload": True,
-                    "frame_window_size": int(
-                        self._p(request, model, "frame_window_size", 77)
-                    ),
+                    "frame_window_size": int(self._p(request, model, "frame_window_size", 77)),
                     "colormatch": "disabled",
                     "pose_strength": 1.0,
                     "face_strength": 1.0,
@@ -1385,9 +1380,7 @@ class ComfyUIProvider(GenerationProvider):
                 "class_type": "WanVideoLoraSelect",
                 "inputs": {
                     "lora": speed_lora_file,
-                    "strength": float(
-                        self._p(request, model, "speed_lora_strength", 1.0)
-                    ),
+                    "strength": float(self._p(request, model, "speed_lora_strength", 1.0)),
                 },
             }
 
@@ -1403,24 +1396,12 @@ class ComfyUIProvider(GenerationProvider):
                 "class_type": "WanVideoBlockSwap",
                 "inputs": {
                     "blocks_to_swap": blocks_to_swap,
-                    "offload_img_emb": bool(
-                        self._p(request, model, "offload_img_emb", False)
-                    ),
-                    "offload_txt_emb": bool(
-                        self._p(request, model, "offload_txt_emb", False)
-                    ),
-                    "use_non_blocking": bool(
-                        self._p(request, model, "use_non_blocking", False)
-                    ),
-                    "vace_blocks_to_swap": int(
-                        self._p(request, model, "vace_blocks_to_swap", 0)
-                    ),
-                    "prefetch_blocks": int(
-                        self._p(request, model, "prefetch_blocks", 0)
-                    ),
-                    "block_swap_debug": bool(
-                        self._p(request, model, "block_swap_debug", False)
-                    ),
+                    "offload_img_emb": bool(self._p(request, model, "offload_img_emb", False)),
+                    "offload_txt_emb": bool(self._p(request, model, "offload_txt_emb", False)),
+                    "use_non_blocking": bool(self._p(request, model, "use_non_blocking", False)),
+                    "vace_blocks_to_swap": int(self._p(request, model, "vace_blocks_to_swap", 0)),
+                    "prefetch_blocks": int(self._p(request, model, "prefetch_blocks", 0)),
+                    "block_swap_debug": bool(self._p(request, model, "block_swap_debug", False)),
                 },
             }
 
@@ -1435,7 +1416,7 @@ class ComfyUIProvider(GenerationProvider):
         request: GenerationRequest,
         model: VideoModel,
         num_frames: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build LTX-2 19B Dev workflow using Lightricks Gemma encoder."""
         seed = request.seed if request.seed is not None else 42
         params = model.extra_params
@@ -1527,9 +1508,9 @@ class ComfyUIProvider(GenerationProvider):
         self,
         prompt_id: str,
         shot_id: Any,
-        progress_callback: Optional[ProgressCallback] = None,
-        timeout: Optional[float] = None,
-    ) -> List[Dict[str, Any]]:
+        progress_callback: ProgressCallback | None = None,
+        timeout: float | None = None,
+    ) -> list[dict[str, Any]]:
         """Poll ComfyUI for workflow completion.
 
         Args:
@@ -1566,7 +1547,7 @@ class ComfyUIProvider(GenerationProvider):
 
                         # Check for outputs
                         outputs = prompt_data.get("outputs", {})
-                        for node_id, node_output in outputs.items():
+                        for _node_id, node_output in outputs.items():
                             if "gifs" in node_output:
                                 return node_output["gifs"]
                             if "videos" in node_output:
@@ -1601,11 +1582,11 @@ class ComfyUIProvider(GenerationProvider):
                 await asyncio.sleep(self.POLL_INTERVAL)
                 elapsed += self.POLL_INTERVAL
 
-        raise asyncio.TimeoutError("ComfyUI workflow polling timed out")
+        raise TimeoutError("ComfyUI workflow polling timed out")
 
     async def _download_output(
         self,
-        file_info: Dict[str, Any],
+        file_info: dict[str, Any],
         output_path: Path,
     ) -> str:
         """Download output file from ComfyUI."""
@@ -1634,13 +1615,13 @@ class ComfyUIProvider(GenerationProvider):
         self,
         video_path: Path,
         thumbnail_path: Path,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate thumbnail from video using ffmpeg."""
         if not video_path.exists():
             return None
 
         try:
-            from scenemachine.utils.ffmpeg import get_ffmpeg, FFmpegNotFoundError
+            from scenemachine.utils.ffmpeg import get_ffmpeg
 
             ffmpeg = get_ffmpeg()
             await ffmpeg.extract_frame(
@@ -1683,7 +1664,7 @@ class ComfyUIProvider(GenerationProvider):
                         error_code="BAD_STATUS",
                     )
 
-                stats = resp.json()
+                resp.json()
 
                 # Get queue info
                 queue_resp = await client.get(f"{self.comfyui_url}/queue")
@@ -1724,12 +1705,12 @@ class ComfyUIProvider(GenerationProvider):
     def estimate_cost(
         self,
         duration_seconds: float = 3.0,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
     ) -> float:
         """Local generation is free (just electricity)."""
         return 0.0
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """List available models."""
         return [
             {
@@ -1744,6 +1725,6 @@ class ComfyUIProvider(GenerationProvider):
             for model_id, model in self.MODELS.items()
         ]
 
-    def get_model(self, model_id: str) -> Optional[VideoModel]:
+    def get_model(self, model_id: str) -> VideoModel | None:
         """Get model by ID."""
         return self.MODELS.get(model_id)

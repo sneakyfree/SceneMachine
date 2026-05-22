@@ -8,17 +8,16 @@ Steven is the AI assistant for SceneMachine that provides:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.database import get_session
+from scenemachine.models import Scene
 from scenemachine.services.llm import LLMService, get_llm_service
-from scenemachine.models import Scene, Shot
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class AnalyzeSceneRequest(BaseModel):
     scene_id: str
     include_suggestions: bool = True
     include_performer_recommendations: bool = True
-    context: Optional[str] = None
+    context: str | None = None
 
 
 class SceneSuggestion(BaseModel):
@@ -44,7 +43,7 @@ class SceneSuggestion(BaseModel):
     category: str  # pacing, emotion, visual, dialogue, continuity
     suggestion: str
     priority: str  # high, medium, low
-    applies_to: Optional[str] = None  # shot_id or scene element
+    applies_to: str | None = None  # shot_id or scene element
 
 
 class PerformerRecommendation(BaseModel):
@@ -53,7 +52,7 @@ class PerformerRecommendation(BaseModel):
     performer_id: str
     performer_name: str
     aci_score: float
-    match_reasons: List[str]
+    match_reasons: list[str]
     suggested_mode: str  # BLINK, DEEP, EPIC
     estimated_cost: float
 
@@ -63,11 +62,11 @@ class SceneAnalysis(BaseModel):
 
     scene_id: str
     scene_summary: str
-    emotional_arc: List[str]
+    emotional_arc: list[str]
     pacing_score: float
     visual_complexity: float
-    suggestions: List[SceneSuggestion]
-    performer_recommendations: List[PerformerRecommendation]
+    suggestions: list[SceneSuggestion]
+    performer_recommendations: list[PerformerRecommendation]
 
 
 class ChatMessage(BaseModel):
@@ -75,15 +74,15 @@ class ChatMessage(BaseModel):
 
     role: str  # user, assistant, system
     content: str
-    timestamp: Optional[str] = None
+    timestamp: str | None = None
 
 
 class ChatRequest(BaseModel):
     """Request for chat with Steven."""
 
-    messages: List[ChatMessage]
-    project_id: Optional[str] = None
-    scene_id: Optional[str] = None
+    messages: list[ChatMessage]
+    project_id: str | None = None
+    scene_id: str | None = None
     context_type: str = "general"  # general, scene, generation, export
 
 
@@ -91,8 +90,8 @@ class ChatResponse(BaseModel):
     """Response from Steven."""
 
     message: str
-    suggestions: Optional[List[str]] = None
-    actions: Optional[List[Dict[str, Any]]] = None
+    suggestions: list[str] | None = None
+    actions: list[dict[str, Any]] | None = None
     confidence: float = 1.0
 
 
@@ -100,7 +99,7 @@ class VoiceCommandRequest(BaseModel):
     """Request to process a voice command."""
 
     transcript: str
-    project_id: Optional[str] = None
+    project_id: str | None = None
     current_context: str = "project"  # project, scene, timeline, generation
 
 
@@ -108,8 +107,8 @@ class VoiceCommandResponse(BaseModel):
     """Response for a voice command."""
 
     understood: bool
-    action: Optional[str] = None
-    parameters: Optional[Dict[str, Any]] = None
+    action: str | None = None
+    parameters: dict[str, Any] | None = None
     confirmation_message: str
     requires_confirmation: bool = False
 
@@ -118,11 +117,11 @@ class RecommendPerformersRequest(BaseModel):
     """Request for performer recommendations."""
 
     project_id: str
-    shot_id: Optional[str] = None
-    scene_id: Optional[str] = None
-    emotion_requirements: Optional[List[str]] = None
-    duration_seconds: Optional[float] = None
-    max_budget_usd: Optional[float] = None
+    shot_id: str | None = None
+    scene_id: str | None = None
+    emotion_requirements: list[str] | None = None
+    duration_seconds: float | None = None
+    max_budget_usd: float | None = None
     prefer_human: bool = False
 
 
@@ -131,8 +130,8 @@ class CreativeGuidanceRequest(BaseModel):
 
     project_id: str
     guidance_type: str  # story_arc, pacing, visual_style, dialogue, character
-    current_state: Optional[Dict[str, Any]] = None
-    specific_question: Optional[str] = None
+    current_state: dict[str, Any] | None = None
+    specific_question: str | None = None
 
 
 class CreativeGuidance(BaseModel):
@@ -140,9 +139,9 @@ class CreativeGuidance(BaseModel):
 
     guidance_type: str
     analysis: str
-    recommendations: List[str]
-    examples: Optional[List[Dict[str, Any]]] = None
-    reference_materials: Optional[List[str]] = None
+    recommendations: list[str]
+    examples: list[dict[str, Any]] | None = None
+    reference_materials: list[str] | None = None
 
 
 # ============ API Endpoints ============
@@ -164,9 +163,7 @@ async def analyze_scene(
     """
     try:
         # Load scene data from database
-        scene_result = await session.execute(
-            select(Scene).where(Scene.id == request.scene_id)
-        )
+        scene_result = await session.execute(select(Scene).where(Scene.id == request.scene_id))
         scene = scene_result.scalar_one_or_none()
 
         if not scene:
@@ -178,7 +175,7 @@ async def analyze_scene(
             "scene_number": scene.scene_number,
             "heading": scene.heading,
             "description": scene.description,
-            "dialogue": getattr(scene, 'dialogue', ''),
+            "dialogue": getattr(scene, "dialogue", ""),
             "context": request.context,
         }
 
@@ -210,9 +207,12 @@ async def analyze_scene(
             return SceneAnalysis(
                 scene_id=request.scene_id,
                 scene_summary=summary,
-                emotional_arc=["rising action", "climax", "resolution"] if suggestions else ["neutral"],
+                emotional_arc=["rising action", "climax", "resolution"]
+                if suggestions
+                else ["neutral"],
                 pacing_score=0.75 + (len(suggestions) * 0.02),  # Adjust based on suggestion count
-                visual_complexity=0.5 + (len([s for s in suggestions if s.category == "visual"]) * 0.1),
+                visual_complexity=0.5
+                + (len([s for s in suggestions if s.category == "visual"]) * 0.1),
                 suggestions=suggestions,
                 performer_recommendations=[],  # Would require performer matching service
             )
@@ -269,7 +269,7 @@ async def chat_with_steven(
     # Inject real project data for context-aware responses
     if request.project_id:
         try:
-            from scenemachine.models import Project, Character
+            from scenemachine.models import Character, Project
 
             project = await session.get(Project, request.project_id)
             if project:
@@ -280,9 +280,7 @@ async def chat_with_steven(
                 from sqlalchemy import select
 
                 char_result = await session.execute(
-                    select(Character).where(
-                        Character.project_id == project.id
-                    ).limit(20)
+                    select(Character).where(Character.project_id == project.id).limit(20)
                 )
                 characters = char_result.scalars().all()
                 if characters:
@@ -293,9 +291,7 @@ async def chat_with_steven(
 
                 # Fetch scenes
                 scene_result = await session.execute(
-                    select(Scene).where(
-                        Scene.project_id == project.id
-                    ).limit(50)
+                    select(Scene).where(Scene.project_id == project.id).limit(50)
                 )
                 scenes = scene_result.scalars().all()
                 if scenes:
@@ -303,7 +299,7 @@ async def chat_with_steven(
                     project_context["scenes"] = [
                         {
                             "id": str(s.id),
-                            "title": getattr(s, "title", f"Scene {i+1}"),
+                            "title": getattr(s, "title", f"Scene {i + 1}"),
                             "shot_count": getattr(s, "shot_count", 0),
                         }
                         for i, s in enumerate(scenes[:10])
@@ -328,9 +324,10 @@ async def chat_with_steven(
         return ChatResponse(
             message=llm_result.get("message", "I'm here to help with your project."),
             suggestions=[
-                s.get("title", s.get("description", ""))
-                for s in llm_result.get("suggestions", [])
-            ][:3] if llm_result.get("suggestions") else None,
+                s.get("title", s.get("description", "")) for s in llm_result.get("suggestions", [])
+            ][:3]
+            if llm_result.get("suggestions")
+            else None,
             actions=None,  # Actions determined by specific commands
             confidence=0.9,
         )
@@ -463,11 +460,11 @@ async def process_voice_command(
     )
 
 
-@router.post("/recommend-performers", response_model=List[PerformerRecommendation])
+@router.post("/recommend-performers", response_model=list[PerformerRecommendation])
 async def recommend_performers(
     request: RecommendPerformersRequest,
     session: AsyncSession = Depends(get_session),
-) -> List[PerformerRecommendation]:
+) -> list[PerformerRecommendation]:
     """Get AI-powered performer recommendations.
 
     Steven analyzes the scene/shot requirements and recommends
@@ -507,10 +504,7 @@ async def recommend_performers(
 
     # Filter by budget if specified
     if request.max_budget_usd:
-        recommendations = [
-            r for r in recommendations
-            if r.estimated_cost <= request.max_budget_usd
-        ]
+        recommendations = [r for r in recommendations if r.estimated_cost <= request.max_budget_usd]
 
     return recommendations
 
@@ -550,14 +544,15 @@ async def get_creative_guidance(
 
         # Extract recommendations from suggestions
         recommendations = [
-            s.get("description", s.get("title", ""))
-            for s in llm_result.get("suggestions", [])
+            s.get("description", s.get("title", "")) for s in llm_result.get("suggestions", [])
         ]
 
         return CreativeGuidance(
             guidance_type=request.guidance_type,
             analysis=llm_result.get("message", "Analysis based on your project."),
-            recommendations=recommendations if recommendations else [
+            recommendations=recommendations
+            if recommendations
+            else [
                 "Consider the emotional arc of your story",
                 "Ensure visual consistency across scenes",
                 "Let character actions reveal motivation",
@@ -631,7 +626,7 @@ async def get_creative_guidance(
 
 
 @router.get("/status")
-async def get_steven_status() -> Dict[str, Any]:
+async def get_steven_status() -> dict[str, Any]:
     """Get Steven AI Co-pilot status."""
     return {
         "status": "online",

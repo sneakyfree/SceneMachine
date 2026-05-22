@@ -19,7 +19,14 @@ export interface ExportProgressData {
   /**
    * Current status
    */
-  status: 'pending' | 'processing' | 'encoding' | 'finalizing' | 'completed' | 'failed' | 'cancelled';
+  status:
+    | 'pending'
+    | 'processing'
+    | 'encoding'
+    | 'finalizing'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
 
   /**
    * Progress percentage (0-100)
@@ -305,15 +312,18 @@ export const ExportProgress = memo(function ExportProgress({
         </div>
 
         {/* Cancel button */}
-        {cancellable && progress.status !== 'completed' && progress.status !== 'failed' && onCancel && (
-          <button
-            onClick={onCancel}
-            className="p-2 rounded-lg hover:bg-surface-700 transition-colors"
-            title="Cancel export"
-          >
-            <X className="w-4 h-4 text-surface-400" />
-          </button>
-        )}
+        {cancellable &&
+          progress.status !== 'completed' &&
+          progress.status !== 'failed' &&
+          onCancel && (
+            <button
+              onClick={onCancel}
+              className="p-2 rounded-lg hover:bg-surface-700 transition-colors"
+              title="Cancel export"
+            >
+              <X className="w-4 h-4 text-surface-400" />
+            </button>
+          )}
       </div>
 
       {/* Progress bar */}
@@ -334,9 +344,7 @@ export const ExportProgress = memo(function ExportProgress({
               ? `Frame ${progress.frame.toLocaleString()} / ${progress.totalFrames.toLocaleString()}`
               : 'Preparing...'}
           </span>
-          <span className={cn('font-medium', config.color)}>
-            {progress.percentage.toFixed(1)}%
-          </span>
+          <span className={cn('font-medium', config.color)}>{progress.percentage.toFixed(1)}%</span>
         </div>
       </div>
 
@@ -348,9 +356,7 @@ export const ExportProgress = memo(function ExportProgress({
               <Film className="w-3.5 h-3.5" />
               <span>Encoding FPS</span>
             </div>
-            <div className="text-lg font-medium text-surface-100">
-              {progress.fps.toFixed(1)}
-            </div>
+            <div className="text-lg font-medium text-surface-100">{progress.fps.toFixed(1)}</div>
           </div>
 
           <div className="p-3 rounded-lg bg-surface-900">
@@ -358,9 +364,7 @@ export const ExportProgress = memo(function ExportProgress({
               <Gauge className="w-3.5 h-3.5" />
               <span>Speed</span>
             </div>
-            <div className="text-lg font-medium text-surface-100">
-              {progress.speed}
-            </div>
+            <div className="text-lg font-medium text-surface-100">{progress.speed}</div>
           </div>
 
           <div className="p-3 rounded-lg bg-surface-900">
@@ -411,9 +415,7 @@ export const ExportProgress = memo(function ExportProgress({
               <CheckCircle className="w-4 h-4" />
               <span>Export Complete!</span>
             </div>
-            <p className="text-xs text-surface-400 break-all">
-              {progress.outputPath}
-            </p>
+            <p className="text-xs text-surface-400 break-all">{progress.outputPath}</p>
             <div className="flex items-center gap-4 mt-2 text-xs text-surface-500">
               <span>Size: {formatFileSize(progress.currentSize)}</span>
               <span>Time: {formatTime(progress.elapsedSeconds)}</span>
@@ -469,11 +471,7 @@ export const ExportProgressBar = memo(function ExportProgressBar({
   });
 
   const barColor =
-    status === 'completed'
-      ? 'bg-green-500'
-      : status === 'failed'
-      ? 'bg-red-500'
-      : 'bg-primary-500';
+    status === 'completed' ? 'bg-green-500' : status === 'failed' ? 'bg-red-500' : 'bg-primary-500';
 
   return (
     <div className={cn('flex items-center gap-2', className)}>

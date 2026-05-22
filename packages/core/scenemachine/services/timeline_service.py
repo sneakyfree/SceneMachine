@@ -4,20 +4,19 @@ Timeline Service
 Business logic for timeline editing - tracks, clips, trimming, splitting.
 """
 
-from typing import List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from scenemachine.models.track import Track, TrackType, TimelineClip
+from scenemachine.models.track import TimelineClip, Track, TrackType
 
 
 class TimelineServiceError(Exception):
     """Base exception for timeline service errors."""
 
-    def __init__(self, message: str, code: str = "timeline_error"):
+    def __init__(self, message: str, code: str = "timeline_error") -> None:
         self.message = message
         self.code = code
         super().__init__(self.message)
@@ -26,26 +25,26 @@ class TimelineServiceError(Exception):
 class TrackNotFoundError(TimelineServiceError):
     """Raised when track is not found."""
 
-    def __init__(self, track_id: UUID):
+    def __init__(self, track_id: UUID) -> None:
         super().__init__(f"Track {track_id} not found", code="track_not_found")
 
 
 class ClipNotFoundError(TimelineServiceError):
     """Raised when clip is not found."""
 
-    def __init__(self, clip_id: UUID):
+    def __init__(self, clip_id: UUID) -> None:
         super().__init__(f"Clip {clip_id} not found", code="clip_not_found")
 
 
 class TimelineService:
     """Service for timeline editing operations."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     # ==================== Track Operations ====================
 
-    async def get_tracks(self, project_id: UUID) -> List[Track]:
+    async def get_tracks(self, project_id: UUID) -> list[Track]:
         """Get all tracks for a project, ordered by position.
 
         Args:
@@ -67,8 +66,8 @@ class TimelineService:
         project_id: UUID,
         name: str,
         track_type: TrackType,
-        order: Optional[int] = None,
-        color: Optional[str] = None,
+        order: int | None = None,
+        color: str | None = None,
     ) -> Track:
         """Create a new track.
 
@@ -84,9 +83,7 @@ class TimelineService:
         """
         # Auto-assign order if not provided
         if order is None:
-            result = await self.session.execute(
-                select(Track).where(Track.project_id == project_id)
-            )
+            result = await self.session.execute(select(Track).where(Track.project_id == project_id))
             existing_tracks = result.scalars().all()
             order = len(existing_tracks)
 
@@ -107,14 +104,14 @@ class TimelineService:
     async def update_track(
         self,
         track_id: UUID,
-        name: Optional[str] = None,
-        color: Optional[str] = None,
-        is_visible: Optional[bool] = None,
-        is_locked: Optional[bool] = None,
-        is_muted: Optional[bool] = None,
-        is_solo: Optional[bool] = None,
-        volume: Optional[float] = None,
-        pan: Optional[float] = None,
+        name: str | None = None,
+        color: str | None = None,
+        is_visible: bool | None = None,
+        is_locked: bool | None = None,
+        is_muted: bool | None = None,
+        is_solo: bool | None = None,
+        volume: float | None = None,
+        pan: float | None = None,
     ) -> Track:
         """Update track properties.
 
@@ -135,9 +132,7 @@ class TimelineService:
         Raises:
             TrackNotFoundError: If track not found
         """
-        result = await self.session.execute(
-            select(Track).where(Track.id == track_id)
-        )
+        result = await self.session.execute(select(Track).where(Track.id == track_id))
         track = result.scalar_one_or_none()
 
         if not track:
@@ -177,9 +172,7 @@ class TimelineService:
         Raises:
             TrackNotFoundError: If track not found
         """
-        result = await self.session.execute(
-            select(Track).where(Track.id == track_id)
-        )
+        result = await self.session.execute(select(Track).where(Track.id == track_id))
         track = result.scalar_one_or_none()
 
         if not track:
@@ -190,9 +183,7 @@ class TimelineService:
 
         return True
 
-    async def reorder_tracks(
-        self, project_id: UUID, track_ids: List[UUID]
-    ) -> List[Track]:
+    async def reorder_tracks(self, project_id: UUID, track_ids: list[UUID]) -> list[Track]:
         """Reorder tracks by setting new positions.
 
         Args:
@@ -221,7 +212,7 @@ class TimelineService:
         source_type: str,
         start_time: float,
         duration: float,
-        name: Optional[str] = None,
+        name: str | None = None,
         z_index: int = 0,
     ) -> TimelineClip:
         """Create a new clip on a track.
@@ -254,7 +245,7 @@ class TimelineService:
 
         return clip
 
-    async def get_clip(self, clip_id: UUID) -> Optional[TimelineClip]:
+    async def get_clip(self, clip_id: UUID) -> TimelineClip | None:
         """Get clip by ID.
 
         Args:
@@ -263,22 +254,20 @@ class TimelineService:
         Returns:
             TimelineClip or None
         """
-        result = await self.session.execute(
-            select(TimelineClip).where(TimelineClip.id == clip_id)
-        )
+        result = await self.session.execute(select(TimelineClip).where(TimelineClip.id == clip_id))
         return result.scalar_one_or_none()
 
     async def update_clip(
         self,
         clip_id: UUID,
-        start_time: Optional[float] = None,
-        duration: Optional[float] = None,
-        trim_start: Optional[float] = None,
-        trim_end: Optional[float] = None,
-        z_index: Optional[int] = None,
-        volume: Optional[float] = None,
-        fade_in: Optional[float] = None,
-        fade_out: Optional[float] = None,
+        start_time: float | None = None,
+        duration: float | None = None,
+        trim_start: float | None = None,
+        trim_end: float | None = None,
+        z_index: int | None = None,
+        volume: float | None = None,
+        fade_in: float | None = None,
+        fade_out: float | None = None,
     ) -> TimelineClip:
         """Update clip properties.
 
@@ -370,7 +359,7 @@ class TimelineService:
 
     async def split_clip(
         self, clip_id: UUID, split_time: float
-    ) -> Tuple[TimelineClip, TimelineClip]:
+    ) -> tuple[TimelineClip, TimelineClip]:
         """Split clip at specified time.
 
         Args:
@@ -425,9 +414,7 @@ class TimelineService:
 
         return clip, second_clip
 
-    async def ripple_delete(
-        self, clip_id: UUID, track_id: UUID
-    ) -> List[TimelineClip]:
+    async def ripple_delete(self, clip_id: UUID, track_id: UUID) -> list[TimelineClip]:
         """Delete clip and shift following clips to fill gap.
 
         Args:
@@ -469,7 +456,7 @@ class TimelineService:
         return list(result.scalars().all())
 
     async def move_clip_to_track(
-        self, clip_id: UUID, target_track_id: UUID, start_time: Optional[float] = None
+        self, clip_id: UUID, target_track_id: UUID, start_time: float | None = None
     ) -> TimelineClip:
         """Move clip to a different track.
 

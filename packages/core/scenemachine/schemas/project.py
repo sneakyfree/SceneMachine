@@ -1,7 +1,6 @@
 """Pydantic schemas for Project API endpoints."""
 
-from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field
@@ -15,8 +14,8 @@ class ProjectCreate(BaseSchema):
     """Schema for creating a new project."""
 
     name: str = Field(..., min_length=1, max_length=255, description="Project name")
-    description: Optional[str] = Field(None, description="Project description")
-    settings: Optional[dict[str, Any]] = Field(
+    description: str | None = Field(None, description="Project description")
+    settings: dict[str, Any] | None = Field(
         default_factory=dict, description="Initial project settings"
     )
 
@@ -24,9 +23,9 @@ class ProjectCreate(BaseSchema):
 class ProjectUpdate(BaseSchema):
     """Schema for updating a project."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    settings: Optional[dict[str, Any]] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    settings: dict[str, Any] | None = None
 
 
 class ProjectSummary(TimestampSchema):
@@ -34,9 +33,9 @@ class ProjectSummary(TimestampSchema):
 
     id: UUID
     name: str
-    description: Optional[str]
+    description: str | None
     state: ProjectState
-    screenplay_title: Optional[str] = None
+    screenplay_title: str | None = None
     character_count: int = 0
     scene_count: int = 0
     locked_character_count: int = 0
@@ -47,11 +46,11 @@ class ScreenplaySummary(BaseSchema):
     """Brief screenplay information for project detail."""
 
     id: UUID
-    title: Optional[str]
+    title: str | None
     original_filename: str
     is_parsed: bool
     movie_plan_approved: bool
-    page_count: Optional[int]
+    page_count: int | None
 
 
 class CharacterSummaryBrief(BaseSchema):
@@ -78,15 +77,15 @@ class ProjectDetail(TimestampSchema):
 
     id: UUID
     name: str
-    description: Optional[str]
+    description: str | None
     state: ProjectState
     settings: dict[str, Any]
     can_advance: bool
 
     # Nested summaries
-    screenplay: Optional[ScreenplaySummary] = None
-    characters: List[CharacterSummaryBrief] = []
-    scenes: List[SceneSummaryBrief] = []
+    screenplay: ScreenplaySummary | None = None
+    characters: list[CharacterSummaryBrief] = []
+    scenes: list[SceneSummaryBrief] = []
 
     # Counts
     character_count: int = 0
@@ -99,9 +98,7 @@ class ProjectStateTransition(BaseSchema):
     """Request to transition project state."""
 
     target_state: ProjectState
-    force: bool = Field(
-        False, description="Skip validation checks (use with caution)"
-    )
+    force: bool = Field(False, description="Skip validation checks (use with caution)")
 
 
 class ProjectStateResponse(BaseSchema):

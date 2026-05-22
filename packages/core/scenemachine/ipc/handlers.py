@@ -1,13 +1,17 @@
 """IPC method handlers for Electron communication."""
 
+import contextlib
 import logging
-from typing import Any, Dict, List, Optional
+from datetime import UTC
+from typing import Any
 from uuid import UUID
+
+from sqlalchemy import select
 
 from scenemachine.config import get_settings
 from scenemachine.database import get_db_manager
 from scenemachine.ipc.server import IPCServer
-from scenemachine.models import Project, ProjectState
+from scenemachine.models import Project
 from scenemachine.services import get_storage_service
 
 logger = logging.getLogger(__name__)
@@ -27,6 +31,7 @@ def register_handlers(server: IPCServer) -> None:
     # local model option instead of the validated Wan22 / LTX-2 stacks.
     try:
         from scenemachine.generators.registry import setup_providers
+
         setup_providers()
         logger.info("Provider registry populated for IPC server")
     except Exception as e:
@@ -35,12 +40,12 @@ def register_handlers(server: IPCServer) -> None:
         logger.error("setup_providers() failed during IPC handler init: %s", e)
 
     @server.handler("ping")
-    async def handle_ping() -> Dict[str, str]:
+    async def handle_ping() -> dict[str, str]:
         """Health check ping."""
         return {"status": "pong"}
 
     @server.handler("version")
-    async def handle_version() -> Dict[str, str]:
+    async def handle_version() -> dict[str, str]:
         """Get application version."""
         settings = get_settings()
         return {
@@ -53,7 +58,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_list_projects(
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List all projects."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
@@ -86,7 +91,7 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("projects.get")
-    async def handle_get_project(id: str) -> Dict[str, Any]:
+    async def handle_get_project(id: str) -> dict[str, Any]:
         """Get project details."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
@@ -156,9 +161,9 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("projects.create")
     async def handle_create_project(
         name: str,
-        description: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        description: str | None = None,
+        settings: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create a new project."""
         db_manager = get_db_manager()
 
@@ -186,10 +191,10 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("projects.update")
     async def handle_update_project(
         id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        settings: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        description: str | None = None,
+        settings: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Update project details."""
         from sqlalchemy import select
 
@@ -224,7 +229,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("projects.delete")
-    async def handle_delete_project(id: str) -> Dict[str, bool]:
+    async def handle_delete_project(id: str) -> dict[str, bool]:
         """Delete a project."""
         from sqlalchemy import select
 
@@ -251,9 +256,9 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("projects.duplicate")
     async def handle_duplicate_project(
         id: str,
-        new_name: Optional[str] = None,
+        new_name: str | None = None,
         include_generated_videos: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Duplicate a project with all its data."""
         from scenemachine.services.project_duplicator import duplicate_project
 
@@ -284,7 +289,7 @@ def register_handlers(server: IPCServer) -> None:
         project_id: str,
         file_path: str,
         filename: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Upload a screenplay file from disk.
 
         Args:
@@ -324,7 +329,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("screenplays.parse")
-    async def handle_parse_screenplay(screenplay_id: str) -> Dict[str, Any]:
+    async def handle_parse_screenplay(screenplay_id: str) -> dict[str, Any]:
         """Parse an uploaded screenplay.
 
         Args:
@@ -349,7 +354,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("screenplays.get")
-    async def handle_get_screenplay(screenplay_id: str) -> Dict[str, Any]:
+    async def handle_get_screenplay(screenplay_id: str) -> dict[str, Any]:
         """Get screenplay details.
 
         Args:
@@ -371,9 +376,7 @@ def register_handlers(server: IPCServer) -> None:
                 raise ValueError(f"Screenplay {screenplay_id} not found")
 
             # Get characters
-            chars_stmt = select(Character).where(
-                Character.project_id == screenplay.project_id
-            )
+            chars_stmt = select(Character).where(Character.project_id == screenplay.project_id)
             chars_result = await session.execute(chars_stmt)
             characters = chars_result.scalars().all()
 
@@ -419,7 +422,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("screenplays.getByProject")
-    async def handle_get_project_screenplay(project_id: str) -> Optional[Dict[str, Any]]:
+    async def handle_get_project_screenplay(project_id: str) -> dict[str, Any] | None:
         """Get screenplay for a project.
 
         Args:
@@ -450,7 +453,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("screenplays.delete")
-    async def handle_delete_screenplay(screenplay_id: str) -> Dict[str, bool]:
+    async def handle_delete_screenplay(screenplay_id: str) -> dict[str, bool]:
         """Delete a screenplay.
 
         Args:
@@ -475,7 +478,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_generate_movie_plan(
         screenplay_id: str,
         regenerate: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate a movie plan for a screenplay.
 
         Args:
@@ -517,7 +520,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("moviePlan.get")
-    async def handle_get_movie_plan(screenplay_id: str) -> Optional[Dict[str, Any]]:
+    async def handle_get_movie_plan(screenplay_id: str) -> dict[str, Any] | None:
         """Get the movie plan for a screenplay.
 
         Args:
@@ -561,7 +564,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("moviePlan.approve")
-    async def handle_approve_movie_plan(screenplay_id: str) -> Dict[str, Any]:
+    async def handle_approve_movie_plan(screenplay_id: str) -> dict[str, Any]:
         """Approve the movie plan.
 
         Args:
@@ -583,7 +586,7 @@ def register_handlers(server: IPCServer) -> None:
 
     # Character handlers
     @server.handler("characters.list")
-    async def handle_list_characters(project_id: str) -> List[Dict[str, Any]]:
+    async def handle_list_characters(project_id: str) -> list[dict[str, Any]]:
         """List all characters for a project.
 
         Args:
@@ -627,7 +630,7 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("characters.get")
-    async def handle_get_character(character_id: str) -> Dict[str, Any]:
+    async def handle_get_character(character_id: str) -> dict[str, Any]:
         """Get a character by ID.
 
         Args:
@@ -649,18 +652,18 @@ def register_handlers(server: IPCServer) -> None:
             if character.reference_assets:
                 for asset in character.reference_assets:
                     is_primary = (
-                        asset.metadata.get("is_primary", False)
-                        if asset.metadata
-                        else False
+                        asset.metadata.get("is_primary", False) if asset.metadata else False
                     )
-                    references.append({
-                        "id": str(asset.id),
-                        "assetType": asset.asset_type.value,
-                        "originalFilename": asset.original_filename,
-                        "filePath": asset.file_path,
-                        "isPrimary": is_primary,
-                        "createdAt": asset.created_at.isoformat(),
-                    })
+                    references.append(
+                        {
+                            "id": str(asset.id),
+                            "assetType": asset.asset_type.value,
+                            "originalFilename": asset.original_filename,
+                            "filePath": asset.file_path,
+                            "isPrimary": is_primary,
+                            "createdAt": asset.created_at.isoformat(),
+                        }
+                    )
 
             return {
                 "id": str(character.id),
@@ -689,16 +692,16 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("characters.update")
     async def handle_update_character(
         character_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        age_range_min: Optional[int] = None,
-        age_range_max: Optional[int] = None,
-        gender: Optional[str] = None,
-        physical_description: Optional[Dict[str, Any]] = None,
-        personality_traits: Optional[List[str]] = None,
-        voice_description: Optional[str] = None,
-        is_protagonist: Optional[bool] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        description: str | None = None,
+        age_range_min: int | None = None,
+        age_range_max: int | None = None,
+        gender: str | None = None,
+        physical_description: dict[str, Any] | None = None,
+        personality_traits: list[str] | None = None,
+        voice_description: str | None = None,
+        is_protagonist: bool | None = None,
+    ) -> dict[str, Any]:
         """Update a character.
 
         Args:
@@ -747,7 +750,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("characters.generateDescription")
-    async def handle_generate_description(character_id: str) -> Dict[str, Any]:
+    async def handle_generate_description(character_id: str) -> dict[str, Any]:
         """Generate character description from screenplay.
 
         Args:
@@ -776,7 +779,7 @@ def register_handlers(server: IPCServer) -> None:
         file_path: str,
         filename: str,
         is_primary: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Upload a reference image from disk.
 
         Args:
@@ -820,7 +823,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_delete_reference(
         character_id: str,
         asset_id: str,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """Delete a reference image.
 
         Args:
@@ -845,8 +848,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("characters.lock")
     async def handle_lock_character(
         character_id: str,
-        primary_reference_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        primary_reference_id: str | None = None,
+    ) -> dict[str, Any]:
         """Lock a character's likeness.
 
         Args:
@@ -872,7 +875,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("characters.unlock")
-    async def handle_unlock_character(character_id: str) -> Dict[str, Any]:
+    async def handle_unlock_character(character_id: str) -> dict[str, Any]:
         """Unlock a character for editing.
 
         Args:
@@ -900,7 +903,7 @@ def register_handlers(server: IPCServer) -> None:
         voice_id: str,
         voice_provider: str,
         voice_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update character voice assignment.
 
         Args:
@@ -934,8 +937,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("characters.getPrompt")
     async def handle_get_prompt(
         character_id: str,
-        scene_context: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        scene_context: str | None = None,
+    ) -> dict[str, Any]:
         """Get AI generation prompts for a character.
 
         Args:
@@ -968,7 +971,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_list_scenes(
         project_id: str,
         include_shots: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List all scenes for a project.
 
         Args:
@@ -1032,7 +1035,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_get_scene(
         scene_id: str,
         include_shots: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get a scene by ID.
 
         Args:
@@ -1095,7 +1098,7 @@ def register_handlers(server: IPCServer) -> None:
             return scene_data
 
     @server.handler("scenes.analyze")
-    async def handle_analyze_scene(scene_id: str) -> Dict[str, Any]:
+    async def handle_analyze_scene(scene_id: str) -> dict[str, Any]:
         """Analyze a scene for shot planning.
 
         Args:
@@ -1127,7 +1130,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_generate_breakdown(
         scene_id: str,
         regenerate: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate shot breakdown for a scene.
 
         Args:
@@ -1169,11 +1172,13 @@ def register_handlers(server: IPCServer) -> None:
                         "state": s.state.value,
                     }
                     for s in sorted(scene.shots, key=lambda x: x.sequence_number)
-                ] if scene and scene.shots else [],
+                ]
+                if scene and scene.shots
+                else [],
             }
 
     @server.handler("scenes.approve")
-    async def handle_approve_breakdown(scene_id: str) -> Dict[str, Any]:
+    async def handle_approve_breakdown(scene_id: str) -> dict[str, Any]:
         """Approve the shot breakdown for a scene.
 
         Args:
@@ -1197,7 +1202,7 @@ def register_handlers(server: IPCServer) -> None:
 
     # Shot handlers
     @server.handler("shots.get")
-    async def handle_get_shot(shot_id: str) -> Dict[str, Any]:
+    async def handle_get_shot(shot_id: str) -> dict[str, Any]:
         """Get a shot by ID.
 
         Args:
@@ -1236,15 +1241,15 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("shots.update")
     async def handle_update_shot(
         shot_id: str,
-        shot_type: Optional[str] = None,
-        camera_movement: Optional[str] = None,
-        description: Optional[str] = None,
-        dialogue: Optional[str] = None,
-        action: Optional[str] = None,
-        duration_seconds: Optional[float] = None,
-        composition_notes: Optional[str] = None,
-        lighting_notes: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        shot_type: str | None = None,
+        camera_movement: str | None = None,
+        description: str | None = None,
+        dialogue: str | None = None,
+        action: str | None = None,
+        duration_seconds: float | None = None,
+        composition_notes: str | None = None,
+        lighting_notes: str | None = None,
+    ) -> dict[str, Any]:
         """Update a shot.
 
         Args:
@@ -1296,8 +1301,8 @@ def register_handlers(server: IPCServer) -> None:
         description: str,
         camera_movement: str = "static",
         duration_seconds: float = 3.0,
-        after_shot_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        after_shot_id: str | None = None,
+    ) -> dict[str, Any]:
         """Add a new shot to a scene.
 
         Args:
@@ -1339,7 +1344,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("shots.delete")
-    async def handle_delete_shot(shot_id: str) -> Dict[str, bool]:
+    async def handle_delete_shot(shot_id: str) -> dict[str, bool]:
         """Delete a shot.
 
         Args:
@@ -1360,7 +1365,7 @@ def register_handlers(server: IPCServer) -> None:
             return {"success": True}
 
     @server.handler("scenes.getShotTypes")
-    async def handle_get_shot_types() -> List[Dict[str, str]]:
+    async def handle_get_shot_types() -> list[dict[str, str]]:
         """Get available shot types."""
         from scenemachine.models.shot import ShotType
 
@@ -1389,7 +1394,7 @@ def register_handlers(server: IPCServer) -> None:
         ]
 
     @server.handler("scenes.getCameraMovements")
-    async def handle_get_camera_movements() -> List[Dict[str, str]]:
+    async def handle_get_camera_movements() -> list[dict[str, str]]:
         """Get available camera movements."""
         from scenemachine.models.shot import CameraMovement
 
@@ -1420,7 +1425,7 @@ def register_handlers(server: IPCServer) -> None:
 
     # Generation handlers
     @server.handler("generation.getProviders")
-    async def handle_get_providers() -> List[Dict[str, Any]]:
+    async def handle_get_providers() -> list[dict[str, Any]]:
         """Get available generation providers."""
         from scenemachine.models.generation_job import JobProvider
         from scenemachine.services.generation import GenerationService
@@ -1442,8 +1447,8 @@ def register_handlers(server: IPCServer) -> None:
 
     @server.handler("generation.getQueueStatus")
     async def handle_get_queue_status(
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        project_id: str | None = None,
+    ) -> dict[str, Any]:
         """Get generation queue status."""
         from scenemachine.services.generation import GenerationService
 
@@ -1460,7 +1465,7 @@ def register_handlers(server: IPCServer) -> None:
         shot_id: str,
         provider: str = "local",
         priority: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Queue a shot for generation."""
         from scenemachine.models.generation_job import JobProvider
         from scenemachine.services.generation import GenerationService
@@ -1486,7 +1491,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_queue_scene(
         scene_id: str,
         provider: str = "local",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Queue all planned shots in a scene."""
         from scenemachine.models.generation_job import JobProvider
         from scenemachine.services.generation import GenerationService
@@ -1513,7 +1518,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_queue_project(
         project_id: str,
         provider: str = "local",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Queue all planned shots in a project."""
         from scenemachine.models.generation_job import JobProvider
         from scenemachine.services.generation import GenerationService
@@ -1539,7 +1544,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("generation.getJob")
-    async def handle_get_job(job_id: str) -> Dict[str, Any]:
+    async def handle_get_job(job_id: str) -> dict[str, Any]:
         """Get a generation job by ID."""
         from scenemachine.services.generation import GenerationService
 
@@ -1572,7 +1577,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("generation.processJob")
-    async def handle_process_job(job_id: str) -> Dict[str, Any]:
+    async def handle_process_job(job_id: str) -> dict[str, Any]:
         """Process a pending generation job."""
         from scenemachine.services.generation import GenerationService
 
@@ -1593,7 +1598,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("generation.cancelJob")
-    async def handle_cancel_job(job_id: str) -> Dict[str, bool]:
+    async def handle_cancel_job(job_id: str) -> dict[str, bool]:
         """Cancel a pending or running job."""
         from scenemachine.services.generation import GenerationService
 
@@ -1607,7 +1612,7 @@ def register_handlers(server: IPCServer) -> None:
             return {"success": cancelled}
 
     @server.handler("generation.retryJob")
-    async def handle_retry_job(job_id: str) -> Dict[str, Any]:
+    async def handle_retry_job(job_id: str) -> dict[str, Any]:
         """Retry a failed job."""
         from scenemachine.services.generation import GenerationService
 
@@ -1629,7 +1634,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("generation.approveShot")
-    async def handle_approve_shot(shot_id: str) -> Dict[str, Any]:
+    async def handle_approve_shot(shot_id: str) -> dict[str, Any]:
         """Approve a generated shot."""
         from scenemachine.services.generation import GenerationService
 
@@ -1649,8 +1654,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("generation.rejectShot")
     async def handle_reject_shot(
         shot_id: str,
-        notes: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        notes: str | None = None,
+    ) -> dict[str, Any]:
         """Reject a generated shot for regeneration."""
         from scenemachine.services.generation import GenerationService
 
@@ -1668,7 +1673,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("generation.getPendingJobs")
-    async def handle_get_pending_jobs(limit: int = 20) -> List[Dict[str, Any]]:
+    async def handle_get_pending_jobs(limit: int = 20) -> list[dict[str, Any]]:
         """Get pending jobs in queue."""
         from scenemachine.services.generation import GenerationService
 
@@ -1691,7 +1696,7 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("generation.getShotJobs")
-    async def handle_get_shot_jobs(shot_id: str) -> List[Dict[str, Any]]:
+    async def handle_get_shot_jobs(shot_id: str) -> list[dict[str, Any]]:
         """Get all generation jobs for a shot."""
         from sqlalchemy import select
 
@@ -1727,12 +1732,12 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("generation.getProvidersHealth")
-    async def handle_get_providers_health() -> List[Dict[str, Any]]:
+    async def handle_get_providers_health() -> list[dict[str, Any]]:
         """Get detailed health status for all providers."""
         from scenemachine.config import get_settings
         from scenemachine.services.generation import (
-            ReplicateProvider,
             FalProvider,
+            ReplicateProvider,
         )
 
         settings = get_settings()
@@ -1753,15 +1758,17 @@ def register_handlers(server: IPCServer) -> None:
             except Exception as e:
                 replicate_error = str(e)
 
-        providers.append({
-            "provider": "replicate",
-            "name": "Replicate",
-            "available": replicate_available,
-            "configured": replicate_configured,
-            "models": ReplicateProvider.list_models(),
-            "defaultModel": settings.replicate_video_model or "minimax",
-            "error": replicate_error,
-        })
+        providers.append(
+            {
+                "provider": "replicate",
+                "name": "Replicate",
+                "available": replicate_available,
+                "configured": replicate_configured,
+                "models": ReplicateProvider.list_models(),
+                "defaultModel": settings.replicate_video_model or "minimax",
+                "error": replicate_error,
+            }
+        )
 
         # Fal.ai
         fal_configured = bool(settings.fal_api_key)
@@ -1778,38 +1785,44 @@ def register_handlers(server: IPCServer) -> None:
             except Exception as e:
                 fal_error = str(e)
 
-        providers.append({
-            "provider": "fal",
-            "name": "Fal.ai",
-            "available": fal_available,
-            "configured": fal_configured,
-            "models": FalProvider.list_models(),
-            "defaultModel": settings.fal_video_model or "ltx",
-            "error": fal_error,
-        })
+        providers.append(
+            {
+                "provider": "fal",
+                "name": "Fal.ai",
+                "available": fal_available,
+                "configured": fal_configured,
+                "models": FalProvider.list_models(),
+                "defaultModel": settings.fal_video_model or "ltx",
+                "error": fal_error,
+            }
+        )
 
         # Local
-        providers.append({
-            "provider": "local",
-            "name": "Local (Development)",
-            "available": True,
-            "configured": True,
-            "models": [{
-                "id": "mock",
-                "name": "Mock Generator",
-                "cost_per_second": 0.0,
-                "supports_text_to_video": True,
-                "supports_image_to_video": True,
-                "max_duration": 10.0,
-            }],
-            "defaultModel": "mock",
-            "error": None,
-        })
+        providers.append(
+            {
+                "provider": "local",
+                "name": "Local (Development)",
+                "available": True,
+                "configured": True,
+                "models": [
+                    {
+                        "id": "mock",
+                        "name": "Mock Generator",
+                        "cost_per_second": 0.0,
+                        "supports_text_to_video": True,
+                        "supports_image_to_video": True,
+                        "max_duration": 10.0,
+                    }
+                ],
+                "defaultModel": "mock",
+                "error": None,
+            }
+        )
 
         return providers
 
     @server.handler("generation.getProviderModels")
-    async def handle_get_provider_models(provider_id: str) -> List[Dict[str, Any]]:
+    async def handle_get_provider_models(provider_id: str) -> list[dict[str, Any]]:
         """Get available models for a specific provider.
 
         Looks the provider up in the central ProviderRegistry first so
@@ -1848,8 +1861,8 @@ def register_handlers(server: IPCServer) -> None:
         # Legacy fallback for cases where the registry can't instantiate
         # the provider (e.g. provider needs config that isn't present).
         from scenemachine.services.generation import (
-            ReplicateProvider,
             FalProvider,
+            ReplicateProvider,
         )
 
         if provider_id == "replicate":
@@ -1857,27 +1870,29 @@ def register_handlers(server: IPCServer) -> None:
         if provider_id == "fal":
             return FalProvider.list_models()
         if provider_id == "local":
-            return [{
-                "id": "mock",
-                "name": "Mock Generator",
-                "cost_per_second": 0.0,
-                "supports_text_to_video": True,
-                "supports_image_to_video": True,
-                "max_duration": 10.0,
-            }]
+            return [
+                {
+                    "id": "mock",
+                    "name": "Mock Generator",
+                    "cost_per_second": 0.0,
+                    "supports_text_to_video": True,
+                    "supports_image_to_video": True,
+                    "max_duration": 10.0,
+                }
+            ]
         raise ValueError(f"Unknown provider: {provider_id}")
 
     @server.handler("generation.estimateCost")
     async def handle_estimate_cost(
         provider: str,
-        model_id: Optional[str] = None,
+        model_id: str | None = None,
         duration_seconds: float = 3.0,
         shot_count: int = 1,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Estimate generation cost."""
         from scenemachine.services.generation import (
-            ReplicateProvider,
             FalProvider,
+            ReplicateProvider,
         )
 
         if provider == "replicate":
@@ -1914,7 +1929,7 @@ def register_handlers(server: IPCServer) -> None:
         }
 
     @server.handler("generation.getWorkerStatus")
-    async def handle_get_worker_status() -> Dict[str, Any]:
+    async def handle_get_worker_status() -> dict[str, Any]:
         """Get queue worker status."""
         from scenemachine.services.queue_worker import get_queue_worker
 
@@ -1922,7 +1937,7 @@ def register_handlers(server: IPCServer) -> None:
         return worker.stats.to_dict()
 
     @server.handler("generation.pauseWorker")
-    async def handle_pause_worker() -> Dict[str, bool]:
+    async def handle_pause_worker() -> dict[str, bool]:
         """Pause the queue worker."""
         from scenemachine.services.queue_worker import get_queue_worker
 
@@ -1931,7 +1946,7 @@ def register_handlers(server: IPCServer) -> None:
         return {"success": True, "paused": True}
 
     @server.handler("generation.resumeWorker")
-    async def handle_resume_worker() -> Dict[str, bool]:
+    async def handle_resume_worker() -> dict[str, bool]:
         """Resume the queue worker."""
         from scenemachine.services.queue_worker import get_queue_worker
 
@@ -1941,7 +1956,7 @@ def register_handlers(server: IPCServer) -> None:
 
     # Assembly/Export handlers
     @server.handler("assembly.getStatus")
-    async def handle_get_assembly_status(project_id: str) -> Dict[str, Any]:
+    async def handle_get_assembly_status(project_id: str) -> dict[str, Any]:
         """Get assembly status for a project."""
         from scenemachine.services.assembly import AssemblyService
 
@@ -1976,7 +1991,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("assembly.getTimeline")
-    async def handle_get_timeline(project_id: str) -> Dict[str, Any]:
+    async def handle_get_timeline(project_id: str) -> dict[str, Any]:
         """Get timeline for a project."""
         from scenemachine.services.assembly import AssemblyService
 
@@ -1989,22 +2004,24 @@ def register_handlers(server: IPCServer) -> None:
 
             scenes_data = []
             for scene in timeline.scenes:
-                scenes_data.append({
-                    "sceneId": str(scene.scene_id),
-                    "sceneNumber": scene.scene_number,
-                    "title": scene.title,
-                    "duration": scene.duration,
-                    "shots": [
-                        {
-                            "shotId": str(shot.shot_id),
-                            "shotNumber": shot.shot_number,
-                            "duration": shot.duration,
-                            "hasOutput": shot.output_path is not None,
-                            "thumbnail": shot.thumbnail_path,
-                        }
-                        for shot in scene.shots
-                    ],
-                })
+                scenes_data.append(
+                    {
+                        "sceneId": str(scene.scene_id),
+                        "sceneNumber": scene.scene_number,
+                        "title": scene.title,
+                        "duration": scene.duration,
+                        "shots": [
+                            {
+                                "shotId": str(shot.shot_id),
+                                "shotNumber": shot.shot_number,
+                                "duration": shot.duration,
+                                "hasOutput": shot.output_path is not None,
+                                "thumbnail": shot.thumbnail_path,
+                            }
+                            for shot in scene.shots
+                        ],
+                    }
+                )
 
             return {
                 "projectId": str(pid),
@@ -2013,7 +2030,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("assembly.assembleScene")
-    async def handle_assemble_scene(scene_id: str) -> Dict[str, Any]:
+    async def handle_assemble_scene(scene_id: str) -> dict[str, Any]:
         """Assemble a single scene from its shots."""
         from scenemachine.services.assembly import AssemblyService
 
@@ -2032,7 +2049,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("assembly.assembleMovie")
-    async def handle_assemble_movie(project_id: str) -> Dict[str, Any]:
+    async def handle_assemble_movie(project_id: str) -> dict[str, Any]:
         """Assemble all scenes into a movie."""
         from scenemachine.services.assembly import AssemblyService
 
@@ -2060,11 +2077,11 @@ def register_handlers(server: IPCServer) -> None:
         include_subtitles: bool = False,
         include_text_overlays: bool = True,
         watermark: bool = False,
-        watermark_path: Optional[str] = None,
+        watermark_path: str | None = None,
         watermark_position: str = "bottom_right",
         watermark_opacity: float = 0.7,
-        output_filename: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        output_filename: str | None = None,
+    ) -> dict[str, Any]:
         """Export movie with specified settings."""
         from scenemachine.services.assembly import (
             AssemblyService,
@@ -2105,7 +2122,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("assembly.getExportHistory")
-    async def handle_get_export_history(project_id: str) -> List[Dict[str, Any]]:
+    async def handle_get_export_history(project_id: str) -> list[dict[str, Any]]:
         """Get export history for a project."""
         from scenemachine.services.assembly import AssemblyService
 
@@ -2118,7 +2135,7 @@ def register_handlers(server: IPCServer) -> None:
             return history
 
     @server.handler("assembly.getFormats")
-    async def handle_get_export_formats() -> List[Dict[str, Any]]:
+    async def handle_get_export_formats() -> list[dict[str, Any]]:
         """Get available export formats."""
         from scenemachine.services.assembly import AssemblyService
 
@@ -2129,7 +2146,7 @@ def register_handlers(server: IPCServer) -> None:
             return await service.get_export_formats()
 
     @server.handler("assembly.getQualityPresets")
-    async def handle_get_quality_presets() -> List[Dict[str, Any]]:
+    async def handle_get_quality_presets() -> list[dict[str, Any]]:
         """Get available quality presets."""
         from scenemachine.services.assembly import AssemblyService
 
@@ -2142,8 +2159,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("timeline.save")
     async def handle_save_timeline(
         project_id: str,
-        clips: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        clips: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Save timeline clip edits (order, duration, visibility, locking)."""
         from scenemachine.models.shot import Shot
 
@@ -2173,11 +2190,7 @@ def register_handlers(server: IPCServer) -> None:
                 if updates:
                     from sqlalchemy import update
 
-                    stmt = (
-                        update(Shot)
-                        .where(Shot.id == shot_id)
-                        .values(**updates)
-                    )
+                    stmt = update(Shot).where(Shot.id == shot_id).values(**updates)
                     await session.execute(stmt)
                     updated_count += 1
 
@@ -2190,10 +2203,9 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("timeline.getClipDetails")
-    async def handle_get_clip_details(shot_id: str) -> Dict[str, Any]:
+    async def handle_get_clip_details(shot_id: str) -> dict[str, Any]:
         """Get detailed clip information for timeline editing."""
         from scenemachine.models.shot import Shot
-        from scenemachine.models.scene import Scene
 
         sid = UUID(shot_id)
         db_manager = get_db_manager()
@@ -2202,11 +2214,7 @@ def register_handlers(server: IPCServer) -> None:
             from sqlalchemy import select
             from sqlalchemy.orm import joinedload
 
-            stmt = (
-                select(Shot)
-                .options(joinedload(Shot.scene))
-                .where(Shot.id == sid)
-            )
+            stmt = select(Shot).options(joinedload(Shot.scene)).where(Shot.id == sid)
             result = await session.execute(stmt)
             shot = result.scalar_one_or_none()
 
@@ -2235,8 +2243,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("overlays.save")
     async def handle_save_overlays(
         project_id: str,
-        overlays: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        overlays: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Save text overlays for a project."""
         from scenemachine.models import Project
 
@@ -2265,7 +2273,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("overlays.get")
-    async def handle_get_overlays(project_id: str) -> List[Dict[str, Any]]:
+    async def handle_get_overlays(project_id: str) -> list[dict[str, Any]]:
         """Get text overlays for a project."""
         from scenemachine.models import Project
 
@@ -2287,8 +2295,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("colorGrade.save")
     async def handle_save_color_grade(
         project_id: str,
-        grade: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        grade: dict[str, Any],
+    ) -> dict[str, Any]:
         """Save color grading settings for a project."""
         from scenemachine.models import Project
 
@@ -2316,7 +2324,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("colorGrade.get")
-    async def handle_get_color_grade(project_id: str) -> Dict[str, Any]:
+    async def handle_get_color_grade(project_id: str) -> dict[str, Any]:
         """Get color grading settings for a project."""
         from scenemachine.models import Project
 
@@ -2335,7 +2343,7 @@ def register_handlers(server: IPCServer) -> None:
             return grade
 
     @server.handler("colorGrade.getPresets")
-    async def handle_get_color_presets() -> List[Dict[str, Any]]:
+    async def handle_get_color_presets() -> list[dict[str, Any]]:
         """Get built-in color grading presets."""
         return [
             {
@@ -2417,7 +2425,7 @@ def register_handlers(server: IPCServer) -> None:
 
     # Settings handlers
     @server.handler("settings.get")
-    async def handle_get_settings() -> Dict[str, Any]:
+    async def handle_get_settings() -> dict[str, Any]:
         """Get current user settings."""
         from scenemachine.services.settings import SettingsService
 
@@ -2430,20 +2438,20 @@ def register_handlers(server: IPCServer) -> None:
 
     @server.handler("settings.update")
     async def handle_update_settings(
-        llm_provider: Optional[str] = None,
-        video_provider: Optional[str] = None,
-        max_concurrent_generations: Optional[int] = None,
-        generation_timeout_seconds: Optional[int] = None,
-        default_video_resolution: Optional[str] = None,
-        default_video_fps: Optional[int] = None,
-        theme_mode: Optional[str] = None,
-        auto_save_enabled: Optional[bool] = None,
-        show_advanced_options: Optional[bool] = None,
-        auto_cleanup_temp_files: Optional[bool] = None,
-        max_cache_size_gb: Optional[int] = None,
-        default_export_format: Optional[str] = None,
-        default_export_quality: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        llm_provider: str | None = None,
+        video_provider: str | None = None,
+        max_concurrent_generations: int | None = None,
+        generation_timeout_seconds: int | None = None,
+        default_video_resolution: str | None = None,
+        default_video_fps: int | None = None,
+        theme_mode: str | None = None,
+        auto_save_enabled: bool | None = None,
+        show_advanced_options: bool | None = None,
+        auto_cleanup_temp_files: bool | None = None,
+        max_cache_size_gb: int | None = None,
+        default_export_format: str | None = None,
+        default_export_quality: str | None = None,
+    ) -> dict[str, Any]:
         """Update user settings."""
         from scenemachine.services.settings import SettingsService
 
@@ -2469,7 +2477,7 @@ def register_handlers(server: IPCServer) -> None:
             return settings.to_dict(include_keys=True)
 
     @server.handler("settings.setApiKey")
-    async def handle_set_api_key(provider: str, api_key: str) -> Dict[str, Any]:
+    async def handle_set_api_key(provider: str, api_key: str) -> dict[str, Any]:
         """Set API key for a provider."""
         from scenemachine.services.settings import SettingsService
 
@@ -2481,7 +2489,7 @@ def register_handlers(server: IPCServer) -> None:
             return {"success": True, "provider": provider}
 
     @server.handler("settings.removeApiKey")
-    async def handle_remove_api_key(provider: str) -> Dict[str, Any]:
+    async def handle_remove_api_key(provider: str) -> dict[str, Any]:
         """Remove API key for a provider."""
         from scenemachine.services.settings import SettingsService
 
@@ -2495,8 +2503,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("settings.validateApiKey")
     async def handle_validate_api_key(
         provider: str,
-        api_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        api_key: str | None = None,
+    ) -> dict[str, Any]:
         """Validate an API key."""
         from scenemachine.services.settings import SettingsService
 
@@ -2515,7 +2523,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("settings.checkProviders")
-    async def handle_check_providers() -> List[Dict[str, Any]]:
+    async def handle_check_providers() -> list[dict[str, Any]]:
         """Check status of all providers."""
         from scenemachine.services.settings import SettingsService
 
@@ -2537,7 +2545,7 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("settings.getStorageStats")
-    async def handle_get_storage_stats() -> Dict[str, Any]:
+    async def handle_get_storage_stats() -> dict[str, Any]:
         """Get storage statistics."""
         from scenemachine.services.settings import SettingsService
 
@@ -2559,7 +2567,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("settings.clearCache")
-    async def handle_clear_cache(cache_type: str = "all") -> Dict[str, Any]:
+    async def handle_clear_cache(cache_type: str = "all") -> dict[str, Any]:
         """Clear cached files."""
         from scenemachine.services.settings import SettingsService
 
@@ -2575,7 +2583,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("settings.getLlmProviders")
-    async def handle_get_llm_providers() -> List[Dict[str, Any]]:
+    async def handle_get_llm_providers() -> list[dict[str, Any]]:
         """Get available LLM providers."""
         from scenemachine.services.settings import SettingsService
 
@@ -2586,7 +2594,7 @@ def register_handlers(server: IPCServer) -> None:
             return await service.get_available_llm_providers()
 
     @server.handler("settings.getVideoProviders")
-    async def handle_get_video_providers() -> List[Dict[str, Any]]:
+    async def handle_get_video_providers() -> list[dict[str, Any]]:
         """Get available video providers."""
         from scenemachine.services.settings import SettingsService
 
@@ -2597,7 +2605,7 @@ def register_handlers(server: IPCServer) -> None:
             return await service.get_available_video_providers()
 
     @server.handler("settings.getThemeOptions")
-    async def handle_get_theme_options() -> List[Dict[str, str]]:
+    async def handle_get_theme_options() -> list[dict[str, str]]:
         """Get available theme options."""
         from scenemachine.services.settings import SettingsService
 
@@ -2608,7 +2616,7 @@ def register_handlers(server: IPCServer) -> None:
             return await service.get_theme_options()
 
     @server.handler("settings.export")
-    async def handle_export_settings() -> Dict[str, Any]:
+    async def handle_export_settings() -> dict[str, Any]:
         """Export settings for backup."""
         from scenemachine.services.settings import SettingsService
 
@@ -2619,7 +2627,7 @@ def register_handlers(server: IPCServer) -> None:
             return await service.export_settings()
 
     @server.handler("settings.import")
-    async def handle_import_settings(data: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_import_settings(data: dict[str, Any]) -> dict[str, Any]:
         """Import settings from backup."""
         from scenemachine.services.settings import SettingsService
 
@@ -2633,10 +2641,10 @@ def register_handlers(server: IPCServer) -> None:
     # Audio/TTS handlers
     @server.handler("audio.getVoices")
     async def handle_get_voices(
-        provider: Optional[str] = None,
-        gender: Optional[str] = None,
-        language: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        provider: str | None = None,
+        gender: str | None = None,
+        language: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get available TTS voices."""
         from scenemachine.services.audio import AudioService, TTSProvider, VoiceGender
 
@@ -2670,7 +2678,7 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("audio.getProviders")
-    async def handle_get_audio_providers() -> List[Dict[str, Any]]:
+    async def handle_get_audio_providers() -> list[dict[str, Any]]:
         """Get available TTS providers."""
         from scenemachine.services.audio import AudioService
 
@@ -2687,7 +2695,7 @@ def register_handlers(server: IPCServer) -> None:
         voice_id: str,
         provider: str = "mock",
         speed: float = 1.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate speech from text."""
         from scenemachine.services.audio import AudioService, TTSProvider
 
@@ -2717,7 +2725,7 @@ def register_handlers(server: IPCServer) -> None:
         shot_id: str,
         emotion: str = "neutral",
         speed: float = 1.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate dialogue audio for a shot.
 
         FEAT-057: Accepts emotion modifier for expressive TTS.
@@ -2742,7 +2750,9 @@ def register_handlers(server: IPCServer) -> None:
             await service.initialize_providers()
 
             result = await service.generate_dialogue(
-                sid, emotion=emotion, speed=speed,
+                sid,
+                emotion=emotion,
+                speed=speed,
             )
 
             return {
@@ -2757,7 +2767,7 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("audio.generateSceneDialogue")
     async def handle_generate_scene_dialogue(
         scene_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate dialogue audio for all shots in a scene (batch).
 
         FEAT-061: One-click "Generate All Dialogue" for a scene.
@@ -2774,8 +2784,9 @@ def register_handlers(server: IPCServer) -> None:
             await service.initialize_providers()
 
             # Get all shots in the scene
-            from scenemachine.models.shot import Shot
             from sqlalchemy import select
+
+            from scenemachine.models.shot import Shot
 
             stmt = select(Shot).where(Shot.scene_id == sid).order_by(Shot.order)
             result_rows = await session.execute(stmt)
@@ -2788,25 +2799,29 @@ def register_handlers(server: IPCServer) -> None:
             for shot in shots:
                 try:
                     result = await service.generate_dialogue(shot.id)
-                    results.append({
-                        "shotId": str(shot.id),
-                        "success": result.success,
-                        "audioPath": result.audio_path,
-                        "durationSeconds": result.duration_seconds,
-                        "errorMessage": result.error_message,
-                    })
+                    results.append(
+                        {
+                            "shotId": str(shot.id),
+                            "success": result.success,
+                            "audioPath": result.audio_path,
+                            "durationSeconds": result.duration_seconds,
+                            "errorMessage": result.error_message,
+                        }
+                    )
                     if result.success:
                         success_count += 1
                     if hasattr(result, "cost_usd") and result.cost_usd:
                         total_cost += result.cost_usd
                 except Exception as e:
-                    results.append({
-                        "shotId": str(shot.id),
-                        "success": False,
-                        "audioPath": None,
-                        "durationSeconds": 0,
-                        "errorMessage": str(e),
-                    })
+                    results.append(
+                        {
+                            "shotId": str(shot.id),
+                            "success": False,
+                            "audioPath": None,
+                            "durationSeconds": 0,
+                            "errorMessage": str(e),
+                        }
+                    )
 
             return {
                 "sceneId": scene_id,
@@ -2816,13 +2831,12 @@ def register_handlers(server: IPCServer) -> None:
                 "results": results,
             }
 
-
     @server.handler("audio.assignVoice")
     async def handle_assign_voice(
         character_id: str,
         voice_id: str,
         provider: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Assign a voice to a character."""
         from scenemachine.services.audio import AudioService, TTSProvider
 
@@ -2839,7 +2853,7 @@ def register_handlers(server: IPCServer) -> None:
             return {"success": success}
 
     @server.handler("audio.getCharacterVoice")
-    async def handle_get_character_voice(character_id: str) -> Optional[Dict[str, str]]:
+    async def handle_get_character_voice(character_id: str) -> dict[str, str] | None:
         """Get voice assignment for a character."""
         from scenemachine.services.audio import AudioService
 
@@ -2853,9 +2867,9 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("audio.getDialogueLines")
     async def handle_get_dialogue_lines(
         project_id: str,
-        scene_id: Optional[str] = None,
-        shot_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        scene_id: str | None = None,
+        shot_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get dialogue lines for a project/scene/shot.
 
         Args:
@@ -2891,7 +2905,7 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("audio.deleteDialogueAudio")
-    async def handle_delete_dialogue_audio(dialogue_id: str) -> Dict[str, bool]:
+    async def handle_delete_dialogue_audio(dialogue_id: str) -> dict[str, bool]:
         """Delete generated audio for a dialogue line.
 
         Args:
@@ -2909,7 +2923,7 @@ def register_handlers(server: IPCServer) -> None:
 
     # Lip Sync handlers
     @server.handler("lipSync.getProviders")
-    async def handle_get_lipsync_providers() -> List[Dict[str, Any]]:
+    async def handle_get_lipsync_providers() -> list[dict[str, Any]]:
         """Get available lip sync providers with status."""
         from scenemachine.services.lipsync import get_lip_sync_service
 
@@ -2921,7 +2935,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_lipsync_analyze(
         audio_path: str,
         provider: str = "mock",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Analyze audio and extract phoneme timing data."""
         from scenemachine.services.lipsync import LipSyncProvider, get_lip_sync_service
 
@@ -2946,7 +2960,7 @@ def register_handlers(server: IPCServer) -> None:
         audio_path: str,
         output_path: str,
         provider: str = "mock",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Full pipeline: analyze audio and apply lip sync to video."""
         from scenemachine.services.lipsync import LipSyncProvider, get_lip_sync_service
 
@@ -2978,39 +2992,39 @@ def register_handlers(server: IPCServer) -> None:
         max_parallel: int = 2,
         quality_threshold: float = 0.7,
         budget_limit: float = 100.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run the full production pipeline (one-click generate).
-        
+
         This is the main entry point for the screenplay-to-movie pipeline.
         It orchestrates parsing, shot generation, TTS, lip sync, and assembly.
         """
         from scenemachine.services.production_pipeline import (
-            ProductionPipeline,
             PipelineMode,
+            ProductionPipeline,
         )
-        
+
         pipeline = ProductionPipeline(
             project_id=project_id,
             max_parallel=max_parallel,
             quality_threshold=quality_threshold,
             budget_limit=budget_limit,
         )
-        
+
         try:
             pipeline_mode = PipelineMode(mode)
         except ValueError:
             pipeline_mode = PipelineMode.FULL_AUTO
-        
+
         result = await pipeline.run(
             screenplay_path=screenplay_path,
             file_format=file_format,
             mode=pipeline_mode,
         )
-        
+
         return result.to_dict()
 
     @server.handler("pipeline.getStatus")
-    async def handle_pipeline_status(project_id: str) -> Dict[str, Any]:
+    async def handle_pipeline_status(project_id: str) -> dict[str, Any]:
         """Get status of a running pipeline.
 
         Note: In a production system, pipeline instances would be stored
@@ -3040,22 +3054,22 @@ def register_handlers(server: IPCServer) -> None:
     # the persistence layer is in-memory for now (per-session) and clearly
     # documented as such. Future codon will back it with the per-project
     # generation_settings table.
-    _ip_adapter_state: Dict[str, Any] = {
+    _ip_adapter_state: dict[str, Any] = {
         "mode": "balanced",
         "strength": 0.6,
         "available_modes": ["balanced", "strong", "face_only"],
     }
 
     @server.handler("ipAdapter.getSettings")
-    async def handle_ip_adapter_get() -> Dict[str, Any]:
+    async def handle_ip_adapter_get() -> dict[str, Any]:
         """Return current IP-Adapter settings (in-memory until persisted)."""
         return dict(_ip_adapter_state)
 
     @server.handler("ipAdapter.updateSettings")
     async def handle_ip_adapter_update(
-        mode: Optional[str] = None,
-        strength: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        mode: str | None = None,
+        strength: float | None = None,
+    ) -> dict[str, Any]:
         """Update IP-Adapter settings. Returns the new state.
 
         Validates inputs against the allowed-modes list and the
@@ -3072,9 +3086,7 @@ def register_handlers(server: IPCServer) -> None:
         if strength is not None:
             f = float(strength)
             if not (0.0 <= f <= 1.0):
-                raise ValueError(
-                    f"IPAdapter strength must be in [0.0, 1.0], got {f}"
-                )
+                raise ValueError(f"IPAdapter strength must be in [0.0, 1.0], got {f}")
             _ip_adapter_state["strength"] = f
         return dict(_ip_adapter_state)
 
@@ -3085,7 +3097,7 @@ def register_handlers(server: IPCServer) -> None:
     # UI so users can actually see and act on blockers before they ship.
     # Caught by the 2026-05-14 DNA-strand audit (exec summary item #2).
     @server.handler("blockers.analyze")
-    async def handle_blockers_analyze(project_id: str) -> Dict[str, Any]:
+    async def handle_blockers_analyze(project_id: str) -> dict[str, Any]:
         """Analyze a project for blockers visible to the user.
 
         Loads the project's characters, scenes, and shots from the DB,
@@ -3118,24 +3130,30 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
             scenes = []
-            shots: List[Dict[str, Any]] = []
+            shots: list[dict[str, Any]] = []
             for s in scenes_raw:
                 scene_dict = {
                     "scene_number": s.scene_number,
                     "location": s.location,
-                    "time_of_day": s.time_of_day.value if hasattr(s.time_of_day, "value") else str(s.time_of_day),
+                    "time_of_day": s.time_of_day.value
+                    if hasattr(s.time_of_day, "value")
+                    else str(s.time_of_day),
                     "raw_content": (s.raw_content or "")[:400],
                 }
                 scenes.append(scene_dict)
-                for sh in (s.shots or []):
-                    shots.append({
-                        "shot_id": str(sh.id),
-                        "scene_number": s.scene_number,
-                        "shot_type": sh.shot_type.value if hasattr(sh.shot_type, "value") else str(sh.shot_type),
-                        "description": sh.description,
-                        "duration_seconds": sh.duration_seconds,
-                        "characters_in_frame": list(sh.character_ids or []),
-                    })
+                for sh in s.shots or []:
+                    shots.append(
+                        {
+                            "shot_id": str(sh.id),
+                            "scene_number": s.scene_number,
+                            "shot_type": sh.shot_type.value
+                            if hasattr(sh.shot_type, "value")
+                            else str(sh.shot_type),
+                            "description": sh.description,
+                            "duration_seconds": sh.duration_seconds,
+                            "characters_in_frame": list(sh.character_ids or []),
+                        }
+                    )
 
         engine = BlockersEngine()
         analysis = engine.analyze_project(
@@ -3147,9 +3165,7 @@ def register_handlers(server: IPCServer) -> None:
         return analysis
 
     @server.handler("blockers.apply_fix")
-    async def handle_blockers_apply_fix(
-        blocker_id: str, fix_id: str
-    ) -> Dict[str, Any]:
+    async def handle_blockers_apply_fix(blocker_id: str, fix_id: str) -> dict[str, Any]:
         """Acknowledge an unlocker action; mark the blocker as user-handled.
 
         Most unlocker actions are user-side ("upload a reference image",
@@ -3176,19 +3192,24 @@ def register_handlers(server: IPCServer) -> None:
 
     # Crew IPC handlers — mirrors /api/crew/* REST endpoints for Electron
     @server.handler("crew.listAgents")
-    async def handle_crew_list_agents() -> List[Dict[str, Any]]:
+    async def handle_crew_list_agents() -> list[dict[str, Any]]:
         """List all registered agents in the orchestrator crew."""
         from scenemachine.agents import (
-            OrchestratorAgent, ParserAgent, CharacterAgent,
-            GeneratorAgent, AssemblerAgent, ReviewerAgent,
+            AssemblerAgent,
+            CharacterAgent,
+            GeneratorAgent,
+            OrchestratorAgent,
+            ParserAgent,
+            ReviewerAgent,
         )
+
         orchestrator = OrchestratorAgent(name="Director")
         orchestrator.register_agent(ParserAgent(name="Parser"))
         orchestrator.register_agent(CharacterAgent(name="Character"))
         orchestrator.register_agent(GeneratorAgent(name="Generator"))
         orchestrator.register_agent(AssemblerAgent(name="Assembler"))
         orchestrator.register_agent(ReviewerAgent(name="Reviewer"))
-        
+
         return [
             {
                 "type": atype.value,
@@ -3201,35 +3222,34 @@ def register_handlers(server: IPCServer) -> None:
 
     @server.handler("crew.getActionLogs")
     async def handle_crew_get_logs(
-        agent_type: Optional[str] = None,
+        agent_type: str | None = None,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get action logs from the agent crew."""
         from scenemachine.agents import AgentActionLogger, AgentType
-        
+
         action_logger = AgentActionLogger()
         type_filter = None
         if agent_type:
-            try:
+            with contextlib.suppress(ValueError):
                 type_filter = AgentType(agent_type)
-            except ValueError:
-                pass
-        
+
         logs = action_logger.get_logs(agent_type=type_filter, limit=limit)
         return [log.to_dict() for log in logs]
 
     @server.handler("crew.startPipeline")
     async def handle_crew_start_pipeline(
         project_id: str,
-        screenplay_path: Optional[str] = None,
-        phases: Optional[List[str]] = None,
+        screenplay_path: str | None = None,
+        phases: list[str] | None = None,
         dry_run: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Start the agentic crew pipeline."""
-        from scenemachine.agents import OrchestratorAgent, ActionContext
-        from scenemachine.api.routes.crew import get_orchestrator
         from uuid import UUID
-        
+
+        from scenemachine.agents import ActionContext
+        from scenemachine.api.routes.crew import get_orchestrator
+
         orchestrator = get_orchestrator()
         context = ActionContext(
             project_id=UUID(project_id),
@@ -3251,17 +3271,18 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("crew.getPipelineStatus")
     async def handle_crew_pipeline_status(
         project_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get crew pipeline execution status."""
+        from uuid import UUID
+
         from scenemachine.agents import ActionContext
         from scenemachine.api.routes.crew import get_orchestrator
-        from uuid import UUID
-        
+
         orchestrator = get_orchestrator()
         context = ActionContext(project_id=UUID(project_id))
         result = await orchestrator.execute("get_status", context)
         output = result.output or {}
-        
+
         return {
             "project_id": output.get("project_id", project_id),
             "status": output.get("status", "idle"),
@@ -3275,15 +3296,16 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_crew_control_pipeline(
         project_id: str,
         action: str = "pause",
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Control pipeline: pause, resume, or cancel."""
+        from uuid import UUID
+
         from scenemachine.agents import ActionContext
         from scenemachine.api.routes.crew import get_orchestrator
-        from uuid import UUID
-        
+
         orchestrator = get_orchestrator()
         context = ActionContext(project_id=UUID(project_id))
-        
+
         action_map = {
             "pause": "pause_pipeline",
             "resume": "resume_pipeline",
@@ -3294,9 +3316,10 @@ def register_handlers(server: IPCServer) -> None:
         return {"message": result.output.get("message", f"Pipeline {action}d")}
 
     @server.handler("crew.getTotalCost")
-    async def handle_crew_total_cost() -> Dict[str, float]:
+    async def handle_crew_total_cost() -> dict[str, float]:
         """Get total cost of all crew actions."""
         from scenemachine.agents import AgentActionLogger
+
         action_logger = AgentActionLogger()
         return {"total_cost_usd": action_logger.get_total_cost()}
 
@@ -3304,8 +3327,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("analytics.getGenerationStats")
     async def handle_get_generation_stats(
         time_range: str = "7d",
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        project_id: str | None = None,
+    ) -> dict[str, Any]:
         """Get generation job statistics.
 
         Args:
@@ -3335,8 +3358,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("analytics.getCostStats")
     async def handle_get_cost_stats(
         time_range: str = "7d",
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        project_id: str | None = None,
+    ) -> dict[str, Any]:
         """Get cost statistics.
 
         Args:
@@ -3360,7 +3383,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("analytics.getProjectStats")
-    async def handle_get_project_stats() -> Dict[str, Any]:
+    async def handle_get_project_stats() -> dict[str, Any]:
         """Get project statistics."""
         from scenemachine.services.analytics import AnalyticsService
 
@@ -3379,7 +3402,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("analytics.getPerformanceStats")
-    async def handle_get_performance_stats() -> Dict[str, Any]:
+    async def handle_get_performance_stats() -> dict[str, Any]:
         """Get performance statistics."""
         from scenemachine.services.analytics import AnalyticsService
 
@@ -3399,7 +3422,7 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("analytics.getProviderUsage")
     async def handle_get_provider_usage(
         time_range: str = "7d",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get usage statistics by provider.
 
         Args:
@@ -3416,8 +3439,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("analytics.getDailyStats")
     async def handle_get_daily_stats(
         days: int = 7,
-        project_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        project_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get daily generation statistics.
 
         Args:
@@ -3436,8 +3459,8 @@ def register_handlers(server: IPCServer) -> None:
     # Templates handlers
     @server.handler("templates.list")
     async def handle_list_templates(
-        category: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        category: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get all available project templates.
 
         Args:
@@ -3470,7 +3493,7 @@ def register_handlers(server: IPCServer) -> None:
         ]
 
     @server.handler("templates.get")
-    async def handle_get_template(template_id: str) -> Optional[Dict[str, Any]]:
+    async def handle_get_template(template_id: str) -> dict[str, Any] | None:
         """Get a template by ID.
 
         Args:
@@ -3505,7 +3528,7 @@ def register_handlers(server: IPCServer) -> None:
         }
 
     @server.handler("templates.getCategories")
-    async def handle_get_template_categories() -> List[Dict[str, Any]]:
+    async def handle_get_template_categories() -> list[dict[str, Any]]:
         """Get available template categories."""
         from scenemachine.services.templates import TemplatesService
 
@@ -3516,7 +3539,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_search_templates(
         query: str,
         limit: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search templates.
 
         Args:
@@ -3540,7 +3563,7 @@ def register_handlers(server: IPCServer) -> None:
         ]
 
     @server.handler("templates.getFeatured")
-    async def handle_get_featured_templates(limit: int = 6) -> List[Dict[str, Any]]:
+    async def handle_get_featured_templates(limit: int = 6) -> list[dict[str, Any]]:
         """Get featured templates.
 
         Args:
@@ -3566,7 +3589,7 @@ def register_handlers(server: IPCServer) -> None:
         ]
 
     @server.handler("templates.getSettings")
-    async def handle_get_template_settings(template_id: str) -> Optional[Dict[str, Any]]:
+    async def handle_get_template_settings(template_id: str) -> dict[str, Any] | None:
         """Get project settings from a template.
 
         Args:
@@ -3585,10 +3608,10 @@ def register_handlers(server: IPCServer) -> None:
     # Queue management handlers
     @server.handler("queue.getAll")
     async def handle_get_queue(
-        project_id: Optional[str] = None,
+        project_id: str | None = None,
         include_completed: bool = False,
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get all jobs in the queue.
 
         Args:
@@ -3610,12 +3633,14 @@ def register_handlers(server: IPCServer) -> None:
             # Filter by status
             if not include_completed:
                 query = query.where(
-                    GenerationJob.status.in_([
-                        JobStatus.PENDING,
-                        JobStatus.PREPARING,
-                        JobStatus.RUNNING,
-                        JobStatus.POST_PROCESSING,
-                    ])
+                    GenerationJob.status.in_(
+                        [
+                            JobStatus.PENDING,
+                            JobStatus.PREPARING,
+                            JobStatus.RUNNING,
+                            JobStatus.POST_PROCESSING,
+                        ]
+                    )
                 )
 
             # Filter by project
@@ -3624,9 +3649,7 @@ def register_handlers(server: IPCServer) -> None:
                 query = query.join(Shot).where(Shot.project_id == pid)
 
             # Order by priority (in parameters) and queued_at
-            query = query.order_by(
-                GenerationJob.queued_at.asc()
-            ).limit(limit)
+            query = query.order_by(GenerationJob.queued_at.asc()).limit(limit)
 
             result = await session.execute(query)
             jobs = result.scalars().all()
@@ -3655,7 +3678,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_set_priority(
         job_id: str,
         priority: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Set priority for a queued job.
 
         Args:
@@ -3694,7 +3717,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("queue.moveToTop")
-    async def handle_move_to_top(job_id: str) -> Dict[str, Any]:
+    async def handle_move_to_top(job_id: str) -> dict[str, Any]:
         """Move a job to the top of the queue.
 
         Args:
@@ -3721,8 +3744,9 @@ def register_handlers(server: IPCServer) -> None:
 
             # Get highest priority
             max_priority = await session.execute(
-                select(func.max(GenerationJob.parameters["priority"].as_integer()))
-                .where(GenerationJob.status == JobStatus.PENDING)
+                select(func.max(GenerationJob.parameters["priority"].as_integer())).where(
+                    GenerationJob.status == JobStatus.PENDING
+                )
             )
             current_max = max_priority.scalar() or 0
 
@@ -3740,7 +3764,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("queue.moveToBottom")
-    async def handle_move_to_bottom(job_id: str) -> Dict[str, Any]:
+    async def handle_move_to_bottom(job_id: str) -> dict[str, Any]:
         """Move a job to the bottom of the queue.
 
         Args:
@@ -3766,8 +3790,9 @@ def register_handlers(server: IPCServer) -> None:
 
             # Get lowest priority
             min_priority = await session.execute(
-                select(func.min(GenerationJob.parameters["priority"].as_integer()))
-                .where(GenerationJob.status == JobStatus.PENDING)
+                select(func.min(GenerationJob.parameters["priority"].as_integer())).where(
+                    GenerationJob.status == JobStatus.PENDING
+                )
             )
             current_min = min_priority.scalar() or 0
 
@@ -3784,7 +3809,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("queue.cancelAll")
-    async def handle_cancel_all(project_id: Optional[str] = None) -> Dict[str, Any]:
+    async def handle_cancel_all(project_id: str | None = None) -> dict[str, Any]:
         """Cancel all pending jobs.
 
         Args:
@@ -3798,9 +3823,7 @@ def register_handlers(server: IPCServer) -> None:
         db_manager = get_db_manager()
 
         async with db_manager.session() as session:
-            query = select(GenerationJob.id).where(
-                GenerationJob.status == JobStatus.PENDING
-            )
+            query = select(GenerationJob.id).where(GenerationJob.status == JobStatus.PENDING)
 
             if project_id:
                 pid = UUID(project_id)
@@ -3823,7 +3846,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("queue.retryFailed")
-    async def handle_retry_failed(project_id: Optional[str] = None) -> Dict[str, Any]:
+    async def handle_retry_failed(project_id: str | None = None) -> dict[str, Any]:
         """Retry all failed jobs.
 
         Args:
@@ -3869,7 +3892,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("queue.getStats")
-    async def handle_get_queue_stats(project_id: Optional[str] = None) -> Dict[str, Any]:
+    async def handle_get_queue_stats(project_id: str | None = None) -> dict[str, Any]:
         """Get queue statistics.
 
         Args:
@@ -3887,9 +3910,7 @@ def register_handlers(server: IPCServer) -> None:
             stats = {}
 
             for status in JobStatus:
-                query = select(func.count(GenerationJob.id)).where(
-                    GenerationJob.status == status
-                )
+                query = select(func.count(GenerationJob.id)).where(GenerationJob.status == status)
 
                 if pid:
                     query = query.join(Shot).where(Shot.project_id == pid)
@@ -3899,11 +3920,13 @@ def register_handlers(server: IPCServer) -> None:
 
             # Calculate totals
             pending_total = stats.get("pending", 0)
-            running_total = sum([
-                stats.get("preparing", 0),
-                stats.get("running", 0),
-                stats.get("post_processing", 0),
-            ])
+            running_total = sum(
+                [
+                    stats.get("preparing", 0),
+                    stats.get("running", 0),
+                    stats.get("post_processing", 0),
+                ]
+            )
             completed_total = stats.get("completed", 0)
             failed_total = stats.get("failed", 0) + stats.get("timeout", 0)
 
@@ -3920,11 +3943,11 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("project.export")
     async def handle_export_project(
         project_id: str,
-        output_path: Optional[str] = None,
+        output_path: str | None = None,
         include_assets: bool = True,
         include_outputs: bool = True,
         include_videos: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Export a project to an archive file.
 
         Args:
@@ -3962,9 +3985,9 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("project.import")
     async def handle_import_project(
         archive_path: str,
-        new_name: Optional[str] = None,
+        new_name: str | None = None,
         import_assets: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Import a project from an archive file.
 
         Args:
@@ -3999,7 +4022,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("project.getArchiveInfo")
-    async def handle_get_archive_info(archive_path: str) -> Optional[Dict[str, Any]]:
+    async def handle_get_archive_info(archive_path: str) -> dict[str, Any] | None:
         """Get information about an archive without importing.
 
         Args:
@@ -4020,7 +4043,7 @@ def register_handlers(server: IPCServer) -> None:
             return None
 
     @server.handler("project.listExports")
-    async def handle_list_exports() -> List[Dict[str, Any]]:
+    async def handle_list_exports() -> list[dict[str, Any]]:
         """List all exported project archives."""
         from scenemachine.services.project_archive import ProjectArchiveService
 
@@ -4035,12 +4058,12 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_create_share(
         project_id: str,
         permission: str = "view",
-        recipient_email: Optional[str] = None,
-        recipient_name: Optional[str] = None,
-        message: Optional[str] = None,
-        expires_in_days: Optional[int] = None,
+        recipient_email: str | None = None,
+        recipient_name: str | None = None,
+        message: str | None = None,
+        expires_in_days: int | None = None,
         is_public: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a project share link.
 
         Args:
@@ -4080,7 +4103,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("sharing.getProjectShares")
-    async def handle_get_project_shares(project_id: str) -> List[Dict[str, Any]]:
+    async def handle_get_project_shares(project_id: str) -> list[dict[str, Any]]:
         """Get all shares for a project.
 
         Args:
@@ -4114,7 +4137,7 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("sharing.acceptShare")
-    async def handle_accept_share(share_code: str) -> Dict[str, Any]:
+    async def handle_accept_share(share_code: str) -> dict[str, Any]:
         """Accept a share invitation.
 
         Args:
@@ -4129,7 +4152,7 @@ def register_handlers(server: IPCServer) -> None:
             return await service.accept_share(share_code)
 
     @server.handler("sharing.revokeShare")
-    async def handle_revoke_share(share_id: str) -> Dict[str, Any]:
+    async def handle_revoke_share(share_id: str) -> dict[str, Any]:
         """Revoke a share.
 
         Args:
@@ -4149,7 +4172,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_update_share_permission(
         share_id: str,
         permission: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update share permission.
 
         Args:
@@ -4173,11 +4196,11 @@ def register_handlers(server: IPCServer) -> None:
         project_id: str,
         author_name: str,
         content: str,
-        shot_id: Optional[str] = None,
-        author_email: Optional[str] = None,
-        parent_id: Optional[str] = None,
-        timecode_seconds: Optional[float] = None,
-    ) -> Optional[Dict[str, Any]]:
+        shot_id: str | None = None,
+        author_email: str | None = None,
+        parent_id: str | None = None,
+        timecode_seconds: float | None = None,
+    ) -> dict[str, Any] | None:
         """Add a comment to a project.
 
         Args:
@@ -4221,9 +4244,9 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("sharing.getComments")
     async def handle_get_comments(
         project_id: str,
-        shot_id: Optional[str] = None,
+        shot_id: str | None = None,
         include_resolved: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get comments for a project.
 
         Args:
@@ -4246,7 +4269,7 @@ def register_handlers(server: IPCServer) -> None:
             )
 
     @server.handler("sharing.resolveComment")
-    async def handle_resolve_comment(comment_id: str) -> Dict[str, Any]:
+    async def handle_resolve_comment(comment_id: str) -> dict[str, Any]:
         """Resolve a comment.
 
         Args:
@@ -4267,16 +4290,16 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_log_error(
         type: str,
         message: str,
-        stack: Optional[str] = None,
-        context: Optional[str] = None,
-        componentStack: Optional[str] = None,
-        timestamp: Optional[str] = None,
-        url: Optional[str] = None,
-        userAgent: Optional[str] = None,
-        filename: Optional[str] = None,
-        lineno: Optional[int] = None,
-        colno: Optional[int] = None,
-    ) -> Dict[str, bool]:
+        stack: str | None = None,
+        context: str | None = None,
+        componentStack: str | None = None,
+        timestamp: str | None = None,
+        url: str | None = None,
+        userAgent: str | None = None,
+        filename: str | None = None,
+        lineno: int | None = None,
+        colno: int | None = None,
+    ) -> dict[str, bool]:
         """Log a frontend error for tracking.
 
         Args:
@@ -4314,7 +4337,7 @@ def register_handlers(server: IPCServer) -> None:
         return {"success": True}
 
     @server.handler("system.getHealth")
-    async def handle_get_health() -> Dict[str, Any]:
+    async def handle_get_health() -> dict[str, Any]:
         """Get system health status."""
         import psutil
 
@@ -4345,7 +4368,7 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("analytics.getDashboard")
     async def handle_analytics_dashboard(
         time_range: str = "7d",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get analytics dashboard data."""
         from scenemachine.services.analytics import AnalyticsService
         from scenemachine.services.cost_tracking import CostTrackingService
@@ -4370,11 +4393,15 @@ def register_handlers(server: IPCServer) -> None:
                     "failedJobs": generation_stats.failed_jobs,
                     "pendingJobs": generation_stats.pending_jobs,
                     "successRate": round(generation_stats.success_rate, 2),
-                    "avgGenerationTimeSeconds": round(generation_stats.avg_generation_time_seconds, 2),
+                    "avgGenerationTimeSeconds": round(
+                        generation_stats.avg_generation_time_seconds, 2
+                    ),
                 },
                 "costs": {
                     "totalCostUsd": round(cost_stats.total_cost_usd, 4),
-                    "costByProvider": {k: round(v, 4) for k, v in cost_stats.cost_by_provider.items()},
+                    "costByProvider": {
+                        k: round(v, 4) for k, v in cost_stats.cost_by_provider.items()
+                    },
                     "avgCostPerShot": round(cost_stats.avg_cost_per_shot, 4),
                 },
                 "projects": {
@@ -4386,7 +4413,9 @@ def register_handlers(server: IPCServer) -> None:
                 },
                 "performance": {
                     "avgWaitTimeSeconds": round(performance_stats.avg_wait_time_seconds, 2),
-                    "avgProcessingTimeSeconds": round(performance_stats.avg_processing_time_seconds, 2),
+                    "avgProcessingTimeSeconds": round(
+                        performance_stats.avg_processing_time_seconds, 2
+                    ),
                     "peakConcurrentJobs": performance_stats.peak_concurrent_jobs,
                     "currentQueueSize": performance_stats.current_queue_size,
                 },
@@ -4414,15 +4443,15 @@ def register_handlers(server: IPCServer) -> None:
 
     # Sharing handlers
     @server.handler("sharing.create")
-    async def handle_create_share(
+    async def handle_create_share(  # noqa: F811 — legacy sharing.createShare also registered under same Python name; both channels reach this body via @server.handler keying on channel name
         project_id: str,
         permission: str = "view",
-        recipient_email: Optional[str] = None,
-        recipient_name: Optional[str] = None,
-        message: Optional[str] = None,
-        expires_in_days: Optional[int] = None,
+        recipient_email: str | None = None,
+        recipient_name: str | None = None,
+        message: str | None = None,
+        expires_in_days: int | None = None,
         is_public: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a project share."""
         from scenemachine.models.share import SharePermission
         from scenemachine.services.sharing import SharingService
@@ -4451,9 +4480,9 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("sharing.accept")
-    async def handle_accept_share(
+    async def handle_accept_share(  # noqa: F811 — see handle_create_share above
         share_code: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Accept a share invitation."""
         from scenemachine.services.sharing import SharingService
 
@@ -4468,9 +4497,9 @@ def register_handlers(server: IPCServer) -> None:
             return result
 
     @server.handler("sharing.revoke")
-    async def handle_revoke_share(
+    async def handle_revoke_share(  # noqa: F811 — see handle_create_share above
         share_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Revoke a share."""
         from scenemachine.services.sharing import SharingService
 
@@ -4486,12 +4515,12 @@ def register_handlers(server: IPCServer) -> None:
 
     # Archive handlers
     @server.handler("archive.export")
-    async def handle_export_project(
+    async def handle_export_project(  # noqa: F811 — earlier export.project channel registered under same Python name; both reach this body via channel-name keying
         project_id: str,
         include_assets: bool = True,
         include_outputs: bool = True,
         include_generated_videos: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Export a project to archive."""
         from scenemachine.services.project_archive import ProjectArchiveService
 
@@ -4516,13 +4545,14 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("archive.import")
-    async def handle_import_project(
+    async def handle_import_project(  # noqa: F811 — see handle_export_project above
         archive_path: str,
-        new_name: Optional[str] = None,
+        new_name: str | None = None,
         import_assets: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Import a project from archive."""
         from pathlib import Path
+
         from scenemachine.services.project_archive import ProjectArchiveService
 
         db_manager = get_db_manager()
@@ -4549,7 +4579,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("archive.list")
-    async def handle_list_archives() -> List[Dict[str, Any]]:
+    async def handle_list_archives() -> list[dict[str, Any]]:
         """List all exported archives."""
         from scenemachine.services.project_archive import ProjectArchiveService
 
@@ -4570,11 +4600,12 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("archive.getInfo")
-    async def handle_get_archive_info(
+    async def handle_get_archive_info(  # noqa: F811 — see handle_export_project above
         archive_path: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get archive information."""
         from pathlib import Path
+
         from scenemachine.services.project_archive import ProjectArchiveService
 
         db_manager = get_db_manager()
@@ -4592,7 +4623,7 @@ def register_handlers(server: IPCServer) -> None:
     # ================================================================
 
     @server.handler("health.getCircuitBreakers")
-    async def handle_get_circuit_breakers() -> Dict[str, Any]:
+    async def handle_get_circuit_breakers() -> dict[str, Any]:
         """Get status of all circuit breakers."""
         from scenemachine.utils.circuit_breaker import CircuitBreakerRegistry
 
@@ -4617,22 +4648,24 @@ def register_handlers(server: IPCServer) -> None:
             elif state == "half_open":
                 half_open_count += 1
 
-            circuits.append({
-                "name": name,
-                "state": state,
-                "totalCalls": stats.get("total_calls", 0),
-                "successfulCalls": stats.get("successful_calls", 0),
-                "failedCalls": stats.get("failed_calls", 0),
-                "rejectedCalls": stats.get("rejected_calls", 0),
-                "consecutiveFailures": stats.get("consecutive_failures", 0),
-                "consecutiveSuccesses": stats.get("consecutive_successes", 0),
-                "lastFailureTime": stats.get("last_failure"),
-                "lastSuccessTime": stats.get("last_success"),
-                "failureThreshold": config.get("failure_threshold", 5),
-                "recoveryTimeout": config.get("recovery_timeout", 30.0),
-                "remainingTimeout": status.get("remaining_timeout", 0.0),
-                "successRate": round(success_rate, 1),
-            })
+            circuits.append(
+                {
+                    "name": name,
+                    "state": state,
+                    "totalCalls": stats.get("total_calls", 0),
+                    "successfulCalls": stats.get("successful_calls", 0),
+                    "failedCalls": stats.get("failed_calls", 0),
+                    "rejectedCalls": stats.get("rejected_calls", 0),
+                    "consecutiveFailures": stats.get("consecutive_failures", 0),
+                    "consecutiveSuccesses": stats.get("consecutive_successes", 0),
+                    "lastFailureTime": stats.get("last_failure"),
+                    "lastSuccessTime": stats.get("last_success"),
+                    "failureThreshold": config.get("failure_threshold", 5),
+                    "recoveryTimeout": config.get("recovery_timeout", 30.0),
+                    "remainingTimeout": status.get("remaining_timeout", 0.0),
+                    "successRate": round(success_rate, 1),
+                }
+            )
 
         return {
             "circuits": circuits,
@@ -4642,7 +4675,7 @@ def register_handlers(server: IPCServer) -> None:
         }
 
     @server.handler("health.resetCircuitBreaker")
-    async def handle_reset_circuit_breaker(name: str) -> Dict[str, Any]:
+    async def handle_reset_circuit_breaker(name: str) -> dict[str, Any]:
         """Reset a specific circuit breaker to closed state."""
         from scenemachine.utils.circuit_breaker import CircuitBreakerRegistry
 
@@ -4660,7 +4693,7 @@ def register_handlers(server: IPCServer) -> None:
     # ================================================================
 
     @server.handler("watermarks.list")
-    async def handle_list_watermarks() -> Dict[str, Any]:
+    async def handle_list_watermarks() -> dict[str, Any]:
         """List all available watermarks."""
         from scenemachine.api.routes.watermarks import list_watermarks
 
@@ -4674,7 +4707,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_upload_watermark(
         filename: str,
         content_base64: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Upload a new watermark from base64-encoded content."""
         import base64
         from datetime import datetime
@@ -4705,7 +4738,7 @@ def register_handlers(server: IPCServer) -> None:
         if len(content) > MAX_FILE_SIZE:
             return {
                 "success": False,
-                "error": f"File too large. Maximum: {MAX_FILE_SIZE // (1024*1024)}MB",
+                "error": f"File too large. Maximum: {MAX_FILE_SIZE // (1024 * 1024)}MB",
             }
 
         # Generate unique filename
@@ -4739,7 +4772,7 @@ def register_handlers(server: IPCServer) -> None:
             return {"success": False, "error": f"Failed to save: {e}"}
 
     @server.handler("watermarks.delete")
-    async def handle_delete_watermark(watermark_id: str) -> Dict[str, Any]:
+    async def handle_delete_watermark(watermark_id: str) -> dict[str, Any]:
         """Delete a user-uploaded watermark."""
         from scenemachine.api.routes.watermarks import get_watermarks_dir
 
@@ -4763,11 +4796,11 @@ def register_handlers(server: IPCServer) -> None:
 
     @server.handler("sfx.getEffects")
     async def handle_get_sound_effects(
-        category: Optional[str] = None,
-        subcategory: Optional[str] = None,
+        category: str | None = None,
+        subcategory: str | None = None,
         favorites_only: bool = False,
-        search: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        search: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get sound effects with optional filtering."""
         from scenemachine.services.audio_library import AudioLibraryService
 
@@ -4798,7 +4831,7 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("sfx.toggleFavorite")
-    async def handle_toggle_sfx_favorite(effect_id: str) -> Dict[str, bool]:
+    async def handle_toggle_sfx_favorite(effect_id: str) -> dict[str, bool]:
         """Toggle favorite status for a sound effect."""
         from scenemachine.services.audio_library import AudioLibraryService
 
@@ -4812,12 +4845,12 @@ def register_handlers(server: IPCServer) -> None:
 
     @server.handler("music.getTracks")
     async def handle_get_music_tracks(
-        genre: Optional[str] = None,
-        mood: Optional[str] = None,
+        genre: str | None = None,
+        mood: str | None = None,
         favorites_only: bool = False,
         custom_only: bool = False,
-        search: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        search: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get music tracks with optional filtering."""
         from scenemachine.services.audio_library import AudioLibraryService
 
@@ -4852,10 +4885,10 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("music.getTrack")
-    async def handle_get_music_track(track_id: str) -> Optional[Dict[str, Any]]:
+    async def handle_get_music_track(track_id: str) -> dict[str, Any] | None:
         """Get a specific music track."""
-        from scenemachine.services.audio_library import AudioLibraryService
         from scenemachine.models.audio_asset import AudioAssetType
+        from scenemachine.services.audio_library import AudioLibraryService
 
         tid = UUID(track_id)
         db_manager = get_db_manager()
@@ -4883,7 +4916,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("music.toggleFavorite")
-    async def handle_toggle_music_favorite(track_id: str) -> Dict[str, bool]:
+    async def handle_toggle_music_favorite(track_id: str) -> dict[str, bool]:
         """Toggle favorite status for a music track."""
         from scenemachine.services.audio_library import AudioLibraryService
 
@@ -4899,12 +4932,12 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_upload_music_track(
         file_path: str,
         genre: str = "Cinematic",
-        mood: Optional[str] = None,
-        artist: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        mood: str | None = None,
+        artist: str | None = None,
+    ) -> dict[str, Any]:
         """Upload a custom music track."""
-        from scenemachine.services.audio_library import AudioLibraryService
         from scenemachine.models.audio_asset import AudioAssetType
+        from scenemachine.services.audio_library import AudioLibraryService
 
         db_manager = get_db_manager()
 
@@ -4932,11 +4965,11 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_upload_sound_effect(
         file_path: str,
         category: str = "other",
-        subcategory: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        subcategory: str | None = None,
+    ) -> dict[str, Any]:
         """Upload a custom sound effect."""
-        from scenemachine.services.audio_library import AudioLibraryService
         from scenemachine.models.audio_asset import AudioAssetType
+        from scenemachine.services.audio_library import AudioLibraryService
 
         db_manager = get_db_manager()
 
@@ -4963,35 +4996,46 @@ def register_handlers(server: IPCServer) -> None:
     # =========================================================================
 
     @server.handler("textOverlays.getPresets")
-    async def handle_get_text_overlay_presets() -> List[Dict[str, Any]]:
+    async def handle_get_text_overlay_presets() -> list[dict[str, Any]]:
         """Get available text overlay presets."""
         from scenemachine.models.text_overlay import (
-            TextOverlayType,
             DEFAULT_STYLES,
+            TextOverlayType,
         )
 
         return [
             {"type": "title", "label": "Title", "style": DEFAULT_STYLES[TextOverlayType.TITLE]},
-            {"type": "subtitle", "label": "Subtitle", "style": DEFAULT_STYLES[TextOverlayType.SUBTITLE]},
-            {"type": "lower_third", "label": "Lower Third", "style": DEFAULT_STYLES[TextOverlayType.LOWER_THIRD]},
-            {"type": "caption", "label": "Caption", "style": DEFAULT_STYLES[TextOverlayType.CAPTION]},
+            {
+                "type": "subtitle",
+                "label": "Subtitle",
+                "style": DEFAULT_STYLES[TextOverlayType.SUBTITLE],
+            },
+            {
+                "type": "lower_third",
+                "label": "Lower Third",
+                "style": DEFAULT_STYLES[TextOverlayType.LOWER_THIRD],
+            },
+            {
+                "type": "caption",
+                "label": "Caption",
+                "style": DEFAULT_STYLES[TextOverlayType.CAPTION],
+            },
             {"type": "custom", "label": "Custom", "style": DEFAULT_STYLES[TextOverlayType.CUSTOM]},
         ]
 
     @server.handler("textOverlays.getForShot")
-    async def handle_get_shot_text_overlays(shot_id: str) -> List[Dict[str, Any]]:
+    async def handle_get_shot_text_overlays(shot_id: str) -> list[dict[str, Any]]:
         """Get text overlays for a shot."""
-        from scenemachine.models.text_overlay import TextOverlay
         from sqlalchemy import select
+
+        from scenemachine.models.text_overlay import TextOverlay
 
         sid = UUID(shot_id)
         db_manager = get_db_manager()
 
         async with db_manager.session() as session:
             stmt = (
-                select(TextOverlay)
-                .where(TextOverlay.shot_id == sid)
-                .order_by(TextOverlay.z_index)
+                select(TextOverlay).where(TextOverlay.shot_id == sid).order_by(TextOverlay.z_index)
             )
             result = await session.execute(stmt)
             overlays = result.scalars().all()
@@ -4999,19 +5043,18 @@ def register_handlers(server: IPCServer) -> None:
             return [o.to_dict() for o in overlays]
 
     @server.handler("textOverlays.getForScene")
-    async def handle_get_scene_text_overlays(scene_id: str) -> List[Dict[str, Any]]:
+    async def handle_get_scene_text_overlays(scene_id: str) -> list[dict[str, Any]]:
         """Get text overlays for a scene."""
-        from scenemachine.models.text_overlay import TextOverlay
         from sqlalchemy import select
+
+        from scenemachine.models.text_overlay import TextOverlay
 
         sid = UUID(scene_id)
         db_manager = get_db_manager()
 
         async with db_manager.session() as session:
             stmt = (
-                select(TextOverlay)
-                .where(TextOverlay.scene_id == sid)
-                .order_by(TextOverlay.z_index)
+                select(TextOverlay).where(TextOverlay.scene_id == sid).order_by(TextOverlay.z_index)
             )
             result = await session.execute(stmt)
             overlays = result.scalars().all()
@@ -5019,10 +5062,11 @@ def register_handlers(server: IPCServer) -> None:
             return [o.to_dict() for o in overlays]
 
     @server.handler("textOverlays.getForProject")
-    async def handle_get_project_text_overlays(project_id: str) -> List[Dict[str, Any]]:
+    async def handle_get_project_text_overlays(project_id: str) -> list[dict[str, Any]]:
         """Get text overlays for a project."""
-        from scenemachine.models.text_overlay import TextOverlay
         from sqlalchemy import select
+
+        from scenemachine.models.text_overlay import TextOverlay
 
         pid = UUID(project_id)
         db_manager = get_db_manager()
@@ -5041,14 +5085,14 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("textOverlays.create")
     async def handle_create_text_overlay(
         text: str,
-        shot_id: Optional[str] = None,
-        scene_id: Optional[str] = None,
-        project_id: Optional[str] = None,
+        shot_id: str | None = None,
+        scene_id: str | None = None,
+        project_id: str | None = None,
         overlay_type: str = "custom",
         position: str = "center",
-        custom_x: Optional[float] = None,
-        custom_y: Optional[float] = None,
-        style: Optional[Dict[str, Any]] = None,
+        custom_x: float | None = None,
+        custom_y: float | None = None,
+        style: dict[str, Any] | None = None,
         animation_in: str = "fade_in",
         animation_out: str = "fade_out",
         animation_in_duration_ms: int = 500,
@@ -5057,14 +5101,14 @@ def register_handlers(server: IPCServer) -> None:
         duration_ms: int = 5000,
         is_visible: bool = True,
         z_index: int = 1,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a new text overlay."""
         from scenemachine.models.text_overlay import (
+            DEFAULT_STYLES,
+            TextAnimation,
             TextOverlay,
             TextOverlayType,
             TextPosition,
-            TextAnimation,
-            DEFAULT_STYLES,
         )
 
         db_manager = get_db_manager()
@@ -5075,7 +5119,10 @@ def register_handlers(server: IPCServer) -> None:
         project_uuid = UUID(project_id) if project_id else None
 
         if not any([shot_uuid, scene_uuid, project_uuid]):
-            return {"success": False, "error": "One of shot_id, scene_id, or project_id is required"}
+            return {
+                "success": False,
+                "error": "One of shot_id, scene_id, or project_id is required",
+            }
 
         # Get enums
         try:
@@ -5134,29 +5181,30 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("textOverlays.update")
     async def handle_update_text_overlay(
         overlay_id: str,
-        text: Optional[str] = None,
-        overlay_type: Optional[str] = None,
-        position: Optional[str] = None,
-        custom_x: Optional[float] = None,
-        custom_y: Optional[float] = None,
-        style: Optional[Dict[str, Any]] = None,
-        animation_in: Optional[str] = None,
-        animation_out: Optional[str] = None,
-        animation_in_duration_ms: Optional[int] = None,
-        animation_out_duration_ms: Optional[int] = None,
-        start_time_ms: Optional[int] = None,
-        duration_ms: Optional[int] = None,
-        is_visible: Optional[bool] = None,
-        z_index: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        text: str | None = None,
+        overlay_type: str | None = None,
+        position: str | None = None,
+        custom_x: float | None = None,
+        custom_y: float | None = None,
+        style: dict[str, Any] | None = None,
+        animation_in: str | None = None,
+        animation_out: str | None = None,
+        animation_in_duration_ms: int | None = None,
+        animation_out_duration_ms: int | None = None,
+        start_time_ms: int | None = None,
+        duration_ms: int | None = None,
+        is_visible: bool | None = None,
+        z_index: int | None = None,
+    ) -> dict[str, Any]:
         """Update a text overlay."""
+        from sqlalchemy import select
+
         from scenemachine.models.text_overlay import (
+            TextAnimation,
             TextOverlay,
             TextOverlayType,
             TextPosition,
-            TextAnimation,
         )
-        from sqlalchemy import select
 
         oid = UUID(overlay_id)
         db_manager = get_db_manager()
@@ -5174,16 +5222,12 @@ def register_handlers(server: IPCServer) -> None:
                 overlay.text = text
 
             if overlay_type is not None:
-                try:
+                with contextlib.suppress(ValueError):
                     overlay.overlay_type = TextOverlayType(overlay_type)
-                except ValueError:
-                    pass
 
             if position is not None:
-                try:
+                with contextlib.suppress(ValueError):
                     overlay.position = TextPosition(position)
-                except ValueError:
-                    pass
 
             if custom_x is not None:
                 overlay.custom_x = custom_x
@@ -5197,16 +5241,12 @@ def register_handlers(server: IPCServer) -> None:
                 overlay.style = current_style
 
             if animation_in is not None:
-                try:
+                with contextlib.suppress(ValueError):
                     overlay.animation_in = TextAnimation(animation_in)
-                except ValueError:
-                    pass
 
             if animation_out is not None:
-                try:
+                with contextlib.suppress(ValueError):
                     overlay.animation_out = TextAnimation(animation_out)
-                except ValueError:
-                    pass
 
             if animation_in_duration_ms is not None:
                 overlay.animation_in_duration_ms = animation_in_duration_ms
@@ -5232,10 +5272,11 @@ def register_handlers(server: IPCServer) -> None:
             return {"success": True, "overlay": overlay.to_dict()}
 
     @server.handler("textOverlays.delete")
-    async def handle_delete_text_overlay(overlay_id: str) -> Dict[str, bool]:
+    async def handle_delete_text_overlay(overlay_id: str) -> dict[str, bool]:
         """Delete a text overlay."""
-        from scenemachine.models.text_overlay import TextOverlay
         from sqlalchemy import delete
+
+        from scenemachine.models.text_overlay import TextOverlay
 
         oid = UUID(overlay_id)
         db_manager = get_db_manager()
@@ -5250,29 +5291,28 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("textOverlays.batchUpdateForShot")
     async def handle_batch_update_shot_overlays(
         shot_id: str,
-        overlays: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        overlays: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Replace all text overlays for a shot with a new set.
 
         This is useful for syncing the frontend state with the backend.
         """
+        from sqlalchemy import delete
+
         from scenemachine.models.text_overlay import (
+            DEFAULT_STYLES,
+            TextAnimation,
             TextOverlay,
             TextOverlayType,
             TextPosition,
-            TextAnimation,
-            DEFAULT_STYLES,
         )
-        from sqlalchemy import delete, select
 
         sid = UUID(shot_id)
         db_manager = get_db_manager()
 
         async with db_manager.session() as session:
             # Delete existing overlays
-            await session.execute(
-                delete(TextOverlay).where(TextOverlay.shot_id == sid)
-            )
+            await session.execute(delete(TextOverlay).where(TextOverlay.shot_id == sid))
 
             # Create new overlays
             new_overlays = []
@@ -5345,7 +5385,7 @@ def register_handlers(server: IPCServer) -> None:
     # =========================================================================
 
     @server.handler("gpuExchange.listProviders")
-    async def handle_list_gpu_providers() -> List[Dict[str, Any]]:
+    async def handle_list_gpu_providers() -> list[dict[str, Any]]:
         """List all GPU providers."""
         from scenemachine.gpu_exchange.registry import get_provider_registry
 
@@ -5360,7 +5400,7 @@ def register_handlers(server: IPCServer) -> None:
         return providers
 
     @server.handler("gpuExchange.getProvider")
-    async def handle_get_gpu_provider(providerId: str) -> Dict[str, Any]:
+    async def handle_get_gpu_provider(providerId: str) -> dict[str, Any]:
         """Get a specific GPU provider."""
         from scenemachine.gpu_exchange.registry import get_provider_registry
 
@@ -5373,7 +5413,7 @@ def register_handlers(server: IPCServer) -> None:
         return info
 
     @server.handler("gpuExchange.getProviderHealth")
-    async def handle_get_gpu_provider_health(providerId: str) -> Dict[str, Any]:
+    async def handle_get_gpu_provider_health(providerId: str) -> dict[str, Any]:
         """Get health status of a GPU provider."""
         from scenemachine.gpu_exchange.registry import get_provider_registry
 
@@ -5397,7 +5437,7 @@ def register_handlers(server: IPCServer) -> None:
         }
 
     @server.handler("gpuExchange.getAllProvidersHealth")
-    async def handle_get_all_gpu_providers_health() -> Dict[str, Any]:
+    async def handle_get_all_gpu_providers_health() -> dict[str, Any]:
         """Get health status of all GPU providers."""
         from scenemachine.gpu_exchange.registry import get_provider_registry
 
@@ -5429,7 +5469,7 @@ def register_handlers(server: IPCServer) -> None:
         }
 
     @server.handler("gpuExchange.getProvidersForGPU")
-    async def handle_get_providers_for_gpu(gpuType: str) -> List[str]:
+    async def handle_get_providers_for_gpu(gpuType: str) -> list[str]:
         """Get providers that support a specific GPU type."""
         from scenemachine.gpu_exchange.base import GPUType
         from scenemachine.gpu_exchange.registry import get_provider_registry
@@ -5446,8 +5486,8 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_get_gpu_pricing(
         providerId: str,
         gpuType: str,
-        region: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        region: str | None = None,
+    ) -> dict[str, Any]:
         """Get pricing for a GPU type from a provider."""
         from scenemachine.gpu_exchange.base import GPUType
         from scenemachine.gpu_exchange.pricing import get_pricing_service
@@ -5458,9 +5498,7 @@ def register_handlers(server: IPCServer) -> None:
             raise ValueError(f"Invalid GPU type: {gpuType}")
 
         pricing_service = get_pricing_service()
-        pricing = await pricing_service.get_pricing(
-            providerId, gpu, region or "us-east-1"
-        )
+        pricing = await pricing_service.get_pricing(providerId, gpu, region or "us-east-1")
 
         if not pricing:
             raise ValueError(f"Pricing not available for {providerId}/{gpuType}")
@@ -5480,8 +5518,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("gpuExchange.comparePricing")
     async def handle_compare_gpu_pricing(
         gpuType: str,
-        region: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        region: str | None = None,
+    ) -> dict[str, Any]:
         """Compare pricing across providers for a GPU type."""
         from scenemachine.gpu_exchange.base import GPUType
         from scenemachine.gpu_exchange.pricing import get_pricing_service
@@ -5508,8 +5546,8 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("gpuExchange.getAllPricing")
     async def handle_get_all_gpu_pricing(
         gpuType: str,
-        region: Optional[str] = None,
-    ) -> Dict[str, Dict[str, Any]]:
+        region: str | None = None,
+    ) -> dict[str, dict[str, Any]]:
         """Get pricing from all providers for a GPU type."""
         from scenemachine.gpu_exchange.base import GPUType
         from scenemachine.gpu_exchange.pricing import get_pricing_service
@@ -5542,12 +5580,12 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_estimate_gpu_cost(
         gpuType: str,
         durationSeconds: float,
-        providerId: Optional[str] = None,
+        providerId: str | None = None,
         useSpot: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Estimate cost for GPU usage."""
         from scenemachine.gpu_exchange.base import GPUType
-        from scenemachine.gpu_exchange.pricing import get_pricing_service, PricingTier
+        from scenemachine.gpu_exchange.pricing import PricingTier, get_pricing_service
 
         try:
             gpu = GPUType(gpuType)
@@ -5579,9 +5617,7 @@ def register_handlers(server: IPCServer) -> None:
             }
         else:
             tier = PricingTier.BUDGET if useSpot else PricingTier.STANDARD
-            result = await pricing_service.get_optimal_provider(
-                gpu, durationSeconds, tier=tier
-            )
+            result = await pricing_service.get_optimal_provider(gpu, durationSeconds, tier=tier)
 
             if not result:
                 raise ValueError(f"No providers available for {gpuType}")
@@ -5609,9 +5645,9 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_select_gpu_provider(
         gpuType: str,
         durationSeconds: float,
-        config: Optional[Dict[str, Any]] = None,
-        requiredCapability: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        config: dict[str, Any] | None = None,
+        requiredCapability: str | None = None,
+    ) -> dict[str, Any]:
         """Select optimal provider for a job."""
         from scenemachine.gpu_exchange.base import GPUType, ProviderCapability
         from scenemachine.gpu_exchange.router import (
@@ -5636,10 +5672,8 @@ def register_handlers(server: IPCServer) -> None:
         routing_config = RoutingConfig()
         if config:
             if "priority" in config:
-                try:
+                with contextlib.suppress(ValueError):
                     routing_config.priority = RoutingPriority(config["priority"])
-                except ValueError:
-                    pass
 
             if "max_price_usd" in config:
                 routing_config.max_price_usd = config["max_price_usd"]
@@ -5653,9 +5687,7 @@ def register_handlers(server: IPCServer) -> None:
                 routing_config.allow_spot = config["allow_spot"]
 
         exchange = get_gpu_exchange()
-        selection = await exchange.select_provider(
-            gpu, durationSeconds, routing_config, capability
-        )
+        selection = await exchange.select_provider(gpu, durationSeconds, routing_config, capability)
 
         if not selection:
             raise ValueError("No suitable provider found")
@@ -5677,7 +5709,7 @@ def register_handlers(server: IPCServer) -> None:
         }
 
     @server.handler("gpuExchange.getRoutingStats")
-    async def handle_get_gpu_routing_stats() -> Dict[str, Any]:
+    async def handle_get_gpu_routing_stats() -> dict[str, Any]:
         """Get routing statistics."""
         from scenemachine.gpu_exchange.router import get_gpu_exchange
 
@@ -5690,7 +5722,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_set_gpu_budget_limit(
         projectId: str,
         limitUsd: float,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Set a budget limit for a project."""
         from scenemachine.gpu_exchange.pricing import get_pricing_service
 
@@ -5704,29 +5736,24 @@ def register_handlers(server: IPCServer) -> None:
         projectId: str,
         estimatedCost: float,
         currentSpent: float = 0.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check if a job would exceed budget."""
         from scenemachine.gpu_exchange.pricing import get_pricing_service
 
         pricing_service = get_pricing_service()
-        allowed, warning = pricing_service.check_budget(
-            projectId, estimatedCost, currentSpent
-        )
+        allowed, warning = pricing_service.check_budget(projectId, estimatedCost, currentSpent)
 
         return {"allowed": allowed, "warning": warning}
 
     @server.handler("gpuExchange.listGPUTypes")
-    async def handle_list_gpu_types() -> List[Dict[str, str]]:
+    async def handle_list_gpu_types() -> list[dict[str, str]]:
         """List all GPU types."""
         from scenemachine.gpu_exchange.base import GPUType
 
-        return [
-            {"id": gpu.value, "name": gpu.name.replace("_", " ")}
-            for gpu in GPUType
-        ]
+        return [{"id": gpu.value, "name": gpu.name.replace("_", " ")} for gpu in GPUType]
 
     @server.handler("gpuExchange.listCapabilities")
-    async def handle_list_gpu_capabilities() -> List[Dict[str, str]]:
+    async def handle_list_gpu_capabilities() -> list[dict[str, str]]:
         """List all GPU capabilities."""
         from scenemachine.gpu_exchange.base import ProviderCapability
 
@@ -5736,7 +5763,7 @@ def register_handlers(server: IPCServer) -> None:
         ]
 
     @server.handler("gpuExchange.listPricingTiers")
-    async def handle_list_gpu_pricing_tiers() -> List[Dict[str, str]]:
+    async def handle_list_gpu_pricing_tiers() -> list[dict[str, str]]:
         """List all pricing tiers."""
         from scenemachine.gpu_exchange.pricing import PricingTier
 
@@ -5764,8 +5791,8 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_copilot_chat(
         projectId: str,
         message: str,
-        context: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        context: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Send a chat message to the co-pilot."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
@@ -5776,7 +5803,7 @@ def register_handlers(server: IPCServer) -> None:
         db_manager = get_db_manager()
 
         # Build project context from database
-        project_context: Dict[str, Any] = {}
+        project_context: dict[str, Any] = {}
 
         try:
             project_id = UUID(projectId)
@@ -5820,6 +5847,7 @@ def register_handlers(server: IPCServer) -> None:
         if context and context.get("conversationHistory"):
             try:
                 import json
+
                 conversation_history = json.loads(context["conversationHistory"])
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -5834,7 +5862,7 @@ def register_handlers(server: IPCServer) -> None:
         return result
 
     @server.handler("copilot.analyze")
-    async def handle_copilot_analyze(projectId: str) -> Dict[str, Any]:
+    async def handle_copilot_analyze(projectId: str) -> dict[str, Any]:
         """Analyze a project with the co-pilot."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
@@ -5845,9 +5873,9 @@ def register_handlers(server: IPCServer) -> None:
         db_manager = get_db_manager()
 
         # Load project data
-        project_context: Dict[str, Any] = {"id": projectId}
-        scenes: List[Dict[str, Any]] = []
-        characters: List[Dict[str, Any]] = []
+        project_context: dict[str, Any] = {"id": projectId}
+        scenes: list[dict[str, Any]] = []
+        characters: list[dict[str, Any]] = []
 
         try:
             project_id = UUID(projectId)
@@ -5870,18 +5898,22 @@ def register_handlers(server: IPCServer) -> None:
 
                     # Extract scenes
                     for scene in project.scenes:
-                        scenes.append({
-                            "sequence": scene.sequence,
-                            "heading": scene.heading,
-                            "description": scene.description or "",
-                        })
+                        scenes.append(
+                            {
+                                "sequence": scene.sequence,
+                                "heading": scene.heading,
+                                "description": scene.description or "",
+                            }
+                        )
 
                     # Extract characters
                     for char in project.characters:
-                        characters.append({
-                            "name": char.name,
-                            "description": char.description or "",
-                        })
+                        characters.append(
+                            {
+                                "name": char.name,
+                                "description": char.description or "",
+                            }
+                        )
         except Exception as e:
             logger.warning(f"Failed to load project data for analysis: {e}")
 
@@ -5898,7 +5930,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_copilot_suggest_scene(
         projectId: str,
         sceneId: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get suggestions for a scene."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
@@ -5910,17 +5942,15 @@ def register_handlers(server: IPCServer) -> None:
         db_manager = get_db_manager()
 
         # Load scene data
-        scene_data: Dict[str, Any] = {}
-        characters: List[Dict[str, Any]] = []
-        adjacent_scenes: Optional[Dict[str, Any]] = None
+        scene_data: dict[str, Any] = {}
+        characters: list[dict[str, Any]] = []
+        adjacent_scenes: dict[str, Any] | None = None
 
         try:
             scene_uuid = UUID(sceneId)
             async with db_manager.session() as session:
                 stmt = (
-                    select(Scene)
-                    .options(selectinload(Scene.shots))
-                    .where(Scene.id == scene_uuid)
+                    select(Scene).options(selectinload(Scene.shots)).where(Scene.id == scene_uuid)
                 )
                 result = await session.execute(stmt)
                 scene = result.scalar_one_or_none()
@@ -5930,10 +5960,7 @@ def register_handlers(server: IPCServer) -> None:
                         "heading": scene.heading,
                         "description": scene.description or "",
                         "mood": scene.mood.value if scene.mood else "Unknown",
-                        "shots": [
-                            {"description": s.description or ""}
-                            for s in scene.shots[:10]
-                        ],
+                        "shots": [{"description": s.description or ""} for s in scene.shots[:10]],
                     }
 
                     # Get adjacent scenes
@@ -5941,17 +5968,15 @@ def register_handlers(server: IPCServer) -> None:
                     seq = scene.sequence
 
                     # Previous scene
-                    prev_stmt = (
-                        select(Scene)
-                        .where(Scene.project_id == project_id, Scene.sequence == seq - 1)
+                    prev_stmt = select(Scene).where(
+                        Scene.project_id == project_id, Scene.sequence == seq - 1
                     )
                     prev_result = await session.execute(prev_stmt)
                     prev_scene = prev_result.scalar_one_or_none()
 
                     # Next scene
-                    next_stmt = (
-                        select(Scene)
-                        .where(Scene.project_id == project_id, Scene.sequence == seq + 1)
+                    next_stmt = select(Scene).where(
+                        Scene.project_id == project_id, Scene.sequence == seq + 1
                     )
                     next_result = await session.execute(next_stmt)
                     next_scene = next_result.scalar_one_or_none()
@@ -5972,10 +5997,7 @@ def register_handlers(server: IPCServer) -> None:
                     proj_result = await session.execute(project_stmt)
                     project = proj_result.scalar_one_or_none()
                     if project:
-                        characters = [
-                            {"name": c.name}
-                            for c in project.characters[:10]
-                        ]
+                        characters = [{"name": c.name} for c in project.characters[:10]]
         except Exception as e:
             logger.warning(f"Failed to load scene data: {e}")
 
@@ -5992,10 +6014,9 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_copilot_suggest_shot(
         projectId: str,
         shotId: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get suggestions for a shot."""
         from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
 
         from scenemachine.models import Scene, Shot
         from scenemachine.services.llm import get_llm_service
@@ -6004,9 +6025,9 @@ def register_handlers(server: IPCServer) -> None:
         db_manager = get_db_manager()
 
         # Load shot data
-        shot_data: Dict[str, Any] = {}
-        scene_context: Dict[str, Any] = {}
-        adjacent_shots: Optional[Dict[str, Any]] = None
+        shot_data: dict[str, Any] = {}
+        scene_context: dict[str, Any] = {}
+        adjacent_shots: dict[str, Any] | None = None
 
         try:
             shot_uuid = UUID(shotId)
@@ -6018,7 +6039,9 @@ def register_handlers(server: IPCServer) -> None:
                 if shot:
                     shot_data = {
                         "shot_type": shot.shot_type.value if shot.shot_type else "Unknown",
-                        "camera_movement": shot.camera_movement.value if shot.camera_movement else "None",
+                        "camera_movement": shot.camera_movement.value
+                        if shot.camera_movement
+                        else "None",
                         "description": shot.description or "",
                         "generation_prompt": shot.generation_prompt or "",
                     }
@@ -6037,16 +6060,14 @@ def register_handlers(server: IPCServer) -> None:
                     # Get adjacent shots
                     seq = shot.sequence
 
-                    prev_stmt = (
-                        select(Shot)
-                        .where(Shot.scene_id == shot.scene_id, Shot.sequence == seq - 1)
+                    prev_stmt = select(Shot).where(
+                        Shot.scene_id == shot.scene_id, Shot.sequence == seq - 1
                     )
                     prev_result = await session.execute(prev_stmt)
                     prev_shot = prev_result.scalar_one_or_none()
 
-                    next_stmt = (
-                        select(Shot)
-                        .where(Shot.scene_id == shot.scene_id, Shot.sequence == seq + 1)
+                    next_stmt = select(Shot).where(
+                        Shot.scene_id == shot.scene_id, Shot.sequence == seq + 1
                     )
                     next_result = await session.execute(next_stmt)
                     next_shot = next_result.scalar_one_or_none()
@@ -6054,7 +6075,9 @@ def register_handlers(server: IPCServer) -> None:
                     if prev_shot or next_shot:
                         adjacent_shots = {}
                         if prev_shot:
-                            adjacent_shots["previous"] = {"description": prev_shot.description or ""}
+                            adjacent_shots["previous"] = {
+                                "description": prev_shot.description or ""
+                            }
                         if next_shot:
                             adjacent_shots["next"] = {"description": next_shot.description or ""}
 
@@ -6074,8 +6097,8 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_copilot_apply_suggestion(
         projectId: str,
         suggestionId: str,
-        suggestionData: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        suggestionData: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Apply a co-pilot suggestion.
 
         Suggestions are applied based on their type:
@@ -6089,7 +6112,7 @@ def register_handlers(server: IPCServer) -> None:
         # Full implementation would modify the database based on suggestion type
         logger.info(f"Applying suggestion {suggestionId} to project {projectId}")
 
-        changes: Dict[str, Any] = {}
+        changes: dict[str, Any] = {}
 
         if suggestionData:
             suggestion_type = suggestionData.get("type", "")
@@ -6114,16 +6137,16 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_copilot_dismiss_suggestion(
         projectId: str,
         suggestionId: str,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """Dismiss a co-pilot suggestion."""
         return {"success": True}
 
     @server.handler("copilot.getQuickActions")
     async def handle_copilot_quick_actions(
         projectId: str,
-        sceneId: Optional[str] = None,
-        shotId: Optional[str] = None,
-    ) -> List[Dict[str, str]]:
+        sceneId: str | None = None,
+        shotId: str | None = None,
+    ) -> list[dict[str, str]]:
         """Get quick actions for current context."""
         actions = [
             {"id": "analyze", "label": "Analyze Project", "action": "analyze_project"},
@@ -6131,16 +6154,36 @@ def register_handlers(server: IPCServer) -> None:
         ]
 
         if sceneId:
-            actions.extend([
-                {"id": "scene_suggest", "label": "Suggest Improvements", "action": "suggest_scene"},
-                {"id": "scene_visualize", "label": "Visualize Scene", "action": "visualize_scene"},
-            ])
+            actions.extend(
+                [
+                    {
+                        "id": "scene_suggest",
+                        "label": "Suggest Improvements",
+                        "action": "suggest_scene",
+                    },
+                    {
+                        "id": "scene_visualize",
+                        "label": "Visualize Scene",
+                        "action": "visualize_scene",
+                    },
+                ]
+            )
 
         if shotId:
-            actions.extend([
-                {"id": "shot_suggest", "label": "Suggest Shot Changes", "action": "suggest_shot"},
-                {"id": "shot_regenerate", "label": "Regenerate Prompt", "action": "regenerate_prompt"},
-            ])
+            actions.extend(
+                [
+                    {
+                        "id": "shot_suggest",
+                        "label": "Suggest Shot Changes",
+                        "action": "suggest_shot",
+                    },
+                    {
+                        "id": "shot_regenerate",
+                        "label": "Regenerate Prompt",
+                        "action": "regenerate_prompt",
+                    },
+                ]
+            )
 
         return actions
 
@@ -6149,7 +6192,7 @@ def register_handlers(server: IPCServer) -> None:
         projectId: str,
         shotId: str,
         originalPrompt: str,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Enhance a video generation prompt using AI."""
         from sqlalchemy import select
 
@@ -6160,7 +6203,7 @@ def register_handlers(server: IPCServer) -> None:
         db_manager = get_db_manager()
 
         # Load shot context
-        shot_context: Dict[str, Any] = {}
+        shot_context: dict[str, Any] = {}
 
         try:
             shot_uuid = UUID(shotId)
@@ -6172,7 +6215,9 @@ def register_handlers(server: IPCServer) -> None:
                 if shot:
                     shot_context = {
                         "shot_type": shot.shot_type.value if shot.shot_type else "Unknown",
-                        "camera_movement": shot.camera_movement.value if shot.camera_movement else "Static",
+                        "camera_movement": shot.camera_movement.value
+                        if shot.camera_movement
+                        else "Static",
                     }
 
                     # Load scene for mood
@@ -6198,7 +6243,7 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_copilot_generate_shot_breakdown(
         projectId: str,
         sceneId: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate a shot breakdown for a scene using AI."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
@@ -6210,8 +6255,8 @@ def register_handlers(server: IPCServer) -> None:
         db_manager = get_db_manager()
 
         # Load scene data
-        scene_data: Dict[str, Any] = {}
-        characters: List[Dict[str, Any]] = []
+        scene_data: dict[str, Any] = {}
+        characters: list[dict[str, Any]] = []
 
         try:
             scene_uuid = UUID(sceneId)
@@ -6238,10 +6283,7 @@ def register_handlers(server: IPCServer) -> None:
                     project = proj_result.scalar_one_or_none()
 
                     if project:
-                        characters = [
-                            {"name": c.name}
-                            for c in project.characters[:10]
-                        ]
+                        characters = [{"name": c.name} for c in project.characters[:10]]
 
         except Exception as e:
             logger.warning(f"Failed to load scene data for shot breakdown: {e}")
@@ -6260,22 +6302,24 @@ def register_handlers(server: IPCServer) -> None:
 
     @server.handler("performers.search")
     async def handle_search_performers(
-        query: Optional[str] = None,
-        performer_type: Optional[str] = None,
-        min_aci: Optional[float] = None,
-        max_aci: Optional[float] = None,
-        specialties: Optional[List[str]] = None,
-        availability: Optional[str] = None,
-        verification: Optional[str] = None,
+        query: str | None = None,
+        performer_type: str | None = None,
+        min_aci: float | None = None,
+        max_aci: float | None = None,
+        specialties: list[str] | None = None,
+        availability: str | None = None,
+        verification: str | None = None,
         limit: int = 20,
         offset: int = 0,
         sort_by: str = "aci_score",
         sort_order: str = "desc",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Search performers with filters."""
-        from sqlalchemy import select, func, or_
+        from sqlalchemy import func, or_, select
         from sqlalchemy.orm import selectinload
-        from scenemachine.models import Performer, PerformerType as PT, PerformerAvailability, PerformerVerification
+
+        from scenemachine.models import Performer, PerformerAvailability, PerformerVerification
+        from scenemachine.models import PerformerType as PT
 
         db_manager = get_db_manager()
         async with db_manager.session() as session:
@@ -6343,10 +6387,11 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("performers.featured")
-    async def handle_featured_performers(limit: int = 6) -> List[Dict[str, Any]]:
+    async def handle_featured_performers(limit: int = 6) -> list[dict[str, Any]]:
         """Get featured performers (highest ACI scores)."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
         from scenemachine.models import Performer, PerformerAvailability
 
         db_manager = get_db_manager()
@@ -6364,10 +6409,11 @@ def register_handlers(server: IPCServer) -> None:
             return [_performer_to_dict(p) for p in performers]
 
     @server.handler("performers.leaderboard")
-    async def handle_performer_leaderboard(limit: int = 10) -> List[Dict[str, Any]]:
+    async def handle_performer_leaderboard(limit: int = 10) -> list[dict[str, Any]]:
         """Get performer leaderboard by ACI score."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
         from scenemachine.models import Performer
 
         db_manager = get_db_manager()
@@ -6395,10 +6441,11 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("performers.get")
-    async def handle_get_performer(id: str) -> Dict[str, Any]:
+    async def handle_get_performer(id: str) -> dict[str, Any]:
         """Get performer details by ID."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
         from scenemachine.models import Performer
 
         performer_id = UUID(id)
@@ -6419,9 +6466,10 @@ def register_handlers(server: IPCServer) -> None:
             return _performer_to_dict(performer)
 
     @server.handler("performers.getACI")
-    async def handle_get_performer_aci(performerId: str) -> Dict[str, Any]:
+    async def handle_get_performer_aci(performerId: str) -> dict[str, Any]:
         """Get ACI breakdown for a performer."""
         from sqlalchemy import select
+
         from scenemachine.models import Performer
 
         performer_id = UUID(performerId)
@@ -6447,7 +6495,7 @@ def register_handlers(server: IPCServer) -> None:
             }
 
     @server.handler("performers.seed")
-    async def handle_seed_performers() -> Dict[str, Any]:
+    async def handle_seed_performers() -> dict[str, Any]:
         """Seed the database with sample performers (admin action)."""
         from scenemachine.seeds.performers import seed_performers
 
@@ -6463,7 +6511,7 @@ def register_handlers(server: IPCServer) -> None:
             "count": count,
         }
 
-    def _performer_to_dict(performer: Any) -> Dict[str, Any]:
+    def _performer_to_dict(performer: Any) -> dict[str, Any]:
         """Convert performer model to dictionary for frontend consumption."""
         pricing = performer.pricing or {}
         motion = performer.motion_capabilities or {}
@@ -6546,11 +6594,11 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("bookings.blink")
     async def handle_blink_booking(
         project_id: str,
-        performer_id: Optional[str] = None,
-        shot_id: Optional[str] = None,
+        performer_id: str | None = None,
+        shot_id: str | None = None,
         duration_seconds: int = 10,
-        special_instructions: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        special_instructions: str | None = None,
+    ) -> dict[str, Any]:
         """Create a Blink (quick auto-match) booking."""
         return await _create_booking(
             project_id=project_id,
@@ -6565,11 +6613,11 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_deep_booking(
         project_id: str,
         performer_id: str,
-        shot_id: Optional[str] = None,
+        shot_id: str | None = None,
         duration_seconds: int = 120,
-        emotion_markers: Optional[List[str]] = None,
-        special_instructions: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        emotion_markers: list[str] | None = None,
+        special_instructions: str | None = None,
+    ) -> dict[str, Any]:
         """Create a Deep (method acting) booking."""
         return await _create_booking(
             project_id=project_id,
@@ -6585,11 +6633,11 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_epic_booking(
         project_id: str,
         performer_id: str,
-        shot_id: Optional[str] = None,
+        shot_id: str | None = None,
         duration_seconds: int = 300,
-        emotion_markers: Optional[List[str]] = None,
-        special_instructions: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        emotion_markers: list[str] | None = None,
+        special_instructions: str | None = None,
+    ) -> dict[str, Any]:
         """Create an Epic (extended performance) booking."""
         return await _create_booking(
             project_id=project_id,
@@ -6602,10 +6650,11 @@ def register_handlers(server: IPCServer) -> None:
         )
 
     @server.handler("bookings.get")
-    async def handle_get_booking(id: str) -> Dict[str, Any]:
+    async def handle_get_booking(id: str) -> dict[str, Any]:
         """Get booking by ID."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
         from scenemachine.models import Booking
 
         booking_id = UUID(id)
@@ -6636,11 +6685,12 @@ def register_handlers(server: IPCServer) -> None:
     @server.handler("bookings.listByProject")
     async def handle_list_project_bookings(
         projectId: str,
-        status: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
         """List bookings for a project."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
         from scenemachine.models import Booking, BookingStatus
 
         project_id = UUID(projectId)
@@ -6678,10 +6728,12 @@ def register_handlers(server: IPCServer) -> None:
             ]
 
     @server.handler("bookings.accept")
-    async def handle_accept_booking(bookingId: str) -> Dict[str, Any]:
+    async def handle_accept_booking(bookingId: str) -> dict[str, Any]:
         """Accept a booking (performer action)."""
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         from sqlalchemy import select
+
         from scenemachine.models import Booking, BookingStatus
 
         booking_id = UUID(bookingId)
@@ -6699,7 +6751,7 @@ def register_handlers(server: IPCServer) -> None:
                 raise ValueError(f"Cannot accept booking in {booking.status.value} status")
 
             booking.status = BookingStatus.ACCEPTED
-            booking.accepted_at = datetime.now(timezone.utc)
+            booking.accepted_at = datetime.now(UTC)
 
             await session.commit()
             await session.refresh(booking)
@@ -6710,11 +6762,13 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_deliver_booking(
         bookingId: str,
         deliveryUrl: str,
-        notes: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        notes: str | None = None,
+    ) -> dict[str, Any]:
         """Mark a booking as delivered (performer action)."""
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         from sqlalchemy import select
+
         from scenemachine.models import Booking, BookingStatus
 
         booking_id = UUID(bookingId)
@@ -6732,7 +6786,7 @@ def register_handlers(server: IPCServer) -> None:
                 raise ValueError(f"Cannot deliver booking in {booking.status.value} status")
 
             booking.status = BookingStatus.DELIVERED
-            booking.delivered_at = datetime.now(timezone.utc)
+            booking.delivered_at = datetime.now(UTC)
             booking.performer_notes = notes
 
             await session.commit()
@@ -6741,10 +6795,12 @@ def register_handlers(server: IPCServer) -> None:
             return _booking_to_dict(booking)
 
     @server.handler("bookings.approve")
-    async def handle_approve_booking(bookingId: str) -> Dict[str, Any]:
+    async def handle_approve_booking(bookingId: str) -> dict[str, Any]:
         """Approve a delivered booking (director action)."""
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         from sqlalchemy import select
+
         from scenemachine.models import Booking, BookingStatus, PaymentStatus
 
         booking_id = UUID(bookingId)
@@ -6762,14 +6818,14 @@ def register_handlers(server: IPCServer) -> None:
                 raise ValueError(f"Cannot approve booking in {booking.status.value} status")
 
             booking.status = BookingStatus.APPROVED
-            booking.approved_at = datetime.now(timezone.utc)
+            booking.approved_at = datetime.now(UTC)
 
             # Transition to completed and release payment
             if booking.can_transition_to(BookingStatus.COMPLETED):
                 booking.status = BookingStatus.COMPLETED
-                booking.completed_at = datetime.now(timezone.utc)
+                booking.completed_at = datetime.now(UTC)
                 booking.payment_status = PaymentStatus.RELEASED
-                booking.released_at = datetime.now(timezone.utc)
+                booking.released_at = datetime.now(UTC)
 
             await session.commit()
             await session.refresh(booking)
@@ -6777,10 +6833,12 @@ def register_handlers(server: IPCServer) -> None:
             return _booking_to_dict(booking)
 
     @server.handler("bookings.dispute")
-    async def handle_dispute_booking(bookingId: str, reason: str) -> Dict[str, Any]:
+    async def handle_dispute_booking(bookingId: str, reason: str) -> dict[str, Any]:
         """Dispute a delivered booking (director action)."""
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         from sqlalchemy import select
+
         from scenemachine.models import Booking, BookingStatus
 
         booking_id = UUID(bookingId)
@@ -6800,7 +6858,7 @@ def register_handlers(server: IPCServer) -> None:
             booking.status = BookingStatus.DISPUTED
             booking.is_disputed = True
             booking.dispute_reason = reason
-            booking.disputed_at = datetime.now(timezone.utc)
+            booking.disputed_at = datetime.now(UTC)
 
             await session.commit()
             await session.refresh(booking)
@@ -6811,12 +6869,13 @@ def register_handlers(server: IPCServer) -> None:
     async def handle_rate_booking(
         bookingId: str,
         rating: int,
-        review: Optional[str] = None,
+        review: str | None = None,
         wouldRehire: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Rate a completed booking (director action)."""
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
         from scenemachine.models import Booking, PerformerRating
 
         booking_id = UUID(bookingId)
@@ -6841,7 +6900,7 @@ def register_handlers(server: IPCServer) -> None:
                 raise ValueError("Booking has no performer to rate")
 
             # Create or update rating
-            from datetime import datetime, timezone
+            from datetime import datetime
 
             existing_rating = booking.rating
             if existing_rating:
@@ -6856,7 +6915,7 @@ def register_handlers(server: IPCServer) -> None:
                     overall_score=rating,
                     review_text=review,
                     would_rehire=wouldRehire,
-                    rated_at=datetime.now(timezone.utc),
+                    rated_at=datetime.now(UTC),
                 )
                 session.add(new_rating)
 
@@ -6877,14 +6936,16 @@ def register_handlers(server: IPCServer) -> None:
         project_id: str,
         booking_mode: str,
         duration_seconds: int,
-        performer_id: Optional[str] = None,
-        shot_id: Optional[str] = None,
-        emotion_markers: Optional[List[str]] = None,
-        special_instructions: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        performer_id: str | None = None,
+        shot_id: str | None = None,
+        emotion_markers: list[str] | None = None,
+        special_instructions: str | None = None,
+    ) -> dict[str, Any]:
         """Create a new booking."""
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         from sqlalchemy import select
+
         from scenemachine.models import Booking, BookingMode, BookingStatus, Performer
 
         db_manager = get_db_manager()
@@ -6903,7 +6964,9 @@ def register_handlers(server: IPCServer) -> None:
                     elif booking_mode == "deep":
                         price_usd = performer.pricing.get("deep", 25.0)
                     elif booking_mode == "epic":
-                        price_usd = performer.pricing.get("epic_per_minute", 10.0) * (duration_seconds / 60)
+                        price_usd = performer.pricing.get("epic_per_minute", 10.0) * (
+                            duration_seconds / 60
+                        )
 
             # Calculate duration-based pricing
             if booking_mode == "blink":
@@ -6925,7 +6988,7 @@ def register_handlers(server: IPCServer) -> None:
                 emotion_requirements=emotion_markers,
                 special_instructions=special_instructions,
                 price_usd=final_price,
-                requested_at=datetime.now(timezone.utc),
+                requested_at=datetime.now(UTC),
             )
 
             session.add(booking)
@@ -6936,10 +6999,10 @@ def register_handlers(server: IPCServer) -> None:
 
     def _booking_to_dict(
         booking: Any,
-        performer_name: Optional[str] = None,
-        rating_score: Optional[int] = None,
-        rating_review: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        performer_name: str | None = None,
+        rating_score: int | None = None,
+        rating_review: str | None = None,
+    ) -> dict[str, Any]:
         """Convert booking to dictionary.
 
         Args:
@@ -6951,7 +7014,6 @@ def register_handlers(server: IPCServer) -> None:
         # Try to get performer name if not provided (may trigger lazy load)
         if performer_name is None:
             try:
-                from sqlalchemy.orm import object_session
                 from sqlalchemy.orm.attributes import instance_state
 
                 state = instance_state(booking)
@@ -7005,7 +7067,7 @@ def register_handlers(server: IPCServer) -> None:
     # ==========================================================================
 
     @server.handler("snapshots.list")
-    async def handle_snapshots_list(project_id: str) -> List[Dict[str, Any]]:
+    async def handle_snapshots_list(project_id: str) -> list[dict[str, Any]]:
         """List all snapshots for a project, newest first.
 
         Caught by the 2026-05-14 DNA-strand audit: the renderer's
@@ -7021,7 +7083,7 @@ def register_handlers(server: IPCServer) -> None:
         # blobs from list responses so the audit view loads fast even
         # with hundreds of snapshots. Callers needing the full data
         # blob should use ``snapshots.get``.
-        out: List[Dict[str, Any]] = []
+        out: list[dict[str, Any]] = []
         for snap in snapshots:
             d = snap.to_dict()
             for heavy in ("project_data", "scenes_data", "characters_data", "shots_data"):
@@ -7030,9 +7092,7 @@ def register_handlers(server: IPCServer) -> None:
         return out
 
     @server.handler("snapshots.get")
-    async def handle_snapshots_get(
-        project_id: str, snapshot_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def handle_snapshots_get(project_id: str, snapshot_id: str) -> dict[str, Any] | None:
         """Load a specific snapshot's full payload (including all *_data)."""
         from scenemachine.services.snapshots import SnapshotService
 
@@ -7045,7 +7105,7 @@ def register_handlers(server: IPCServer) -> None:
         project_id: str,
         snapshot_id_a: str,
         snapshot_id_b: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compare two snapshots and return delta report.
 
         Fixes a pre-existing signature bug: the prior version did not

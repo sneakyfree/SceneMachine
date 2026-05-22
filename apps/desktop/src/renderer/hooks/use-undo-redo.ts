@@ -101,7 +101,8 @@ export function useUndoRedo<T>(initialState: T, options: UseUndoRedoOptions<T> =
 
   const set = useCallback(
     (newState: T | ((prev: T) => T), options?: { merge?: boolean }) => {
-      const value = typeof newState === 'function' ? (newState as (prev: T) => T)(state.present) : newState;
+      const value =
+        typeof newState === 'function' ? (newState as (prev: T) => T)(state.present) : newState;
 
       // Auto-merge rapid changes
       const now = Date.now();
@@ -266,30 +267,22 @@ export const createMoveCommand = <T extends { id: string; x?: number; y?: number
 ): Command<T[]> => ({
   execute: (items) =>
     items.map((item) =>
-      item.id === itemId
-        ? { ...item, x: (item.x || 0) + dx, y: (item.y || 0) + dy }
-        : item
+      item.id === itemId ? { ...item, x: (item.x || 0) + dx, y: (item.y || 0) + dy } : item
     ),
   undo: (items) =>
     items.map((item) =>
-      item.id === itemId
-        ? { ...item, x: (item.x || 0) - dx, y: (item.y || 0) - dy }
-        : item
+      item.id === itemId ? { ...item, x: (item.x || 0) - dx, y: (item.y || 0) - dy } : item
     ),
   description: `Move item ${itemId}`,
 });
 
-export const createDeleteCommand = <T extends { id: string }>(
-  item: T
-): Command<T[]> => ({
+export const createDeleteCommand = <T extends { id: string }>(item: T): Command<T[]> => ({
   execute: (items) => items.filter((i) => i.id !== item.id),
   undo: (items) => [...items, item],
   description: `Delete item ${item.id}`,
 });
 
-export const createAddCommand = <T extends { id: string }>(
-  item: T
-): Command<T[]> => ({
+export const createAddCommand = <T extends { id: string }>(item: T): Command<T[]> => ({
   execute: (items) => [...items, item],
   undo: (items) => items.filter((i) => i.id !== item.id),
   description: `Add item ${item.id}`,
@@ -300,9 +293,7 @@ export const createUpdateCommand = <T extends { id: string }>(
   oldProps: Partial<T>,
   newProps: Partial<T>
 ): Command<T[]> => ({
-  execute: (items) =>
-    items.map((item) => (item.id === itemId ? { ...item, ...newProps } : item)),
-  undo: (items) =>
-    items.map((item) => (item.id === itemId ? { ...item, ...oldProps } : item)),
+  execute: (items) => items.map((item) => (item.id === itemId ? { ...item, ...newProps } : item)),
+  undo: (items) => items.map((item) => (item.id === itemId ? { ...item, ...oldProps } : item)),
   description: `Update item ${itemId}`,
 });

@@ -4,9 +4,9 @@ JWT Token Utilities
 Provides JWT token creation, validation, and decoding.
 """
 
-from datetime import datetime, timedelta, timezone
-from enum import Enum
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 from uuid import UUID
 
 from jose import JWTError, jwt
@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from scenemachine.config import get_settings
 
 
-class TokenType(str, Enum):
+class TokenType(StrEnum):
     """JWT token type enumeration."""
 
     ACCESS = "access"
@@ -29,21 +29,21 @@ class TokenData(BaseModel):
     token_type: TokenType
     exp: datetime
     iat: datetime
-    jti: Optional[str] = None  # JWT ID for refresh token tracking
+    jti: str | None = None  # JWT ID for refresh token tracking
 
 
 class AuthenticationError(Exception):
     """Raised when authentication fails."""
 
-    def __init__(self, message: str = "Authentication failed"):
+    def __init__(self, message: str = "Authentication failed") -> None:
         self.message = message
         super().__init__(self.message)
 
 
 def create_access_token(
     user_id: UUID,
-    expires_delta: Optional[timedelta] = None,
-    extra_claims: Optional[dict[str, Any]] = None,
+    expires_delta: timedelta | None = None,
+    extra_claims: dict[str, Any] | None = None,
 ) -> str:
     """Create a new access token.
 
@@ -58,13 +58,11 @@ def create_access_token(
     settings = get_settings()
 
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.jwt_access_token_expire_minutes
-        )
+        expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_access_token_expire_minutes)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     claims = {
         "sub": str(user_id),
@@ -86,7 +84,7 @@ def create_access_token(
 def create_refresh_token(
     user_id: UUID,
     jti: str,
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """Create a new refresh token.
 
@@ -101,13 +99,11 @@ def create_refresh_token(
     settings = get_settings()
 
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            days=settings.jwt_refresh_token_expire_days
-        )
+        expire = datetime.now(UTC) + timedelta(days=settings.jwt_refresh_token_expire_days)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     claims = {
         "sub": str(user_id),
@@ -157,8 +153,8 @@ def decode_token(token: str) -> TokenData:
         return TokenData(
             user_id=UUID(user_id),
             token_type=TokenType(token_type),
-            exp=datetime.fromtimestamp(exp, tz=timezone.utc),
-            iat=datetime.fromtimestamp(iat, tz=timezone.utc),
+            exp=datetime.fromtimestamp(exp, tz=UTC),
+            iat=datetime.fromtimestamp(iat, tz=UTC),
             jti=jti,
         )
 
@@ -178,7 +174,7 @@ def get_token_expiry(token_type: TokenType) -> datetime:
         Datetime when token would expire
     """
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if token_type == TokenType.ACCESS:
         return now + timedelta(minutes=settings.jwt_access_token_expire_minutes)

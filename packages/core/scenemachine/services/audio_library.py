@@ -3,10 +3,8 @@
 import hashlib
 import logging
 import mimetypes
-import os
 import shutil
 from pathlib import Path
-from typing import List, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import and_, or_, select
@@ -14,11 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.config import get_settings
 from scenemachine.models.audio_asset import (
-    AudioAsset,
-    AudioAssetType,
     MUSIC_GENRES,
     MUSIC_MOODS,
     SOUND_EFFECT_CATEGORIES,
+    AudioAsset,
+    AudioAssetType,
 )
 
 logger = logging.getLogger(__name__)
@@ -30,7 +28,7 @@ class AudioLibraryService:
     SUPPORTED_FORMATS = {".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm"}
     MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         """Initialize service with database session.
 
         Args:
@@ -56,13 +54,13 @@ class AudioLibraryService:
 
     async def get_sound_effects(
         self,
-        category: Optional[str] = None,
-        subcategory: Optional[str] = None,
+        category: str | None = None,
+        subcategory: str | None = None,
         favorites_only: bool = False,
-        search: Optional[str] = None,
+        search: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[AudioAsset]:
+    ) -> list[AudioAsset]:
         """Get sound effects with optional filtering.
 
         Args:
@@ -83,7 +81,7 @@ class AudioLibraryService:
         if subcategory:
             conditions.append(AudioAsset.subcategory == subcategory)
         if favorites_only:
-            conditions.append(AudioAsset.is_favorite == True)
+            conditions.append(AudioAsset.is_favorite)
         if search:
             search_pattern = f"%{search.lower()}%"
             conditions.append(
@@ -106,14 +104,14 @@ class AudioLibraryService:
 
     async def get_music_tracks(
         self,
-        genre: Optional[str] = None,
-        mood: Optional[str] = None,
+        genre: str | None = None,
+        mood: str | None = None,
         favorites_only: bool = False,
         custom_only: bool = False,
-        search: Optional[str] = None,
+        search: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[AudioAsset]:
+    ) -> list[AudioAsset]:
         """Get music tracks with optional filtering.
 
         Args:
@@ -135,9 +133,9 @@ class AudioLibraryService:
         if mood:
             conditions.append(AudioAsset.mood.contains([mood]))
         if favorites_only:
-            conditions.append(AudioAsset.is_favorite == True)
+            conditions.append(AudioAsset.is_favorite)
         if custom_only:
-            conditions.append(AudioAsset.is_system == False)
+            conditions.append(not AudioAsset.is_system)
         if search:
             search_pattern = f"%{search.lower()}%"
             conditions.append(
@@ -159,7 +157,7 @@ class AudioLibraryService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_audio_asset(self, asset_id: UUID) -> Optional[AudioAsset]:
+    async def get_audio_asset(self, asset_id: UUID) -> AudioAsset | None:
         """Get a single audio asset by ID.
 
         Args:
@@ -193,13 +191,13 @@ class AudioLibraryService:
         self,
         file_path: str,
         asset_type: AudioAssetType,
-        name: Optional[str] = None,
+        name: str | None = None,
         category: str = "other",
-        subcategory: Optional[str] = None,
-        genre: Optional[str] = None,
-        mood: Optional[List[str]] = None,
-        artist: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        subcategory: str | None = None,
+        genre: str | None = None,
+        mood: list[str] | None = None,
+        artist: str | None = None,
+        tags: list[str] | None = None,
     ) -> AudioAsset:
         """Upload a new audio file.
 
@@ -236,7 +234,7 @@ class AudioLibraryService:
         # Validate size
         file_size = source_path.stat().st_size
         if file_size > self.MAX_FILE_SIZE:
-            raise ValueError(f"File too large. Maximum: {self.MAX_FILE_SIZE // (1024*1024)} MB")
+            raise ValueError(f"File too large. Maximum: {self.MAX_FILE_SIZE // (1024 * 1024)} MB")
 
         # Generate unique filename
         asset_id = uuid4()
@@ -254,7 +252,7 @@ class AudioLibraryService:
         duration = await self._get_audio_duration(dest_path)
 
         # Calculate file hash
-        file_hash = self._calculate_hash(dest_path)
+        self._calculate_hash(dest_path)
 
         # Get MIME type
         mime_type, _ = mimetypes.guess_type(str(dest_path))
@@ -339,7 +337,7 @@ class AudioLibraryService:
         """
         return SOUND_EFFECT_CATEGORIES.copy()
 
-    async def get_genres(self) -> List[str]:
+    async def get_genres(self) -> list[str]:
         """Get all music genres.
 
         Returns:
@@ -347,7 +345,7 @@ class AudioLibraryService:
         """
         return MUSIC_GENRES.copy()
 
-    async def get_moods(self) -> List[str]:
+    async def get_moods(self) -> list[str]:
         """Get all music moods.
 
         Returns:
@@ -370,8 +368,10 @@ class AudioLibraryService:
 
             cmd = [
                 "ffprobe",
-                "-v", "quiet",
-                "-print_format", "json",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
                 "-show_format",
                 str(file_path),
             ]
@@ -409,13 +409,14 @@ class AudioLibraryService:
 
 # Convenience functions
 
+
 async def get_sound_effects(
     session: AsyncSession,
-    category: Optional[str] = None,
-    subcategory: Optional[str] = None,
+    category: str | None = None,
+    subcategory: str | None = None,
     favorites_only: bool = False,
-    search: Optional[str] = None,
-) -> List[AudioAsset]:
+    search: str | None = None,
+) -> list[AudioAsset]:
     """Get sound effects with optional filtering."""
     service = AudioLibraryService(session)
     return await service.get_sound_effects(
@@ -428,12 +429,12 @@ async def get_sound_effects(
 
 async def get_music_tracks(
     session: AsyncSession,
-    genre: Optional[str] = None,
-    mood: Optional[str] = None,
+    genre: str | None = None,
+    mood: str | None = None,
     favorites_only: bool = False,
     custom_only: bool = False,
-    search: Optional[str] = None,
-) -> List[AudioAsset]:
+    search: str | None = None,
+) -> list[AudioAsset]:
     """Get music tracks with optional filtering."""
     service = AudioLibraryService(session)
     return await service.get_music_tracks(

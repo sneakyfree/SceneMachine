@@ -99,10 +99,10 @@ export function ScenePlanningPage() {
   const { data: scenes, isLoading: isLoadingScenes } = useQuery({
     queryKey: ['scenes', projectId],
     queryFn: async () => {
-      const result = await window.electronAPI.backendRequest<Scene[]>(
-        'scenes.list',
-        { project_id: projectId, include_shots: true }
-      );
+      const result = await window.electronAPI.backendRequest<Scene[]>('scenes.list', {
+        project_id: projectId,
+        include_shots: true,
+      });
       return result;
     },
     enabled: !!projectId,
@@ -112,10 +112,9 @@ export function ScenePlanningPage() {
   const { data: characters } = useQuery({
     queryKey: ['characters', projectId],
     queryFn: async () => {
-      const result = await window.electronAPI.backendRequest<Character[]>(
-        'characters.list',
-        { project_id: projectId }
-      );
+      const result = await window.electronAPI.backendRequest<Character[]>('characters.list', {
+        project_id: projectId,
+      });
       return result;
     },
     enabled: !!projectId,
@@ -125,10 +124,7 @@ export function ScenePlanningPage() {
   const { data: shotTypes } = useQuery({
     queryKey: ['shotTypes'],
     queryFn: async () => {
-      const result = await window.electronAPI.backendRequest<ShotType[]>(
-        'scenes.getShotTypes',
-        {}
-      );
+      const result = await window.electronAPI.backendRequest<ShotType[]>('scenes.getShotTypes', {});
       return result;
     },
   });
@@ -179,13 +175,7 @@ export function ScenePlanningPage() {
 
   // Update shot mutation
   const updateShotMutation = useMutation({
-    mutationFn: async ({
-      shotId,
-      data,
-    }: {
-      shotId: string;
-      data: Partial<Shot>;
-    }) => {
+    mutationFn: async ({ shotId, data }: { shotId: string; data: Partial<Shot> }) => {
       return window.electronAPI.backendRequest('shots.update', {
         shot_id: shotId,
         shot_type: data.shotType,
@@ -293,10 +283,7 @@ export function ScenePlanningPage() {
   const totalScenes = scenes?.length ?? 0;
   const approvedScenes = scenes?.filter((s) => s.shotBreakdownApproved).length ?? 0;
   const allApproved = totalScenes > 0 && approvedScenes === totalScenes;
-  const totalDuration = scenes?.reduce(
-    (acc, s) => acc + (s.estimatedDurationSeconds || 0),
-    0
-  ) ?? 0;
+  const totalDuration = scenes?.reduce((acc, s) => acc + (s.estimatedDurationSeconds || 0), 0) ?? 0;
 
   if (isLoadingScenes) {
     return (
@@ -339,7 +326,8 @@ export function ScenePlanningPage() {
           <div className="text-right">
             <div className="text-sm text-surface-400">Est. Duration</div>
             <div className="text-2xl font-bold">
-              {Math.floor(totalDuration / 60)}:{String(Math.floor(totalDuration % 60)).padStart(2, '0')}
+              {Math.floor(totalDuration / 60)}:
+              {String(Math.floor(totalDuration % 60)).padStart(2, '0')}
             </div>
           </div>
           {allApproved ? (
@@ -450,9 +438,7 @@ export function ScenePlanningPage() {
                           {scene.analysis.summary && (
                             <div className="col-span-2">
                               <span className="text-surface-500">Summary:</span>
-                              <p className="text-surface-300 mt-1">
-                                {scene.analysis.summary}
-                              </p>
+                              <p className="text-surface-300 mt-1">{scene.analysis.summary}</p>
                             </div>
                           )}
                           {scene.analysis.pacing && (
@@ -558,9 +544,7 @@ export function ScenePlanningPage() {
                       ) : (
                         <div className="flex flex-col items-center justify-center py-8">
                           <Film className="w-12 h-12 text-surface-600 mb-3" />
-                          <p className="text-surface-400 mb-4">
-                            No shot breakdown generated yet
-                          </p>
+                          <p className="text-surface-400 mb-4">No shot breakdown generated yet</p>
                           <button
                             onClick={() => handleGenerateBreakdown(scene.id)}
                             className="btn-primary"
@@ -581,9 +565,7 @@ export function ScenePlanningPage() {
         <div className="text-center py-16">
           <Clapperboard className="w-16 h-16 mx-auto text-surface-600 mb-4" />
           <h3 className="text-lg font-medium mb-2">No Scenes Found</h3>
-          <p className="text-surface-400">
-            Scenes will appear here once a screenplay is parsed.
-          </p>
+          <p className="text-surface-400">Scenes will appear here once a screenplay is parsed.</p>
         </div>
       )}
 

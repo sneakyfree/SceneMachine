@@ -82,9 +82,7 @@ export const ShotPreview = memo(function ShotPreview({
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <Loader2 className="w-12 h-12 text-brand-400 animate-spin mb-4" />
             <div className="text-center px-4">
-              <p className="font-medium mb-1">
-                {latestJob?.progressMessage || 'Generating...'}
-              </p>
+              <p className="font-medium mb-1">{latestJob?.progressMessage || 'Generating...'}</p>
               {latestJob?.progressPercent !== undefined && (
                 <div className="w-48 h-2 bg-surface-700 rounded-full overflow-hidden">
                   <div
@@ -181,9 +179,7 @@ export const ShotPreview = memo(function ShotPreview({
           <div className="absolute inset-0 flex flex-col items-center justify-center text-surface-500">
             <Clock className="w-12 h-12 mb-4" />
             <p className="font-medium">Not Generated</p>
-            <p className="text-sm text-surface-500 mt-1">
-              Waiting in queue
-            </p>
+            <p className="text-sm text-surface-500 mt-1">Waiting in queue</p>
           </div>
         )}
       </div>
@@ -195,9 +191,7 @@ export const ShotPreview = memo(function ShotPreview({
             <span className="font-mono text-sm bg-surface-700 px-2 py-0.5 rounded">
               {shot.shotNumber}
             </span>
-            <span className="text-sm text-surface-400">
-              {shot.durationSeconds.toFixed(1)}s
-            </span>
+            <span className="text-sm text-surface-400">{shot.durationSeconds.toFixed(1)}s</span>
           </div>
 
           {/* Status Badge */}
@@ -326,16 +320,10 @@ export const ShotPreview = memo(function ShotPreview({
               className="w-full px-3 py-2 bg-surface-900 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500 resize-none mb-4"
             />
             <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="btn-secondary"
-              >
+              <button onClick={() => setShowRejectModal(false)} className="btn-secondary">
                 Cancel
               </button>
-              <button
-                onClick={handleReject}
-                className="btn-primary bg-red-500 hover:bg-red-600"
-              >
+              <button onClick={handleReject} className="btn-primary bg-red-500 hover:bg-red-600">
                 Reject Shot
               </button>
             </div>

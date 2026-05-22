@@ -1,9 +1,10 @@
 """Tests for generation service."""
 
-import pytest
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
+
+import pytest
 
 from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus
 from scenemachine.models.shot import CameraMovement, Shot, ShotState, ShotType
@@ -295,7 +296,7 @@ class TestGenerationJob:
         """Create a test job."""
         job = MagicMock(spec=GenerationJob)
         job.status = JobStatus.PENDING
-        job.queued_at = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        job.queued_at = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
         job.started_at = None
         job.completed_at = None
         return job

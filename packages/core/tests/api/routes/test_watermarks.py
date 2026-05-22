@@ -1,11 +1,10 @@
 """Tests for Watermarks API routes."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 
 from scenemachine.api.main import app
 

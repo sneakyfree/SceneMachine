@@ -105,20 +105,20 @@ initializeApp();
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Sentry.ErrorBoundary
-      fallback={<ErrorBoundary><div>An error has occurred.</div></ErrorBoundary>}
+      fallback={
+        <ErrorBoundary>
+          <div>An error has occurred.</div>
+        </ErrorBoundary>
+      }
       showDialog
     >
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <App />
           {/* Global feedback widget - Shift+F to toggle */}
-          <FeedbackWidget
-            sessionId={crypto.randomUUID()}
-            position="bottom-right"
-          />
+          <FeedbackWidget sessionId={crypto.randomUUID()} position="bottom-right" />
         </QueryClientProvider>
       </ErrorBoundary>
     </Sentry.ErrorBoundary>
   </React.StrictMode>
 );
-

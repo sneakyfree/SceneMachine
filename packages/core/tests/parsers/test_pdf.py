@@ -1,10 +1,11 @@
 """Tests for PDF screenplay parser."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
-from scenemachine.parsers.pdf import PDFParser, PDFPage, PDFExtractionResult, parse_pdf
+import pytest
+
+from scenemachine.parsers.pdf import PDFExtractionResult, PDFPage, PDFParser, parse_pdf
 
 
 class TestPDFParser:

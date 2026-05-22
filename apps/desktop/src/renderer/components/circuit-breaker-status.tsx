@@ -150,11 +150,16 @@ export function CircuitBreakerCard({
             <TrendingUp className="w-3 h-3" />
             Success Rate
           </div>
-          <div className={cn(
-            'text-lg font-semibold',
-            circuit.successRate >= 95 ? 'text-green-400' :
-            circuit.successRate >= 80 ? 'text-yellow-400' : 'text-red-400'
-          )}>
+          <div
+            className={cn(
+              'text-lg font-semibold',
+              circuit.successRate >= 95
+                ? 'text-green-400'
+                : circuit.successRate >= 80
+                  ? 'text-yellow-400'
+                  : 'text-red-400'
+            )}
+          >
             {circuit.successRate}%
           </div>
         </div>
@@ -204,7 +209,8 @@ export function CircuitBreakerCard({
             <div className="flex items-center justify-between text-xs">
               <span className="text-surface-400">Recovery Progress</span>
               <span className="text-yellow-400 font-medium">
-                {circuit.consecutiveSuccesses} / {Math.max(2, circuit.failureThreshold - 2)} successes needed
+                {circuit.consecutiveSuccesses} / {Math.max(2, circuit.failureThreshold - 2)}{' '}
+                successes needed
               </span>
             </div>
           )}
@@ -213,12 +219,8 @@ export function CircuitBreakerCard({
 
       {/* Last Activity */}
       <div className="flex items-center justify-between text-xs text-surface-500 mt-3 pt-3 border-t border-surface-700">
-        <span>
-          Last success: {formatRelativeTime(circuit.lastSuccessTime)}
-        </span>
-        <span>
-          Last failure: {formatRelativeTime(circuit.lastFailureTime)}
-        </span>
+        <span>Last success: {formatRelativeTime(circuit.lastSuccessTime)}</span>
+        <span>Last failure: {formatRelativeTime(circuit.lastFailureTime)}</span>
       </div>
 
       {/* Reset Button (only for open circuits) */}

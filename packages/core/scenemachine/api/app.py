@@ -1,8 +1,8 @@
 """FastAPI application factory and configuration."""
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -15,49 +15,51 @@ from scenemachine.api.middleware import (
     CSRFMiddleware,
     RateLimitConfig,
     RateLimitMiddleware,
-    SecurityHeadersConfig,
-    SecurityHeadersMiddleware,
     RequestValidationConfig,
     RequestValidationMiddleware,
+    SecurityHeadersConfig,
+    SecurityHeadersMiddleware,
 )
 from scenemachine.api.routes import (
     analytics,
     archive,
     assembly,
+    # Assets
+    assets,
     audio,
     auth,
+    # Billing
+    billing,
+    bookings,
+    # Character Lab
+    character_lab,
     characters,
     copilot,
     crew,
     generation,
+    # GPU Exchange
+    gpu_exchange,
     health,
+    # Intake & Pipeline
+    intake,
     lipsync,
     movie_plan,
+    # ActForge marketplace
+    performers,
+    pipeline,
     projects,
     scenes,
     screenplay,
-    settings as settings_routes,
     sharing,
     snapshots,
     text_overlays,
-    watermarks,
-    ws,
-    # Intake & Pipeline
-    intake,
-    pipeline,
-    # Character Lab
-    character_lab,
     # Timeline
     timeline,
-    # Assets
-    assets,
-    # Billing
-    billing,
-    # ActForge marketplace
-    performers,
-    bookings,
-    # GPU Exchange
-    gpu_exchange,
+    watermarks,
+    ws,
+)
+from scenemachine.api.routes import (
+    settings as settings_routes,
 )
 from scenemachine.config import Settings, get_settings, validate_secrets_for_production
 from scenemachine.database import get_db_manager

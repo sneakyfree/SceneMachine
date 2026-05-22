@@ -9,22 +9,22 @@ Provides endpoints for:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 from scenemachine.agents import (
-    OrchestratorAgent,
-    ParserAgent,
-    CharacterAgent,
-    GeneratorAgent,
-    AssemblerAgent,
-    ReviewerAgent,
     ActionContext,
     AgentActionLogger,
     AgentType,
+    AssemblerAgent,
+    CharacterAgent,
+    GeneratorAgent,
+    OrchestratorAgent,
+    ParserAgent,
+    ReviewerAgent,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,8 +34,8 @@ router = APIRouter(prefix="/crew", tags=["crew"])
 # Request/Response models
 class PipelineStartRequest(BaseModel):
     project_id: str
-    screenplay_path: Optional[str] = None
-    phases: Optional[List[str]] = None
+    screenplay_path: str | None = None
+    phases: list[str] | None = None
     dry_run: bool = False
 
 
@@ -45,7 +45,7 @@ class PipelineStatusResponse(BaseModel):
     current_phase: str
     progress_percent: float
     total_cost_usd: float
-    errors: List[str]
+    errors: list[str]
 
 
 class ActionLogResponse(BaseModel):
@@ -57,49 +57,49 @@ class ActionLogResponse(BaseModel):
     confidence: float
     cost_usd: float
     started_at: str
-    completed_at: Optional[str]
+    completed_at: str | None
 
 
 # Global orchestrator instance
-_orchestrator: Optional[OrchestratorAgent] = None
+_orchestrator: OrchestratorAgent | None = None
 
 
 def get_orchestrator() -> OrchestratorAgent:
     """Get or create the orchestrator instance."""
     global _orchestrator
-    
+
     if _orchestrator is None:
         _orchestrator = OrchestratorAgent(name="Director")
-        
+
         # Register specialist agents
         _orchestrator.register_agent(ParserAgent(name="Parser"))
         _orchestrator.register_agent(CharacterAgent(name="Character"))
         _orchestrator.register_agent(GeneratorAgent(name="Generator"))
         _orchestrator.register_agent(AssemblerAgent(name="Assembler"))
         _orchestrator.register_agent(ReviewerAgent(name="Reviewer"))
-        
+
         logger.info("Orchestrator initialized with 5 specialist agents")
-    
+
     return _orchestrator
 
 
 @router.post("/pipeline/start")
-async def start_pipeline(request: PipelineStartRequest) -> Dict[str, Any]:
+async def start_pipeline(request: PipelineStartRequest) -> dict[str, Any]:
     """Start the screenplay-to-movie pipeline."""
     orchestrator = get_orchestrator()
-    
+
     context = ActionContext(
         project_id=UUID(request.project_id),
         dry_run=request.dry_run,
     )
-    
+
     result = await orchestrator.execute(
         "run_pipeline",
         context,
         screenplay_path=request.screenplay_path or "",
         phases=request.phases,
     )
-    
+
     return {
         "success": result.success,
         "status": result.status.value,
@@ -112,12 +112,12 @@ async def start_pipeline(request: PipelineStartRequest) -> Dict[str, Any]:
 async def get_pipeline_status(project_id: str) -> PipelineStatusResponse:
     """Get the current pipeline status."""
     orchestrator = get_orchestrator()
-    
+
     context = ActionContext(project_id=UUID(project_id))
     result = await orchestrator.execute("get_status", context)
-    
+
     output = result.output or {}
-    
+
     return PipelineStatusResponse(
         project_id=output.get("project_id", project_id),
         status=output.get("status", "idle"),
@@ -129,7 +129,7 @@ async def get_pipeline_status(project_id: str) -> PipelineStatusResponse:
 
 
 @router.post("/pipeline/pause/{project_id}")
-async def pause_pipeline(project_id: str) -> Dict[str, str]:
+async def pause_pipeline(project_id: str) -> dict[str, str]:
     """Pause the running pipeline."""
     orchestrator = get_orchestrator()
     context = ActionContext(project_id=UUID(project_id))
@@ -138,7 +138,7 @@ async def pause_pipeline(project_id: str) -> Dict[str, str]:
 
 
 @router.post("/pipeline/resume/{project_id}")
-async def resume_pipeline(project_id: str) -> Dict[str, str]:
+async def resume_pipeline(project_id: str) -> dict[str, str]:
     """Resume a paused pipeline."""
     orchestrator = get_orchestrator()
     context = ActionContext(project_id=UUID(project_id))
@@ -147,7 +147,7 @@ async def resume_pipeline(project_id: str) -> Dict[str, str]:
 
 
 @router.post("/pipeline/cancel/{project_id}")
-async def cancel_pipeline(project_id: str) -> Dict[str, str]:
+async def cancel_pipeline(project_id: str) -> dict[str, str]:
     """Cancel the running pipeline."""
     orchestrator = get_orchestrator()
     context = ActionContext(project_id=UUID(project_id))
@@ -157,18 +157,18 @@ async def cancel_pipeline(project_id: str) -> Dict[str, str]:
 
 @router.get("/logs")
 async def get_action_logs(
-    agent_type: Optional[str] = None,
+    agent_type: str | None = None,
     limit: int = 50,
-) -> List[ActionLogResponse]:
+) -> list[ActionLogResponse]:
     """Get action logs from all agents."""
     action_logger = AgentActionLogger()
-    
+
     type_filter = None
     if agent_type:
         type_filter = AgentType(agent_type)
-    
+
     logs = action_logger.get_logs(agent_type=type_filter, limit=limit)
-    
+
     return [
         ActionLogResponse(
             id=str(log.id),
@@ -186,24 +186,26 @@ async def get_action_logs(
 
 
 @router.get("/logs/cost")
-async def get_total_cost() -> Dict[str, float]:
+async def get_total_cost() -> dict[str, float]:
     """Get total cost of all logged actions."""
     action_logger = AgentActionLogger()
     return {"total_cost_usd": action_logger.get_total_cost()}
 
 
 @router.get("/agents")
-async def list_agents() -> List[Dict[str, Any]]:
+async def list_agents() -> list[dict[str, Any]]:
     """List all registered agents."""
     orchestrator = get_orchestrator()
-    
+
     agents = []
     for agent_type, agent in orchestrator._agents.items():
-        agents.append({
-            "type": agent_type.value,
-            "name": agent.name,
-            "capabilities": agent.capabilities,
-            "requires_approval": agent.requires_approval,
-        })
-    
+        agents.append(
+            {
+                "type": agent_type.value,
+                "name": agent.name,
+                "capabilities": agent.capabilities,
+                "requires_approval": agent.requires_approval,
+            }
+        )
+
     return agents

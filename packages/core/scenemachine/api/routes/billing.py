@@ -5,9 +5,8 @@ REST endpoints for Stripe billing and subscriptions.
 """
 
 from typing import Annotated
-from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +23,7 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 # Schemas
 class CheckoutRequest(BaseModel):
     """Request to create checkout session."""
+
     price_id: str
     success_url: str
     cancel_url: str
@@ -31,22 +31,26 @@ class CheckoutRequest(BaseModel):
 
 class CheckoutResponse(BaseModel):
     """Checkout session response."""
+
     session_id: str
     url: str
 
 
 class PortalRequest(BaseModel):
     """Request to create portal session."""
+
     return_url: str
 
 
 class PortalResponse(BaseModel):
     """Portal session response."""
+
     url: str
 
 
 class SubscriptionResponse(BaseModel):
     """Subscription status response."""
+
     tier: str
     status: str
     features: list
@@ -57,6 +61,7 @@ class SubscriptionResponse(BaseModel):
 
 class PlanResponse(BaseModel):
     """Plan details."""
+
     tier: str
     name: str
     price_monthly: int
@@ -67,11 +72,13 @@ class PlanResponse(BaseModel):
 
 class PlansResponse(BaseModel):
     """All plans response."""
+
     plans: list[PlanResponse]
 
 
 class WebhookResponse(BaseModel):
     """Webhook processing response."""
+
     received: bool
     event_type: str | None = None
 

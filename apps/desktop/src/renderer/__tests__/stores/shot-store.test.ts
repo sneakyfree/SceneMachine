@@ -265,9 +265,7 @@ describe('ShotStore', () => {
       useShotStore.setState((state) => ({
         ...state,
         shotJobs: {
-          'shot-1': [
-            { id: 'job-1', progress: 75, status: 'generating' },
-          ] as any,
+          'shot-1': [{ id: 'job-1', progress: 75, status: 'generating' }] as any,
         },
       }));
 

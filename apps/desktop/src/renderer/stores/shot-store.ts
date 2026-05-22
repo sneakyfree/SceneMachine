@@ -53,7 +53,11 @@ interface ShotStoreState {
   deleteShot: (shotId: string) => Promise<boolean>;
 
   // Async actions - Generation
-  queueShot: (shotId: string, provider?: string, priority?: number) => Promise<QueuedJobResult | null>;
+  queueShot: (
+    shotId: string,
+    provider?: string,
+    priority?: number
+  ) => Promise<QueuedJobResult | null>;
   approveShot: (shotId: string) => Promise<boolean>;
   rejectShot: (shotId: string, notes?: string) => Promise<boolean>;
 
@@ -100,14 +104,16 @@ export const useShotStore = create<ShotStoreState>()(
           });
           // Sort shots by number within each scene
           Object.keys(state.shotsByScene).forEach((sceneId: string) => {
-            state.shotsByScene[sceneId].sort((a: Shot, b: Shot) => a.shotNumber - b.shotNumber);
+            state.shotsByScene[sceneId].sort(
+              (a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber
+            );
           });
         }),
 
       setSelectedShotId: (id: string | null) =>
         set((state) => {
           state.selectedShotId = id;
-          state.selectedShot = id ? state.shotMap[id] ?? null : null;
+          state.selectedShot = id ? (state.shotMap[id] ?? null) : null;
         }),
 
       updateShotInState: (shot: Shot) =>
@@ -120,7 +126,9 @@ export const useShotStore = create<ShotStoreState>()(
               state.shotsByScene[shot.sceneId][idx] = shot;
             } else {
               state.shotsByScene[shot.sceneId].push(shot);
-              state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.shotNumber - b.shotNumber);
+              state.shotsByScene[shot.sceneId].sort(
+                (a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber
+              );
             }
           } else {
             state.shotsByScene[shot.sceneId] = [shot];
@@ -172,7 +180,9 @@ export const useShotStore = create<ShotStoreState>()(
               state.shotsByScene[shot.sceneId][idx] = shot;
             } else {
               state.shotsByScene[shot.sceneId].push(shot);
-              state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.shotNumber - b.shotNumber);
+              state.shotsByScene[shot.sceneId].sort(
+                (a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber
+              );
             }
             if (state.selectedShotId === shotId) {
               state.selectedShot = shot;
@@ -249,7 +259,9 @@ export const useShotStore = create<ShotStoreState>()(
               state.shotsByScene[shot.sceneId] = [];
             }
             state.shotsByScene[shot.sceneId].push(shot);
-            state.shotsByScene[shot.sceneId].sort((a: Shot, b: Shot) => a.shotNumber - b.shotNumber);
+            state.shotsByScene[shot.sceneId].sort(
+              (a: Shot, b: Shot) => a.sequenceNumber - b.sequenceNumber
+            );
             state.isLoading = false;
           });
           return shot;
@@ -314,7 +326,9 @@ export const useShotStore = create<ShotStoreState>()(
               const updated = { ...shot, state: 'queued' as const };
               state.shotMap[shotId] = updated;
               if (state.shotsByScene[shot.sceneId]) {
-                const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
+                const idx = state.shotsByScene[shot.sceneId].findIndex(
+                  (s: Shot) => s.id === shotId
+                );
                 if (idx >= 0) {
                   state.shotsByScene[shot.sceneId][idx] = updated;
                 }
@@ -342,15 +356,25 @@ export const useShotStore = create<ShotStoreState>()(
           state.error = null;
         });
         try {
-          const result = await api.approveGeneratedShot(shotId);
-          if (result.success) {
+          // The approve IPC response shape is { id, state, approved } —
+          // same alignment story as rejectShot above.
+          const result = (await api.approveGeneratedShot(shotId)) as {
+            id: string;
+            state: string;
+            approved: boolean;
+            success?: boolean;
+          };
+          const succeeded = result.success ?? result.approved ?? false;
+          if (succeeded) {
             set((state) => {
               const shot = state.shotMap[shotId];
               if (shot) {
                 const updated = { ...shot, state: 'approved' as const };
                 state.shotMap[shotId] = updated;
                 if (state.shotsByScene[shot.sceneId]) {
-                  const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
+                  const idx = state.shotsByScene[shot.sceneId].findIndex(
+                    (s: Shot) => s.id === shotId
+                  );
                   if (idx >= 0) {
                     state.shotsByScene[shot.sceneId][idx] = updated;
                   }
@@ -362,7 +386,7 @@ export const useShotStore = create<ShotStoreState>()(
               state.isUpdating = null;
             });
           }
-          return result.success;
+          return succeeded;
         } catch (error) {
           console.error('Failed to approve shot:', error);
           set((state) => {
@@ -379,17 +403,27 @@ export const useShotStore = create<ShotStoreState>()(
           state.error = null;
         });
         try {
-          const result = await api.rejectGeneratedShot(shotId, notes);
-          if (result.success) {
+          // The reject IPC response shape is { id, state, rejected } — no
+          // `success` key. We treat the presence of `rejected: true` as the
+          // success signal. Stage 2 typing pass should align the type.
+          const result = (await api.rejectGeneratedShot(shotId, notes)) as {
+            id: string;
+            state: string;
+            rejected: boolean;
+            success?: boolean;
+          };
+          const succeeded = result.success ?? result.rejected ?? false;
+          if (succeeded) {
             set((state) => {
               const shot = state.shotMap[shotId];
-              if (shot) {
+              if (shot && shot.sceneId) {
+                const sceneId = shot.sceneId;
                 const updated = { ...shot, state: 'rejected' as const };
                 state.shotMap[shotId] = updated;
-                if (state.shotsByScene[shot.sceneId]) {
-                  const idx = state.shotsByScene[shot.sceneId].findIndex((s: Shot) => s.id === shotId);
+                if (state.shotsByScene[sceneId]) {
+                  const idx = state.shotsByScene[sceneId].findIndex((s: Shot) => s.id === shotId);
                   if (idx >= 0) {
-                    state.shotsByScene[shot.sceneId][idx] = updated;
+                    state.shotsByScene[sceneId][idx] = updated;
                   }
                 }
                 if (state.selectedShotId === shotId) {
@@ -399,7 +433,7 @@ export const useShotStore = create<ShotStoreState>()(
               state.isUpdating = null;
             });
           }
-          return result.success;
+          return succeeded;
         } catch (error) {
           console.error('Failed to reject shot:', error);
           set((state) => {
@@ -436,7 +470,11 @@ export const useShotStore = create<ShotStoreState>()(
       getShotGenerationProgress: (shotId: string) => {
         const jobs = get().shotJobs[shotId];
         if (!jobs || jobs.length === 0) return 0;
-        const latestJob = jobs[0];
+        // The backend GenerationJob shape uses `progress` informally; the
+        // generated TS type is missing the field. Cast through unknown for
+        // now; Stage 2 typing pass should add `progress?: number` to the
+        // GenerationJob interface.
+        const latestJob = jobs[0] as unknown as { progress?: number };
         return latestJob.progress ?? 0;
       },
 
@@ -470,9 +508,7 @@ export function useShotStats(): {
     const approved = shots.filter((s: Shot) => s.state === 'approved').length;
     const rejected = shots.filter((s: Shot) => s.state === 'rejected').length;
 
-    const progressPercentage = total > 0
-      ? Math.round(((generated + approved) / total) * 100)
-      : 0;
+    const progressPercentage = total > 0 ? Math.round(((generated + approved) / total) * 100) : 0;
 
     return {
       total,

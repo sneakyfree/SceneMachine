@@ -1,26 +1,25 @@
 """Tests for AudioService and TTS providers."""
 
-import pytest
-import pytest_asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.models import Project, Character
+from scenemachine.models import Character, Project
 from scenemachine.models.character import CharacterGender
 from scenemachine.services.audio import (
+    AudioProgress,
     AudioService,
+    ElevenLabsProvider,
+    MockTTSProvider,
+    OpenAITTSProvider,
+    TTSProvider,
     TTSRequest,
     TTSResult,
-    TTSProvider,
     Voice,
     VoiceGender,
-    AudioProgress,
-    MockTTSProvider,
-    ElevenLabsProvider,
-    OpenAITTSProvider,
 )
 
 
@@ -242,9 +241,7 @@ class TestElevenLabsProvider:
         with patch("httpx.AsyncClient") as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 401
-            mock_response.json.return_value = {
-                "detail": {"message": "Invalid API key"}
-            }
+            mock_response.json.return_value = {"detail": {"message": "Invalid API key"}}
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(
                 return_value=mock_response
             )
@@ -432,10 +429,7 @@ class TestAudioService:
         providers = await audio_service.get_available_providers()
 
         assert len(providers) >= 1
-        mock_provider = next(
-            (p for p in providers if p["provider"] == "mock"),
-            None
-        )
+        mock_provider = next((p for p in providers if p["provider"] == "mock"), None)
         assert mock_provider is not None
         assert mock_provider["available"] is True
 

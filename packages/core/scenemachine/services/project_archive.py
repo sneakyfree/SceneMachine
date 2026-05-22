@@ -6,9 +6,9 @@ import shutil
 import tempfile
 import zipfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.config import get_settings
-from scenemachine.models import Character, Project, Scene, Shot, Screenplay
+from scenemachine.models import Character, Project, Scene, Screenplay, Shot
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +40,14 @@ class ImportResult:
     """Result of importing an archive."""
 
     success: bool
-    project_id: Optional[str]
-    project_name: Optional[str]
+    project_id: str | None
+    project_name: str | None
     scenes_imported: int
     shots_imported: int
     characters_imported: int
     assets_imported: int
-    warnings: List[str]
-    error: Optional[str]
+    warnings: list[str]
+    error: str | None
 
 
 @dataclass
@@ -55,10 +55,10 @@ class ExportResult:
     """Result of exporting a project."""
 
     success: bool
-    archive_path: Optional[str]
+    archive_path: str | None
     file_size_bytes: int
-    manifest: Optional[ArchiveManifest]
-    error: Optional[str]
+    manifest: ArchiveManifest | None
+    error: str | None
 
 
 class ProjectArchiveService:
@@ -66,14 +66,14 @@ class ProjectArchiveService:
 
     ARCHIVE_VERSION = "1.0"
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.settings = get_settings()
 
     async def export_project(
         self,
         project_id: UUID,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         include_assets: bool = True,
         include_outputs: bool = True,
         include_generated_videos: bool = False,
@@ -194,7 +194,7 @@ class ProjectArchiveService:
                 # Create manifest
                 manifest = ArchiveManifest(
                     version=self.ARCHIVE_VERSION,
-                    created_at=datetime.now(timezone.utc).isoformat(),
+                    created_at=datetime.now(UTC).isoformat(),
                     project_id=str(project_id),
                     project_name=project.name,
                     includes_assets=include_assets,
@@ -239,7 +239,7 @@ class ProjectArchiveService:
     async def import_project(
         self,
         archive_path: Path,
-        new_name: Optional[str] = None,
+        new_name: str | None = None,
         import_assets: bool = True,
     ) -> ImportResult:
         """Import a project from a ZIP archive.
@@ -252,7 +252,7 @@ class ProjectArchiveService:
         Returns:
             ImportResult with imported project details
         """
-        warnings: List[str] = []
+        warnings: list[str] = []
 
         try:
             if not archive_path.exists():
@@ -353,7 +353,7 @@ class ProjectArchiveService:
 
                 # Import characters
                 characters_imported = 0
-                character_id_map: Dict[str, UUID] = {}
+                character_id_map: dict[str, UUID] = {}
 
                 for char_data in project_data.get("characters", []):
                     old_id = char_data.get("id")
@@ -401,7 +401,9 @@ class ProjectArchiveService:
                         shot = Shot(
                             scene_id=scene.id,
                             project_id=project.id,
-                            shot_number=shot_data.get("shot_number", f"{scenes_imported}.{shots_imported + 1}"),
+                            shot_number=shot_data.get(
+                                "shot_number", f"{scenes_imported}.{shots_imported + 1}"
+                            ),
                             sequence_number=shot_data.get("sequence_number", shots_imported + 1),
                             shot_type=shot_data.get("shot_type", "medium"),
                             camera_movement=shot_data.get("camera_movement", "static"),
@@ -469,7 +471,7 @@ class ProjectArchiveService:
                 error=str(e),
             )
 
-    async def _fetch_project_data(self, project_id: UUID) -> Optional[Project]:
+    async def _fetch_project_data(self, project_id: UUID) -> Project | None:
         """Fetch project with all related data."""
         stmt = (
             select(Project)
@@ -483,7 +485,7 @@ class ProjectArchiveService:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _serialize_project(self, project: Project) -> Dict[str, Any]:
+    async def _serialize_project(self, project: Project) -> dict[str, Any]:
         """Serialize project to dictionary for JSON export."""
         return {
             "id": str(project.id),
@@ -523,7 +525,9 @@ class ProjectArchiveService:
                             "shot_number": shot.shot_number,
                             "sequence_number": shot.sequence_number,
                             "shot_type": shot.shot_type.value if shot.shot_type else None,
-                            "camera_movement": shot.camera_movement.value if shot.camera_movement else None,
+                            "camera_movement": shot.camera_movement.value
+                            if shot.camera_movement
+                            else None,
                             "camera_angle": shot.camera_angle.value if shot.camera_angle else None,
                             "description": shot.description,
                             "action": shot.action,
@@ -542,7 +546,7 @@ class ProjectArchiveService:
             ],
         }
 
-    async def get_archive_info(self, archive_path: Path) -> Optional[ArchiveManifest]:
+    async def get_archive_info(self, archive_path: Path) -> ArchiveManifest | None:
         """Get information about an archive without importing.
 
         Args:
@@ -565,7 +569,7 @@ class ProjectArchiveService:
             logger.warning(f"Failed to read archive info: {e}")
             return None
 
-    async def list_exports(self) -> List[Dict[str, Any]]:
+    async def list_exports(self) -> list[dict[str, Any]]:
         """List all exported archives."""
         exports_dir = self.settings.data_dir / "exports"
         if not exports_dir.exists():
@@ -575,13 +579,15 @@ class ProjectArchiveService:
         for path in exports_dir.glob("*.smproject"):
             try:
                 manifest = await self.get_archive_info(path)
-                archives.append({
-                    "path": str(path),
-                    "filename": path.name,
-                    "size_bytes": path.stat().st_size,
-                    "created_at": datetime.fromtimestamp(path.stat().st_mtime).isoformat(),
-                    "manifest": manifest.__dict__ if manifest else None,
-                })
+                archives.append(
+                    {
+                        "path": str(path),
+                        "filename": path.name,
+                        "size_bytes": path.stat().st_size,
+                        "created_at": datetime.fromtimestamp(path.stat().st_mtime).isoformat(),
+                        "manifest": manifest.__dict__ if manifest else None,
+                    }
+                )
             except Exception:
                 pass
 

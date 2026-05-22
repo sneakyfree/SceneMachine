@@ -1,10 +1,10 @@
 """Tests for sharing API routes."""
 
-import pytest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from scenemachine.api.routes import sharing
 from scenemachine.models import Project, ProjectState
 from scenemachine.models.share import SharePermission, ShareStatus
-from scenemachine.services.sharing import ShareResult, ShareInfo
+from scenemachine.services.sharing import ShareInfo, ShareResult
 
 
 @pytest.fixture
@@ -52,9 +52,7 @@ class TestCreateShareEndpoint:
             share_url="http://localhost/share/abc123",
         )
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.create_share.return_value = mock_result
             MockService.return_value = mock_service
@@ -63,6 +61,7 @@ class TestCreateShareEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post(
@@ -90,9 +89,7 @@ class TestCreateShareEndpoint:
             share_url="http://localhost/share/xyz789",
         )
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.create_share.return_value = mock_result
             MockService.return_value = mock_service
@@ -101,6 +98,7 @@ class TestCreateShareEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post(
@@ -122,10 +120,9 @@ class TestCreateShareEndpoint:
         self, app: FastAPI, db_session: AsyncSession, project: Project
     ) -> None:
         """Test creating a share with invalid permission."""
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             from scenemachine.api.dependencies import get_db
+
             app.dependency_overrides[get_db] = lambda: db_session
 
             response = await client.post(
@@ -149,9 +146,7 @@ class TestCreateShareEndpoint:
             error="Project not found",
         )
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.create_share.return_value = mock_result
             MockService.return_value = mock_service
@@ -160,6 +155,7 @@ class TestCreateShareEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post(
@@ -206,9 +202,7 @@ class TestGetSharesEndpoint:
             ),
         ]
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.get_project_shares.return_value = mock_shares
             MockService.return_value = mock_service
@@ -217,11 +211,10 @@ class TestGetSharesEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
-                response = await client.get(
-                    f"/api/v1/sharing/project/{project.id}"
-                )
+                response = await client.get(f"/api/v1/sharing/project/{project.id}")
 
                 assert response.status_code == 200
                 data = response.json()
@@ -242,9 +235,7 @@ class TestGetSharesEndpoint:
         mock_share.expires_at = None
         mock_share.is_valid.return_value = True
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.get_share_by_code.return_value = mock_share
             MockService.return_value = mock_service
@@ -253,6 +244,7 @@ class TestGetSharesEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.get("/api/v1/sharing/code/abc123")
@@ -266,9 +258,7 @@ class TestGetSharesEndpoint:
         self, app: FastAPI, db_session: AsyncSession
     ) -> None:
         """Test getting a nonexistent share."""
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.get_share_by_code.return_value = None
             MockService.return_value = mock_service
@@ -277,6 +267,7 @@ class TestGetSharesEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.get("/api/v1/sharing/code/invalid")
@@ -291,9 +282,7 @@ class TestGetSharesEndpoint:
         mock_share = MagicMock()
         mock_share.is_valid.return_value = False
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.get_share_by_code.return_value = mock_share
             MockService.return_value = mock_service
@@ -302,6 +291,7 @@ class TestGetSharesEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.get("/api/v1/sharing/code/expired")
@@ -313,9 +303,7 @@ class TestAcceptShareEndpoint:
     """Tests for accept share endpoint."""
 
     @pytest.mark.asyncio
-    async def test_accept_share_success(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_accept_share_success(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test accepting a share successfully."""
         mock_result = {
             "success": True,
@@ -324,9 +312,7 @@ class TestAcceptShareEndpoint:
             "permission": "view",
         }
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.accept_share.return_value = mock_result
             MockService.return_value = mock_service
@@ -335,6 +321,7 @@ class TestAcceptShareEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post("/api/v1/sharing/code/abc123/accept")
@@ -344,15 +331,11 @@ class TestAcceptShareEndpoint:
                 assert data["success"] is True
 
     @pytest.mark.asyncio
-    async def test_accept_share_failure(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_accept_share_failure(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test accepting an invalid share."""
         mock_result = {"success": False, "error": "Share not found or expired"}
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.accept_share.return_value = mock_result
             MockService.return_value = mock_service
@@ -361,11 +344,10 @@ class TestAcceptShareEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
-                response = await client.post(
-                    "/api/v1/sharing/code/invalid/accept"
-                )
+                response = await client.post("/api/v1/sharing/code/invalid/accept")
 
                 assert response.status_code == 400
 
@@ -374,15 +356,11 @@ class TestRevokeShareEndpoint:
     """Tests for revoke share endpoint."""
 
     @pytest.mark.asyncio
-    async def test_revoke_share_success(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_revoke_share_success(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test revoking a share successfully."""
         share_id = uuid4()
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.revoke_share.return_value = True
             MockService.return_value = mock_service
@@ -391,6 +369,7 @@ class TestRevokeShareEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.delete(f"/api/v1/sharing/{share_id}")
@@ -400,15 +379,11 @@ class TestRevokeShareEndpoint:
                 assert data["success"] is True
 
     @pytest.mark.asyncio
-    async def test_revoke_share_not_found(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_revoke_share_not_found(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test revoking a nonexistent share."""
         share_id = uuid4()
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.revoke_share.return_value = False
             MockService.return_value = mock_service
@@ -417,6 +392,7 @@ class TestRevokeShareEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.delete(f"/api/v1/sharing/{share_id}")
@@ -438,11 +414,9 @@ class TestCommentsEndpoint:
         mock_comment.shot_id = None
         mock_comment.author_name = "Test User"
         mock_comment.content = "Great work!"
-        mock_comment.created_at = datetime.now(timezone.utc)
+        mock_comment.created_at = datetime.now(UTC)
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.add_comment.return_value = mock_comment
             MockService.return_value = mock_service
@@ -451,6 +425,7 @@ class TestCommentsEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post(
@@ -490,9 +465,7 @@ class TestCommentsEndpoint:
             },
         ]
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.get_project_comments.return_value = mock_comments
             MockService.return_value = mock_service
@@ -501,26 +474,21 @@ class TestCommentsEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
-                response = await client.get(
-                    f"/api/v1/sharing/projects/{project.id}/comments"
-                )
+                response = await client.get(f"/api/v1/sharing/projects/{project.id}/comments")
 
                 assert response.status_code == 200
                 data = response.json()
                 assert len(data) == 2
 
     @pytest.mark.asyncio
-    async def test_resolve_comment(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_resolve_comment(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test resolving a comment."""
         comment_id = uuid4()
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.resolve_comment.return_value = True
             MockService.return_value = mock_service
@@ -529,24 +497,19 @@ class TestCommentsEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
-                response = await client.post(
-                    f"/api/v1/sharing/comments/{comment_id}/resolve"
-                )
+                response = await client.post(f"/api/v1/sharing/comments/{comment_id}/resolve")
 
                 assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_delete_comment(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_delete_comment(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test deleting a comment."""
         comment_id = uuid4()
 
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.delete_comment.return_value = True
             MockService.return_value = mock_service
@@ -555,11 +518,10 @@ class TestCommentsEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
-                response = await client.delete(
-                    f"/api/v1/sharing/comments/{comment_id}"
-                )
+                response = await client.delete(f"/api/v1/sharing/comments/{comment_id}")
 
                 assert response.status_code == 200
 
@@ -568,13 +530,9 @@ class TestCleanupExpiredSharesEndpoint:
     """Tests for cleanup expired shares endpoint."""
 
     @pytest.mark.asyncio
-    async def test_cleanup_expired_shares(
-        self, app: FastAPI, db_session: AsyncSession
-    ) -> None:
+    async def test_cleanup_expired_shares(self, app: FastAPI, db_session: AsyncSession) -> None:
         """Test cleanup of expired shares."""
-        with patch(
-            "scenemachine.api.routes.sharing.SharingService"
-        ) as MockService:
+        with patch("scenemachine.api.routes.sharing.SharingService") as MockService:
             mock_service = AsyncMock()
             mock_service.cleanup_expired_shares.return_value = 5
             MockService.return_value = mock_service
@@ -583,6 +541,7 @@ class TestCleanupExpiredSharesEndpoint:
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 from scenemachine.api.dependencies import get_db
+
                 app.dependency_overrides[get_db] = lambda: db_session
 
                 response = await client.post("/api/v1/sharing/cleanup-expired")

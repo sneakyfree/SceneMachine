@@ -1,11 +1,9 @@
 """Watermark management API routes."""
 
 import logging
-import os
-import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -32,7 +30,7 @@ class WatermarkInfo(BaseModel):
 class WatermarkListResponse(BaseModel):
     """Response for listing watermarks."""
 
-    watermarks: List[WatermarkInfo]
+    watermarks: list[WatermarkInfo]
     total_count: int
 
 
@@ -40,8 +38,8 @@ class WatermarkUploadResponse(BaseModel):
     """Response for watermark upload."""
 
     success: bool
-    watermark: Optional[WatermarkInfo] = None
-    error: Optional[str] = None
+    watermark: WatermarkInfo | None = None
+    error: str | None = None
 
 
 def get_watermarks_dir() -> Path:
@@ -69,7 +67,7 @@ async def list_watermarks() -> WatermarkListResponse:
 
     Returns both user-uploaded watermarks and built-in default watermarks.
     """
-    watermarks: List[WatermarkInfo] = []
+    watermarks: list[WatermarkInfo] = []
 
     # Get user watermarks
     user_dir = get_watermarks_dir()
@@ -142,7 +140,7 @@ async def upload_watermark(
     if len(content) > MAX_FILE_SIZE:
         return WatermarkUploadResponse(
             success=False,
-            error=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB",
+            error=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB",
         )
 
     # Generate unique filename

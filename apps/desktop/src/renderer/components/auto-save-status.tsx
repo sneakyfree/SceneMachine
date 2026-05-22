@@ -19,11 +19,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import {
-  getAutoSaveManager,
-  AutoSaveState,
-  RecoveryInfo,
-} from '../lib/auto-save';
+import { getAutoSaveManager, AutoSaveState, RecoveryInfo } from '../lib/auto-save';
 
 // =============================================================================
 // Types
@@ -318,12 +314,10 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-yellow-400">
-                Unsaved changes detected
-              </p>
+              <p className="text-sm font-medium text-yellow-400">Unsaved changes detected</p>
               <p className="text-xs text-surface-400 mt-1">
-                Found auto-saved content from {formatRelativeTime(pendingRecovery.timestamp)}.
-                Would you like to recover it?
+                Found auto-saved content from {formatRelativeTime(pendingRecovery.timestamp)}. Would
+                you like to recover it?
               </p>
               <div className="flex gap-2 mt-3">
                 <button
@@ -360,9 +354,7 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
           <div>
             <p className={cn('text-sm font-medium', config.color)}>{config.label}</p>
             {lastSaved && status !== 'saving' && (
-              <p className="text-xs text-surface-500">
-                Last saved {formatRelativeTime(lastSaved)}
-              </p>
+              <p className="text-xs text-surface-500">Last saved {formatRelativeTime(lastSaved)}</p>
             )}
           </div>
         </div>
@@ -490,9 +482,7 @@ const VersionHistoryDropdown = memo(function VersionHistoryDropdown({
       </div>
 
       <div className="px-3 py-2 border-t border-surface-700 bg-surface-900/50">
-        <p className="text-xs text-surface-500">
-          Click a version to restore it
-        </p>
+        <p className="text-xs text-surface-500">Click a version to restore it</p>
       </div>
     </div>
   );

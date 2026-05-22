@@ -4,7 +4,7 @@ import hashlib
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import BinaryIO, Optional, Tuple
+from typing import BinaryIO
 from uuid import UUID
 
 import aiofiles
@@ -60,9 +60,7 @@ class StorageService:
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    def _get_shot_dir(
-        self, project_id: UUID, scene_id: UUID, shot_id: UUID
-    ) -> Path:
+    def _get_shot_dir(self, project_id: UUID, scene_id: UUID, shot_id: UUID) -> Path:
         """Get or create shot directory."""
         path = self._get_scene_dir(project_id, scene_id) / str(shot_id)
         path.mkdir(parents=True, exist_ok=True)
@@ -89,7 +87,7 @@ class StorageService:
         project_id: UUID,
         file: BinaryIO,
         filename: str,
-    ) -> Tuple[Path, str]:
+    ) -> tuple[Path, str]:
         """Save screenplay file to project directory.
 
         Args:
@@ -121,7 +119,7 @@ class StorageService:
         character_id: UUID,
         file: BinaryIO,
         filename: str,
-    ) -> Tuple[Path, str]:
+    ) -> tuple[Path, str]:
         """Save character reference image.
 
         Args:
@@ -242,7 +240,7 @@ class StorageService:
 
         return dest_path
 
-    async def get_file(self, path: Path) -> Optional[bytes]:
+    async def get_file(self, path: Path) -> bytes | None:
         """Read file contents.
 
         Args:
@@ -322,7 +320,7 @@ class StorageService:
 
 
 # Global storage service instance
-_storage_service: Optional[StorageService] = None
+_storage_service: StorageService | None = None
 
 
 def get_storage_service() -> StorageService:

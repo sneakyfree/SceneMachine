@@ -1,13 +1,12 @@
 """Tests for Templates service."""
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.templates import TemplatesService
 from scenemachine.models import Project
+from scenemachine.services.templates import TemplatesService
 
 
 class TestTemplatesService:
@@ -42,7 +41,11 @@ class TestTemplatesService:
         all_templates = await templates_service.get_all()
 
         if all_templates:
-            template_id = all_templates[0].id if hasattr(all_templates[0], "id") else all_templates[0].get("id")
+            template_id = (
+                all_templates[0].id
+                if hasattr(all_templates[0], "id")
+                else all_templates[0].get("id")
+            )
             template = await templates_service.get_by_id(template_id)
             assert template is not None
 

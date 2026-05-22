@@ -4,19 +4,18 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.config import get_settings
+from scenemachine.models.generation_job import JobProvider
 from scenemachine.models.shot import Shot, ShotState
-from scenemachine.models.generation_job import GenerationJob, JobStatus, JobProvider
 from scenemachine.services.generation import (
-    GenerationService,
     GenerationRequest,
-    GenerationProgress,
+    GenerationService,
 )
 from scenemachine.workflows.base import (
     Workflow,
@@ -32,17 +31,17 @@ class GenerationWorkflowContext:
     """Context for video generation workflow."""
 
     project_id: UUID
-    session: Optional[AsyncSession] = None
-    scene_id: Optional[UUID] = None
-    shot_ids: List[UUID] = field(default_factory=list)
+    session: AsyncSession | None = None
+    scene_id: UUID | None = None
+    shot_ids: list[UUID] = field(default_factory=list)
     provider: str = "local"
     quality: str = "high"
     batch_size: int = 4
-    generated_outputs: Dict[str, str] = field(default_factory=dict)
-    failed_shots: List[str] = field(default_factory=list)
+    generated_outputs: dict[str, str] = field(default_factory=dict)
+    failed_shots: list[str] = field(default_factory=list)
 
     # Service instances (injected at runtime)
-    generation_service: Optional[GenerationService] = None
+    generation_service: GenerationService | None = None
 
 
 @WorkflowRegistry.register
@@ -53,7 +52,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
     def workflow_type(self) -> str:
         return "video_generation"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="validate_shots",
@@ -106,7 +105,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             ),
         ]
 
-    async def step_validate_shots(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_validate_shots(self, context: dict[str, Any]) -> dict[str, Any]:
         """Validate shots for generation."""
         logger.info("Validating shots...")
 
@@ -131,17 +130,23 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
                     has_prompt = bool(shot.generation_prompt)
 
                     if has_description or has_prompt:
-                        validated_shots.append({
-                            "id": str(shot.id),
-                            "scene_id": str(shot.scene_id),
-                            "description": shot.description,
-                            "generation_prompt": shot.generation_prompt,
-                            "negative_prompt": shot.negative_prompt,
-                            "shot_type": shot.shot_type.value if shot.shot_type else "establishing",
-                            "camera_movement": shot.camera_movement.value if shot.camera_movement else "static",
-                            "duration_seconds": shot.duration_seconds,
-                            "validated": True,
-                        })
+                        validated_shots.append(
+                            {
+                                "id": str(shot.id),
+                                "scene_id": str(shot.scene_id),
+                                "description": shot.description,
+                                "generation_prompt": shot.generation_prompt,
+                                "negative_prompt": shot.negative_prompt,
+                                "shot_type": shot.shot_type.value
+                                if shot.shot_type
+                                else "establishing",
+                                "camera_movement": shot.camera_movement.value
+                                if shot.camera_movement
+                                else "static",
+                                "duration_seconds": shot.duration_seconds,
+                                "validated": True,
+                            }
+                        )
                     else:
                         invalid_shots.append(str(shot_id))
                 else:
@@ -149,10 +154,12 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
         else:
             # Fallback for testing without session
             for shot_id in shot_ids:
-                validated_shots.append({
-                    "id": str(shot_id),
-                    "validated": True,
-                })
+                validated_shots.append(
+                    {
+                        "id": str(shot_id),
+                        "validated": True,
+                    }
+                )
 
         if invalid_shots:
             logger.warning(f"Invalid or missing shots: {invalid_shots}")
@@ -163,14 +170,14 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             "validation_count": len(validated_shots),
         }
 
-    async def step_prepare_prompts(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_prepare_prompts(self, context: dict[str, Any]) -> dict[str, Any]:
         """Prepare generation prompts using GenerationService."""
         logger.info("Preparing prompts...")
 
         validated_shots = context.get("validated_shots", [])
         quality = context.get("quality", "high")
-        session = context.get("session")
-        settings = get_settings()
+        context.get("session")
+        get_settings()
 
         prompts = []
         quality_params = {
@@ -184,7 +191,9 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
         for shot_data in validated_shots:
             # Use stored prompt if available, otherwise build from description
             positive_prompt = shot_data.get("generation_prompt") or self._build_prompt(shot_data)
-            negative_prompt = shot_data.get("negative_prompt") or self._get_default_negative_prompt()
+            negative_prompt = (
+                shot_data.get("negative_prompt") or self._get_default_negative_prompt()
+            )
 
             prompt_data = {
                 "shot_id": shot_data["id"],
@@ -202,7 +211,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
 
         return {"prepared_prompts": prompts}
 
-    def _build_prompt(self, shot_data: Dict[str, Any]) -> str:
+    def _build_prompt(self, shot_data: dict[str, Any]) -> str:
         """Build generation prompt from shot data."""
         parts = []
 
@@ -238,12 +247,14 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             parts.append(shot_data["description"])
 
         # Quality modifiers
-        parts.extend([
-            "high quality",
-            "professional cinematography",
-            "cinematic lighting",
-            "8K resolution",
-        ])
+        parts.extend(
+            [
+                "high quality",
+                "professional cinematography",
+                "cinematic lighting",
+                "8K resolution",
+            ]
+        )
 
         return ", ".join(filter(None, parts))
 
@@ -256,7 +267,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             "amateur, shaky, unstable, glitch"
         )
 
-    async def step_check_provider(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_check_provider(self, context: dict[str, Any]) -> dict[str, Any]:
         """Check provider availability using GenerationService."""
         logger.info("Checking provider...")
 
@@ -301,7 +312,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
 
         return {"provider_status": provider_status}
 
-    async def step_generate_videos(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_generate_videos(self, context: dict[str, Any]) -> dict[str, Any]:
         """Generate videos for shots using GenerationService."""
         logger.info("Generating videos...")
 
@@ -336,7 +347,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
                 # Wait for batch to complete
                 results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                for prompt_data, result in zip(batch, results):
+                for prompt_data, result in zip(batch, results, strict=False):
                     shot_id = prompt_data["shot_id"]
                     if isinstance(result, Exception):
                         logger.error(f"Generation failed for shot {shot_id}: {result}")
@@ -362,9 +373,9 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
         self,
         service: GenerationService,
         shot_id: UUID,
-        prompt_data: Dict[str, Any],
+        prompt_data: dict[str, Any],
         provider_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate a single shot video."""
         try:
             # Create generation request
@@ -404,7 +415,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             logger.exception(f"Error generating shot {shot_id}")
             return {"success": False, "error": str(e)}
 
-    async def step_verify_outputs(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_verify_outputs(self, context: dict[str, Any]) -> dict[str, Any]:
         """Verify generated outputs exist and are valid."""
         logger.info("Verifying outputs...")
 
@@ -416,7 +427,11 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
 
         for shot_id, output_path in generated_outputs.items():
             # Construct full path
-            full_path = settings.output_dir / output_path if not output_path.startswith("/") else Path(output_path)
+            full_path = (
+                settings.output_dir / output_path
+                if not output_path.startswith("/")
+                else Path(output_path)
+            )
 
             if full_path.exists():
                 file_size = full_path.stat().st_size
@@ -431,11 +446,13 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
                     "duration_seconds": duration,
                 }
             else:
-                verification_errors.append({
-                    "shot_id": shot_id,
-                    "error": "Output file not found",
-                    "path": str(full_path),
-                })
+                verification_errors.append(
+                    {
+                        "shot_id": shot_id,
+                        "error": "Output file not found",
+                        "path": str(full_path),
+                    }
+                )
 
         return {
             "verified_outputs": verified,
@@ -448,9 +465,12 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
         try:
             cmd = [
                 "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 str(video_path),
             ]
 
@@ -468,7 +488,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
 
         return 0.0
 
-    async def step_generate_thumbnails(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_generate_thumbnails(self, context: dict[str, Any]) -> dict[str, Any]:
         """Generate thumbnails for videos using ffmpeg."""
         logger.info("Generating thumbnails...")
 
@@ -489,10 +509,14 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
                 cmd = [
                     "ffmpeg",
                     "-y",
-                    "-i", video_path,
-                    "-ss", "00:00:01",
-                    "-vframes", "1",
-                    "-q:v", "2",
+                    "-i",
+                    video_path,
+                    "-ss",
+                    "00:00:01",
+                    "-vframes",
+                    "1",
+                    "-q:v",
+                    "2",
                     thumbnail_path,
                 ]
 
@@ -517,7 +541,7 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
             "thumbnail_errors": thumbnail_errors,
         }
 
-    async def step_update_database(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_update_database(self, context: dict[str, Any]) -> dict[str, Any]:
         """Update database with generated outputs."""
         logger.info("Updating database...")
 
@@ -542,23 +566,27 @@ class VideoGenerationWorkflow(Workflow[GenerationWorkflowContext]):
                     shot.state = ShotState.GENERATED
                     shot.generated_duration_seconds = output_info.get("duration_seconds")
 
-                    updated_shots.append({
-                        "shot_id": shot_id_str,
-                        "output_path": output_info["path"],
-                        "thumbnail_path": thumbnails.get(shot_id_str),
-                        "state": "generated",
-                    })
+                    updated_shots.append(
+                        {
+                            "shot_id": shot_id_str,
+                            "output_path": output_info["path"],
+                            "thumbnail_path": thumbnails.get(shot_id_str),
+                            "state": "generated",
+                        }
+                    )
 
             await session.commit()
         else:
             # Fallback for testing
             for shot_id_str in verified_outputs:
-                updated_shots.append({
-                    "shot_id": shot_id_str,
-                    "output_path": verified_outputs[shot_id_str]["path"],
-                    "thumbnail_path": thumbnails.get(shot_id_str),
-                    "state": "generated",
-                })
+                updated_shots.append(
+                    {
+                        "shot_id": shot_id_str,
+                        "output_path": verified_outputs[shot_id_str]["path"],
+                        "thumbnail_path": thumbnails.get(shot_id_str),
+                        "state": "generated",
+                    }
+                )
 
         return {
             "updated_shots": updated_shots,
@@ -571,7 +599,7 @@ class BatchRegenerationContext:
     """Context for batch regeneration workflow."""
 
     project_id: UUID
-    shot_ids: List[UUID] = field(default_factory=list)
+    shot_ids: list[UUID] = field(default_factory=list)
     reason: str = "quality_improvement"
     provider: str = "local"
 
@@ -584,7 +612,7 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
     def workflow_type(self) -> str:
         return "batch_regeneration"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="backup_existing",
@@ -622,7 +650,7 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
             ),
         ]
 
-    async def step_backup_existing(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_backup_existing(self, context: dict[str, Any]) -> dict[str, Any]:
         """Backup existing outputs."""
         logger.info("Backing up existing outputs...")
         shot_ids = context.get("shot_ids", [])
@@ -633,12 +661,12 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
 
         return {"backups": backups}
 
-    async def step_clear_outputs(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_clear_outputs(self, context: dict[str, Any]) -> dict[str, Any]:
         """Clear existing outputs."""
         logger.info("Clearing outputs...")
         return {"outputs_cleared": True}
 
-    async def step_enhance_prompts(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_enhance_prompts(self, context: dict[str, Any]) -> dict[str, Any]:
         """Enhance prompts based on regeneration reason."""
         logger.info("Enhancing prompts...")
 
@@ -647,14 +675,16 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
 
         enhanced = []
         for shot_id in shot_ids:
-            enhanced.append({
-                "shot_id": str(shot_id),
-                "enhancements": [reason],
-            })
+            enhanced.append(
+                {
+                    "shot_id": str(shot_id),
+                    "enhancements": [reason],
+                }
+            )
 
         return {"enhanced_prompts": enhanced}
 
-    async def step_regenerate(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_regenerate(self, context: dict[str, Any]) -> dict[str, Any]:
         """Regenerate videos."""
         logger.info("Regenerating videos...")
 
@@ -667,7 +697,7 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
 
         return {"regenerated_outputs": results}
 
-    async def step_compare_results(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_compare_results(self, context: dict[str, Any]) -> dict[str, Any]:
         """Compare regenerated results with backups."""
         logger.info("Comparing results...")
 
@@ -676,11 +706,13 @@ class BatchRegenerationWorkflow(Workflow[BatchRegenerationContext]):
 
         comparison = []
         for shot_id in regenerated:
-            comparison.append({
-                "shot_id": shot_id,
-                "original": backups.get(shot_id),
-                "regenerated": regenerated[shot_id],
-                "improvement_score": 0.85,  # Simulated
-            })
+            comparison.append(
+                {
+                    "shot_id": shot_id,
+                    "original": backups.get(shot_id),
+                    "regenerated": regenerated[shot_id],
+                    "improvement_score": 0.85,  # Simulated
+                }
+            )
 
         return {"comparison_results": comparison}

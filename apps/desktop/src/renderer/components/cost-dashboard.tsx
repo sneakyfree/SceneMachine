@@ -256,8 +256,18 @@ function DailyCostChart({ data }: { data: DailyStats[] }) {
       <div className="flex justify-between text-xs text-surface-400">
         {data.length > 0 && (
           <>
-            <span>{new Date(data[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-            <span>{new Date(data[data.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span>
+              {new Date(data[0].date).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+            <span>
+              {new Date(data[data.length - 1].date).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
           </>
         )}
       </div>
@@ -266,7 +276,9 @@ function DailyCostChart({ data }: { data: DailyStats[] }) {
       <div className="grid grid-cols-3 gap-4 pt-2 border-t border-surface-700 text-sm">
         <div>
           <span className="text-surface-400">Total</span>
-          <p className="font-medium">{formatCurrency(data.reduce((sum, d) => sum + d.total_cost_usd, 0))}</p>
+          <p className="font-medium">
+            {formatCurrency(data.reduce((sum, d) => sum + d.total_cost_usd, 0))}
+          </p>
         </div>
         <div>
           <span className="text-surface-400">Jobs</span>
@@ -275,7 +287,9 @@ function DailyCostChart({ data }: { data: DailyStats[] }) {
         <div>
           <span className="text-surface-400">Avg/Day</span>
           <p className="font-medium">
-            {formatCurrency(data.reduce((sum, d) => sum + d.total_cost_usd, 0) / Math.max(data.length, 1))}
+            {formatCurrency(
+              data.reduce((sum, d) => sum + d.total_cost_usd, 0) / Math.max(data.length, 1)
+            )}
           </p>
         </div>
       </div>
@@ -323,7 +337,9 @@ function ProviderUsageTable({ data }: { data: ProviderUsage[] }) {
                   {provider.success_rate.toFixed(1)}%
                 </span>
               </td>
-              <td className="py-2 text-right font-medium">{formatCurrency(provider.total_cost_usd)}</td>
+              <td className="py-2 text-right font-medium">
+                {formatCurrency(provider.total_cost_usd)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -378,7 +394,11 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
   const [budgetInput, setBudgetInput] = useState('100');
 
   // Fetch cost stats
-  const { data: costStats, isLoading: costLoading, refetch: refetchCost } = useQuery({
+  const {
+    data: costStats,
+    isLoading: costLoading,
+    refetch: refetchCost,
+  } = useQuery({
     queryKey: ['cost-stats', timeRange, projectId],
     queryFn: async () => {
       return window.electronAPI.backendRequest<CostStats>('analytics.getCostStats', {
@@ -569,7 +589,8 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                 <div className="flex justify-between text-sm">
                   <span className="text-surface-400">Spent / Limit</span>
                   <span className="font-medium">
-                    {formatCurrency(budgetStatus.currentSpend)} / {formatCurrency(budgetStatus.budget.limit_usd ?? 0)}
+                    {formatCurrency(budgetStatus.currentSpend)} /{' '}
+                    {formatCurrency(budgetStatus.budget.limit_usd ?? 0)}
                   </span>
                 </div>
                 <div className="h-2.5 bg-surface-700 rounded-full overflow-hidden">
@@ -591,12 +612,14 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                 </div>
 
                 {budgetStatus.budgetAlert && (
-                  <div className={cn(
-                    'p-3 rounded-lg flex items-start gap-2 text-sm mt-2',
-                    budgetStatus.budgetAlert.alert_type === 'budget_exceeded'
-                      ? 'bg-red-500/10 border border-red-500/30 text-red-400'
-                      : 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-400'
-                  )}>
+                  <div
+                    className={cn(
+                      'p-3 rounded-lg flex items-start gap-2 text-sm mt-2',
+                      budgetStatus.budgetAlert.alert_type === 'budget_exceeded'
+                        ? 'bg-red-500/10 border border-red-500/30 text-red-400'
+                        : 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-400'
+                    )}
+                  >
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
                       {budgetStatus.budgetAlert.alert_type === 'budget_exceeded'
@@ -615,7 +638,9 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
 
             {showBudgetForm && (
               <div className="mt-4 pt-4 border-t border-surface-700">
-                <label className="text-xs text-surface-400 mb-1 block">30-day budget limit (USD)</label>
+                <label className="text-xs text-surface-400 mb-1 block">
+                  30-day budget limit (USD)
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="number"

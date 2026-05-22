@@ -12,20 +12,18 @@ Provides audio mixing functionality for video production:
 import asyncio
 import json
 import logging
-import subprocess
-import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from uuid import UUID, uuid4
+from enum import StrEnum
+from typing import Any
+from uuid import uuid4
 
 from scenemachine.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-class AudioTrackType(str, Enum):
+class AudioTrackType(StrEnum):
     """Types of audio tracks."""
 
     DIALOGUE = "dialogue"
@@ -36,7 +34,7 @@ class AudioTrackType(str, Enum):
     FOLEY = "foley"
 
 
-class AudioFormat(str, Enum):
+class AudioFormat(StrEnum):
     """Supported audio output formats."""
 
     MP3 = "mp3"
@@ -46,7 +44,7 @@ class AudioFormat(str, Enum):
     OGG = "ogg"
 
 
-class FadeType(str, Enum):
+class FadeType(StrEnum):
     """Types of audio fades."""
 
     LINEAR = "linear"
@@ -60,7 +58,7 @@ class AudioEffect:
     """Base class for audio effects."""
 
     effect_type: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -72,7 +70,7 @@ class FadeEffect(AudioEffect):
         fade_in_duration: float = 0.0,
         fade_out_duration: float = 0.0,
         fade_type: FadeType = FadeType.LINEAR,
-    ):
+    ) -> None:
         super().__init__(
             effect_type="fade",
             parameters={
@@ -94,7 +92,7 @@ class CompressorEffect(AudioEffect):
         attack_ms: float = 5.0,
         release_ms: float = 50.0,
         makeup_gain_db: float = 0.0,
-    ):
+    ) -> None:
         super().__init__(
             effect_type="compressor",
             parameters={
@@ -120,15 +118,10 @@ class EqualizerBand:
 class EqualizerEffect(AudioEffect):
     """Parametric equalizer."""
 
-    def __init__(self, bands: List[EqualizerBand]):
+    def __init__(self, bands: list[EqualizerBand]) -> None:
         super().__init__(
             effect_type="equalizer",
-            parameters={
-                "bands": [
-                    {"freq": b.frequency, "gain": b.gain, "q": b.q}
-                    for b in bands
-                ]
-            },
+            parameters={"bands": [{"freq": b.frequency, "gain": b.gain, "q": b.q} for b in bands]},
         )
 
 
@@ -141,16 +134,16 @@ class AudioTrack:
     track_type: AudioTrackType
     file_path: str
     start_time: float = 0.0  # seconds from start of mix
-    duration: Optional[float] = None  # None = use full file duration
+    duration: float | None = None  # None = use full file duration
     volume: float = 1.0  # 0.0 to 2.0 (0% to 200%)
     pan: float = 0.0  # -1.0 (left) to 1.0 (right)
     muted: bool = False
     solo: bool = False
-    effects: List[AudioEffect] = field(default_factory=list)
+    effects: list[AudioEffect] = field(default_factory=list)
     trim_start: float = 0.0  # seconds trimmed from start of file
     trim_end: float = 0.0  # seconds trimmed from end of file
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
@@ -162,10 +155,7 @@ class AudioTrack:
             "pan": self.pan,
             "muted": self.muted,
             "solo": self.solo,
-            "effects": [
-                {"type": e.effect_type, "params": e.parameters}
-                for e in self.effects
-            ],
+            "effects": [{"type": e.effect_type, "params": e.parameters} for e in self.effects],
             "trim_start": self.trim_start,
             "trim_end": self.trim_end,
         }
@@ -177,12 +167,12 @@ class AudioMix:
 
     id: str
     name: str
-    tracks: List[AudioTrack] = field(default_factory=list)
+    tracks: list[AudioTrack] = field(default_factory=list)
     master_volume: float = 1.0
-    master_effects: List[AudioEffect] = field(default_factory=list)
+    master_effects: list[AudioEffect] = field(default_factory=list)
     sample_rate: int = 44100
     channels: int = 2  # 1=mono, 2=stereo
-    duration: Optional[float] = None  # Auto-calculated if None
+    duration: float | None = None  # Auto-calculated if None
 
     def add_track(self, track: AudioTrack) -> None:
         """Add a track to the mix."""
@@ -196,7 +186,7 @@ class AudioMix:
                 return True
         return False
 
-    def get_track(self, track_id: str) -> Optional[AudioTrack]:
+    def get_track(self, track_id: str) -> AudioTrack | None:
         """Get a track by ID."""
         for track in self.tracks:
             if track.id == track_id:
@@ -216,15 +206,14 @@ class AudioMix:
 
         return max_end
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
             "tracks": [t.to_dict() for t in self.tracks],
             "master_volume": self.master_volume,
             "master_effects": [
-                {"type": e.effect_type, "params": e.parameters}
-                for e in self.master_effects
+                {"type": e.effect_type, "params": e.parameters} for e in self.master_effects
             ],
             "sample_rate": self.sample_rate,
             "channels": self.channels,
@@ -239,7 +228,7 @@ class MixProgress:
     percent: float
     stage: str
     message: str
-    current_track: Optional[str] = None
+    current_track: str | None = None
 
 
 @dataclass
@@ -247,9 +236,9 @@ class MixResult:
     """Result of mix rendering."""
 
     success: bool
-    output_path: Optional[str] = None
+    output_path: str | None = None
     duration_seconds: float = 0.0
-    error_message: Optional[str] = None
+    error_message: str | None = None
     processing_time_seconds: float = 0.0
 
 
@@ -259,7 +248,7 @@ class AudioMixerService:
     Uses FFmpeg for audio processing and mixing.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = get_settings()
         self._ffmpeg_path = "ffmpeg"
         self._ffprobe_path = "ffprobe"
@@ -268,7 +257,8 @@ class AudioMixerService:
         """Check if FFmpeg is available."""
         try:
             process = await asyncio.create_subprocess_exec(
-                self._ffmpeg_path, "-version",
+                self._ffmpeg_path,
+                "-version",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -277,13 +267,15 @@ class AudioMixerService:
         except Exception:
             return False
 
-    async def get_audio_info(self, file_path: str) -> Optional[Dict[str, Any]]:
+    async def get_audio_info(self, file_path: str) -> dict[str, Any] | None:
         """Get audio file information using ffprobe."""
         try:
             cmd = [
                 self._ffprobe_path,
-                "-v", "quiet",
-                "-print_format", "json",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
                 "-show_format",
                 "-show_streams",
                 file_path,
@@ -308,9 +300,13 @@ class AudioMixerService:
 
                 return {
                     "duration": float(format_info.get("duration", 0)),
-                    "sample_rate": int(audio_stream.get("sample_rate", 44100)) if audio_stream else 44100,
+                    "sample_rate": int(audio_stream.get("sample_rate", 44100))
+                    if audio_stream
+                    else 44100,
                     "channels": audio_stream.get("channels", 2) if audio_stream else 2,
-                    "codec": audio_stream.get("codec_name", "unknown") if audio_stream else "unknown",
+                    "codec": audio_stream.get("codec_name", "unknown")
+                    if audio_stream
+                    else "unknown",
                     "bit_rate": int(format_info.get("bit_rate", 0)),
                     "file_size": int(format_info.get("size", 0)),
                 }
@@ -350,18 +346,21 @@ class AudioMixerService:
         mix: AudioMix,
         output_path: str,
         output_format: AudioFormat = AudioFormat.MP3,
-        progress_callback: Optional[Callable[[MixProgress], Any]] = None,
+        progress_callback: Callable[[MixProgress], Any] | None = None,
     ) -> MixResult:
         """Render an audio mix to a file using FFmpeg."""
         import time
+
         start_time = time.time()
 
         if progress_callback:
-            await progress_callback(MixProgress(
-                percent=0,
-                stage="preparing",
-                message="Preparing audio mix...",
-            ))
+            await progress_callback(
+                MixProgress(
+                    percent=0,
+                    stage="preparing",
+                    message="Preparing audio mix...",
+                )
+            )
 
         # Check FFmpeg availability
         if not await self.check_ffmpeg():
@@ -458,18 +457,19 @@ class AudioMixerService:
 
                 if progress_callback:
                     percent = 10 + (40 * (i + 1) / len(active_tracks))
-                    await progress_callback(MixProgress(
-                        percent=percent,
-                        stage="processing",
-                        message=f"Processing track: {track.name}",
-                        current_track=track.name,
-                    ))
+                    await progress_callback(
+                        MixProgress(
+                            percent=percent,
+                            stage="processing",
+                            message=f"Processing track: {track.name}",
+                            current_track=track.name,
+                        )
+                    )
 
             # Mix all tracks together
             mix_inputs = "".join(input_labels)
             filter_parts.append(
-                f"{mix_inputs}amix=inputs={len(active_tracks)}:"
-                f"duration=longest:normalize=0[mixed]"
+                f"{mix_inputs}amix=inputs={len(active_tracks)}:duration=longest:normalize=0[mixed]"
             )
 
             # Master volume
@@ -485,25 +485,24 @@ class AudioMixerService:
                 if effect.effect_type == "compressor":
                     params = effect.parameters
                     master_filters.append(
-                        f"acompressor=threshold={params['threshold']}dB:"
-                        f"ratio={params['ratio']}"
+                        f"acompressor=threshold={params['threshold']}dB:ratio={params['ratio']}"
                     )
 
             if master_filters:
-                filter_parts.append(
-                    f"{final_label}{','.join(master_filters)}[final]"
-                )
+                filter_parts.append(f"{final_label}{','.join(master_filters)}[final]")
                 final_label = "[final]"
 
             # Build final filter complex
             filter_complex = ";".join(filter_parts)
 
             if progress_callback:
-                await progress_callback(MixProgress(
-                    percent=60,
-                    stage="rendering",
-                    message="Rendering final mix...",
-                ))
+                await progress_callback(
+                    MixProgress(
+                        percent=60,
+                        stage="rendering",
+                        message="Rendering final mix...",
+                    )
+                )
 
             # Determine output codec
             codec_args = []
@@ -523,10 +522,14 @@ class AudioMixerService:
                 self._ffmpeg_path,
                 "-y",  # Overwrite output
                 *input_args,
-                "-filter_complex", filter_complex,
-                "-map", final_label,
-                "-ar", str(mix.sample_rate),
-                "-ac", str(mix.channels),
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                final_label,
+                "-ar",
+                str(mix.sample_rate),
+                "-ac",
+                str(mix.channels),
                 *codec_args,
                 output_path,
             ]
@@ -547,22 +550,26 @@ class AudioMixerService:
                 )
 
             if progress_callback:
-                await progress_callback(MixProgress(
-                    percent=90,
-                    stage="finalizing",
-                    message="Finalizing output...",
-                ))
+                await progress_callback(
+                    MixProgress(
+                        percent=90,
+                        stage="finalizing",
+                        message="Finalizing output...",
+                    )
+                )
 
             # Get output duration
             output_info = await self.get_audio_info(output_path)
             duration = output_info.get("duration", 0) if output_info else 0
 
             if progress_callback:
-                await progress_callback(MixProgress(
-                    percent=100,
-                    stage="complete",
-                    message="Mix complete",
-                ))
+                await progress_callback(
+                    MixProgress(
+                        percent=100,
+                        stage="complete",
+                        message="Mix complete",
+                    )
+                )
 
             return MixResult(
                 success=True,
@@ -587,6 +594,7 @@ class AudioMixerService:
     ) -> MixResult:
         """Normalize audio to target loudness using EBU R128."""
         import time
+
         start_time = time.time()
 
         try:
@@ -594,8 +602,10 @@ class AudioMixerService:
             cmd = [
                 self._ffmpeg_path,
                 "-y",
-                "-i", input_path,
-                "-af", f"loudnorm=I={target_lufs}:TP={true_peak}:LRA=11",
+                "-i",
+                input_path,
+                "-af",
+                f"loudnorm=I={target_lufs}:TP={true_peak}:LRA=11",
                 output_path,
             ]
 
@@ -633,6 +643,7 @@ class AudioMixerService:
     ) -> MixResult:
         """Apply fade in/out to audio file."""
         import time
+
         start_time = time.time()
 
         try:
@@ -650,6 +661,7 @@ class AudioMixerService:
             if not filters:
                 # No fades, just copy
                 import shutil
+
                 shutil.copy(input_path, output_path)
                 return MixResult(
                     success=True,
@@ -661,8 +673,10 @@ class AudioMixerService:
             cmd = [
                 self._ffmpeg_path,
                 "-y",
-                "-i", input_path,
-                "-af", ",".join(filters),
+                "-i",
+                input_path,
+                "-af",
+                ",".join(filters),
                 output_path,
             ]
 
@@ -696,14 +710,17 @@ class AudioMixerService:
     ) -> MixResult:
         """Crossfade between two audio files."""
         import time
+
         start_time = time.time()
 
         try:
             cmd = [
                 self._ffmpeg_path,
                 "-y",
-                "-i", audio1_path,
-                "-i", audio2_path,
+                "-i",
+                audio1_path,
+                "-i",
+                audio2_path,
                 "-filter_complex",
                 f"acrossfade=d={crossfade_duration}:c1=tri:c2=tri",
                 output_path,
@@ -736,7 +753,7 @@ class AudioMixerService:
 
 
 # Singleton instance
-_audio_mixer_service: Optional[AudioMixerService] = None
+_audio_mixer_service: AudioMixerService | None = None
 
 
 def get_audio_mixer_service() -> AudioMixerService:

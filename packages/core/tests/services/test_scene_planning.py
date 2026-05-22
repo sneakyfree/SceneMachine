@@ -2,12 +2,10 @@
 
 import pytest
 import pytest_asyncio
-from uuid import uuid4
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from scenemachine.services.scene_planning import ScenePlanningService
 from scenemachine.models import Project, Scene, SceneState
+from scenemachine.services.scene_planning import ScenePlanningService
 
 
 class TestScenePlanningService:
@@ -147,9 +145,7 @@ class TestScenePlanningService:
     ):
         """Test generating a shot breakdown for a scene."""
         if hasattr(scene_planning_service, "generate_shot_breakdown"):
-            breakdown = await scene_planning_service.generate_shot_breakdown(
-                sample_scene.id
-            )
+            breakdown = await scene_planning_service.generate_shot_breakdown(sample_scene.id)
             assert breakdown is not None
 
     @pytest.mark.asyncio

@@ -13,12 +13,7 @@ import React, { useEffect, useId, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import {
-  useFocusTrap,
-  announce,
-  ariaDialog,
-  usePrefersReducedMotion,
-} from '../lib/accessibility';
+import { useFocusTrap, announce, ariaDialog, usePrefersReducedMotion } from '../lib/accessibility';
 
 // ============================================================================
 // Types
@@ -202,17 +197,11 @@ export function Modal({
         {/* Header */}
         <div className="flex items-start justify-between p-4 border-b border-surface-700">
           <div>
-            <h2
-              id={titleId}
-              className="text-lg font-semibold text-surface-100"
-            >
+            <h2 id={titleId} className="text-lg font-semibold text-surface-100">
               {title}
             </h2>
             {description && (
-              <p
-                id={descriptionId}
-                className="mt-1 text-sm text-surface-400"
-              >
+              <p id={descriptionId} className="mt-1 text-sm text-surface-400">
                 {description}
               </p>
             )}
@@ -236,15 +225,11 @@ export function Modal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto p-4">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="p-4 border-t border-surface-700 bg-surface-800/50">
-            {footer}
-          </div>
+          <div className="p-4 border-t border-surface-700 bg-surface-800/50">{footer}</div>
         )}
       </div>
     </div>

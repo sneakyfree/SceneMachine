@@ -106,21 +106,21 @@ function StageRow({
         )}
       >
         {/* Icon */}
-        <div className={cn(
-          'w-10 h-10 rounded-lg flex items-center justify-center',
-          statusStyles[stage.status]
-        )}>
+        <div
+          className={cn(
+            'w-10 h-10 rounded-lg flex items-center justify-center',
+            statusStyles[stage.status]
+          )}
+        >
           <Icon className="w-5 h-5" />
         </div>
 
         {/* Label and details */}
         <div className="flex-1 text-left">
-          <p className="font-medium">
-            {isSimplified ? stage.friendlyLabel : stage.label}
-          </p>
+          <p className="font-medium">{isSimplified ? stage.friendlyLabel : stage.label}</p>
           {stage.details && (
             <p className="text-sm text-surface-400">
-              {isSimplified ? (stage.friendlyDetails || stage.details) : stage.details}
+              {isSimplified ? stage.friendlyDetails || stage.details : stage.details}
             </p>
           )}
         </div>
@@ -142,20 +142,21 @@ function StageRow({
             </div>
           )}
 
-          <div className={cn(
-            'w-8 h-8 rounded-full flex items-center justify-center',
-            statusStyles[stage.status]
-          )}>
+          <div
+            className={cn(
+              'w-8 h-8 rounded-full flex items-center justify-center',
+              statusStyles[stage.status]
+            )}
+          >
             {statusIcons[stage.status]}
           </div>
 
-          {hasItems && (
-            isExpanded ? (
+          {hasItems &&
+            (isExpanded ? (
               <ChevronUp className="w-4 h-4 text-surface-500" />
             ) : (
               <ChevronDown className="w-4 h-4 text-surface-500" />
-            )
-          )}
+            ))}
         </div>
       </button>
 
@@ -168,10 +169,13 @@ function StageRow({
                 key={item.id}
                 className={cn(
                   'relative aspect-video rounded-lg overflow-hidden border',
-                  item.status === 'completed' ? 'border-green-500/30' :
-                  item.status === 'active' ? 'border-brand-500' :
-                  item.status === 'error' ? 'border-red-500/30' :
-                  'border-surface-700'
+                  item.status === 'completed'
+                    ? 'border-green-500/30'
+                    : item.status === 'active'
+                      ? 'border-brand-500'
+                      : item.status === 'error'
+                        ? 'border-red-500/30'
+                        : 'border-surface-700'
                 )}
               >
                 {/* Thumbnail or placeholder */}
@@ -182,10 +186,12 @@ function StageRow({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className={cn(
-                    'w-full h-full flex items-center justify-center',
-                    item.status === 'active' ? 'bg-brand-500/10' : 'bg-surface-800'
-                  )}>
+                  <div
+                    className={cn(
+                      'w-full h-full flex items-center justify-center',
+                      item.status === 'active' ? 'bg-brand-500/10' : 'bg-surface-800'
+                    )}
+                  >
                     {item.status === 'active' ? (
                       <Loader2 className="w-6 h-6 text-brand-400 animate-spin" />
                     ) : item.status === 'error' ? (
@@ -347,17 +353,17 @@ export function ProgressDashboard({
         {/* Stage dots */}
         <div className="flex items-center justify-between mt-4 px-2">
           {stages.map((stage, index) => (
-            <div
-              key={stage.id}
-              className="flex flex-col items-center gap-1"
-            >
+            <div key={stage.id} className="flex flex-col items-center gap-1">
               <div
                 className={cn(
                   'w-3 h-3 rounded-full transition-colors',
-                  stage.status === 'completed' ? 'bg-green-500' :
-                  stage.status === 'active' ? 'bg-brand-500 animate-pulse' :
-                  stage.status === 'error' ? 'bg-red-500' :
-                  'bg-surface-700'
+                  stage.status === 'completed'
+                    ? 'bg-green-500'
+                    : stage.status === 'active'
+                      ? 'bg-brand-500 animate-pulse'
+                      : stage.status === 'error'
+                        ? 'bg-red-500'
+                        : 'bg-surface-700'
                 )}
               />
               <span className="text-xs text-surface-500 hidden sm:block">
@@ -377,15 +383,11 @@ export function ProgressDashboard({
               {isStory ? currentStage.friendlyLabel : currentStage.label}
             </p>
             <p className="text-sm text-surface-400">
-              {isStory
-                ? currentStage.friendlyDetails || 'Working on it...'
-                : currentStage.details}
+              {isStory ? currentStage.friendlyDetails || 'Working on it...' : currentStage.details}
             </p>
           </div>
           {currentStage.progress !== undefined && (
-            <span className="text-lg font-bold text-brand-400">
-              {currentStage.progress}%
-            </span>
+            <span className="text-lg font-bold text-brand-400">{currentStage.progress}%</span>
           )}
         </div>
       )}
@@ -490,10 +492,14 @@ export function createDemoProgressData(): {
         items: Array.from({ length: 12 }, (_, i) => ({
           id: `shot-${i}`,
           label: `Scene ${Math.floor(i / 3) + 1}, Shot ${(i % 3) + 1}`,
-          status: i < 8 ? 'completed' as const :
-                  i === 8 ? 'active' as const :
-                  i === 9 ? 'error' as const :
-                  'pending' as const,
+          status:
+            i < 8
+              ? ('completed' as const)
+              : i === 8
+                ? ('active' as const)
+                : i === 9
+                  ? ('error' as const)
+                  : ('pending' as const),
         })),
       },
       {

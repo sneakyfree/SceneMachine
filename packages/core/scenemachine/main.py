@@ -2,11 +2,11 @@
 
 import argparse
 import asyncio
+import contextlib
 import logging
 import os
 import signal
 import sys
-from typing import Optional
 
 from scenemachine.config import get_settings, validate_secrets_for_production
 from scenemachine.database import get_db_manager
@@ -27,7 +27,7 @@ async def run_ipc_server() -> None:
     logger.info("Database initialized")
 
     # Initialize and register all generation providers
-    from scenemachine.generators.registry import setup_providers, check_provider_status
+    from scenemachine.generators.registry import check_provider_status, setup_providers
 
     registry = setup_providers()
     logger.info(f"Provider registry initialized with {len(registry.list_providers())} providers")
@@ -75,10 +75,8 @@ async def run_ipc_server() -> None:
 
         for task in pending:
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
     finally:
         await server.stop()

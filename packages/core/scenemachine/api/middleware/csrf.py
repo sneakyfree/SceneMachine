@@ -8,8 +8,8 @@ import hashlib
 import hmac
 import logging
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Set
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -20,7 +20,7 @@ from scenemachine.config import get_settings
 logger = logging.getLogger(__name__)
 
 # Safe HTTP methods that don't require CSRF protection
-SAFE_METHODS: Set[str] = {"GET", "HEAD", "OPTIONS", "TRACE"}
+SAFE_METHODS: set[str] = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
 
 @dataclass
@@ -33,7 +33,7 @@ class CSRFConfig:
     # Cookie settings
     cookie_name: str = "csrf_token"
     cookie_path: str = "/"
-    cookie_domain: Optional[str] = None
+    cookie_domain: str | None = None
     cookie_secure: bool = True  # Requires HTTPS
     cookie_httponly: bool = False  # Must be False so JS can read it
     cookie_samesite: str = "lax"  # "strict", "lax", or "none"
@@ -49,7 +49,7 @@ class CSRFConfig:
     token_length: int = 32
 
     # Exempt paths (no CSRF check)
-    exempt_paths: List[str] = field(
+    exempt_paths: list[str] = field(
         default_factory=lambda: [
             "/health",
             "/api/v1/auth/login",
@@ -63,7 +63,7 @@ class CSRFConfig:
     )
 
     # Exempt content types (typically for API-only endpoints)
-    exempt_content_types: List[str] = field(
+    exempt_content_types: list[str] = field(
         default_factory=lambda: [
             "application/json",  # JSON APIs are typically CSRF-safe
         ]
@@ -82,14 +82,14 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         app.add_middleware(CSRFMiddleware, config=CSRFConfig())
     """
 
-    def __init__(self, app: ASGIApp, config: Optional[CSRFConfig] = None):
+    def __init__(self, app: ASGIApp, config: CSRFConfig | None = None) -> None:
         super().__init__(app)
         self.config = config or CSRFConfig()
         self._settings = get_settings()
 
     def _generate_token(self) -> str:
         """Generate a new CSRF token."""
-        random_bytes = secrets.token_bytes(self.config.token_length)
+        secrets.token_bytes(self.config.token_length)
         return secrets.token_urlsafe(self.config.token_length)
 
     def _sign_token(self, token: str) -> str:
@@ -125,13 +125,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         # Check content type exemptions
         content_type = request.headers.get("content-type", "").lower()
-        for exempt_type in self.config.exempt_content_types:
-            if exempt_type in content_type:
-                return True
+        return any(exempt_type in content_type for exempt_type in self.config.exempt_content_types)
 
-        return False
-
-    def _get_token_from_request(self, request: Request) -> Optional[str]:
+    def _get_token_from_request(self, request: Request) -> str | None:
         """Extract CSRF token from request header or form field."""
         # Try header first
         token = request.headers.get(self.config.header_name)
@@ -163,9 +159,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             request_token = self._get_token_from_request(request)
 
             if not request_token:
-                logger.warning(
-                    f"CSRF token missing for {request.method} {request.url.path}"
-                )
+                logger.warning(f"CSRF token missing for {request.method} {request.url.path}")
                 return Response(
                     content='{"error": "CSRF token missing", "code": "CSRF_MISSING"}',
                     status_code=403,
@@ -174,9 +168,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
             # Verify token matches cookie
             if not hmac.compare_digest(request_token, cookie_token):
-                logger.warning(
-                    f"CSRF token mismatch for {request.method} {request.url.path}"
-                )
+                logger.warning(f"CSRF token mismatch for {request.method} {request.url.path}")
                 return Response(
                     content='{"error": "CSRF token invalid", "code": "CSRF_INVALID"}',
                     status_code=403,

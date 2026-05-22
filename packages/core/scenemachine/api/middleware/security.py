@@ -11,10 +11,11 @@ import hashlib
 import logging
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -45,10 +46,10 @@ class RateLimitConfig:
     slowdown_delay_ms: int = 100
 
     # Endpoints with custom limits (path pattern -> (requests, seconds))
-    custom_limits: Dict[str, Tuple[int, int]] = field(default_factory=dict)
+    custom_limits: dict[str, tuple[int, int]] = field(default_factory=dict)
 
     # Excluded paths (no rate limiting)
-    excluded_paths: List[str] = field(
+    excluded_paths: list[str] = field(
         default_factory=lambda: ["/health", "/docs", "/openapi.json", "/redoc"]
     )
 
@@ -56,7 +57,7 @@ class RateLimitConfig:
 class TokenBucket:
     """Token bucket for rate limiting with burst support."""
 
-    def __init__(self, rate: float, capacity: int):
+    def __init__(self, rate: float, capacity: int) -> None:
         """
         Initialize token bucket.
 
@@ -69,7 +70,7 @@ class TokenBucket:
         self.tokens = capacity
         self.last_update = time.monotonic()
 
-    def acquire(self, tokens: int = 1) -> Tuple[bool, float]:
+    def acquire(self, tokens: int = 1) -> tuple[bool, float]:
         """
         Try to acquire tokens.
 
@@ -96,7 +97,7 @@ class TokenBucket:
 class SlidingWindowCounter:
     """Sliding window counter for accurate rate limiting."""
 
-    def __init__(self, window_size: int, max_requests: int):
+    def __init__(self, window_size: int, max_requests: int) -> None:
         """
         Initialize sliding window counter.
 
@@ -106,9 +107,9 @@ class SlidingWindowCounter:
         """
         self.window_size = window_size
         self.max_requests = max_requests
-        self.requests: List[float] = []
+        self.requests: list[float] = []
 
-    def acquire(self) -> Tuple[bool, int]:
+    def acquire(self) -> tuple[bool, int]:
         """
         Try to acquire a request slot.
 
@@ -137,12 +138,12 @@ class SlidingWindowCounter:
 class RateLimiter:
     """Multi-strategy rate limiter."""
 
-    def __init__(self, config: Optional[RateLimitConfig] = None):
+    def __init__(self, config: RateLimitConfig | None = None) -> None:
         self.config = config or RateLimitConfig()
 
         # Per-client rate limiters
-        self._buckets: Dict[str, TokenBucket] = {}
-        self._windows: Dict[str, Dict[str, SlidingWindowCounter]] = defaultdict(dict)
+        self._buckets: dict[str, TokenBucket] = {}
+        self._windows: dict[str, dict[str, SlidingWindowCounter]] = defaultdict(dict)
 
         # Cleanup tracking
         self._last_cleanup = time.monotonic()
@@ -205,7 +206,7 @@ class RateLimiter:
             del self._windows[client_id]
             self._buckets.pop(client_id, None)
 
-    def check(self, request: Request) -> Tuple[bool, Dict[str, Any]]:
+    def check(self, request: Request) -> tuple[bool, dict[str, Any]]:
         """
         Check if request is allowed.
 
@@ -288,7 +289,7 @@ class RateLimiter:
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware for rate limiting requests."""
 
-    def __init__(self, app: ASGIApp, config: Optional[RateLimitConfig] = None):
+    def __init__(self, app: ASGIApp, config: RateLimitConfig | None = None) -> None:
         super().__init__(app)
         self.limiter = RateLimiter(config)
 
@@ -297,9 +298,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         allowed, limit_info = self.limiter.check(request)
 
         if not allowed:
-            logger.warning(
-                f"Rate limit exceeded for {request.url.path}: {limit_info}"
-            )
+            logger.warning(f"Rate limit exceeded for {request.url.path}: {limit_info}")
             return Response(
                 content='{"error": "Rate limit exceeded", "code": "RATE_LIMIT_EXCEEDED"}',
                 status_code=429,
@@ -308,7 +307,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "X-RateLimit-Limit": str(limit_info.get("limit", 0)),
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": str(int(limit_info.get("reset", 0))),
-                    "Retry-After": str(int(limit_info.get("retry_after", limit_info.get("reset", 60)))),
+                    "Retry-After": str(
+                        int(limit_info.get("retry_after", limit_info.get("reset", 60)))
+                    ),
                 },
             )
 
@@ -360,7 +361,7 @@ class SecurityHeadersConfig:
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Middleware to add security headers to responses."""
 
-    def __init__(self, app: ASGIApp, config: Optional[SecurityHeadersConfig] = None):
+    def __init__(self, app: ASGIApp, config: SecurityHeadersConfig | None = None) -> None:
         super().__init__(app)
         self.config = config or SecurityHeadersConfig()
 
@@ -418,7 +419,7 @@ class RequestValidationConfig:
     max_url_length: int = 2048
 
     # Allowed content types
-    allowed_content_types: List[str] = field(
+    allowed_content_types: list[str] = field(
         default_factory=lambda: [
             "application/json",
             "multipart/form-data",
@@ -428,7 +429,7 @@ class RequestValidationConfig:
     )
 
     # Block suspicious user agents
-    blocked_user_agents: List[str] = field(
+    blocked_user_agents: list[str] = field(
         default_factory=lambda: [
             "sqlmap",
             "nikto",
@@ -441,7 +442,7 @@ class RequestValidationConfig:
 class RequestValidationMiddleware(BaseHTTPMiddleware):
     """Middleware for request validation."""
 
-    def __init__(self, app: ASGIApp, config: Optional[RequestValidationConfig] = None):
+    def __init__(self, app: ASGIApp, config: RequestValidationConfig | None = None) -> None:
         super().__init__(app)
         self.config = config or RequestValidationConfig()
 
@@ -490,7 +491,7 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
 class APIKeyAuth:
     """Simple API key authentication helper."""
 
-    def __init__(self, valid_keys: Optional[List[str]] = None):
+    def __init__(self, valid_keys: list[str] | None = None) -> None:
         self.valid_keys = set(valid_keys or [])
 
     def add_key(self, key: str) -> None:
@@ -501,7 +502,7 @@ class APIKeyAuth:
         """Remove an API key."""
         self.valid_keys.discard(key)
 
-    def validate(self, key: Optional[str]) -> bool:
+    def validate(self, key: str | None) -> bool:
         """Validate an API key."""
         if not self.valid_keys:
             # No keys configured, allow all
@@ -545,7 +546,7 @@ def get_client_ip(request: Request) -> str:
 def log_security_event(
     event_type: str,
     request: Request,
-    details: Optional[Dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
 ) -> None:
     """Log a security-related event."""
     client_ip = get_client_ip(request)
@@ -557,7 +558,7 @@ def log_security_event(
         "request_id": request_id,
         "path": str(request.url.path),
         "method": request.method,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
     if details:

@@ -1,7 +1,7 @@
 """Character API routes."""
 
 import logging
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.database import get_session
-from scenemachine.models.character import CharacterGender, CharacterLockState
+from scenemachine.models.character import CharacterGender
 from scenemachine.services.character import CharacterService
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class PhysicalDescriptionSchema(BaseModel):
     skin_tone: str = ""
     height: str = ""
     build: str = ""
-    distinguishing_features: List[str] = Field(default_factory=list)
+    distinguishing_features: list[str] = Field(default_factory=list)
     clothing_style: str = ""
     additional_notes: str = ""
 
@@ -35,15 +35,15 @@ class PhysicalDescriptionSchema(BaseModel):
 class CharacterUpdateRequest(BaseModel):
     """Request to update a character."""
 
-    name: Optional[str] = None
-    description: Optional[str] = None
-    age_range_min: Optional[int] = None
-    age_range_max: Optional[int] = None
-    gender: Optional[CharacterGender] = None
-    physical_description: Optional[PhysicalDescriptionSchema] = None
-    personality_traits: Optional[List[str]] = None
-    voice_description: Optional[str] = None
-    is_protagonist: Optional[bool] = None
+    name: str | None = None
+    description: str | None = None
+    age_range_min: int | None = None
+    age_range_max: int | None = None
+    gender: CharacterGender | None = None
+    physical_description: PhysicalDescriptionSchema | None = None
+    personality_traits: list[str] | None = None
+    voice_description: str | None = None
+    is_protagonist: bool | None = None
 
 
 class AssetResponse(BaseModel):
@@ -64,21 +64,21 @@ class CharacterResponse(BaseModel):
     project_id: str
     name: str
     screenplay_name: str
-    description: Optional[str]
-    age_range_min: Optional[int]
-    age_range_max: Optional[int]
-    age_range_display: Optional[str]
+    description: str | None
+    age_range_min: int | None
+    age_range_max: int | None
+    age_range_display: str | None
     gender: str
-    physical_description: Optional[Dict[str, Any]]
-    personality_traits: Optional[List[str]]
-    voice_description: Optional[str]
+    physical_description: dict[str, Any] | None
+    personality_traits: list[str] | None
+    voice_description: str | None
     lock_state: str
     is_locked: bool
-    locked_likeness: Optional[Dict[str, Any]]
+    locked_likeness: dict[str, Any] | None
     scene_count: int
     dialogue_count: int
     is_protagonist: bool
-    reference_assets: List[AssetResponse] = Field(default_factory=list)
+    reference_assets: list[AssetResponse] = Field(default_factory=list)
     created_at: str
     updated_at: str
 
@@ -86,7 +86,7 @@ class CharacterResponse(BaseModel):
 class CharacterListResponse(BaseModel):
     """List of characters response."""
 
-    characters: List[CharacterResponse]
+    characters: list[CharacterResponse]
     total: int
     locked_count: int
 
@@ -95,16 +95,16 @@ class GenerateDescriptionResponse(BaseModel):
     """Response from description generation."""
 
     description: str
-    estimated_age: Optional[int]
-    gender: Optional[str]
-    personality_traits: List[str]
-    physical_description: Dict[str, Any]
+    estimated_age: int | None
+    gender: str | None
+    personality_traits: list[str]
+    physical_description: dict[str, Any]
 
 
 class LockCharacterRequest(BaseModel):
     """Request to lock a character."""
 
-    primary_reference_id: Optional[str] = None
+    primary_reference_id: str | None = None
 
 
 class CharacterPromptResponse(BaseModel):
@@ -113,7 +113,7 @@ class CharacterPromptResponse(BaseModel):
     positive_prompt: str
     negative_prompt: str
     style_prompt: str
-    consistency_tokens: List[str]
+    consistency_tokens: list[str]
 
 
 def _character_to_response(character: Any) -> CharacterResponse:
@@ -121,11 +121,7 @@ def _character_to_response(character: Any) -> CharacterResponse:
     reference_assets = []
     if hasattr(character, "reference_assets") and character.reference_assets:
         for asset in character.reference_assets:
-            is_primary = (
-                asset.metadata.get("is_primary", False)
-                if asset.metadata
-                else False
-            )
+            is_primary = asset.metadata.get("is_primary", False) if asset.metadata else False
             reference_assets.append(
                 AssetResponse(
                     id=str(asset.id),
@@ -226,9 +222,7 @@ async def update_character(
             age_range_max=request.age_range_max,
             gender=request.gender,
             physical_description=(
-                request.physical_description.model_dump()
-                if request.physical_description
-                else None
+                request.physical_description.model_dump() if request.physical_description else None
             ),
             personality_traits=request.personality_traits,
             voice_description=request.voice_description,
@@ -358,9 +352,7 @@ async def lock_character(
 
     try:
         primary_ref_id = (
-            UUID(request.primary_reference_id)
-            if request.primary_reference_id
-            else None
+            UUID(request.primary_reference_id) if request.primary_reference_id else None
         )
 
         character = await service.lock_character(
@@ -406,7 +398,7 @@ async def unlock_character(
 async def get_character_prompt(
     character_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
-    scene_context: Optional[str] = None,
+    scene_context: str | None = None,
 ) -> CharacterPromptResponse:
     """Get AI generation prompts for a character."""
     service = CharacterService(session)
@@ -442,7 +434,7 @@ class GenerateImageRequest(BaseModel):
 class GenerateImageResponse(BaseModel):
     """Response from image generation."""
 
-    images: List[Dict[str, Any]]
+    images: list[dict[str, Any]]
     character_id: str
     style: str
 
@@ -507,8 +499,8 @@ class ConsistencyCheckResponse(BaseModel):
     character_id: str
     overall_score: float
     tier: str
-    frame_scores: List[float]
-    suggestions: List[str]
+    frame_scores: list[float]
+    suggestions: list[str]
 
 
 @router.post(
@@ -518,7 +510,7 @@ class ConsistencyCheckResponse(BaseModel):
 async def check_character_consistency(
     character_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
-    video_path: Optional[str] = None,
+    video_path: str | None = None,
 ) -> ConsistencyCheckResponse:
     """Check character visual consistency across generated shots.
 
@@ -565,7 +557,7 @@ class FaceSimilarityComparisonItem(BaseModel):
     shot_id: str
     similarity_score: float
     is_same_person: bool
-    thumbnail_url: Optional[str] = None
+    thumbnail_url: str | None = None
 
 
 class FaceSimilarityResponse(BaseModel):
@@ -573,7 +565,7 @@ class FaceSimilarityResponse(BaseModel):
 
     character_id: str
     character_name: str
-    comparisons: List[FaceSimilarityComparisonItem]
+    comparisons: list[FaceSimilarityComparisonItem]
     average_similarity: float
 
 
@@ -625,11 +617,12 @@ async def compare_face_similarity(
 
         # Get generated shots for this character's scenes
         from sqlalchemy import select
+
         from scenemachine.models import Shot
 
-        shot_stmt = select(Shot).where(
-            Shot.state.in_(["generated", "approved", "completed"])
-        ).limit(20)
+        shot_stmt = (
+            select(Shot).where(Shot.state.in_(["generated", "approved", "completed"])).limit(20)
+        )
         shot_result = await session.execute(shot_stmt)
         shots = shot_result.scalars().all()
 
@@ -637,25 +630,29 @@ async def compare_face_similarity(
         total_score = 0.0
 
         for shot in shots:
-            output_path = getattr(shot, "output_path", None) or getattr(shot, "thumbnail_path", None)
+            output_path = getattr(shot, "output_path", None) or getattr(
+                shot, "thumbnail_path", None
+            )
             if not output_path:
                 continue
 
             # Compute similarity between reference and shot frame
             try:
-                similarity = await face_service.compute_similarity(
-                    ref_paths[0], output_path
+                similarity = await face_service.compute_similarity(ref_paths[0], output_path)
+                score = (
+                    similarity if isinstance(similarity, float) else similarity.get("score", 0.0)
                 )
-                score = similarity if isinstance(similarity, float) else similarity.get("score", 0.0)
             except Exception:
                 score = 0.0
 
-            comparisons.append(FaceSimilarityComparisonItem(
-                shot_id=str(shot.id),
-                similarity_score=round(score, 3),
-                is_same_person=score >= 0.7,
-                thumbnail_url=getattr(shot, "thumbnail_path", None),
-            ))
+            comparisons.append(
+                FaceSimilarityComparisonItem(
+                    shot_id=str(shot.id),
+                    similarity_score=round(score, 3),
+                    is_same_person=score >= 0.7,
+                    thumbnail_url=getattr(shot, "thumbnail_path", None),
+                )
+            )
             total_score += score
 
         avg = total_score / len(comparisons) if comparisons else 0.0
@@ -681,4 +678,3 @@ async def compare_face_similarity(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Face similarity comparison failed: {str(e)}",
         ) from e
-

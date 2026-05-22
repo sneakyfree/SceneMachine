@@ -169,11 +169,7 @@ function ApiKeyInput({
               disabled={!keyValue.trim() || isValidating}
               className="px-3 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm disabled:opacity-50"
             >
-              {isValidating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                'Test'
-              )}
+              {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test'}
             </button>
             <button
               onClick={handleSave}
@@ -233,8 +229,8 @@ function ProviderStatusCard({ status }: { status: ProviderStatus }) {
         status.available
           ? 'bg-green-500/5 border-green-500/30'
           : status.configured
-          ? 'bg-yellow-500/5 border-yellow-500/30'
-          : 'bg-surface-800/50 border-surface-700'
+            ? 'bg-yellow-500/5 border-yellow-500/30'
+            : 'bg-surface-800/50 border-surface-700'
       )}
     >
       <div className="flex items-center justify-between">
@@ -245,8 +241,8 @@ function ProviderStatusCard({ status }: { status: ProviderStatus }) {
               status.available
                 ? 'bg-green-400'
                 : status.configured
-                ? 'bg-yellow-400'
-                : 'bg-surface-500'
+                  ? 'bg-yellow-400'
+                  : 'bg-surface-500'
             )}
           />
           <span className="font-medium">{status.name}</span>
@@ -343,7 +339,7 @@ function TTSSettingsSection() {
           disabled={isLoadingProviders || isLoadingVoices}
           className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1"
         >
-          {(isLoadingProviders || isLoadingVoices) ? (
+          {isLoadingProviders || isLoadingVoices ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <RefreshCw className="w-4 h-4" />
@@ -415,9 +411,7 @@ function TTSSettingsSection() {
                   />
                   <span className="font-medium truncate">{provider.name}</span>
                 </div>
-                <div className="text-xs text-surface-400 mt-1">
-                  {provider.voices_count} voices
-                </div>
+                <div className="text-xs text-surface-400 mt-1">{provider.voices_count} voices</div>
               </div>
             ))}
           </div>
@@ -579,18 +573,15 @@ function AccessibilitySettingsSection() {
             disabled={isSaving}
             className="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-sm flex items-center gap-2"
           >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Save Changes
           </button>
         )}
       </div>
 
       <p className="text-sm text-surface-400 mb-6">
-        Customize the interface to make it easier to use. These settings help with visibility and navigation.
+        Customize the interface to make it easier to use. These settings help with visibility and
+        navigation.
       </p>
 
       {/* Font Size Selection */}
@@ -719,7 +710,8 @@ function AccessibilitySettingsSection() {
       <div className="mt-6 p-3 bg-surface-800/30 rounded-lg border border-surface-700">
         <p className="text-xs text-surface-400">
           <Info className="w-3 h-3 inline mr-1" />
-          SceneMachine also respects your system accessibility preferences for reduced motion and high contrast.
+          SceneMachine also respects your system accessibility preferences for reduced motion and
+          high contrast.
         </p>
       </div>
     </div>
@@ -830,9 +822,7 @@ function ExperienceModeSettingsSection() {
             </div>
             <div>
               <h3 className="font-medium">Steven AI Assistant</h3>
-              <p className="text-sm text-surface-400">
-                Your personal movie-making guide
-              </p>
+              <p className="text-sm text-surface-400">Your personal movie-making guide</p>
             </div>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
@@ -847,7 +837,8 @@ function ExperienceModeSettingsSection() {
         </div>
         {stevenEnabled && (
           <p className="text-xs text-surface-400 mt-3">
-            Steven will appear in the corner to help you through each step. Click on him anytime for tips!
+            Steven will appear in the corner to help you through each step. Click on him anytime for
+            tips!
           </p>
         )}
       </div>
@@ -855,9 +846,7 @@ function ExperienceModeSettingsSection() {
       {/* Per-Feature Overrides */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <label className="block text-sm text-surface-400">
-            Per-Feature Customization
-          </label>
+          <label className="block text-sm text-surface-400">Per-Feature Customization</label>
           <span className="text-xs text-surface-500">
             Override global mode for specific features
           </span>
@@ -878,7 +867,14 @@ function ExperienceModeSettingsSection() {
                   value={override || ''}
                   onChange={(e) =>
                     setFeatureMode(
-                      feature as 'screenplay' | 'characters' | 'scenes' | 'generation' | 'timeline' | 'export' | 'settings',
+                      feature as
+                        | 'screenplay'
+                        | 'characters'
+                        | 'scenes'
+                        | 'generation'
+                        | 'timeline'
+                        | 'export'
+                        | 'settings',
                       e.target.value ? (e.target.value as 'story' | 'creator' | 'pro') : null
                     )
                   }
@@ -944,7 +940,9 @@ export function SettingsPage() {
     queryKey: ['cost-stats'],
     queryFn: async () => {
       const periodDays = settings?.budgetPeriodDays || 30;
-      return api.getCostStats({ timeRange: periodDays <= 7 ? '7d' : periodDays <= 30 ? '30d' : 'all' });
+      return api.getCostStats({
+        timeRange: periodDays <= 7 ? '7d' : periodDays <= 30 ? '30d' : 'all',
+      });
     },
     refetchInterval: 60000, // Refresh every minute
   });
@@ -1013,7 +1011,11 @@ export function SettingsPage() {
       // ? - Show shortcuts help
       if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
         const target = e.target as HTMLElement;
-        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA' && target.tagName !== 'SELECT') {
+        if (
+          target.tagName !== 'INPUT' &&
+          target.tagName !== 'TEXTAREA' &&
+          target.tagName !== 'SELECT'
+        ) {
           e.preventDefault();
           setShowShortcuts(true);
           announce('Keyboard shortcuts opened');
@@ -1087,9 +1089,7 @@ export function SettingsPage() {
               <Settings className="w-6 h-6 text-brand-400" />
               Settings
             </h1>
-            <p className="text-surface-400 mt-1">
-              Configure application preferences and API keys
-            </p>
+            <p className="text-surface-400 mt-1">Configure application preferences and API keys</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1186,7 +1186,9 @@ export function SettingsPage() {
 
             {/* Video Providers */}
             <div>
-              <h3 className="text-sm font-medium text-surface-400 mb-3">Video Generation Providers</h3>
+              <h3 className="text-sm font-medium text-surface-400 mb-3">
+                Video Generation Providers
+              </h3>
               <div className="space-y-3">
                 <ApiKeyInput
                   provider="replicate"
@@ -1287,9 +1289,7 @@ export function SettingsPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Default LLM Provider
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Default LLM Provider</label>
               <select
                 value={getValue('llmProvider') || 'anthropic'}
                 onChange={(e) => handleLocalChange('llmProvider', e.target.value)}
@@ -1304,9 +1304,7 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Default Video Provider
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Default Video Provider</label>
               <select
                 value={getValue('videoProvider') || 'local'}
                 onChange={(e) => handleLocalChange('videoProvider', e.target.value)}
@@ -1321,9 +1319,7 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Default Resolution
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Default Resolution</label>
               <select
                 value={getValue('defaultVideoResolution') || '1920x1080'}
                 onChange={(e) => handleLocalChange('defaultVideoResolution', e.target.value)}
@@ -1337,9 +1333,7 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Default Frame Rate
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Default Frame Rate</label>
               <select
                 value={getValue('defaultVideoFps') || 24}
                 onChange={(e) => handleLocalChange('defaultVideoFps', parseInt(e.target.value))}
@@ -1573,9 +1567,7 @@ export function SettingsPage() {
                   <input
                     type="checkbox"
                     checked={getValue('autoCleanupTempFiles') ?? true}
-                    onChange={(e) =>
-                      handleLocalChange('autoCleanupTempFiles', e.target.checked)
-                    }
+                    onChange={(e) => handleLocalChange('autoCleanupTempFiles', e.target.checked)}
                     className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                   />
                   <span className="text-sm">Automatically cleanup temporary files</span>
@@ -1594,9 +1586,7 @@ export function SettingsPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Default Export Format
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Default Export Format</label>
               <select
                 value={getValue('defaultExportFormat') || 'mp4_h264'}
                 onChange={(e) => handleLocalChange('defaultExportFormat', e.target.value)}
@@ -1611,9 +1601,7 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Default Export Quality
-              </label>
+              <label className="block text-sm text-surface-400 mb-2">Default Export Quality</label>
               <select
                 value={getValue('defaultExportQuality') || 'high'}
                 onChange={(e) => handleLocalChange('defaultExportQuality', e.target.value)}
@@ -1652,8 +1640,8 @@ export function SettingsPage() {
 
           <div className="mt-4 pt-4 border-t border-surface-800">
             <p className="text-sm text-surface-400 mb-4">
-              SceneMachine.ai is a screenplay-to-movie platform that enables users to
-              transform written screenplays into generated video content.
+              SceneMachine.ai is a screenplay-to-movie platform that enables users to transform
+              written screenplays into generated video content.
             </p>
             <a
               href="https://scenemachine.ai"
@@ -1714,7 +1702,9 @@ export function SettingsPage() {
             </div>
             <div className="p-4 bg-surface-800/50 text-center">
               <p className="text-sm text-surface-400">
-                Press <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs font-mono">?</kbd> anytime to see shortcuts
+                Press{' '}
+                <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs font-mono">?</kbd>{' '}
+                anytime to see shortcuts
               </p>
             </div>
           </div>

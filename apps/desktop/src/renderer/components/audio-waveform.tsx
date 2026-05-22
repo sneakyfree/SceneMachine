@@ -127,7 +127,7 @@ export function AudioWaveform({
 
         // Normalize
         const max = Math.max(...waveform);
-        const normalized = waveform.map(v => v / max);
+        const normalized = waveform.map((v) => v / max);
         setWaveformData(normalized);
 
         setIsLoading(false);
@@ -226,9 +226,13 @@ export function AudioWaveform({
     const endIndex = Math.ceil(((scrollOffset + visibleWidth) / totalWidth) * waveformData.length);
 
     // Draw waveform bars
-    for (let i = Math.max(0, startIndex - 1); i < Math.min(waveformData.length, endIndex + 1); i++) {
+    for (
+      let i = Math.max(0, startIndex - 1);
+      i < Math.min(waveformData.length, endIndex + 1);
+      i++
+    ) {
       const value = waveformData[i];
-      const x = (i * barWidth) - scrollOffset;
+      const x = i * barWidth - scrollOffset;
       const barHeight = value * (height - (showTimeMarkers ? 20 : 10));
       const y = (height - barHeight - (showTimeMarkers ? 10 : 0)) / 2 + (showTimeMarkers ? 10 : 0);
 
@@ -296,7 +300,21 @@ export function AudioWaveform({
       ctx.closePath();
       ctx.fill();
     }
-  }, [waveformData, currentTime, duration, height, waveColor, progressColor, backgroundColor, zoom, scrollOffset, showTimeMarkers, cutPoints, showSnapIndicator, snapTime]);
+  }, [
+    waveformData,
+    currentTime,
+    duration,
+    height,
+    waveColor,
+    progressColor,
+    backgroundColor,
+    zoom,
+    scrollOffset,
+    showTimeMarkers,
+    cutPoints,
+    showSnapIndicator,
+    snapTime,
+  ]);
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current;
@@ -338,23 +356,26 @@ export function AudioWaveform({
     [cutPoints, snapThreshold, onSnapToCut]
   );
 
-  const handleSeek = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    const audio = audioRef.current;
-    if (!canvas || !audio) return;
+  const handleSeek = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      const audio = audioRef.current;
+      if (!canvas || !audio) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const totalWidth = rect.width * zoom;
-    const clickX = e.clientX - rect.left + scrollOffset;
-    const percent = clickX / totalWidth;
-    const rawTime = percent * duration;
+      const rect = canvas.getBoundingClientRect();
+      const totalWidth = rect.width * zoom;
+      const clickX = e.clientX - rect.left + scrollOffset;
+      const percent = clickX / totalWidth;
+      const rawTime = percent * duration;
 
-    // Check for snap-to-cut
-    const newTime = checkSnapToCut(Math.max(0, Math.min(duration, rawTime)), e.shiftKey);
+      // Check for snap-to-cut
+      const newTime = checkSnapToCut(Math.max(0, Math.min(duration, rawTime)), e.shiftKey);
 
-    audio.currentTime = newTime;
-    onSeek?.(newTime);
-  }, [duration, onSeek, zoom, scrollOffset, checkSnapToCut]);
+      audio.currentTime = newTime;
+      onSeek?.(newTime);
+    },
+    [duration, onSeek, zoom, scrollOffset, checkSnapToCut]
+  );
 
   // Zoom controls
   const handleZoomIn = useCallback(() => {
@@ -434,7 +455,9 @@ export function AudioWaveform({
 
   if (error) {
     return (
-      <div className={cn('flex items-center justify-center bg-surface-800 rounded-lg p-4', className)}>
+      <div
+        className={cn('flex items-center justify-center bg-surface-800 rounded-lg p-4', className)}
+      >
         <p className="text-red-400 text-sm">{error}</p>
       </div>
     );
@@ -453,10 +476,7 @@ export function AudioWaveform({
       {/* Waveform canvas */}
       <div className="relative" ref={containerRef}>
         {isLoading ? (
-          <div
-            className="flex items-center justify-center"
-            style={{ height, backgroundColor }}
-          >
+          <div className="flex items-center justify-center" style={{ height, backgroundColor }}>
             <Loader2 className="w-6 h-6 text-surface-400 animate-spin" />
           </div>
         ) : (
@@ -486,11 +506,7 @@ export function AudioWaveform({
             className="icon-btn p-2 text-surface-300 hover:text-white transition-colors disabled:opacity-50 rounded"
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? (
-              <Pause className="w-4 h-4" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </button>
 
           <div className="text-xs text-surface-400 font-mono min-w-[80px]">
@@ -638,13 +654,7 @@ export function AudioAnalyzer({
     };
   }, [audioElement, barCount, barColor, height]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className={cn('w-full', className)}
-      style={{ height }}
-    />
-  );
+  return <canvas ref={canvasRef} className={cn('w-full', className)} style={{ height }} />;
 }
 
 // Audio level meter component

@@ -4,10 +4,18 @@
    Font Scaling
    ============================================================================ */
 
-.font-scale-small { font-size: 14px; }
-.font-scale-medium { font-size: 16px; }
-.font-scale-large { font-size: 18px; }
-.font-scale-extra-large { font-size: 20px; }
+.font-scale-small {
+  font-size: 14px;
+}
+.font-scale-medium {
+  font-size: 16px;
+}
+.font-scale-large {
+  font-size: 18px;
+}
+.font-scale-extra-large {
+  font-size: 20px;
+}
 
 /* ============================================================================
    High Contrast Mode
@@ -73,15 +81,15 @@
 
 .large-targets button,
 .large-targets a,
-.large-targets [role="button"],
-.large-targets input[type="checkbox"],
-.large-targets input[type="radio"] {
+.large-targets [role='button'],
+.large-targets input[type='checkbox'],
+.large-targets input[type='radio'] {
   min-height: 44px;
   min-width: 44px;
 }
 
-.large-targets input[type="checkbox"],
-.large-targets input[type="radio"] {
+.large-targets input[type='checkbox'],
+.large-targets input[type='radio'] {
   width: 24px;
   height: 24px;
 }
@@ -156,15 +164,15 @@
    ARIA Live Regions
    ============================================================================ */
 
-[aria-live="polite"],
-[aria-live="assertive"],
-[role="status"],
-[role="alert"] {
+[aria-live='polite'],
+[aria-live='assertive'],
+[role='status'],
+[role='alert'] {
   /* Ensure screen readers can access */
 }
 
 /* Alert styling */
-[role="alert"] {
+[role='alert'] {
   padding: 1rem;
   border-radius: 0.5rem;
 }
@@ -173,7 +181,7 @@
    Disabled State Improvements
    ============================================================================ */
 
-[aria-disabled="true"],
+[aria-disabled='true'],
 [disabled] {
   opacity: 0.5;
   cursor: not-allowed;
@@ -184,7 +192,7 @@
    Loading State Accessibility
    ============================================================================ */
 
-[aria-busy="true"] {
+[aria-busy='true'] {
   cursor: wait;
 }
 
@@ -202,13 +210,13 @@
    Modal/Dialog Accessibility
    ============================================================================ */
 
-[role="dialog"],
-[role="alertdialog"] {
+[role='dialog'],
+[role='alertdialog'] {
   /* Ensure dialogs are properly styled */
 }
 
 /* Backdrop for modal dialogs */
-[aria-modal="true"]::backdrop {
+[aria-modal='true']::backdrop {
   background: rgba(0, 0, 0, 0.6);
 }
 
@@ -217,18 +225,18 @@
    ============================================================================ */
 
 /* Required field indicator */
-[aria-required="true"]::before {
-  content: "*";
+[aria-required='true']::before {
+  content: '*';
   color: var(--red-500, #ef4444);
   margin-right: 0.25rem;
 }
 
 /* Invalid field styling */
-[aria-invalid="true"] {
+[aria-invalid='true'] {
   border-color: var(--red-500, #ef4444) !important;
 }
 
-[aria-invalid="true"]:focus {
+[aria-invalid='true']:focus {
   outline-color: var(--red-500, #ef4444);
   box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
 }
@@ -237,9 +245,9 @@
    Selection and Current State
    ============================================================================ */
 
-[aria-selected="true"],
-[aria-current="true"],
-[aria-current="page"] {
+[aria-selected='true'],
+[aria-current='true'],
+[aria-current='page'] {
   /* Visual indication handled by component styles */
 }
 
@@ -247,12 +255,12 @@
    Expanded/Collapsed State
    ============================================================================ */
 
-[aria-expanded="false"] > .expand-icon {
+[aria-expanded='false'] > .expand-icon {
   transform: rotate(0deg);
   transition: transform 0.15s ease;
 }
 
-[aria-expanded="true"] > .expand-icon {
+[aria-expanded='true'] > .expand-icon {
   transform: rotate(90deg);
 }
 
@@ -261,8 +269,12 @@
    ============================================================================ */
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scale-in {
@@ -330,7 +342,9 @@
 .skip-link:focus {
   top: 0;
   outline: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(99, 102, 241, 0.5);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 3px rgba(99, 102, 241, 0.5);
 }
 
 .skip-link:nth-child(2) {
@@ -347,7 +361,7 @@
 
 /* Primary interactive elements */
 button:focus-visible,
-[role="button"]:focus-visible,
+[role='button']:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -358,30 +372,30 @@ textarea:focus-visible {
 }
 
 /* Cards and list items */
-[role="listitem"]:focus-visible,
-[role="option"]:focus-visible,
-[role="menuitem"]:focus-visible,
-[role="treeitem"]:focus-visible,
-[role="gridcell"]:focus-visible,
-[role="row"]:focus-visible {
+[role='listitem']:focus-visible,
+[role='option']:focus-visible,
+[role='menuitem']:focus-visible,
+[role='treeitem']:focus-visible,
+[role='gridcell']:focus-visible,
+[role='row']:focus-visible {
   outline: 2px solid var(--brand-500, #6366f1);
   outline-offset: -2px;
   background-color: rgba(99, 102, 241, 0.1);
 }
 
 /* Tab panels */
-[role="tab"]:focus-visible {
+[role='tab']:focus-visible {
   outline: 2px solid var(--brand-500, #6366f1);
   outline-offset: -2px;
   z-index: 1;
 }
 
 /* Sliders and range inputs */
-input[type="range"]:focus-visible {
+input[type='range']:focus-visible {
   outline: none;
 }
 
-input[type="range"]:focus-visible::-webkit-slider-thumb {
+input[type='range']:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.5);
 }
 
@@ -389,23 +403,23 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
    Landmark Styles
    ============================================================================ */
 
-[role="main"],
+[role='main'],
 main {
   outline: none;
 }
 
-[role="main"]:focus,
+[role='main']:focus,
 main:focus {
   outline: 2px dashed var(--brand-400, #818cf8);
   outline-offset: 4px;
 }
 
-[role="navigation"]:focus-within,
+[role='navigation']:focus-within,
 nav:focus-within {
   /* Subtle indicator that nav contains focus */
 }
 
-[role="region"][aria-label]:focus {
+[role='region'][aria-label]:focus {
   outline: 2px dashed var(--brand-400, #818cf8);
   outline-offset: 2px;
 }
@@ -461,21 +475,21 @@ nav:focus-within {
 
 /* Active/pressed state */
 .interactive-active:active,
-[aria-pressed="true"] {
+[aria-pressed='true'] {
   transform: scale(0.98);
 }
 
 /* Selected state with visual indicator */
-[aria-selected="true"],
-[aria-current="true"],
-[aria-current="page"] {
+[aria-selected='true'],
+[aria-current='true'],
+[aria-current='page'] {
   position: relative;
 }
 
-[aria-selected="true"]::before,
-[aria-current="true"]::before,
-[aria-current="page"]::before {
-  content: "";
+[aria-selected='true']::before,
+[aria-current='true']::before,
+[aria-current='page']::before {
+  content: '';
   position: absolute;
   left: 0;
   top: 50%;
@@ -492,7 +506,7 @@ nav:focus-within {
 
 /* Error message styling */
 .error-message,
-[role="alert"].error {
+[role='alert'].error {
   color: var(--red-500, #ef4444);
   font-size: 0.875rem;
   padding: 0.5rem;
@@ -503,7 +517,7 @@ nav:focus-within {
 
 /* Success message styling */
 .success-message,
-[role="status"].success {
+[role='status'].success {
   color: var(--green-500, #22c55e);
   font-size: 0.875rem;
   padding: 0.5rem;
@@ -514,7 +528,7 @@ nav:focus-within {
 
 /* Warning message styling */
 .warning-message,
-[role="alert"].warning {
+[role='alert'].warning {
   color: var(--yellow-500, #eab308);
   font-size: 0.875rem;
   padding: 0.5rem;
@@ -528,12 +542,12 @@ nav:focus-within {
    ============================================================================ */
 
 /* Ensure progress bars have text alternative */
-[role="progressbar"] {
+[role='progressbar'] {
   position: relative;
 }
 
-[role="progressbar"]::after {
-  content: attr(aria-valuenow) "% complete";
+[role='progressbar']::after {
+  content: attr(aria-valuenow) '% complete';
   position: absolute;
   width: 1px;
   height: 1px;
@@ -545,7 +559,7 @@ nav:focus-within {
    Tooltips Accessibility
    ============================================================================ */
 
-[role="tooltip"] {
+[role='tooltip'] {
   position: absolute;
   z-index: 1000;
   padding: 8px 12px;
@@ -557,7 +571,7 @@ nav:focus-within {
   max-width: 300px;
 }
 
-[role="tooltip"][aria-hidden="true"] {
+[role='tooltip'][aria-hidden='true'] {
   display: none;
 }
 
@@ -565,17 +579,17 @@ nav:focus-within {
    Table Accessibility
    ============================================================================ */
 
-table[role="grid"] th,
-table[role="grid"] td {
+table[role='grid'] th,
+table[role='grid'] td {
   padding: 12px 16px;
 }
 
-table[role="grid"] [aria-sort] {
+table[role='grid'] [aria-sort] {
   cursor: pointer;
 }
 
-table[role="grid"] [aria-sort]::after {
-  content: "";
+table[role='grid'] [aria-sort]::after {
+  content: '';
   display: inline-block;
   margin-left: 8px;
   width: 0;
@@ -584,11 +598,11 @@ table[role="grid"] [aria-sort]::after {
   border-right: 4px solid transparent;
 }
 
-table[role="grid"] [aria-sort="ascending"]::after {
+table[role='grid'] [aria-sort='ascending']::after {
   border-bottom: 6px solid currentColor;
 }
 
-table[role="grid"] [aria-sort="descending"]::after {
+table[role='grid'] [aria-sort='descending']::after {
   border-top: 6px solid currentColor;
 }
 
@@ -596,30 +610,30 @@ table[role="grid"] [aria-sort="descending"]::after {
    Menu/Dropdown Accessibility
    ============================================================================ */
 
-[role="menu"],
-[role="listbox"] {
+[role='menu'],
+[role='listbox'] {
   outline: none;
 }
 
-[role="menuitem"],
-[role="option"] {
+[role='menuitem'],
+[role='option'] {
   cursor: pointer;
   padding: 8px 16px;
 }
 
-[role="menuitem"]:hover,
-[role="option"]:hover {
+[role='menuitem']:hover,
+[role='option']:hover {
   background: var(--surface-700, #374151);
 }
 
-[role="menuitem"][aria-disabled="true"],
-[role="option"][aria-disabled="true"] {
+[role='menuitem'][aria-disabled='true'],
+[role='option'][aria-disabled='true'] {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 /* Separator in menus */
-[role="separator"] {
+[role='separator'] {
   height: 1px;
   background: var(--surface-600, #4b5563);
   margin: 4px 0;
@@ -629,14 +643,14 @@ table[role="grid"] [aria-sort="descending"]::after {
    Dialog/Modal Improvements
    ============================================================================ */
 
-[role="dialog"],
-[role="alertdialog"] {
+[role='dialog'],
+[role='alertdialog'] {
   outline: none;
 }
 
 /* Focus trap indicator */
 .focus-trap-active::after {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
@@ -653,7 +667,7 @@ table[role="grid"] [aria-sort="descending"]::after {
 }
 
 .status-success::before {
-  content: "✓";
+  content: '✓';
   margin-right: 4px;
 }
 
@@ -662,7 +676,7 @@ table[role="grid"] [aria-sort="descending"]::after {
 }
 
 .status-error::before {
-  content: "✕";
+  content: '✕';
   margin-right: 4px;
 }
 
@@ -671,7 +685,7 @@ table[role="grid"] [aria-sort="descending"]::after {
 }
 
 .status-warning::before {
-  content: "⚠";
+  content: '⚠';
   margin-right: 4px;
 }
 
@@ -680,7 +694,7 @@ table[role="grid"] [aria-sort="descending"]::after {
 }
 
 .status-info::before {
-  content: "ℹ";
+  content: 'ℹ';
   margin-right: 4px;
 }
 
@@ -698,15 +712,15 @@ table[role="grid"] [aria-sort="descending"]::after {
 
   /* Show URLs for links */
   a[href]::after {
-    content: " (" attr(href) ")";
+    content: ' (' attr(href) ')';
     font-size: 0.8em;
   }
 
   /* Hide non-essential elements */
   nav,
-  [role="navigation"],
+  [role='navigation'],
   .skip-links,
-  button:not([type="submit"]) {
+  button:not([type='submit']) {
     display: none !important;
   }
 

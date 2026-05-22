@@ -4,7 +4,7 @@ Authentication API Routes
 Endpoints for user registration, login, token refresh, and logout.
 """
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -166,7 +166,7 @@ async def refresh_token(
 async def logout(
     current_user: CurrentActiveUser,
     service: Annotated[AuthService, Depends(get_auth_service)],
-    data: Optional[RefreshTokenRequest] = None,
+    data: RefreshTokenRequest | None = None,
 ) -> MessageResponse:
     """Logout user and revoke refresh tokens.
 
@@ -241,9 +241,7 @@ async def change_password(
             current_password=data.current_password,
             new_password=data.new_password,
         )
-        return MessageResponse(
-            message="Password changed successfully. Please log in again."
-        )
+        return MessageResponse(message="Password changed successfully. Please log in again.")
     except InvalidCredentialsError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

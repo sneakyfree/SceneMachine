@@ -104,9 +104,10 @@ describe('Home Page', () => {
 
       renderHomePage();
       // Check for loading indicator
-      const loadingIndicator = screen.queryByRole('progressbar') ||
-                               screen.queryByText(/loading/i) ||
-                               screen.queryByTestId('loading');
+      const loadingIndicator =
+        screen.queryByRole('progressbar') ||
+        screen.queryByText(/loading/i) ||
+        screen.queryByTestId('loading');
       // May or may not have loading indicator
       expect(loadingIndicator !== null || true).toBe(true);
     });

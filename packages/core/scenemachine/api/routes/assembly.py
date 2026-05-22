@@ -1,13 +1,13 @@
 """Assembly and export API routes."""
 
-from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.database import get_session
+
 from ...services.assembly import (
     AssemblyService,
     ExportFormat,
@@ -29,7 +29,7 @@ class ExportRequest(BaseModel):
     include_audio: bool = True
     include_subtitles: bool = False
     watermark: bool = False
-    output_filename: Optional[str] = None
+    output_filename: str | None = None
 
 
 class AssemblyStatusResponse(BaseModel):
@@ -66,10 +66,10 @@ class ExportResultResponse(BaseModel):
     """Export result response."""
 
     success: bool
-    output_path: Optional[str] = None
-    file_size: Optional[int] = None
-    duration_seconds: Optional[float] = None
-    error_message: Optional[str] = None
+    output_path: str | None = None
+    file_size: int | None = None
+    duration_seconds: float | None = None
+    error_message: str | None = None
 
 
 # Track active exports
@@ -126,22 +126,24 @@ async def get_timeline(
 
         scenes_data = []
         for scene in timeline.scenes:
-            scenes_data.append({
-                "scene_id": str(scene.scene_id),
-                "scene_number": scene.scene_number,
-                "title": scene.title,
-                "duration": scene.duration,
-                "shots": [
-                    {
-                        "shot_id": str(shot.shot_id),
-                        "shot_number": shot.shot_number,
-                        "duration": shot.duration,
-                        "has_output": shot.output_path is not None,
-                        "thumbnail": shot.thumbnail_path,
-                    }
-                    for shot in scene.shots
-                ],
-            })
+            scenes_data.append(
+                {
+                    "scene_id": str(scene.scene_id),
+                    "scene_number": scene.scene_number,
+                    "title": scene.title,
+                    "duration": scene.duration,
+                    "shots": [
+                        {
+                            "shot_id": str(shot.shot_id),
+                            "shot_number": shot.shot_number,
+                            "duration": shot.duration,
+                            "has_output": shot.output_path is not None,
+                            "thumbnail": shot.thumbnail_path,
+                        }
+                        for shot in scene.shots
+                    ],
+                }
+            )
 
         return TimelineResponse(
             project_id=str(project_id),
@@ -171,7 +173,7 @@ async def assemble_scene(
             "message": "Starting scene assembly...",
         }
 
-        async def progress_callback(progress):
+        async def progress_callback(progress) -> None:
             _active_exports[export_id] = {
                 "status": "running",
                 "percent": progress.percent,
@@ -219,7 +221,7 @@ async def assemble_movie(
             "message": "Starting movie assembly...",
         }
 
-        async def progress_callback(progress):
+        async def progress_callback(progress) -> None:
             _active_exports[export_id] = {
                 "status": "running",
                 "percent": progress.percent,
@@ -278,7 +280,7 @@ async def export_movie(
             "message": "Starting export...",
         }
 
-        async def progress_callback(progress):
+        async def progress_callback(progress) -> None:
             _active_exports[export_id] = {
                 "status": "running",
                 "percent": progress.percent,

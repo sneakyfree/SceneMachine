@@ -115,9 +115,9 @@ describe('ShotCard', () => {
       expect(screen.queryByText(/Dialogue/)).not.toBeInTheDocument();
 
       // Click expand button
-      const expandButton = screen.getAllByRole('button').find(
-        btn => btn.querySelector('svg')?.classList.contains('w-4')
-      );
+      const expandButton = screen
+        .getAllByRole('button')
+        .find((btn) => btn.querySelector('svg')?.classList.contains('w-4'));
       await user.click(expandButton!);
 
       // Now expanded
@@ -202,9 +202,12 @@ describe('ShotCard', () => {
       // Save
       await user.click(screen.getByText('Save Changes'));
 
-      expect(mockOnUpdate).toHaveBeenCalledWith('shot-1', expect.objectContaining({
-        description: 'New description',
-      }));
+      expect(mockOnUpdate).toHaveBeenCalledWith(
+        'shot-1',
+        expect.objectContaining({
+          description: 'New description',
+        })
+      );
     });
 
     it('cancels changes on cancel button click', async () => {
@@ -243,9 +246,12 @@ describe('ShotCard', () => {
       // Save
       await user.click(screen.getByText('Save Changes'));
 
-      expect(mockOnUpdate).toHaveBeenCalledWith('shot-1', expect.objectContaining({
-        shotType: 'close_up',
-      }));
+      expect(mockOnUpdate).toHaveBeenCalledWith(
+        'shot-1',
+        expect.objectContaining({
+          shotType: 'close_up',
+        })
+      );
     });
 
     it('updates duration via input', async () => {
@@ -265,9 +271,12 @@ describe('ShotCard', () => {
       // Save
       await user.click(screen.getByText('Save Changes'));
 
-      expect(mockOnUpdate).toHaveBeenCalledWith('shot-1', expect.objectContaining({
-        durationSeconds: 5,
-      }));
+      expect(mockOnUpdate).toHaveBeenCalledWith(
+        'shot-1',
+        expect.objectContaining({
+          durationSeconds: 5,
+        })
+      );
     });
   });
 
@@ -363,10 +372,13 @@ describe('ShotCard', () => {
       // Save
       await user.click(screen.getByText('Save Changes'));
 
-      expect(mockOnUpdate).toHaveBeenCalledWith('shot-1', expect.objectContaining({
-        compositionNotes: 'Center framing',
-        lightingNotes: 'Low key lighting',
-      }));
+      expect(mockOnUpdate).toHaveBeenCalledWith(
+        'shot-1',
+        expect.objectContaining({
+          compositionNotes: 'Center framing',
+          lightingNotes: 'Low key lighting',
+        })
+      );
     });
   });
 });

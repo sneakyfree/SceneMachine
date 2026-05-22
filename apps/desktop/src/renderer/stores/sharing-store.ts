@@ -42,7 +42,10 @@ interface SharingStoreState {
 
   // Async actions
   fetchShares: (projectId: string) => Promise<void>;
-  fetchComments: (projectId: string, options?: { shotId?: string; includeResolved?: boolean }) => Promise<void>;
+  fetchComments: (
+    projectId: string,
+    options?: { shotId?: string; includeResolved?: boolean }
+  ) => Promise<void>;
   createShare: (options: {
     projectId: string;
     permission?: 'view' | 'comment' | 'edit';
@@ -155,7 +158,8 @@ export const useSharingStore = create<SharingStoreState>()(
           });
         } catch (error) {
           set((state) => {
-            state.commentsError = error instanceof Error ? error.message : 'Failed to fetch comments';
+            state.commentsError =
+              error instanceof Error ? error.message : 'Failed to fetch comments';
             state.isLoadingComments = false;
           });
         }

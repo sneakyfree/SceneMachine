@@ -113,9 +113,7 @@ function DialogueLineItem({
       </div>
 
       {/* Dialogue text */}
-      <p className="text-sm text-surface-300 mb-2 leading-relaxed">
-        "{line.text}"
-      </p>
+      <p className="text-sm text-surface-300 mb-2 leading-relaxed">"{line.text}"</p>
 
       {/* Emotion & Speed controls */}
       <div className="flex items-center gap-3 mb-3">
@@ -155,21 +153,13 @@ function DialogueLineItem({
               onClick={onPlay}
               className={cn(
                 'p-2 rounded-lg transition-colors',
-                isPlaying
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-surface-700 hover:bg-surface-600'
+                isPlaying ? 'bg-brand-500 text-white' : 'bg-surface-700 hover:bg-surface-600'
               )}
             >
-              {isPlaying ? (
-                <Pause className="w-4 h-4" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
+              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             </button>
             {line.audioDuration && (
-              <span className="text-xs text-surface-400">
-                {formatDuration(line.audioDuration)}
-              </span>
+              <span className="text-xs text-surface-400">{formatDuration(line.audioDuration)}</span>
             )}
             <div className="flex-1" />
             <button
@@ -234,10 +224,7 @@ export function DialoguePanel({
       if (sceneId) params.scene_id = sceneId;
       if (shotId) params.shot_id = shotId;
 
-      return window.electronAPI.backendRequest<DialogueLine[]>(
-        'audio.getDialogueLines',
-        params
-      );
+      return window.electronAPI.backendRequest<DialogueLine[]>('audio.getDialogueLines', params);
     },
     enabled: !!projectId,
   });
@@ -282,9 +269,10 @@ export function DialoguePanel({
   // Generate all mutation
   const generateAllMutation = useMutation({
     mutationFn: async () => {
-      const pending = dialogueLines?.filter(
-        (d) => d.generationStatus === 'pending' || d.generationStatus === 'failed'
-      ) || [];
+      const pending =
+        dialogueLines?.filter(
+          (d) => d.generationStatus === 'pending' || d.generationStatus === 'failed'
+        ) || [];
 
       for (const line of pending) {
         setGeneratingIds((prev) => new Set(prev).add(line.id));
@@ -355,12 +343,12 @@ export function DialoguePanel({
     }
   }, [volume, isMuted]);
 
-  const pendingCount = dialogueLines?.filter(
-    (d) => d.generationStatus === 'pending' || d.generationStatus === 'failed'
-  ).length ?? 0;
-  const completedCount = dialogueLines?.filter(
-    (d) => d.generationStatus === 'completed'
-  ).length ?? 0;
+  const pendingCount =
+    dialogueLines?.filter(
+      (d) => d.generationStatus === 'pending' || d.generationStatus === 'failed'
+    ).length ?? 0;
+  const completedCount =
+    dialogueLines?.filter((d) => d.generationStatus === 'completed').length ?? 0;
 
   return (
     <div className="bg-surface-900 border border-surface-800 rounded-xl overflow-hidden">
@@ -394,11 +382,7 @@ export function DialoguePanel({
                 className="icon-btn p-2 text-surface-400 hover:text-surface-200 transition-colors rounded"
                 aria-label={isMuted ? 'Unmute dialogue' : 'Mute dialogue'}
               >
-                {isMuted ? (
-                  <VolumeX className="w-4 h-4" />
-                ) : (
-                  <Volume2 className="w-4 h-4" />
-                )}
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>
               <input
                 type="range"
@@ -489,9 +473,7 @@ export function DialogueIndicator({
     <div
       className={cn(
         'flex items-center gap-1 px-2 py-0.5 rounded text-xs',
-        isComplete
-          ? 'bg-green-500/20 text-green-400'
-          : 'bg-surface-700 text-surface-400'
+        isComplete ? 'bg-green-500/20 text-green-400' : 'bg-surface-700 text-surface-400'
       )}
     >
       <MessageSquare className="w-3 h-3" />

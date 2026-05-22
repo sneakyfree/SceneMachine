@@ -3,28 +3,19 @@
 Tests the complete flow from shot queuing through generation to approval.
 """
 
-import asyncio
 import pytest
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import List
-from uuid import uuid4
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models import Project, ProjectState, Scene, Shot
-from scenemachine.models.generation_job import GenerationJob, JobProvider, JobStatus
+from scenemachine.models.generation_job import JobProvider, JobStatus
 from scenemachine.models.scene import SceneState
 from scenemachine.models.shot import CameraMovement, ShotState, ShotType
 from scenemachine.services.generation import (
-    GenerationService,
-    GenerationRequest,
-    GenerationResult,
-    MockGenerationProvider,
-    ReplicateProvider,
     FalProvider,
+    GenerationService,
+    ReplicateProvider,
 )
-from scenemachine.services.queue_worker import QueueWorker, get_queue_worker
+from scenemachine.services.queue_worker import QueueWorker
 
 
 @pytest.fixture
@@ -214,9 +205,7 @@ class TestMockGeneration:
         await service.process_job(job.id)
 
         # Reject with notes
-        rejected_shot = await service.reject_shot(
-            shot.id, notes="Lighting is too dark"
-        )
+        rejected_shot = await service.reject_shot(shot.id, notes="Lighting is too dark")
 
         assert rejected_shot.state == ShotState.REJECTED
         assert rejected_shot.user_notes == "Lighting is too dark"
@@ -354,9 +343,7 @@ class TestProviders:
     """Tests for provider management."""
 
     @pytest.mark.asyncio
-    async def test_list_available_providers(
-        self, db_session: AsyncSession
-    ) -> None:
+    async def test_list_available_providers(self, db_session: AsyncSession) -> None:
         """Test listing available providers."""
         service = GenerationService(db_session)
 

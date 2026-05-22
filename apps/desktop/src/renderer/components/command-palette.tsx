@@ -58,8 +58,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   // Fetch projects for search
   const { data: projects } = useQuery({
     queryKey: ['projects'],
-    queryFn: () =>
-      window.electronAPI?.backendRequest<any[]>('projects.list', {}) ?? [],
+    queryFn: () => window.electronAPI?.backendRequest<any[]>('projects.list', {}) ?? [],
     enabled: isOpen,
   });
 
@@ -73,7 +72,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         description: 'View all projects',
         icon: <Home className="w-4 h-4" />,
         shortcut: 'Ctrl+H',
-        action: () => { navigate('/'); onClose(); },
+        action: () => {
+          navigate('/');
+          onClose();
+        },
         category: 'navigation',
         keywords: ['home', 'dashboard'],
       },
@@ -83,7 +85,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         description: 'Configure application settings',
         icon: <Settings className="w-4 h-4" />,
         shortcut: 'Ctrl+,',
-        action: () => { navigate('/settings'); onClose(); },
+        action: () => {
+          navigate('/settings');
+          onClose();
+        },
         category: 'navigation',
         keywords: ['preferences', 'config'],
       },
@@ -92,7 +97,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         label: 'View Analytics',
         description: 'Usage statistics and metrics',
         icon: <BarChart3 className="w-4 h-4" />,
-        action: () => { navigate('/analytics'); onClose(); },
+        action: () => {
+          navigate('/analytics');
+          onClose();
+        },
         category: 'navigation',
         keywords: ['stats', 'metrics', 'usage'],
       },
@@ -101,7 +109,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         label: 'Project Archive',
         description: 'Import and export projects',
         icon: <Archive className="w-4 h-4" />,
-        action: () => { navigate('/archive'); onClose(); },
+        action: () => {
+          navigate('/archive');
+          onClose();
+        },
         category: 'navigation',
         keywords: ['import', 'export', 'backup'],
       },
@@ -110,7 +121,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         label: 'Help & Documentation',
         description: 'Get help using SceneMachine',
         icon: <HelpCircle className="w-4 h-4" />,
-        action: () => { navigate('/help'); onClose(); },
+        action: () => {
+          navigate('/help');
+          onClose();
+        },
         category: 'navigation',
         keywords: ['docs', 'support', 'faq'],
       },
@@ -139,7 +153,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           description: 'Project dashboard',
           icon: <Film className="w-4 h-4" />,
           shortcut: 'Ctrl+1',
-          action: () => { navigate(`/project/${currentProject.id}`); onClose(); },
+          action: () => {
+            navigate(`/project/${currentProject.id}`);
+            onClose();
+          },
           category: 'project',
           keywords: ['dashboard', 'project'],
         },
@@ -149,7 +166,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           description: 'Character lab',
           icon: <Users className="w-4 h-4" />,
           shortcut: 'Ctrl+2',
-          action: () => { navigate(`/project/${currentProject.id}/characters`); onClose(); },
+          action: () => {
+            navigate(`/project/${currentProject.id}/characters`);
+            onClose();
+          },
           category: 'project',
           keywords: ['actors', 'cast'],
         },
@@ -159,7 +179,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           description: 'Plan and edit scenes',
           icon: <Clapperboard className="w-4 h-4" />,
           shortcut: 'Ctrl+3',
-          action: () => { navigate(`/project/${currentProject.id}/scenes`); onClose(); },
+          action: () => {
+            navigate(`/project/${currentProject.id}/scenes`);
+            onClose();
+          },
           category: 'project',
           keywords: ['shots', 'breakdown'],
         },
@@ -169,7 +192,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           description: 'Generate video shots',
           icon: <Sparkles className="w-4 h-4" />,
           shortcut: 'Ctrl+4',
-          action: () => { navigate(`/project/${currentProject.id}/generate`); onClose(); },
+          action: () => {
+            navigate(`/project/${currentProject.id}/generate`);
+            onClose();
+          },
           category: 'project',
           keywords: ['ai', 'create', 'video'],
         },
@@ -178,7 +204,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           label: `${currentProject.name}: Timeline`,
           description: 'Video timeline editor',
           icon: <Clock className="w-4 h-4" />,
-          action: () => { navigate(`/project/${currentProject.id}/timeline`); onClose(); },
+          action: () => {
+            navigate(`/project/${currentProject.id}/timeline`);
+            onClose();
+          },
           category: 'project',
           keywords: ['edit', 'arrange'],
         },
@@ -188,7 +217,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           description: 'Export final video',
           icon: <Download className="w-4 h-4" />,
           shortcut: 'Ctrl+5',
-          action: () => { navigate(`/project/${currentProject.id}/export`); onClose(); },
+          action: () => {
+            navigate(`/project/${currentProject.id}/export`);
+            onClose();
+          },
           category: 'project',
           keywords: ['render', 'output'],
         }
@@ -205,7 +237,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             label: project.name,
             description: `${project.state} - ${project.sceneCount || 0} scenes`,
             icon: <FolderOpen className="w-4 h-4" />,
-            action: () => { navigate(`/project/${project.id}`); onClose(); },
+            action: () => {
+              navigate(`/project/${project.id}`);
+              onClose();
+            },
             category: 'recent',
             keywords: ['project', 'open'],
           });
@@ -261,30 +296,33 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   }, [isOpen]);
 
   // Handle keyboard navigation
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    const totalItems = filteredCommands.length;
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const totalItems = filteredCommands.length;
 
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev + 1) % totalItems);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev - 1 + totalItems) % totalItems);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (filteredCommands[selectedIndex]) {
-          filteredCommands[selectedIndex].action();
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        onClose();
-        break;
-    }
-  }, [filteredCommands, selectedIndex, onClose]);
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex((prev) => (prev + 1) % totalItems);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex((prev) => (prev - 1 + totalItems) % totalItems);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (filteredCommands[selectedIndex]) {
+            filteredCommands[selectedIndex].action();
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          onClose();
+          break;
+      }
+    },
+    [filteredCommands, selectedIndex, onClose]
+  );
 
   // Scroll selected item into view
   useEffect(() => {
@@ -337,7 +375,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             aria-controls="command-list"
             aria-activedescendant={filteredCommands[selectedIndex]?.id}
           />
-          <kbd className="px-2 py-1 bg-surface-800 rounded text-xs text-surface-400 font-mono" aria-hidden="true">
+          <kbd
+            className="px-2 py-1 bg-surface-800 rounded text-xs text-surface-400 font-mono"
+            aria-hidden="true"
+          >
             esc
           </kbd>
         </div>
@@ -361,7 +402,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
               if (items.length === 0) return null;
 
               return (
-                <div key={category} className="mb-2" role="group" aria-labelledby={`group-${category}`}>
+                <div
+                  key={category}
+                  className="mb-2"
+                  role="group"
+                  aria-labelledby={`group-${category}`}
+                >
                   <div
                     id={`group-${category}`}
                     className="px-2 py-1 text-xs font-medium text-surface-500 uppercase"
@@ -410,7 +456,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                             className="px-2 py-1 bg-surface-800 rounded text-xs text-surface-400 font-mono"
                             aria-label={`Keyboard shortcut: ${cmd.shortcut}`}
                           >
-                            {cmd.shortcut.replace('Ctrl', navigator.platform.includes('Mac') ? '⌘' : 'Ctrl')}
+                            {cmd.shortcut.replace(
+                              'Ctrl',
+                              navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'
+                            )}
                           </kbd>
                         )}
                       </button>
@@ -448,8 +497,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {filteredCommands.length === 0
             ? 'No commands found'
-            : `${filteredCommands.length} commands available. Use arrow keys to navigate.`
-          }
+            : `${filteredCommands.length} commands available. Use arrow keys to navigate.`}
         </div>
       </div>
     </div>

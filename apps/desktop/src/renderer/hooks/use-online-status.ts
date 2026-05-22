@@ -85,9 +85,7 @@ export function useOnlineStatus(options: UseOnlineStatusOptions = {}): OnlineSta
   const [isOnline, setIsOnline] = useState<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
-  const [lastOnline, setLastOnline] = useState<Date | null>(
-    isOnline ? new Date() : null
-  );
+  const [lastOnline, setLastOnline] = useState<Date | null>(isOnline ? new Date() : null);
   const [isChecking, setIsChecking] = useState(false);
 
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -122,10 +120,12 @@ export function useOnlineStatus(options: UseOnlineStatusOptions = {}): OnlineSta
         signal: abortControllerRef.current.signal,
         // Add timeout
         ...(typeof AbortSignal !== 'undefined' && AbortSignal.timeout
-          ? { signal: AbortSignal.any([
-              abortControllerRef.current.signal,
-              AbortSignal.timeout(pingTimeout),
-            ]) }
+          ? {
+              signal: AbortSignal.any([
+                abortControllerRef.current.signal,
+                AbortSignal.timeout(pingTimeout),
+              ]),
+            }
           : {}),
       });
 

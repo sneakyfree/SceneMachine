@@ -4,9 +4,8 @@ Lambda Labs offers cloud GPUs with simple pricing and
 excellent availability for ML/AI workloads.
 """
 
-import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -38,7 +37,7 @@ class LambdaLabsProvider(GPUExchangeProvider):
     """
 
     # GPU type mapping to Lambda Labs instance types
-    INSTANCE_TYPES: Dict[GPUType, str] = {
+    INSTANCE_TYPES: dict[GPUType, str] = {
         GPUType.A10: "gpu_1x_a10",
         GPUType.A100_40GB: "gpu_1x_a100",
         GPUType.A100_80GB: "gpu_1x_a100_80gb",
@@ -46,7 +45,7 @@ class LambdaLabsProvider(GPUExchangeProvider):
     }
 
     # Pricing per hour (USD)
-    HOURLY_PRICING: Dict[GPUType, float] = {
+    HOURLY_PRICING: dict[GPUType, float] = {
         GPUType.A10: 0.60,
         GPUType.A100_40GB: 1.29,
         GPUType.A100_80GB: 1.89,
@@ -56,14 +55,14 @@ class LambdaLabsProvider(GPUExchangeProvider):
     # Lambda Labs API base URL
     API_BASE = "https://cloud.lambdalabs.com/api/v1"
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         """Initialize Lambda Labs provider.
 
         Args:
             api_key: Lambda Labs API key
         """
         self.api_key = api_key
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create HTTP client with auth."""
@@ -83,7 +82,7 @@ class LambdaLabsProvider(GPUExchangeProvider):
         method: str,
         endpoint: str,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make an authenticated API request."""
         client = await self._get_client()
         response = await client.request(method, endpoint, **kwargs)
@@ -99,7 +98,7 @@ class LambdaLabsProvider(GPUExchangeProvider):
         return "lambda_labs"
 
     @property
-    def capabilities(self) -> List[ProviderCapability]:
+    def capabilities(self) -> list[ProviderCapability]:
         return [
             ProviderCapability.VIDEO_GENERATION,
             ProviderCapability.IMAGE_GENERATION,
@@ -109,18 +108,18 @@ class LambdaLabsProvider(GPUExchangeProvider):
         ]
 
     @property
-    def supported_gpu_types(self) -> List[GPUType]:
+    def supported_gpu_types(self) -> list[GPUType]:
         return list(self.INSTANCE_TYPES.keys())
 
     @property
-    def regions(self) -> List[str]:
+    def regions(self) -> list[str]:
         return ["us-tx-1", "us-az-1", "us-ca-1", "eu-south-1"]
 
     async def get_available_instances(
         self,
-        gpu_type: Optional[GPUType] = None,
-        region: Optional[str] = None,
-    ) -> List[GPUInstance]:
+        gpu_type: GPUType | None = None,
+        region: str | None = None,
+    ) -> list[GPUInstance]:
         """Get available Lambda Labs instances from the API."""
         if not self.api_key:
             logger.warning("Lambda Labs API key not configured")
@@ -183,7 +182,7 @@ class LambdaLabsProvider(GPUExchangeProvider):
             logger.error(f"Failed to get Lambda Labs instances: {e}")
             return []
 
-    def _map_gpu_type(self, gpu_description: str) -> Optional[GPUType]:
+    def _map_gpu_type(self, gpu_description: str) -> GPUType | None:
         """Map GPU description to our GPUType enum."""
         desc_lower = gpu_description.lower()
         if "h100" in desc_lower:
@@ -209,8 +208,8 @@ class LambdaLabsProvider(GPUExchangeProvider):
     async def get_current_pricing(
         self,
         gpu_type: GPUType,
-        region: Optional[str] = None,
-    ) -> Optional[GPUPricing]:
+        region: str | None = None,
+    ) -> GPUPricing | None:
         """Get current Lambda Labs pricing."""
         if gpu_type not in self.HOURLY_PRICING:
             return None
@@ -230,7 +229,7 @@ class LambdaLabsProvider(GPUExchangeProvider):
         self,
         gpu_type: GPUType,
         max_price_per_hour: float,
-        region: Optional[str] = None,
+        region: str | None = None,
         spot: bool = False,
     ) -> ProvisionResult:
         """Provision a Lambda Labs instance."""
@@ -275,7 +274,9 @@ class LambdaLabsProvider(GPUExchangeProvider):
                 "quantity": 1,
             }
 
-            response = await self._make_request("POST", "/instance-operations/launch", json=launch_data)
+            response = await self._make_request(
+                "POST", "/instance-operations/launch", json=launch_data
+            )
             instance_ids = response.get("data", {}).get("instance_ids", [])
 
             if not instance_ids:

@@ -282,7 +282,12 @@ export function AnalyticsPage() {
   };
 
   // Fetch analytics data
-  const { data: analytics, isLoading, refetch, isFetching } = useQuery({
+  const {
+    data: analytics,
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery({
     queryKey: ['analytics', timeRange],
     queryFn: async () => {
       // Fetch from backend
@@ -298,7 +303,8 @@ export function AnalyticsPage() {
       ]);
 
       // Generate historical data based on time range
-      const days = timeRange === '24h' ? 24 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+      const days =
+        timeRange === '24h' ? 24 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
       const historical = generateHistoricalData(days);
 
       return { generation, costs, projects, performance, historical };
@@ -316,12 +322,12 @@ export function AnalyticsPage() {
         total_generation_time_seconds: 7053.2,
       },
       costs: {
-        total_cost_usd: 24.50,
+        total_cost_usd: 24.5,
         cost_by_provider: {
           local: 0,
-          replicate: 12.30,
-          fal: 8.20,
-          runwayml: 4.00,
+          replicate: 12.3,
+          fal: 8.2,
+          runwayml: 4.0,
         },
         cost_by_project: {},
         avg_cost_per_shot: 0.17,
@@ -631,11 +637,27 @@ export function AnalyticsPage() {
                 </h2>
                 <DonutChart
                   data={[
-                    { label: 'Completed', value: analytics?.generation.completed_jobs || 0, color: '#22c55e' },
-                    { label: 'Failed', value: analytics?.generation.failed_jobs || 0, color: '#ef4444' },
-                    { label: 'Cancelled', value: analytics?.generation.cancelled_jobs || 0, color: '#f59e0b' },
-                    { label: 'Pending', value: analytics?.generation.pending_jobs || 0, color: '#6b7280' },
-                  ].filter(d => d.value > 0)}
+                    {
+                      label: 'Completed',
+                      value: analytics?.generation.completed_jobs || 0,
+                      color: '#22c55e',
+                    },
+                    {
+                      label: 'Failed',
+                      value: analytics?.generation.failed_jobs || 0,
+                      color: '#ef4444',
+                    },
+                    {
+                      label: 'Cancelled',
+                      value: analytics?.generation.cancelled_jobs || 0,
+                      color: '#f59e0b',
+                    },
+                    {
+                      label: 'Pending',
+                      value: analytics?.generation.pending_jobs || 0,
+                      color: '#6b7280',
+                    },
+                  ].filter((d) => d.value > 0)}
                   size={160}
                   centerValue={`${(analytics?.generation.success_rate || 0).toFixed(0)}%`}
                   centerLabel="Success"

@@ -9,16 +9,14 @@ Responsibilities:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from scenemachine.agents.base import (
-    BaseAgent,
-    AgentType,
     ActionContext,
     ActionResult,
     ActionStatus,
-    EscalationReason,
+    AgentType,
+    BaseAgent,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,26 +25,26 @@ logger = logging.getLogger(__name__)
 class GeneratorAgent(BaseAgent):
     """
     Agent responsible for video and audio generation.
-    
+
     Autonomous actions:
     - generate_video: Generate video for a shot
     - generate_audio: Generate TTS audio for dialogue
     - apply_lipsync: Apply lip-sync to video
     - retry_failed: Retry failed generations
-    
+
     Requires approval:
     - spend_budget: When generation cost exceeds threshold
     - use_premium_model: When using expensive cloud models
     """
-    
+
     COST_THRESHOLD_USD = 10.0  # Require approval above this
-    
+
     @property
     def agent_type(self) -> AgentType:
         return AgentType.GENERATOR
-    
+
     @property
-    def capabilities(self) -> List[str]:
+    def capabilities(self) -> list[str]:
         return [
             "generate_video",
             "generate_audio",
@@ -55,11 +53,11 @@ class GeneratorAgent(BaseAgent):
             "spend_budget",
             "use_premium_model",
         ]
-    
+
     @property
-    def requires_approval(self) -> List[str]:
+    def requires_approval(self) -> list[str]:
         return ["spend_budget", "use_premium_model"]
-    
+
     async def _execute_action(
         self,
         action_name: str,
@@ -82,7 +80,7 @@ class GeneratorAgent(BaseAgent):
                 success=False,
                 error_message=f"Unknown action: {action_name}",
             )
-    
+
     async def _generate_video(
         self,
         context: ActionContext,
@@ -95,10 +93,10 @@ class GeneratorAgent(BaseAgent):
         """Generate video for a shot."""
         try:
             from scenemachine.services.generation import (
-                MockGenerationProvider,
                 GenerationRequest,
+                MockGenerationProvider,
             )
-            
+
             provider = MockGenerationProvider()
             request = GenerationRequest(
                 shot_id=shot_id,
@@ -106,9 +104,9 @@ class GeneratorAgent(BaseAgent):
                 negative_prompt=negative_prompt,
                 duration_seconds=duration_seconds,
             )
-            
+
             result = await provider.generate(request)
-            
+
             return ActionResult(
                 action_id=context.session_id,
                 status=ActionStatus.COMPLETED if result.success else ActionStatus.FAILED,
@@ -129,7 +127,7 @@ class GeneratorAgent(BaseAgent):
                 success=False,
                 error_message=str(e),
             )
-    
+
     async def _generate_audio(
         self,
         context: ActionContext,
@@ -139,12 +137,12 @@ class GeneratorAgent(BaseAgent):
         """Generate TTS audio for dialogue."""
         try:
             from scenemachine.services.audio import MockTTSProvider, TTSRequest
-            
+
             provider = MockTTSProvider()
             request = TTSRequest(text=text, voice_id=voice_id)
-            
+
             result = await provider.generate(request)
-            
+
             return ActionResult(
                 action_id=context.session_id,
                 status=ActionStatus.COMPLETED if result.success else ActionStatus.FAILED,
@@ -164,7 +162,7 @@ class GeneratorAgent(BaseAgent):
                 success=False,
                 error_message=str(e),
             )
-    
+
     async def _apply_lipsync(
         self,
         context: ActionContext,
@@ -175,9 +173,9 @@ class GeneratorAgent(BaseAgent):
         """Apply lip-sync to a video."""
         try:
             from scenemachine.services.lipsync import MockLipSyncProvider
-            
+
             provider = MockLipSyncProvider()
-            
+
             # First analyze the audio
             analysis = await provider.analyze_audio(audio_path)
             if not analysis.success:
@@ -187,14 +185,14 @@ class GeneratorAgent(BaseAgent):
                     success=False,
                     error_message=analysis.error_message,
                 )
-            
+
             # Then apply to video
             result = await provider.apply_to_video(
                 video_path=video_path,
                 lip_sync_data=analysis.lip_sync_data,
                 output_path=output_path,
             )
-            
+
             return ActionResult(
                 action_id=context.session_id,
                 status=ActionStatus.COMPLETED if result.success else ActionStatus.FAILED,
@@ -213,7 +211,7 @@ class GeneratorAgent(BaseAgent):
                 success=False,
                 error_message=str(e),
             )
-    
+
     async def _retry_failed(
         self,
         context: ActionContext,
@@ -223,7 +221,7 @@ class GeneratorAgent(BaseAgent):
         """Retry a failed generation job."""
         # This would fetch the job from the queue and retry
         # For now, return a mock success
-        
+
         return ActionResult(
             action_id=context.session_id,
             status=ActionStatus.COMPLETED,

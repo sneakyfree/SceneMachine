@@ -8,23 +8,22 @@ Provides endpoints for:
 """
 
 import logging
-from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.api.dependencies import get_db
-from scenemachine.services.snapshots import SnapshotService, Snapshot, DeltaReport
+from scenemachine.services.snapshots import SnapshotService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/snapshots", tags=["snapshots"])
 
 
 class CreateSnapshotRequest(BaseModel):
-    label: Optional[str] = None
-    description: Optional[str] = None
+    label: str | None = None
+    description: str | None = None
 
 
 class SnapshotResponse(BaseModel):
@@ -43,7 +42,7 @@ class DeltaReportResponse(BaseModel):
     additions: int
     removals: int
     modifications: int
-    changes: List[dict]
+    changes: list[dict]
 
 
 @router.post("/{project_id}")
@@ -54,7 +53,7 @@ async def create_snapshot(
 ) -> SnapshotResponse:
     """Create a new snapshot of the project state."""
     service = SnapshotService()
-    
+
     # In production, would fetch actual project data from database
     # For now, use placeholder data
     snapshot = await service.create_snapshot(
@@ -66,7 +65,7 @@ async def create_snapshot(
         label=request.label or "",
         description=request.description or "",
     )
-    
+
     return SnapshotResponse(
         id=str(snapshot.id),
         label=snapshot.label,
@@ -78,11 +77,11 @@ async def create_snapshot(
 
 
 @router.get("/{project_id}")
-async def list_snapshots(project_id: str) -> List[SnapshotResponse]:
+async def list_snapshots(project_id: str) -> list[SnapshotResponse]:
     """List all snapshots for a project."""
     service = SnapshotService()
     snapshots = await service.list_snapshots(UUID(project_id))
-    
+
     return [
         SnapshotResponse(
             id=str(s.id),
@@ -104,7 +103,7 @@ async def compare_snapshots(
 ) -> DeltaReportResponse:
     """Compare two snapshots and return delta report."""
     service = SnapshotService()
-    
+
     try:
         report = await service.compare_snapshots(
             project_id=UUID(project_id),
@@ -113,7 +112,7 @@ async def compare_snapshots(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    
+
     return DeltaReportResponse(
         from_label=report.from_label,
         to_label=report.to_label,
@@ -130,8 +129,8 @@ async def get_snapshot(project_id: str, snapshot_id: str) -> dict:
     """Get a specific snapshot."""
     service = SnapshotService()
     snapshot = await service.get_snapshot(UUID(project_id), UUID(snapshot_id))
-    
+
     if not snapshot:
         raise HTTPException(status_code=404, detail="Snapshot not found")
-    
+
     return snapshot.to_dict()

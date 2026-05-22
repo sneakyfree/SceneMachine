@@ -61,8 +61,7 @@ export function BookingModal({
   // Calculate estimated cost
   const baseCost = performer?.base_price_usd || 0;
   const durationMultiplier = duration / 10;
-  const urgencyMultiplier =
-    urgency === 'RUSH' ? 1.5 : urgency === 'PRIORITY' ? 2.0 : 1.0;
+  const urgencyMultiplier = urgency === 'RUSH' ? 1.5 : urgency === 'PRIORITY' ? 2.0 : 1.0;
   const estimatedCost = baseCost * durationMultiplier * urgencyMultiplier;
 
   // Reset form when modal opens
@@ -112,10 +111,7 @@ export function BookingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
       <div className="relative bg-gray-900 rounded-xl border border-gray-800 shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -140,10 +136,7 @@ export function BookingModal({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
@@ -167,9 +160,7 @@ export function BookingModal({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-white truncate">
-                  {performer.stage_name}
-                </div>
+                <div className="font-medium text-white truncate">{performer.stage_name}</div>
                 <div className="text-sm text-gray-400">
                   ACI Score: {performer.aci_score.toFixed(0)} | Rating:{' '}
                   {performer.rating.toFixed(1)}
@@ -241,9 +232,7 @@ export function BookingModal({
           {/* Reference Style (only for full booking) */}
           {!isBlink && (
             <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Reference style (optional)
-              </label>
+              <label className="block text-sm text-gray-400 mb-2">Reference style (optional)</label>
               <input
                 type="text"
                 value={referenceStyle}
@@ -315,9 +304,7 @@ export function BookingModal({
             {!isBlink && urgency !== 'STANDARD' && (
               <div className="flex items-center justify-between mb-2">
                 <span className="text-gray-400">Urgency multiplier</span>
-                <span className="text-yellow-400">
-                  {urgency === 'RUSH' ? '1.5x' : '2x'}
-                </span>
+                <span className="text-yellow-400">{urgency === 'RUSH' ? '1.5x' : '2x'}</span>
               </div>
             )}
             <div className="border-t border-gray-700 pt-2 mt-2">
@@ -378,11 +365,7 @@ export function BookingModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={
-              !agreedToTerms ||
-              (!isBlink && !promptText) ||
-              bookingMutation.isPending
-            }
+            disabled={!agreedToTerms || (!isBlink && !promptText) || bookingMutation.isPending}
             className={cn(
               'px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2',
               isBlink

@@ -4,7 +4,7 @@ Timeline API Routes
 REST endpoints for timeline tracks and clips.
 """
 
-from typing import Annotated, List, Optional
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,14 +26,16 @@ router = APIRouter(prefix="/timeline", tags=["timeline"])
 
 # ==================== Schemas ====================
 
+
 class TrackResponse(BaseModel):
     """Track response model."""
+
     id: UUID
     project_id: UUID
     name: str
     track_type: str
     order: int
-    color: Optional[str] = None
+    color: str | None = None
     is_visible: bool
     is_locked: bool
     is_solo: bool
@@ -49,6 +51,7 @@ class TrackResponse(BaseModel):
 
 class ClipResponse(BaseModel):
     """Clip response model."""
+
     id: UUID
     track_id: UUID
     source_id: UUID
@@ -58,7 +61,7 @@ class ClipResponse(BaseModel):
     trim_start: float
     trim_end: float
     z_index: int
-    name: Optional[str] = None
+    name: str | None = None
     volume: float
     fade_in: float
     fade_out: float
@@ -71,80 +74,91 @@ class ClipResponse(BaseModel):
 
 class TrackWithClipsResponse(TrackResponse):
     """Track with clips included."""
-    clips: List[ClipResponse] = []
+
+    clips: list[ClipResponse] = []
 
 
 class CreateTrackRequest(BaseModel):
     """Request to create a track."""
+
     name: str = Field(..., min_length=1, max_length=100)
     track_type: TrackType
-    order: Optional[int] = None
-    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    order: int | None = None
+    color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
 
 
 class UpdateTrackRequest(BaseModel):
     """Request to update a track."""
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
-    is_visible: Optional[bool] = None
-    is_locked: Optional[bool] = None
-    is_muted: Optional[bool] = None
-    is_solo: Optional[bool] = None
-    volume: Optional[float] = Field(None, ge=0.0, le=1.0)
-    pan: Optional[float] = Field(None, ge=-1.0, le=1.0)
+
+    name: str | None = Field(None, min_length=1, max_length=100)
+    color: str | None = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    is_visible: bool | None = None
+    is_locked: bool | None = None
+    is_muted: bool | None = None
+    is_solo: bool | None = None
+    volume: float | None = Field(None, ge=0.0, le=1.0)
+    pan: float | None = Field(None, ge=-1.0, le=1.0)
 
 
 class ReorderTracksRequest(BaseModel):
     """Request to reorder tracks."""
-    track_ids: List[UUID]
+
+    track_ids: list[UUID]
 
 
 class CreateClipRequest(BaseModel):
     """Request to create a clip."""
+
     source_id: UUID
     source_type: str = Field(..., min_length=1, max_length=50)
     start_time: float = Field(..., ge=0.0)
     duration: float = Field(..., gt=0.0)
-    name: Optional[str] = None
+    name: str | None = None
     z_index: int = 0
 
 
 class UpdateClipRequest(BaseModel):
     """Request to update a clip."""
-    start_time: Optional[float] = Field(None, ge=0.0)
-    duration: Optional[float] = Field(None, gt=0.0)
-    trim_start: Optional[float] = Field(None, ge=0.0)
-    trim_end: Optional[float] = Field(None, ge=0.0)
-    z_index: Optional[int] = None
-    volume: Optional[float] = Field(None, ge=0.0, le=1.0)
-    fade_in: Optional[float] = Field(None, ge=0.0)
-    fade_out: Optional[float] = Field(None, ge=0.0)
+
+    start_time: float | None = Field(None, ge=0.0)
+    duration: float | None = Field(None, gt=0.0)
+    trim_start: float | None = Field(None, ge=0.0)
+    trim_end: float | None = Field(None, ge=0.0)
+    z_index: int | None = None
+    volume: float | None = Field(None, ge=0.0, le=1.0)
+    fade_in: float | None = Field(None, ge=0.0)
+    fade_out: float | None = Field(None, ge=0.0)
 
 
 class TrimClipRequest(BaseModel):
     """Request to trim a clip."""
+
     trim_start: float = Field(..., ge=0.0)
     trim_end: float = Field(..., ge=0.0)
 
 
 class SplitClipRequest(BaseModel):
     """Request to split a clip."""
+
     split_time: float = Field(..., gt=0.0)
 
 
 class SplitClipResponse(BaseModel):
     """Response for split clip."""
+
     first_clip: ClipResponse
     second_clip: ClipResponse
 
 
 class MoveClipRequest(BaseModel):
     """Request to move clip to another track."""
+
     target_track_id: UUID
-    start_time: Optional[float] = None
+    start_time: float | None = None
 
 
 # ==================== Dependencies ====================
+
 
 def get_timeline_service(
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -155,22 +169,23 @@ def get_timeline_service(
 
 # ==================== Track Routes ====================
 
+
 @router.get(
     "/projects/{project_id}/tracks",
-    response_model=List[TrackWithClipsResponse],
+    response_model=list[TrackWithClipsResponse],
     summary="Get all tracks for a project",
 )
 async def get_tracks(
     project_id: UUID,
     current_user: CurrentActiveUser,
     service: Annotated[TimelineService, Depends(get_timeline_service)],
-) -> List[TrackWithClipsResponse]:
+) -> list[TrackWithClipsResponse]:
     """Get all tracks with their clips, ordered by position."""
     tracks = await service.get_tracks(project_id)
     return [
         TrackWithClipsResponse(
             **TrackResponse.model_validate(t).model_dump(),
-            clips=[ClipResponse.model_validate(c) for c in t.clips]
+            clips=[ClipResponse.model_validate(c) for c in t.clips],
         )
         for t in tracks
     ]
@@ -247,7 +262,7 @@ async def delete_track(
 
 @router.put(
     "/projects/{project_id}/tracks/reorder",
-    response_model=List[TrackResponse],
+    response_model=list[TrackResponse],
     summary="Reorder tracks",
 )
 async def reorder_tracks(
@@ -255,13 +270,14 @@ async def reorder_tracks(
     data: ReorderTracksRequest,
     current_user: CurrentActiveUser,
     service: Annotated[TimelineService, Depends(get_timeline_service)],
-) -> List[TrackResponse]:
+) -> list[TrackResponse]:
     """Reorder tracks by providing new order."""
     tracks = await service.reorder_tracks(project_id, data.track_ids)
     return [TrackResponse.model_validate(t) for t in tracks]
 
 
 # ==================== Clip Routes ====================
+
 
 @router.post(
     "/tracks/{track_id}/clips",
@@ -400,7 +416,7 @@ async def split_clip(
 
 @router.delete(
     "/clips/{clip_id}/ripple",
-    response_model=List[ClipResponse],
+    response_model=list[ClipResponse],
     summary="Ripple delete a clip",
 )
 async def ripple_delete_clip(
@@ -408,7 +424,7 @@ async def ripple_delete_clip(
     track_id: UUID,
     current_user: CurrentActiveUser,
     service: Annotated[TimelineService, Depends(get_timeline_service)],
-) -> List[ClipResponse]:
+) -> list[ClipResponse]:
     """Delete clip and shift following clips to fill gap."""
     try:
         clips = await service.ripple_delete(clip_id, track_id)

@@ -25,25 +25,26 @@ Usage:
 import asyncio
 import json
 import logging
-import os
 import random
 import string
 import sys
 import time
 import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from enum import Enum
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select, text, delete, func
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+import contextlib
+
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,7 +52,7 @@ logging.basicConfig(
     handlers=[
         logging.StreamHandler(),
         logging.FileHandler("./data/investor_hardening_test.log"),
-    ]
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,8 @@ logger = logging.getLogger(__name__)
 # TEST RESULT TYPES
 # ============================================================================
 
-class TestStatus(str, Enum):
+
+class TestStatus(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -70,18 +72,20 @@ class TestStatus(str, Enum):
 @dataclass
 class TestResult:
     """Result of a single test."""
+
     name: str
     category: str
     subcategory: str
     status: TestStatus
     duration_ms: float
-    error_message: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    error_message: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class BenchmarkResult:
     """Result of a performance benchmark."""
+
     name: str
     target_ms: float
     actual_ms: float
@@ -92,20 +96,21 @@ class BenchmarkResult:
 @dataclass
 class InvestorReport:
     """Complete investor-ready test report."""
+
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     database_type: str = "unknown"
     python_version: str = ""
 
     # Mock data stats
-    mock_data: Dict[str, int] = field(default_factory=dict)
+    mock_data: dict[str, int] = field(default_factory=dict)
     mock_data_duration_ms: float = 0
 
     # Test results by category
-    test_results: List[TestResult] = field(default_factory=list)
+    test_results: list[TestResult] = field(default_factory=list)
 
     # Benchmarks
-    benchmarks: List[BenchmarkResult] = field(default_factory=list)
+    benchmarks: list[BenchmarkResult] = field(default_factory=list)
 
     # Summary stats
     total_tests: int = 0
@@ -114,10 +119,10 @@ class InvestorReport:
     total_skipped: int = 0
 
     # Critical errors
-    critical_errors: List[str] = field(default_factory=list)
+    critical_errors: list[str] = field(default_factory=list)
 
     # Features demonstrated
-    features_demonstrated: List[str] = field(default_factory=list)
+    features_demonstrated: list[str] = field(default_factory=list)
 
     def add_result(self, result: TestResult):
         """Add a test result."""
@@ -137,7 +142,7 @@ class InvestorReport:
             return 0.0
         return (self.total_passed / self.total_tests) * 100
 
-    def get_category_stats(self) -> Dict[str, Dict[str, int]]:
+    def get_category_stats(self) -> dict[str, dict[str, int]]:
         """Get stats by category."""
         stats = {}
         for result in self.test_results:
@@ -182,61 +187,75 @@ class InvestorReport:
         ]
 
         # Mock data section
-        lines.extend([
-            "-" * 40,
-            "MOCK DATA GENERATED",
-            "-" * 40,
-            f"Duration: {self.mock_data_duration_ms:.0f}ms",
-        ])
+        lines.extend(
+            [
+                "-" * 40,
+                "MOCK DATA GENERATED",
+                "-" * 40,
+                f"Duration: {self.mock_data_duration_ms:.0f}ms",
+            ]
+        )
         for entity, count in sorted(self.mock_data.items()):
             status = "✓" if count > 0 else "○"
             lines.append(f"  [{status}] {entity}: {count}")
 
         # Results by category
         cat_stats = self.get_category_stats()
-        lines.extend([
-            "",
-            "-" * 40,
-            "TEST RESULTS BY CATEGORY",
-            "-" * 40,
-        ])
+        lines.extend(
+            [
+                "",
+                "-" * 40,
+                "TEST RESULTS BY CATEGORY",
+                "-" * 40,
+            ]
+        )
         for category, stats in sorted(cat_stats.items()):
             pct = (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
             status = "✓" if stats["failed"] == 0 else "✗"
-            lines.append(f"  [{status}] {category}: {stats['passed']}/{stats['total']} ({pct:.0f}%)")
+            lines.append(
+                f"  [{status}] {category}: {stats['passed']}/{stats['total']} ({pct:.0f}%)"
+            )
 
         # Benchmarks
         if self.benchmarks:
-            lines.extend([
-                "",
-                "-" * 40,
-                "PERFORMANCE BENCHMARKS",
-                "-" * 40,
-            ])
+            lines.extend(
+                [
+                    "",
+                    "-" * 40,
+                    "PERFORMANCE BENCHMARKS",
+                    "-" * 40,
+                ]
+            )
             for bm in self.benchmarks:
                 status = "✓" if bm.passed else "✗"
-                lines.append(f"  [{status}] {bm.name}: {bm.actual_ms:.1f}ms (target: {bm.target_ms:.0f}ms)")
+                lines.append(
+                    f"  [{status}] {bm.name}: {bm.actual_ms:.1f}ms (target: {bm.target_ms:.0f}ms)"
+                )
 
         # Features demonstrated
         if self.features_demonstrated:
-            lines.extend([
-                "",
-                "-" * 40,
-                "FEATURES DEMONSTRATED",
-                "-" * 40,
-            ])
+            lines.extend(
+                [
+                    "",
+                    "-" * 40,
+                    "FEATURES DEMONSTRATED",
+                    "-" * 40,
+                ]
+            )
             for feature in self.features_demonstrated:
                 lines.append(f"  ✓ {feature}")
 
         # Failed tests
         failed_tests = [r for r in self.test_results if r.status == TestStatus.FAILED]
         if failed_tests:
-            lines.extend([
-                "",
-                "-" * 40,
-                "FAILED TESTS (Details)",
-                "-" * 40,
-            ])
+            lines.extend(
+                [
+                    "",
+                    "-" * 40,
+                    "FAILED TESTS (Details)",
+                    "-" * 40,
+                ]
+            )
             for result in failed_tests[:10]:  # Show first 10
                 lines.append(f"  ✗ {result.name}")
                 if result.error_message:
@@ -244,26 +263,32 @@ class InvestorReport:
 
         # Critical errors
         if self.critical_errors:
-            lines.extend([
-                "",
-                "-" * 40,
-                "CRITICAL ERRORS",
-                "-" * 40,
-            ])
+            lines.extend(
+                [
+                    "",
+                    "-" * 40,
+                    "CRITICAL ERRORS",
+                    "-" * 40,
+                ]
+            )
             for error in self.critical_errors:
                 lines.append(f"  ! {error[:200]}")
 
         # Final status
         overall_status = "PASS" if self.total_failed == 0 and not self.critical_errors else "FAIL"
-        ready_status = "Ready for Investor Demo" if overall_status == "PASS" else "Requires Attention"
+        ready_status = (
+            "Ready for Investor Demo" if overall_status == "PASS" else "Requires Attention"
+        )
 
-        lines.extend([
-            "",
-            "=" * 80,
-            f"OVERALL STATUS: {overall_status}",
-            f"{ready_status}",
-            "=" * 80,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                f"OVERALL STATUS: {overall_status}",
+                f"{ready_status}",
+                "=" * 80,
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -272,28 +297,52 @@ class InvestorReport:
 # COMPREHENSIVE MOCK DATA GENERATOR
 # ============================================================================
 
+
 class InvestorMockDataGenerator:
     """Generates comprehensive mock data for investor demo."""
 
     MOVIE_TITLES = [
-        "The Phoenix Protocol", "Midnight's Edge", "Echoes of Tomorrow",
-        "Crimson Dawn", "Beyond the Veil", "The Last Horizon",
-        "Whispers in the Dark", "The Forgotten Kingdom", "Starlight Express",
+        "The Phoenix Protocol",
+        "Midnight's Edge",
+        "Echoes of Tomorrow",
+        "Crimson Dawn",
+        "Beyond the Veil",
+        "The Last Horizon",
+        "Whispers in the Dark",
+        "The Forgotten Kingdom",
+        "Starlight Express",
         "The Silent Observer",
     ]
 
     GENRES = ["Drama", "Thriller", "Sci-Fi", "Comedy", "Action", "Horror", "Romance", "Mystery"]
 
     CHARACTER_NAMES = [
-        ("James", "Mitchell"), ("Sarah", "Chen"), ("Michael", "Rodriguez"),
-        ("Emily", "Thompson"), ("David", "Kim"), ("Rachel", "Okonkwo"),
-        ("Marcus", "Schmidt"), ("Olivia", "Patel"), ("Daniel", "Johnson"),
-        ("Sophia", "Williams"), ("Alexander", "Garcia"), ("Isabella", "Brown"),
+        ("James", "Mitchell"),
+        ("Sarah", "Chen"),
+        ("Michael", "Rodriguez"),
+        ("Emily", "Thompson"),
+        ("David", "Kim"),
+        ("Rachel", "Okonkwo"),
+        ("Marcus", "Schmidt"),
+        ("Olivia", "Patel"),
+        ("Daniel", "Johnson"),
+        ("Sophia", "Williams"),
+        ("Alexander", "Garcia"),
+        ("Isabella", "Brown"),
     ]
 
     LOCATIONS = [
-        "APARTMENT", "OFFICE", "COFFEE SHOP", "HOSPITAL", "POLICE STATION",
-        "BAR", "RESTAURANT", "WAREHOUSE", "BEACH", "ROOFTOP", "LABORATORY",
+        "APARTMENT",
+        "OFFICE",
+        "COFFEE SHOP",
+        "HOSPITAL",
+        "POLICE STATION",
+        "BAR",
+        "RESTAURANT",
+        "WAREHOUSE",
+        "BEACH",
+        "ROOFTOP",
+        "LABORATORY",
     ]
 
     SHOT_DESCRIPTIONS = [
@@ -348,6 +397,7 @@ class InvestorMockDataGenerator:
 
         if self.is_sqlite:
             from tests.sqlite_compat import create_all_tables_sqlite
+
             await create_all_tables_sqlite(self.engine, Base)
         else:
             async with self.engine.begin() as conn:
@@ -358,30 +408,48 @@ class InvestorMockDataGenerator:
     async def clear_all_data(self):
         """Clear all existing data."""
         from scenemachine.models import (
-            Project, Screenplay, Character, Scene, Shot, GenerationJob,
-            Asset, ExportHistory, UserSettings, ProjectShare, ProjectComment,
-            TextOverlay, AudioAsset,
+            Asset,
+            AudioAsset,
+            Character,
+            ExportHistory,
+            GenerationJob,
+            Project,
+            ProjectComment,
+            ProjectShare,
+            Scene,
+            Screenplay,
+            Shot,
+            TextOverlay,
+            UserSettings,
         )
 
         async with self.session_factory() as session:
             # Delete in reverse dependency order
             tables = [
-                ProjectComment, ProjectShare, TextOverlay, AudioAsset,
-                ExportHistory, Asset, GenerationJob, Shot, Scene,
-                Character, Screenplay, Project, UserSettings,
+                ProjectComment,
+                ProjectShare,
+                TextOverlay,
+                AudioAsset,
+                ExportHistory,
+                Asset,
+                GenerationJob,
+                Shot,
+                Scene,
+                Character,
+                Screenplay,
+                Project,
+                UserSettings,
             ]
             for table in tables:
-                try:
+                with contextlib.suppress(Exception):
                     await session.execute(delete(table))
-                except Exception:
-                    pass
             await session.commit()
 
         logger.info("Cleared existing data")
 
     def _random_datetime(self, days_back: int = 90) -> datetime:
         """Generate random datetime within the past N days."""
-        return datetime.now(timezone.utc) - timedelta(
+        return datetime.now(UTC) - timedelta(
             days=random.randint(0, days_back),
             hours=random.randint(0, 23),
             minutes=random.randint(0, 59),
@@ -392,7 +460,7 @@ class InvestorMockDataGenerator:
         num_projects: int = 10,
         num_sfx: int = 30,
         num_music: int = 20,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """Generate all mock data."""
         logger.info("Starting investor mock data generation...")
 
@@ -403,29 +471,28 @@ class InvestorMockDataGenerator:
             # Generate in dependency order
             await self._generate_settings(session)
             projects = await self._generate_projects(session, num_projects)
-            screenplays = await self._generate_screenplays(session, projects)
+            await self._generate_screenplays(session, projects)
 
             # Characters, scenes, shots work differently based on database
             if self.is_postgres:
                 characters = await self._generate_characters_postgres(session, projects)
                 scenes = await self._generate_scenes_postgres(session, projects, characters)
                 shots, jobs = await self._generate_shots_postgres(session, scenes)
-                assets = await self._generate_assets(session, characters)
+                await self._generate_assets(session, characters)
             else:
                 # SQLite mode - use JSON serialization for ARRAY fields
                 characters = await self._generate_characters_sqlite(session, projects)
                 scenes = await self._generate_scenes_sqlite(session, projects)
                 shots, jobs = await self._generate_shots_sqlite(session, scenes)
-                assets = []  # Skip assets for SQLite
 
-            exports = await self._generate_export_history(session, projects)
+            await self._generate_export_history(session, projects)
             shares, comments = await self._generate_shares_comments(session, projects)
-            overlays = await self._generate_text_overlays(session, projects)
+            await self._generate_text_overlays(session, projects)
 
             if self.is_postgres:
-                audio = await self._generate_audio_assets_postgres(session, num_sfx, num_music)
+                await self._generate_audio_assets_postgres(session, num_sfx, num_music)
             else:
-                audio = []
+                pass
 
             await session.commit()
 
@@ -457,7 +524,7 @@ class InvestorMockDataGenerator:
         session.add(settings)
         await session.flush()
 
-    async def _generate_projects(self, session: AsyncSession, count: int) -> List:
+    async def _generate_projects(self, session: AsyncSession, count: int) -> list:
         """Generate projects in various workflow states."""
         from scenemachine.models import Project, ProjectState
 
@@ -476,7 +543,11 @@ class InvestorMockDataGenerator:
         ]
 
         for i in range(count):
-            state = states_sequence[i] if i < len(states_sequence) else random.choice(list(ProjectState))
+            state = (
+                states_sequence[i]
+                if i < len(states_sequence)
+                else random.choice(list(ProjectState))
+            )
             title = self.MOVIE_TITLES[i % len(self.MOVIE_TITLES)]
 
             project = Project(
@@ -490,7 +561,7 @@ class InvestorMockDataGenerator:
                     "aspect_ratio": random.choice(["16:9", "2.35:1"]),
                 },
                 created_at=self._random_datetime(90),
-                updated_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(UTC),
             )
             session.add(project)
             projects.append(project)
@@ -500,9 +571,9 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(projects)} projects")
         return projects
 
-    async def _generate_screenplays(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_screenplays(self, session: AsyncSession, projects: list) -> list:
         """Generate screenplays for projects."""
-        from scenemachine.models import Screenplay, ScreenplayFormat, ProjectState
+        from scenemachine.models import ProjectState, Screenplay, ScreenplayFormat
 
         screenplays = []
 
@@ -513,19 +584,25 @@ class InvestorMockDataGenerator:
             # Generate scene data
             num_scenes = random.randint(15, 30)
             scenes_data = []
-            char_names = random.sample([f"{f} {l}" for f, l in self.CHARACTER_NAMES], k=min(8, len(self.CHARACTER_NAMES)))
+            char_names = random.sample(
+                [f"{f} {l}" for f, l in self.CHARACTER_NAMES], k=min(8, len(self.CHARACTER_NAMES))
+            )
 
             for scene_num in range(num_scenes):
                 scene_type = random.choice(["INT", "EXT"])
                 location = random.choice(self.LOCATIONS)
                 time = random.choice(["DAY", "NIGHT", "DAWN", "DUSK"])
-                scene_chars = random.sample(char_names, k=min(random.randint(1, 3), len(char_names)))
+                scene_chars = random.sample(
+                    char_names, k=min(random.randint(1, 3), len(char_names))
+                )
 
-                scenes_data.append({
-                    "scene_number": str(scene_num + 1),
-                    "heading": f"{scene_type}. {location} - {time}",
-                    "characters": scene_chars,
-                })
+                scenes_data.append(
+                    {
+                        "scene_number": str(scene_num + 1),
+                        "heading": f"{scene_type}. {location} - {time}",
+                        "characters": scene_chars,
+                    }
+                )
 
             # Movie plan for advanced projects
             movie_plan = None
@@ -533,7 +610,9 @@ class InvestorMockDataGenerator:
                 movie_plan = {
                     "title": project.name,
                     "genres": random.sample(self.GENRES, k=2),
-                    "themes": random.sample(["redemption", "love", "sacrifice", "survival", "identity"], k=3),
+                    "themes": random.sample(
+                        ["redemption", "love", "sacrifice", "survival", "identity"], k=3
+                    ),
                     "visual_style": {
                         "lighting": random.choice(["high-key", "low-key", "natural"]),
                         "color_palette": random.choice(["warm", "cool", "desaturated", "vibrant"]),
@@ -566,7 +645,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(screenplays)} screenplays")
         return screenplays
 
-    async def _generate_characters_postgres(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_characters_postgres(self, session: AsyncSession, projects: list) -> list:
         """Generate characters for PostgreSQL (with native ARRAY support)."""
         from scenemachine.models import Character, CharacterGender, CharacterLockState, ProjectState
 
@@ -586,11 +665,13 @@ class InvestorMockDataGenerator:
                 if project.state.value >= ProjectState.CHARACTERS_LOCKED.value:
                     lock_state = CharacterLockState.LOCKED
                 elif project.state.value >= ProjectState.CHARACTERS_IN_PROGRESS.value:
-                    lock_state = random.choice([
-                        CharacterLockState.DRAFT,
-                        CharacterLockState.REFERENCE_UPLOADED,
-                        CharacterLockState.REVIEW,
-                    ])
+                    lock_state = random.choice(
+                        [
+                            CharacterLockState.DRAFT,
+                            CharacterLockState.REFERENCE_UPLOADED,
+                            CharacterLockState.REVIEW,
+                        ]
+                    )
                 else:
                     lock_state = CharacterLockState.UNDEFINED
 
@@ -624,7 +705,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(characters)} characters (PostgreSQL)")
         return characters
 
-    async def _generate_characters_sqlite(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_characters_sqlite(self, session: AsyncSession, projects: list) -> list:
         """Generate characters for SQLite - SKIPPED due to ARRAY type incompatibility.
 
         The Character model uses ARRAY(String) for personality_traits which SQLite
@@ -636,9 +717,11 @@ class InvestorMockDataGenerator:
         self.stats["characters"] = 0
         return []
 
-    async def _generate_scenes_postgres(self, session: AsyncSession, projects: List, characters: List) -> List:
+    async def _generate_scenes_postgres(
+        self, session: AsyncSession, projects: list, characters: list
+    ) -> list:
         """Generate scenes for PostgreSQL."""
-        from scenemachine.models import Scene, SceneType, TimeOfDay, SceneState, ProjectState
+        from scenemachine.models import ProjectState, Scene, SceneState, SceneType, TimeOfDay
 
         scenes = []
 
@@ -658,7 +741,11 @@ class InvestorMockDataGenerator:
                 else:
                     state = SceneState.PARSED
 
-                scene_char_ids = [c.id for c in random.sample(project_chars, k=min(3, len(project_chars)))] if project_chars else []
+                scene_char_ids = (
+                    [c.id for c in random.sample(project_chars, k=min(3, len(project_chars)))]
+                    if project_chars
+                    else []
+                )
 
                 scene = Scene(
                     id=uuid4(),
@@ -674,7 +761,9 @@ class InvestorMockDataGenerator:
                     analysis={
                         "mood": random.choice(["tense", "romantic", "action"]),
                         "importance": random.randint(5, 10),
-                    } if state.value >= SceneState.PLANNED.value else None,
+                    }
+                    if state.value >= SceneState.PLANNED.value
+                    else None,
                     shot_breakdown_approved=state.value >= SceneState.PLAN_APPROVED.value,
                     estimated_duration_seconds=random.randint(60, 180),
                     state=state,
@@ -688,7 +777,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(scenes)} scenes (PostgreSQL)")
         return scenes
 
-    async def _generate_scenes_sqlite(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_scenes_sqlite(self, session: AsyncSession, projects: list) -> list:
         """Generate scenes for SQLite - SKIPPED due to ARRAY type incompatibility.
 
         The Scene model uses ARRAY(Text) for action_lines and ARRAY(UUID) for
@@ -699,9 +788,20 @@ class InvestorMockDataGenerator:
         self.stats["scenes"] = 0
         return []
 
-    async def _generate_shots_postgres(self, session: AsyncSession, scenes: List) -> Tuple[List, List]:
+    async def _generate_shots_postgres(
+        self, session: AsyncSession, scenes: list
+    ) -> tuple[list, list]:
         """Generate shots and jobs for PostgreSQL."""
-        from scenemachine.models import Shot, ShotType, CameraMovement, ShotState, GenerationJob, JobStatus, JobProvider, SceneState
+        from scenemachine.models import (
+            CameraMovement,
+            GenerationJob,
+            JobProvider,
+            JobStatus,
+            SceneState,
+            Shot,
+            ShotState,
+            ShotType,
+        )
 
         shots = []
         jobs = []
@@ -715,9 +815,13 @@ class InvestorMockDataGenerator:
             for seq in range(num_shots):
                 # State based on scene state
                 if scene.state == SceneState.APPROVED:
-                    shot_state = random.choice([ShotState.APPROVED, ShotState.GENERATED, ShotState.REVIEW])
+                    shot_state = random.choice(
+                        [ShotState.APPROVED, ShotState.GENERATED, ShotState.REVIEW]
+                    )
                 elif scene.state == SceneState.GENERATING:
-                    shot_state = random.choice([ShotState.GENERATING, ShotState.QUEUED, ShotState.GENERATED])
+                    shot_state = random.choice(
+                        [ShotState.GENERATING, ShotState.QUEUED, ShotState.GENERATED]
+                    )
                 else:
                     shot_state = ShotState.PLANNED
 
@@ -730,10 +834,14 @@ class InvestorMockDataGenerator:
                     camera_movement=random.choice(list(CameraMovement)),
                     description=random.choice(self.SHOT_DESCRIPTIONS),
                     character_ids=[],
-                    generation_prompt="Cinematic shot, film lighting, dramatic composition" if shot_state.value >= ShotState.QUEUED.value else None,
+                    generation_prompt="Cinematic shot, film lighting, dramatic composition"
+                    if shot_state.value >= ShotState.QUEUED.value
+                    else None,
                     duration_seconds=random.uniform(2.0, 8.0),
                     state=shot_state,
-                    output_video_path=f"/data/outputs/{scene.project_id}/{uuid4().hex}.mp4" if shot_state in [ShotState.GENERATED, ShotState.APPROVED] else None,
+                    output_video_path=f"/data/outputs/{scene.project_id}/{uuid4().hex}.mp4"
+                    if shot_state in [ShotState.GENERATED, ShotState.APPROVED]
+                    else None,
                     timeline_visible=True,
                     timeline_locked=shot_state == ShotState.APPROVED,
                     timeline_order=seq,
@@ -745,8 +853,10 @@ class InvestorMockDataGenerator:
                 # Generate jobs for processed shots
                 if shot_state.value >= ShotState.QUEUED.value:
                     job_status = (
-                        JobStatus.COMPLETED if shot_state in [ShotState.GENERATED, ShotState.APPROVED, ShotState.REVIEW]
-                        else JobStatus.RUNNING if shot_state == ShotState.GENERATING
+                        JobStatus.COMPLETED
+                        if shot_state in [ShotState.GENERATED, ShotState.APPROVED, ShotState.REVIEW]
+                        else JobStatus.RUNNING
+                        if shot_state == ShotState.GENERATING
                         else JobStatus.PENDING
                     )
 
@@ -756,13 +866,21 @@ class InvestorMockDataGenerator:
                         job_number=1,
                         status=job_status,
                         provider=random.choice([JobProvider.REPLICATE, JobProvider.FAL]),
-                        provider_job_id=f"job_{uuid4().hex[:12]}" if job_status != JobStatus.PENDING else None,
+                        provider_job_id=f"job_{uuid4().hex[:12]}"
+                        if job_status != JobStatus.PENDING
+                        else None,
                         model_id=random.choice(["svd", "animatediff"]),
                         parameters={"num_frames": 24},
                         queued_at=self._random_datetime(30),
-                        progress_percent=100.0 if job_status == JobStatus.COMPLETED else random.uniform(0, 99),
-                        output_path=shot.output_video_path if job_status == JobStatus.COMPLETED else None,
-                        cost_usd=random.uniform(0.02, 0.15) if job_status == JobStatus.COMPLETED else None,
+                        progress_percent=100.0
+                        if job_status == JobStatus.COMPLETED
+                        else random.uniform(0, 99),
+                        output_path=shot.output_video_path
+                        if job_status == JobStatus.COMPLETED
+                        else None,
+                        cost_usd=random.uniform(0.02, 0.15)
+                        if job_status == JobStatus.COMPLETED
+                        else None,
                         created_at=shot.created_at + timedelta(minutes=1),
                     )
                     session.add(job)
@@ -774,7 +892,9 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(shots)} shots and {len(jobs)} jobs (PostgreSQL)")
         return shots, jobs
 
-    async def _generate_shots_sqlite(self, session: AsyncSession, scenes: List) -> Tuple[List, List]:
+    async def _generate_shots_sqlite(
+        self, session: AsyncSession, scenes: list
+    ) -> tuple[list, list]:
         """Generate shots for SQLite - SKIPPED due to ARRAY type and dependency on scenes.
 
         Shot model uses ARRAY(UUID) for character_ids, and shots depend on scenes
@@ -786,9 +906,9 @@ class InvestorMockDataGenerator:
         self.stats["generation_jobs"] = 0
         return [], []
 
-    async def _generate_assets(self, session: AsyncSession, characters: List) -> List:
+    async def _generate_assets(self, session: AsyncSession, characters: list) -> list:
         """Generate reference assets."""
-        from scenemachine.models import Asset, AssetType, AssetStatus, CharacterLockState
+        from scenemachine.models import Asset, AssetStatus, AssetType, CharacterLockState
 
         assets = []
 
@@ -820,7 +940,7 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(assets)} assets")
         return assets
 
-    async def _generate_export_history(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_export_history(self, session: AsyncSession, projects: list) -> list:
         """Generate export history."""
         from scenemachine.models import ExportHistory, ExportStatus, ProjectState
 
@@ -832,7 +952,9 @@ class InvestorMockDataGenerator:
 
             num_exports = random.randint(1, 3)
             for i in range(num_exports):
-                status = random.choice([ExportStatus.COMPLETED, ExportStatus.COMPLETED, ExportStatus.FAILED])
+                status = random.choice(
+                    [ExportStatus.COMPLETED, ExportStatus.COMPLETED, ExportStatus.FAILED]
+                )
 
                 export = ExportHistory(
                     id=uuid4(),
@@ -842,10 +964,18 @@ class InvestorMockDataGenerator:
                     resolution=random.choice(["1920x1080", "3840x2160"]),
                     frame_rate=random.choice([24, 30]),
                     status=status.value,
-                    progress_percent=100.0 if status == ExportStatus.COMPLETED else random.uniform(20, 80),
-                    output_filename=f"{project.name}_export_{i + 1}.mp4" if status == ExportStatus.COMPLETED else None,
-                    output_path=f"/data/exports/{project.id}/export_{i + 1}.mp4" if status == ExportStatus.COMPLETED else None,
-                    file_size_bytes=random.randint(100000000, 2000000000) if status == ExportStatus.COMPLETED else None,
+                    progress_percent=100.0
+                    if status == ExportStatus.COMPLETED
+                    else random.uniform(20, 80),
+                    output_filename=f"{project.name}_export_{i + 1}.mp4"
+                    if status == ExportStatus.COMPLETED
+                    else None,
+                    output_path=f"/data/exports/{project.id}/export_{i + 1}.mp4"
+                    if status == ExportStatus.COMPLETED
+                    else None,
+                    file_size_bytes=random.randint(100000000, 2000000000)
+                    if status == ExportStatus.COMPLETED
+                    else None,
                     started_at=self._random_datetime(30),
                     include_audio=True,
                     created_at=project.updated_at - timedelta(days=random.randint(1, 20)),
@@ -858,9 +988,11 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(exports)} export history entries")
         return exports
 
-    async def _generate_shares_comments(self, session: AsyncSession, projects: List) -> Tuple[List, List]:
+    async def _generate_shares_comments(
+        self, session: AsyncSession, projects: list
+    ) -> tuple[list, list]:
         """Generate shares and comments."""
-        from scenemachine.models import ProjectShare, ProjectComment, SharePermission, ShareStatus
+        from scenemachine.models import ProjectComment, ProjectShare, SharePermission, ShareStatus
 
         shares = []
         comments = []
@@ -874,13 +1006,13 @@ class InvestorMockDataGenerator:
                 share = ProjectShare(
                     id=uuid4(),
                     project_id=project.id,
-                    share_code=''.join(random.choices(string.ascii_letters + string.digits, k=32)),
+                    share_code="".join(random.choices(string.ascii_letters + string.digits, k=32)),
                     recipient_email=f"{random.choice(['john', 'sarah', 'mike'])}@example.com",
                     recipient_name=f"{random.choice(['John', 'Sarah', 'Mike'])} {random.choice(['Smith', 'Chen'])}",
                     permission=random.choice(list(SharePermission)),
                     status=random.choice([ShareStatus.PENDING, ShareStatus.ACCEPTED]),
                     message="Please review this project",
-                    expires_at=datetime.now(timezone.utc) + timedelta(days=14),
+                    expires_at=datetime.now(UTC) + timedelta(days=14),
                     access_count=random.randint(0, 10),
                     created_at=self._random_datetime(30),
                 )
@@ -896,11 +1028,13 @@ class InvestorMockDataGenerator:
                             project_id=project.id,
                             author_name=share.recipient_name or "Anonymous",
                             author_email=share.recipient_email,
-                            content=random.choice([
-                                "Great work!",
-                                "Love the pacing here",
-                                "Can we adjust the lighting?",
-                            ]),
+                            content=random.choice(
+                                [
+                                    "Great work!",
+                                    "Love the pacing here",
+                                    "Can we adjust the lighting?",
+                                ]
+                            ),
                             is_resolved=random.random() > 0.6,
                             created_at=self._random_datetime(20),
                         )
@@ -913,9 +1047,15 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(shares)} shares and {len(comments)} comments")
         return shares, comments
 
-    async def _generate_text_overlays(self, session: AsyncSession, projects: List) -> List:
+    async def _generate_text_overlays(self, session: AsyncSession, projects: list) -> list:
         """Generate text overlays."""
-        from scenemachine.models import TextOverlay, TextOverlayType, TextPosition, TextAnimation, ProjectState
+        from scenemachine.models import (
+            ProjectState,
+            TextAnimation,
+            TextOverlay,
+            TextOverlayType,
+            TextPosition,
+        )
 
         overlays = []
 
@@ -963,7 +1103,9 @@ class InvestorMockDataGenerator:
         logger.info(f"Generated {len(overlays)} text overlays")
         return overlays
 
-    async def _generate_audio_assets_postgres(self, session: AsyncSession, num_sfx: int, num_music: int) -> List:
+    async def _generate_audio_assets_postgres(
+        self, session: AsyncSession, num_sfx: int, num_music: int
+    ) -> list:
         """Generate audio assets for PostgreSQL."""
         from scenemachine.models import AudioAsset, AudioAssetType
 
@@ -1033,21 +1175,23 @@ class InvestorMockDataGenerator:
 # API ENDPOINT TESTS
 # ============================================================================
 
+
 class APIEndpointTests:
     """Comprehensive API endpoint tests."""
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.results: List[TestResult] = []
-        self.client: Optional[AsyncClient] = None
+        self.results: list[TestResult] = []
+        self.client: AsyncClient | None = None
 
     async def setup(self):
         """Set up test client."""
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
         from scenemachine.api.app import create_app
         from scenemachine.config import Settings
         from scenemachine.database import get_db_manager, reset_db_manager
         from scenemachine.models.base import Base
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
         # Reset any existing database manager
         reset_db_manager()
@@ -1083,6 +1227,7 @@ class APIEndpointTests:
         # For SQLite, use compatibility layer
         if is_sqlite:
             from tests.sqlite_compat import create_all_tables_sqlite
+
             await create_all_tables_sqlite(db_manager._engine, Base)
         else:
             async with db_manager._engine.begin() as conn:
@@ -1120,7 +1265,7 @@ class APIEndpointTests:
         method: str,
         path: str,
         expected_status: int = 200,
-        json_data: Optional[Dict] = None,
+        json_data: dict | None = None,
     ) -> TestResult:
         """Run a single API test."""
         start = time.time()
@@ -1170,88 +1315,140 @@ class APIEndpointTests:
                 error_message=str(e),
             )
 
-    async def run_all(self) -> List[TestResult]:
+    async def run_all(self) -> list[TestResult]:
         """Run all API tests."""
         await self.setup()
 
         try:
             # Health endpoints (no prefix)
-            self.results.append(await self._run_test(
-                "Health check", "API", "Health", "GET", "/health"
-            ))
-            self.results.append(await self._run_test(
-                "Detailed health", "API", "Health", "GET", "/health/detailed"
-            ))
-            self.results.append(await self._run_test(
-                "Provider health", "API", "Health", "GET", "/health/providers"
-            ))
+            self.results.append(
+                await self._run_test("Health check", "API", "Health", "GET", "/health")
+            )
+            self.results.append(
+                await self._run_test("Detailed health", "API", "Health", "GET", "/health/detailed")
+            )
+            self.results.append(
+                await self._run_test("Provider health", "API", "Health", "GET", "/health/providers")
+            )
 
             # Project endpoints (prefix: /api/v1/projects)
-            self.results.append(await self._run_test(
-                "List projects", "API", "Projects", "GET", "/api/v1/projects"
-            ))
-            self.results.append(await self._run_test(
-                "Create project", "API", "Projects", "POST", "/api/v1/projects",
-                expected_status=201,
-                json_data={"name": "Test Project", "description": "Test"},
-            ))
+            self.results.append(
+                await self._run_test("List projects", "API", "Projects", "GET", "/api/v1/projects")
+            )
+            self.results.append(
+                await self._run_test(
+                    "Create project",
+                    "API",
+                    "Projects",
+                    "POST",
+                    "/api/v1/projects",
+                    expected_status=201,
+                    json_data={"name": "Test Project", "description": "Test"},
+                )
+            )
 
             # Analytics endpoints (prefix: /api/v1/analytics)
-            self.results.append(await self._run_test(
-                "Dashboard stats", "API", "Analytics", "GET", "/api/v1/analytics/dashboard"
-            ))
-            self.results.append(await self._run_test(
-                "Generation stats", "API", "Analytics", "GET", "/api/v1/analytics/generation-stats"
-            ))
-            self.results.append(await self._run_test(
-                "Cost stats", "API", "Analytics", "GET", "/api/v1/analytics/cost-stats"
-            ))
-            self.results.append(await self._run_test(
-                "Daily stats", "API", "Analytics", "GET", "/api/v1/analytics/daily-stats"
-            ))
+            self.results.append(
+                await self._run_test(
+                    "Dashboard stats", "API", "Analytics", "GET", "/api/v1/analytics/dashboard"
+                )
+            )
+            self.results.append(
+                await self._run_test(
+                    "Generation stats",
+                    "API",
+                    "Analytics",
+                    "GET",
+                    "/api/v1/analytics/generation-stats",
+                )
+            )
+            self.results.append(
+                await self._run_test(
+                    "Cost stats", "API", "Analytics", "GET", "/api/v1/analytics/cost-stats"
+                )
+            )
+            self.results.append(
+                await self._run_test(
+                    "Daily stats", "API", "Analytics", "GET", "/api/v1/analytics/daily-stats"
+                )
+            )
 
             # Settings endpoints (prefix: /api/v1/settings)
-            self.results.append(await self._run_test(
-                "Get settings", "API", "Settings", "GET", "/api/v1/settings"
-            ))
+            self.results.append(
+                await self._run_test("Get settings", "API", "Settings", "GET", "/api/v1/settings")
+            )
 
             # Generation endpoints (prefix: /api/v1/generation)
-            self.results.append(await self._run_test(
-                "Get queue status", "API", "Generation", "GET", "/api/v1/generation/queue"
-            ))
-            self.results.append(await self._run_test(
-                "Get pending jobs", "API", "Generation", "GET", "/api/v1/generation/queue/pending"
-            ))
-            self.results.append(await self._run_test(
-                "Provider health", "API", "Generation", "GET", "/api/v1/generation/providers/health"
-            ))
-            self.results.append(await self._run_test(
-                "Worker status", "API", "Generation", "GET", "/api/v1/generation/worker/status"
-            ))
+            self.results.append(
+                await self._run_test(
+                    "Get queue status", "API", "Generation", "GET", "/api/v1/generation/queue"
+                )
+            )
+            self.results.append(
+                await self._run_test(
+                    "Get pending jobs",
+                    "API",
+                    "Generation",
+                    "GET",
+                    "/api/v1/generation/queue/pending",
+                )
+            )
+            self.results.append(
+                await self._run_test(
+                    "Provider health",
+                    "API",
+                    "Generation",
+                    "GET",
+                    "/api/v1/generation/providers/health",
+                )
+            )
+            self.results.append(
+                await self._run_test(
+                    "Worker status", "API", "Generation", "GET", "/api/v1/generation/worker/status"
+                )
+            )
 
             # Assembly endpoints (prefix: /api/v1/assembly)
-            self.results.append(await self._run_test(
-                "Export formats", "API", "Assembly", "GET", "/api/v1/assembly/formats"
-            ))
+            self.results.append(
+                await self._run_test(
+                    "Export formats", "API", "Assembly", "GET", "/api/v1/assembly/formats"
+                )
+            )
 
             # Audio endpoints (prefix: /api/v1/audio)
-            self.results.append(await self._run_test(
-                "List sound effects", "API", "Audio", "GET", "/api/v1/audio/sfx"
-            ))
+            self.results.append(
+                await self._run_test(
+                    "List sound effects", "API", "Audio", "GET", "/api/v1/audio/sfx"
+                )
+            )
 
             # Reference data endpoints (prefix: /api/v1/scenes)
-            self.results.append(await self._run_test(
-                "Shot types", "API", "Reference", "GET", "/api/v1/scenes/reference/shot-types"
-            ))
-            self.results.append(await self._run_test(
-                "Camera movements", "API", "Reference", "GET", "/api/v1/scenes/reference/camera-movements"
-            ))
+            self.results.append(
+                await self._run_test(
+                    "Shot types", "API", "Reference", "GET", "/api/v1/scenes/reference/shot-types"
+                )
+            )
+            self.results.append(
+                await self._run_test(
+                    "Camera movements",
+                    "API",
+                    "Reference",
+                    "GET",
+                    "/api/v1/scenes/reference/camera-movements",
+                )
+            )
 
             # Error handling tests
-            self.results.append(await self._run_test(
-                "404 on invalid project", "API", "Errors", "GET",
-                f"/api/v1/projects/{uuid4()}", expected_status=404
-            ))
+            self.results.append(
+                await self._run_test(
+                    "404 on invalid project",
+                    "API",
+                    "Errors",
+                    "GET",
+                    f"/api/v1/projects/{uuid4()}",
+                    expected_status=404,
+                )
+            )
 
         finally:
             await self.teardown()
@@ -1263,12 +1460,13 @@ class APIEndpointTests:
 # WORKFLOW INTEGRATION TESTS
 # ============================================================================
 
+
 class WorkflowTests:
     """Complete workflow integration tests."""
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.results: List[TestResult] = []
+        self.results: list[TestResult] = []
         self.is_sqlite = "sqlite" in database_url
 
     async def test_project_lifecycle(self) -> TestResult:
@@ -1279,7 +1477,8 @@ class WorkflowTests:
         errors = []
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
             from scenemachine.models import Project, ProjectState
             from scenemachine.models.base import Base
 
@@ -1287,9 +1486,12 @@ class WorkflowTests:
 
             if self.is_sqlite:
                 from tests.sqlite_compat import create_all_tables_sqlite
+
                 await create_all_tables_sqlite(engine, Base)
 
-            session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            session_factory = async_sessionmaker(
+                engine, class_=AsyncSession, expire_on_commit=False
+            )
 
             # Step 1: Create
             async with session_factory() as session:
@@ -1375,11 +1577,22 @@ class WorkflowTests:
             )
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
             from scenemachine.models import (
-                Project, ProjectState, Scene, SceneState, SceneType, TimeOfDay,
-                Shot, ShotState, ShotType, CameraMovement,
-                GenerationJob, JobStatus, JobProvider,
+                CameraMovement,
+                GenerationJob,
+                JobProvider,
+                JobStatus,
+                Project,
+                ProjectState,
+                Scene,
+                SceneState,
+                SceneType,
+                Shot,
+                ShotState,
+                ShotType,
+                TimeOfDay,
             )
             from scenemachine.models.base import Base
 
@@ -1387,7 +1600,9 @@ class WorkflowTests:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
 
-            session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            session_factory = async_sessionmaker(
+                engine, class_=AsyncSession, expire_on_commit=False
+            )
 
             # Step 1: Create project with scene
             async with session_factory() as session:
@@ -1451,7 +1666,9 @@ class WorkflowTests:
 
             # Step 4: Process job
             async with session_factory() as session:
-                result = await session.execute(select(GenerationJob).where(GenerationJob.id == job_id))
+                result = await session.execute(
+                    select(GenerationJob).where(GenerationJob.id == job_id)
+                )
                 job = result.scalar_one()
                 job.status = JobStatus.COMPLETED
                 job.progress_percent = 100.0
@@ -1468,7 +1685,9 @@ class WorkflowTests:
                 shot = result.scalar_one()
                 assert shot.state == ShotState.GENERATED
 
-                result = await session.execute(select(GenerationJob).where(GenerationJob.id == job_id))
+                result = await session.execute(
+                    select(GenerationJob).where(GenerationJob.id == job_id)
+                )
                 job = result.scalar_one()
                 assert job.status == JobStatus.COMPLETED
             steps_passed += 1
@@ -1499,10 +1718,15 @@ class WorkflowTests:
         errors = []
 
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
             from scenemachine.models import (
-                Project, ProjectState, ProjectShare, ProjectComment,
-                SharePermission, ShareStatus,
+                Project,
+                ProjectComment,
+                ProjectShare,
+                ProjectState,
+                SharePermission,
+                ShareStatus,
             )
             from scenemachine.models.base import Base
 
@@ -1510,12 +1734,15 @@ class WorkflowTests:
 
             if self.is_sqlite:
                 from tests.sqlite_compat import create_all_tables_sqlite
+
                 await create_all_tables_sqlite(engine, Base)
             else:
                 async with engine.begin() as conn:
                     await conn.run_sync(Base.metadata.create_all)
 
-            session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            session_factory = async_sessionmaker(
+                engine, class_=AsyncSession, expire_on_commit=False
+            )
 
             # Step 1: Create project
             async with session_factory() as session:
@@ -1542,7 +1769,9 @@ class WorkflowTests:
 
             # Step 3: Accept share and add comment
             async with session_factory() as session:
-                result = await session.execute(select(ProjectShare).where(ProjectShare.id == share_id))
+                result = await session.execute(
+                    select(ProjectShare).where(ProjectShare.id == share_id)
+                )
                 share = result.scalar_one()
                 share.status = ShareStatus.ACCEPTED
 
@@ -1559,11 +1788,15 @@ class WorkflowTests:
 
             # Step 4: Verify
             async with session_factory() as session:
-                result = await session.execute(select(ProjectShare).where(ProjectShare.id == share_id))
+                result = await session.execute(
+                    select(ProjectShare).where(ProjectShare.id == share_id)
+                )
                 share = result.scalar_one()
                 assert share.status == ShareStatus.ACCEPTED
 
-                result = await session.execute(select(ProjectComment).where(ProjectComment.id == comment_id))
+                result = await session.execute(
+                    select(ProjectComment).where(ProjectComment.id == comment_id)
+                )
                 comment = result.scalar_one()
                 assert comment.content == "Test comment"
             steps_passed += 1
@@ -1586,7 +1819,7 @@ class WorkflowTests:
             details={"steps_passed": steps_passed, "total_steps": total_steps},
         )
 
-    async def run_all(self) -> List[TestResult]:
+    async def run_all(self) -> list[TestResult]:
         """Run all workflow tests."""
         self.results.append(await self.test_project_lifecycle())
         self.results.append(await self.test_generation_queue_workflow())
@@ -1598,16 +1831,18 @@ class WorkflowTests:
 # PERFORMANCE BENCHMARKS
 # ============================================================================
 
+
 class PerformanceBenchmarks:
     """Performance benchmark tests."""
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self.results: List[BenchmarkResult] = []
+        self.results: list[BenchmarkResult] = []
 
     async def benchmark_database_query(self) -> BenchmarkResult:
         """Benchmark database query performance."""
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
         from scenemachine.models import Project
 
         engine = create_async_engine(self.database_url, echo=False)
@@ -1639,11 +1874,12 @@ class PerformanceBenchmarks:
 
     async def benchmark_api_latency(self) -> BenchmarkResult:
         """Benchmark API response time."""
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
         from scenemachine.api.app import create_app
         from scenemachine.config import Settings
         from scenemachine.database import get_db_manager, reset_db_manager
         from scenemachine.models.base import Base
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
         # Reset and set up database manager
         reset_db_manager()
@@ -1673,6 +1909,7 @@ class PerformanceBenchmarks:
 
         if is_sqlite:
             from tests.sqlite_compat import create_all_tables_sqlite
+
             await create_all_tables_sqlite(db_manager._engine, Base)
 
         app = create_app(settings)
@@ -1702,7 +1939,7 @@ class PerformanceBenchmarks:
         self.results.append(result)
         return result
 
-    async def run_all(self) -> List[BenchmarkResult]:
+    async def run_all(self) -> list[BenchmarkResult]:
         """Run all benchmarks."""
         await self.benchmark_database_query()
         await self.benchmark_api_latency()
@@ -1713,13 +1950,14 @@ class PerformanceBenchmarks:
 # SMOKE TESTS
 # ============================================================================
 
+
 class SmokeTests:
     """Quick smoke tests for critical functionality."""
 
     def __init__(self):
-        self.results: List[TestResult] = []
+        self.results: list[TestResult] = []
 
-    def test_imports(self) -> List[TestResult]:
+    def test_imports(self) -> list[TestResult]:
         """Test that all critical modules can be imported."""
         modules = [
             ("scenemachine.models", "Models"),
@@ -1740,27 +1978,31 @@ class SmokeTests:
             try:
                 __import__(module_name)
                 duration = (time.time() - start) * 1000
-                self.results.append(TestResult(
-                    name=f"Import {display_name}",
-                    category="Smoke",
-                    subcategory="Imports",
-                    status=TestStatus.PASSED,
-                    duration_ms=duration,
-                ))
+                self.results.append(
+                    TestResult(
+                        name=f"Import {display_name}",
+                        category="Smoke",
+                        subcategory="Imports",
+                        status=TestStatus.PASSED,
+                        duration_ms=duration,
+                    )
+                )
             except Exception as e:
                 duration = (time.time() - start) * 1000
-                self.results.append(TestResult(
-                    name=f"Import {display_name}",
-                    category="Smoke",
-                    subcategory="Imports",
-                    status=TestStatus.FAILED,
-                    duration_ms=duration,
-                    error_message=str(e),
-                ))
+                self.results.append(
+                    TestResult(
+                        name=f"Import {display_name}",
+                        category="Smoke",
+                        subcategory="Imports",
+                        status=TestStatus.FAILED,
+                        duration_ms=duration,
+                        error_message=str(e),
+                    )
+                )
 
         return self.results
 
-    def run_all(self) -> List[TestResult]:
+    def run_all(self) -> list[TestResult]:
         """Run all smoke tests."""
         self.test_imports()
         return self.results
@@ -1770,20 +2012,20 @@ class SmokeTests:
 # IPC HANDLER TESTS
 # ============================================================================
 
+
 class IPCHandlerTests:
     """Test IPC handlers."""
 
     def __init__(self):
-        self.results: List[TestResult] = []
+        self.results: list[TestResult] = []
 
-    async def test_handler_registration(self) -> List[TestResult]:
+    async def test_handler_registration(self) -> list[TestResult]:
         """Test that IPC handlers are properly registered."""
         start = time.time()
 
         try:
-            from scenemachine.ipc import handlers as h
-            from pathlib import Path
             import re
+            from pathlib import Path
 
             handler_file = Path(__file__).parent.parent / "scenemachine" / "ipc" / "handlers.py"
             content = handler_file.read_text()
@@ -1792,27 +2034,31 @@ class IPCHandlerTests:
             handler_names = re.findall(handler_pattern, content)
 
             for handler_name in handler_names:
-                self.results.append(TestResult(
-                    name=f"Handler: {handler_name}",
-                    category="IPC",
-                    subcategory="Handlers",
-                    status=TestStatus.PASSED,
-                    duration_ms=0.1,
-                ))
+                self.results.append(
+                    TestResult(
+                        name=f"Handler: {handler_name}",
+                        category="IPC",
+                        subcategory="Handlers",
+                        status=TestStatus.PASSED,
+                        duration_ms=0.1,
+                    )
+                )
 
         except Exception as e:
-            self.results.append(TestResult(
-                name="IPC Handler Import",
-                category="IPC",
-                subcategory="Handlers",
-                status=TestStatus.ERROR,
-                duration_ms=(time.time() - start) * 1000,
-                error_message=str(e),
-            ))
+            self.results.append(
+                TestResult(
+                    name="IPC Handler Import",
+                    category="IPC",
+                    subcategory="Handlers",
+                    status=TestStatus.ERROR,
+                    duration_ms=(time.time() - start) * 1000,
+                    error_message=str(e),
+                )
+            )
 
         return self.results
 
-    async def run_all(self) -> List[TestResult]:
+    async def run_all(self) -> list[TestResult]:
         """Run all IPC tests."""
         await self.test_handler_registration()
         return self.results
@@ -1821,6 +2067,7 @@ class IPCHandlerTests:
 # ============================================================================
 # MAIN TEST HARNESS
 # ============================================================================
+
 
 class InvestorHardeningTestHarness:
     """Main test harness for investor demo."""
@@ -1836,7 +2083,7 @@ class InvestorHardeningTestHarness:
         self.is_postgres = "postgresql" in database_url or "postgres" in database_url
 
         self.report = InvestorReport(
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
             database_type="PostgreSQL" if self.is_postgres else "SQLite",
             python_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         )
@@ -1974,7 +2221,7 @@ class InvestorHardeningTestHarness:
         await self.run_benchmarks()
 
         self._populate_features()
-        self.report.end_time = datetime.now(timezone.utc)
+        self.report.end_time = datetime.now(UTC)
 
         return self.report
 
@@ -1982,6 +2229,7 @@ class InvestorHardeningTestHarness:
 # ============================================================================
 # CLI ENTRY POINT
 # ============================================================================
+
 
 async def main():
     """Main entry point."""
@@ -2031,23 +2279,32 @@ async def main():
     # Save JSON report
     json_path = output_path.with_suffix(".json")
     with open(json_path, "w") as f:
-        json.dump({
-            "start_time": report.start_time.isoformat(),
-            "end_time": report.end_time.isoformat() if report.end_time else None,
-            "database_type": report.database_type,
-            "mock_data": report.mock_data,
-            "total_tests": report.total_tests,
-            "total_passed": report.total_passed,
-            "total_failed": report.total_failed,
-            "total_skipped": report.total_skipped,
-            "success_rate": report.success_rate,
-            "benchmarks": [
-                {"name": b.name, "target_ms": b.target_ms, "actual_ms": b.actual_ms, "passed": b.passed}
-                for b in report.benchmarks
-            ],
-            "features_demonstrated": report.features_demonstrated,
-            "critical_errors": report.critical_errors,
-        }, f, indent=2)
+        json.dump(
+            {
+                "start_time": report.start_time.isoformat(),
+                "end_time": report.end_time.isoformat() if report.end_time else None,
+                "database_type": report.database_type,
+                "mock_data": report.mock_data,
+                "total_tests": report.total_tests,
+                "total_passed": report.total_passed,
+                "total_failed": report.total_failed,
+                "total_skipped": report.total_skipped,
+                "success_rate": report.success_rate,
+                "benchmarks": [
+                    {
+                        "name": b.name,
+                        "target_ms": b.target_ms,
+                        "actual_ms": b.actual_ms,
+                        "passed": b.passed,
+                    }
+                    for b in report.benchmarks
+                ],
+                "features_demonstrated": report.features_demonstrated,
+                "critical_errors": report.critical_errors,
+            },
+            f,
+            indent=2,
+        )
     logger.info(f"JSON report saved to: {json_path}")
 
     # Return exit code

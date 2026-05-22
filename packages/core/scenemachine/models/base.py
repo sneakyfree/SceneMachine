@@ -4,13 +4,14 @@ SQLAlchemy Base Classes and Mixins
 Provides common functionality for all database models.
 """
 
-from datetime import datetime
 import json
-from typing import Any, List
+from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import DateTime, MetaData, JSON, TypeDecorator, String, Text
-from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB, ARRAY
+from sqlalchemy import JSON, DateTime, MetaData, String, Text, TypeDecorator
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -20,6 +21,7 @@ class JSONType(TypeDecorator):
     A JSON type that uses JSONB on PostgreSQL and JSON on SQLite/others.
     This allows models to be database-agnostic.
     """
+
     impl = JSON
     cache_ok = True
 
@@ -34,10 +36,11 @@ class ArrayType(TypeDecorator):
     An ARRAY type that uses native ARRAY on PostgreSQL and JSON on SQLite/others.
     This allows models to be database-agnostic for array columns.
     """
+
     impl = JSON
     cache_ok = True
 
-    def __init__(self, item_type=None):
+    def __init__(self, item_type=None) -> None:
         super().__init__()
         self.item_type = item_type
 
@@ -73,6 +76,7 @@ class UUIDType(TypeDecorator):
     """
     A UUID type that uses native UUID on PostgreSQL and String on SQLite/others.
     """
+
     impl = String(36)
     cache_ok = True
 
@@ -94,7 +98,9 @@ class UUIDType(TypeDecorator):
         if dialect.name == "postgresql":
             return value
         from uuid import UUID
+
         return UUID(value) if isinstance(value, str) else value
+
 
 # Naming convention for constraints (helps with migrations)
 convention = {

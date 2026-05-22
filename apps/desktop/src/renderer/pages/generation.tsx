@@ -117,13 +117,17 @@ export function GenerationPage() {
   }, [selectedProvider, fetchModelsForProvider]);
 
   // Fetch scenes with shots
-  const { data: scenes, isLoading: isLoadingScenes, refetch: refetchScenes } = useQuery({
+  const {
+    data: scenes,
+    isLoading: isLoadingScenes,
+    refetch: refetchScenes,
+  } = useQuery({
     queryKey: ['scenes', projectId, 'withShots'],
     queryFn: async () => {
-      const result = await window.electronAPI.backendRequest<Scene[]>(
-        'scenes.list',
-        { project_id: projectId, include_shots: true }
-      );
+      const result = await window.electronAPI.backendRequest<Scene[]>('scenes.list', {
+        project_id: projectId,
+        include_shots: true,
+      });
       return result;
     },
     enabled: !!projectId,
@@ -148,10 +152,9 @@ export function GenerationPage() {
   const { data: pendingJobs, refetch: refetchJobs } = useQuery({
     queryKey: ['pendingJobs'],
     queryFn: async () => {
-      const result = await window.electronAPI.backendRequest<Job[]>(
-        'generation.getPendingJobs',
-        { limit: 50 }
-      );
+      const result = await window.electronAPI.backendRequest<Job[]>('generation.getPendingJobs', {
+        limit: 50,
+      });
       return result;
     },
     refetchInterval: isProcessing ? 2000 : false,
@@ -191,13 +194,13 @@ export function GenerationPage() {
       {
         action: event.data?.job_id
           ? {
-            label: 'Retry',
-            onClick: () => {
-              window.electronAPI.backendRequest('generation.retryJob', {
-                job_id: event.data.job_id,
-              });
-            },
-          }
+              label: 'Retry',
+              onClick: () => {
+                window.electronAPI.backendRequest('generation.retryJob', {
+                  job_id: event.data.job_id,
+                });
+              },
+            }
           : undefined,
       }
     );
@@ -368,22 +371,25 @@ export function GenerationPage() {
     setSelectedForCompare(new Set());
   }, []);
 
-  const toggleShotSelection = useCallback((shotId: string) => {
-    setSelectedForCompare((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(shotId)) {
-        newSet.delete(shotId);
-      } else {
-        // Limit to 3 selections
-        if (newSet.size < 3) {
-          newSet.add(shotId);
+  const toggleShotSelection = useCallback(
+    (shotId: string) => {
+      setSelectedForCompare((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(shotId)) {
+          newSet.delete(shotId);
         } else {
-          toast.warning('Maximum 3 videos', 'You can only compare up to 3 videos at once');
+          // Limit to 3 selections
+          if (newSet.size < 3) {
+            newSet.add(shotId);
+          } else {
+            toast.warning('Maximum 3 videos', 'You can only compare up to 3 videos at once');
+          }
         }
-      }
-      return newSet;
-    });
-  }, [toast]);
+        return newSet;
+      });
+    },
+    [toast]
+  );
 
   const handleCompare = useCallback(() => {
     if (selectedForCompare.size >= 2) {
@@ -427,9 +433,7 @@ export function GenerationPage() {
               <Play className="w-7 h-7 text-brand-400" />
               Generation
             </h1>
-            <p className="text-surface-400 mt-1">
-              Generate and review video content for each shot
-            </p>
+            <p className="text-surface-400 mt-1">Generate and review video content for each shot</p>
           </div>
         </div>
 
@@ -447,10 +451,7 @@ export function GenerationPage() {
           )}
 
           {isProcessing && (
-            <button
-              onClick={() => setIsProcessing(false)}
-              className="btn-secondary"
-            >
+            <button onClick={() => setIsProcessing(false)} className="btn-secondary">
               <Pause className="w-4 h-4 mr-2" />
               Pause
             </button>
@@ -475,10 +476,7 @@ export function GenerationPage() {
           <div className="text-sm text-surface-400 mb-1">Generating</div>
           <div className="text-2xl font-bold flex items-center gap-2">
             <Loader2
-              className={cn(
-                'w-5 h-5 text-yellow-400',
-                stats.generating > 0 && 'animate-spin'
-              )}
+              className={cn('w-5 h-5 text-yellow-400', stats.generating > 0 && 'animate-spin')}
             />
             {stats.generating}
           </div>
@@ -554,9 +552,7 @@ export function GenerationPage() {
             <div className="grid grid-cols-2 gap-4">
               {/* Provider Selection */}
               <div>
-                <label className="block text-sm text-surface-400 mb-2">
-                  Video Provider
-                </label>
+                <label className="block text-sm text-surface-400 mb-2">Video Provider</label>
                 <select
                   value={selectedProvider || ''}
                   onChange={(e) => {
@@ -588,9 +584,7 @@ export function GenerationPage() {
               {/* Model Selection */}
               {selectedProvider && (
                 <div>
-                  <label className="block text-sm text-surface-400 mb-2">
-                    Model
-                  </label>
+                  <label className="block text-sm text-surface-400 mb-2">Model</label>
                   <ModelSelector
                     providerId={selectedProvider}
                     selectedModel={selectedModel}
@@ -608,11 +602,9 @@ export function GenerationPage() {
                   provider={selectedProvider}
                   modelId={selectedModel || undefined}
                   shotCount={stats.pending}
-                  totalDurationSeconds={
-                    allShots
-                      .filter((s) => s.state === 'planned' || s.state === 'queued')
-                      .reduce((sum, s) => sum + (s.durationSeconds || 5), 0)
-                  }
+                  totalDurationSeconds={allShots
+                    .filter((s) => s.state === 'planned' || s.state === 'queued')
+                    .reduce((sum, s) => sum + (s.durationSeconds || 5), 0)}
                 />
               </div>
             )}
@@ -722,7 +714,8 @@ export function GenerationPage() {
             const jobsForShot = pendingJobs?.filter((j) => j.shotId === shot.id);
             const latestJob = jobsForShot?.[0];
             const isSelected = selectedForCompare.has(shot.id);
-            const canSelect = shot.outputVideoPath && (shot.state === 'generated' || shot.state === 'approved');
+            const canSelect =
+              shot.outputVideoPath && (shot.state === 'generated' || shot.state === 'approved');
 
             return (
               <div key={shot.id} className="relative">
@@ -756,10 +749,7 @@ export function GenerationPage() {
                 {/* Quality Radar Chart for completed/approved shots */}
                 {(shot.state === 'generated' || shot.state === 'approved') && latestJob?.id && (
                   <div className="mt-2">
-                    <QualityRadarChart
-                      review={null}
-                      compact={viewMode === 'grid'}
-                    />
+                    <QualityRadarChart review={null} compact={viewMode === 'grid'} />
                   </div>
                 )}
               </div>

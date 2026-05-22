@@ -179,9 +179,7 @@ function VirtualListInner<T>(
     (index: number, align: 'start' | 'center' | 'end' = 'start') => {
       if (!containerRef.current || index < 0 || index >= items.length) return;
 
-      let targetOffset = typeof itemHeight === 'number'
-        ? index * itemHeight
-        : itemPositions[index];
+      let targetOffset = typeof itemHeight === 'number' ? index * itemHeight : itemPositions[index];
 
       if (align === 'center') {
         const itemH = getHeight(index);
@@ -214,13 +212,17 @@ function VirtualListInner<T>(
   );
 
   // Expose methods via ref
-  useImperativeHandle(ref, () => ({
-    scrollToIndex,
-    scrollToOffset,
-    getScrollOffset: () => scrollTop,
-    getVisibleRange: () => visibleRange,
-    forceUpdate: () => setForceRender((n) => n + 1),
-  }), [scrollToIndex, scrollToOffset, scrollTop, visibleRange]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToIndex,
+      scrollToOffset,
+      getScrollOffset: () => scrollTop,
+      getVisibleRange: () => visibleRange,
+      forceUpdate: () => setForceRender((n) => n + 1),
+    }),
+    [scrollToIndex, scrollToOffset, scrollTop, visibleRange]
+  );
 
   // Initial scroll
   useEffect(() => {
@@ -236,9 +238,7 @@ function VirtualListInner<T>(
     for (let i = visibleRange.start; i < visibleRange.end; i++) {
       const item = items[i];
       const itemH = getHeight(i);
-      const top = typeof itemHeight === 'number'
-        ? i * itemHeight
-        : itemPositions[i];
+      const top = typeof itemHeight === 'number' ? i * itemHeight : itemPositions[i];
 
       const style: React.CSSProperties = {
         position: 'absolute',
@@ -262,11 +262,7 @@ function VirtualListInner<T>(
   return (
     <div
       ref={containerRef}
-      className={cn(
-        'relative overflow-auto',
-        !showScrollbar && 'scrollbar-hide',
-        className
-      )}
+      className={cn('relative overflow-auto', !showScrollbar && 'scrollbar-hide', className)}
       style={{ height, width }}
       onScroll={handleScroll}
     >
@@ -395,7 +391,17 @@ export function VirtualGrid<T>({
     }
 
     return result;
-  }, [renderStart, renderEnd, columns, items, rowHeight, gap, effectiveColumnWidth, getItemKey, renderItem]);
+  }, [
+    renderStart,
+    renderEnd,
+    columns,
+    items,
+    rowHeight,
+    gap,
+    effectiveColumnWidth,
+    getItemKey,
+    renderItem,
+  ]);
 
   return (
     <div
@@ -455,10 +461,13 @@ export function InfiniteScrollList<T>({
       if (isLoading || !hasMore || !onLoadMore) return;
 
       const { items, itemHeight } = listProps;
-      const totalHeight = typeof itemHeight === 'number'
-        ? items.length * itemHeight
-        : items.reduce((sum, _, i) =>
-            sum + (typeof itemHeight === 'function' ? itemHeight(i, items[i]) : 0), 0);
+      const totalHeight =
+        typeof itemHeight === 'number'
+          ? items.length * itemHeight
+          : items.reduce(
+              (sum, _, i) => sum + (typeof itemHeight === 'function' ? itemHeight(i, items[i]) : 0),
+              0
+            );
 
       if (scrollTop + height + loadMoreThreshold >= totalHeight) {
         onLoadMore();

@@ -115,9 +115,7 @@ export function BatchOperations({
   };
 
   const handleBulkQueue = async () => {
-    const pendingIds = selectedShots
-      .filter((s) => s.state === 'planned')
-      .map((s) => s.id);
+    const pendingIds = selectedShots.filter((s) => s.state === 'planned').map((s) => s.id);
     if (pendingIds.length > 0) {
       await onBatchQueue(pendingIds);
     }
@@ -192,9 +190,7 @@ export function BatchOperations({
               onClick={() => setShowBulkEdit(!showBulkEdit)}
               className={cn(
                 'px-3 py-1.5 text-sm rounded flex items-center gap-1.5 transition-colors',
-                showBulkEdit
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-surface-700 hover:bg-surface-600'
+                showBulkEdit ? 'bg-brand-500 text-white' : 'bg-surface-700 hover:bg-surface-600'
               )}
             >
               <Edit3 className="w-4 h-4" />

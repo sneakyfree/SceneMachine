@@ -1,14 +1,16 @@
 """Tests for performer IPC handlers."""
 
-import pytest
+from datetime import UTC
 from uuid import uuid4
 
-from scenemachine.ipc.server import IPCServer
+import pytest
+
 from scenemachine.ipc.handlers import register_handlers
+from scenemachine.ipc.server import IPCServer
 from scenemachine.models import (
     Performer,
-    PerformerType,
     PerformerAvailability,
+    PerformerType,
     PerformerVerification,
 )
 
@@ -24,7 +26,7 @@ def ipc_server():
 @pytest.fixture
 async def sample_performers(db_session):
     """Create sample performers for testing."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     performers = []
 
@@ -42,7 +44,7 @@ async def sample_performers(db_session):
             "total_bookings": 150,
             "completed_bookings": 145,
             "lifetime_earnings_usd": 45000.0,
-            "joined_at": datetime.now(timezone.utc),
+            "joined_at": datetime.now(UTC),
         },
         {
             "stage_name": "Sarah Grace",
@@ -56,7 +58,7 @@ async def sample_performers(db_session):
             "total_bookings": 100,
             "completed_bookings": 98,
             "lifetime_earnings_usd": 35000.0,
-            "joined_at": datetime.now(timezone.utc),
+            "joined_at": datetime.now(UTC),
         },
         {
             "stage_name": "Mike Comedy",
@@ -70,7 +72,7 @@ async def sample_performers(db_session):
             "total_bookings": 50,
             "completed_bookings": 48,
             "lifetime_earnings_usd": 10000.0,
-            "joined_at": datetime.now(timezone.utc),
+            "joined_at": datetime.now(UTC),
         },
     ]
 
@@ -272,11 +274,22 @@ class TestPerformerGetHandler:
         result = await handler(id=str(sample_performers[0].id))
 
         required_fields = [
-            "id", "stage_name", "bio", "specialties", "aci_score",
-            "performer_type", "is_verified", "is_available",
-            "motion_capabilities", "total_bookings",
-            "completed_bookings", "lifetime_earnings_usd", "average_rating",
-            "pricing_blink_usd", "base_price_usd", "completion_rate",
+            "id",
+            "stage_name",
+            "bio",
+            "specialties",
+            "aci_score",
+            "performer_type",
+            "is_verified",
+            "is_available",
+            "motion_capabilities",
+            "total_bookings",
+            "completed_bookings",
+            "lifetime_earnings_usd",
+            "average_rating",
+            "pricing_blink_usd",
+            "base_price_usd",
+            "completion_rate",
         ]
         for field in required_fields:
             assert field in result

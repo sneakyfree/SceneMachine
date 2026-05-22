@@ -142,9 +142,7 @@ export const OfflineBanner = memo(function OfflineBanner({
         'fixed top-0 left-0 right-0 z-50',
         'transition-all duration-300 ease-in-out',
         // Animate in
-        bannerState === 'hidden'
-          ? 'translate-y-[-100%] opacity-0'
-          : 'translate-y-0 opacity-100',
+        bannerState === 'hidden' ? 'translate-y-[-100%] opacity-0' : 'translate-y-0 opacity-100',
         className
       )}
     >
@@ -168,9 +166,7 @@ export const OfflineBanner = memo(function OfflineBanner({
           <div>
             <span className="font-medium">{config.message}</span>
             {showDetails && config.subMessage && (
-              <span className="ml-2 text-sm opacity-80">
-                — {config.subMessage}
-              </span>
+              <span className="ml-2 text-sm opacity-80">— {config.subMessage}</span>
             )}
           </div>
         </div>
@@ -220,12 +216,7 @@ export const OfflineBanner = memo(function OfflineBanner({
               aria-label="Dismiss"
             >
               <span className="sr-only">Dismiss</span>
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

@@ -18,15 +18,14 @@ import argparse
 import asyncio
 import json
 import os
+import subprocess
 import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
-import subprocess
-import traceback
+from typing import Any
 
 # Add parent directory for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -34,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 class TestLevel(Enum):
     """Test execution levels with increasing comprehensiveness."""
+
     SMOKE = 1
     UNIT = 2
     INTEGRATION = 3
@@ -45,21 +45,23 @@ class TestLevel(Enum):
 @dataclass
 class TestResult:
     """Individual test result."""
+
     name: str
     passed: bool
     duration_ms: float
-    error: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
+    error: str | None = None
+    details: dict[str, Any] | None = None
 
 
 @dataclass
 class CategoryResult:
     """Results for a test category."""
+
     name: str
     level: TestLevel
-    tests: List[TestResult] = field(default_factory=list)
-    start_time: Optional[float] = None
-    end_time: Optional[float] = None
+    tests: list[TestResult] = field(default_factory=list)
+    start_time: float | None = None
+    end_time: float | None = None
 
     @property
     def passed(self) -> int:
@@ -89,12 +91,13 @@ class CategoryResult:
 @dataclass
 class HardeningReport:
     """Complete hardening test report."""
+
     level: str
     start_time: str
-    end_time: Optional[str] = None
+    end_time: str | None = None
     duration_seconds: float = 0.0
-    categories: List[CategoryResult] = field(default_factory=list)
-    environment: Dict[str, str] = field(default_factory=dict)
+    categories: list[CategoryResult] = field(default_factory=list)
+    environment: dict[str, str] = field(default_factory=dict)
 
     @property
     def total_passed(self) -> int:
@@ -114,7 +117,7 @@ class HardeningReport:
             return 0.0
         return (self.total_passed / self.total_tests) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "level": self.level,
@@ -125,7 +128,7 @@ class HardeningReport:
                 "total_tests": self.total_tests,
                 "passed": self.total_passed,
                 "failed": self.total_failed,
-                "pass_rate": f"{self.overall_pass_rate:.1f}%"
+                "pass_rate": f"{self.overall_pass_rate:.1f}%",
             },
             "categories": [
                 {
@@ -136,11 +139,11 @@ class HardeningReport:
                     "failed": c.failed,
                     "pass_rate": f"{c.pass_rate:.1f}%",
                     "duration_seconds": c.duration_seconds,
-                    "tests": [asdict(t) for t in c.tests]
+                    "tests": [asdict(t) for t in c.tests],
                 }
                 for c in self.categories
             ],
-            "environment": self.environment
+            "environment": self.environment,
         }
 
 
@@ -152,56 +155,68 @@ class MasterHardeningSuite:
     """
 
     LEVELS = {
-        'smoke': [TestLevel.SMOKE],
-        'quick': [TestLevel.SMOKE, TestLevel.UNIT],
-        'ci': [TestLevel.SMOKE, TestLevel.UNIT, TestLevel.INTEGRATION],
-        'full': [TestLevel.SMOKE, TestLevel.UNIT, TestLevel.INTEGRATION, TestLevel.E2E, TestLevel.PERFORMANCE],
-        'investor': [TestLevel.SMOKE, TestLevel.UNIT, TestLevel.INTEGRATION, TestLevel.E2E, TestLevel.PERFORMANCE, TestLevel.FRONTEND]
+        "smoke": [TestLevel.SMOKE],
+        "quick": [TestLevel.SMOKE, TestLevel.UNIT],
+        "ci": [TestLevel.SMOKE, TestLevel.UNIT, TestLevel.INTEGRATION],
+        "full": [
+            TestLevel.SMOKE,
+            TestLevel.UNIT,
+            TestLevel.INTEGRATION,
+            TestLevel.E2E,
+            TestLevel.PERFORMANCE,
+        ],
+        "investor": [
+            TestLevel.SMOKE,
+            TestLevel.UNIT,
+            TestLevel.INTEGRATION,
+            TestLevel.E2E,
+            TestLevel.PERFORMANCE,
+            TestLevel.FRONTEND,
+        ],
     }
 
     def __init__(
         self,
-        level: str = 'full',
-        database_url: Optional[str] = None,
-        output_dir: Optional[str] = None,
-        verbose: bool = False
+        level: str = "full",
+        database_url: str | None = None,
+        output_dir: str | None = None,
+        verbose: bool = False,
     ):
         self.level = level
-        self.levels_to_run = self.LEVELS.get(level, self.LEVELS['full'])
+        self.levels_to_run = self.LEVELS.get(level, self.LEVELS["full"])
         self.database_url = database_url or os.getenv(
-            'TEST_DATABASE_URL',
-            'sqlite+aiosqlite:///./data/hardening_test.db'
+            "TEST_DATABASE_URL", "sqlite+aiosqlite:///./data/hardening_test.db"
         )
-        self.output_dir = Path(output_dir) if output_dir else Path('./data')
+        self.output_dir = Path(output_dir) if output_dir else Path("./data")
         self.verbose = verbose
-        self.report = HardeningReport(
-            level=level,
-            start_time=datetime.now().isoformat()
-        )
+        self.report = HardeningReport(level=level, start_time=datetime.now().isoformat())
 
         # Collect environment info
         self.report.environment = self._collect_environment()
 
-    def _collect_environment(self) -> Dict[str, str]:
+    def _collect_environment(self) -> dict[str, str]:
         """Collect system and environment information."""
         import platform
+
         return {
             "python_version": platform.python_version(),
             "platform": platform.platform(),
-            "database_url": self.database_url.split("@")[-1] if "@" in self.database_url else self.database_url,
+            "database_url": self.database_url.split("@")[-1]
+            if "@" in self.database_url
+            else self.database_url,
             "timestamp": datetime.now().isoformat(),
-            "level": self.level
+            "level": self.level,
         }
 
     def _print(self, message: str, level: str = "info"):
         """Print formatted message."""
         colors = {
-            "info": "\033[0m",      # Default
-            "success": "\033[92m",   # Green
-            "warning": "\033[93m",   # Yellow
-            "error": "\033[91m",     # Red
-            "header": "\033[94m",    # Blue
-            "bold": "\033[1m"        # Bold
+            "info": "\033[0m",  # Default
+            "success": "\033[92m",  # Green
+            "warning": "\033[93m",  # Yellow
+            "error": "\033[91m",  # Red
+            "header": "\033[94m",  # Blue
+            "bold": "\033[1m",  # Bold
         }
         reset = "\033[0m"
         color = colors.get(level, colors["info"])
@@ -220,7 +235,7 @@ class MasterHardeningSuite:
         self._print(
             f"  {result.name}: {result.passed}/{result.total} passed "
             f"({result.pass_rate:.1f}%) - {result.duration_seconds:.2f}s",
-            status
+            status,
         )
 
     async def run_smoke_tests(self) -> CategoryResult:
@@ -233,24 +248,24 @@ class MasterHardeningSuite:
         # Import and run smoke tests
         try:
             from tests.smoke_test import SmokeTestSuite
+
             smoke_suite = SmokeTestSuite()
             smoke_results = smoke_suite.run_all()
 
             for test_name, test_data in smoke_results.items():
-                result.tests.append(TestResult(
-                    name=test_name,
-                    passed=test_data.get('passed', False),
-                    duration_ms=test_data.get('duration_ms', 0),
-                    error=test_data.get('error'),
-                    details=test_data.get('details')
-                ))
+                result.tests.append(
+                    TestResult(
+                        name=test_name,
+                        passed=test_data.get("passed", False),
+                        duration_ms=test_data.get("duration_ms", 0),
+                        error=test_data.get("error"),
+                        details=test_data.get("details"),
+                    )
+                )
         except Exception as e:
-            result.tests.append(TestResult(
-                name="smoke_test_import",
-                passed=False,
-                duration_ms=0,
-                error=str(e)
-            ))
+            result.tests.append(
+                TestResult(name="smoke_test_import", passed=False, duration_ms=0, error=str(e))
+            )
 
         result.end_time = time.time()
         return result
@@ -263,10 +278,7 @@ class MasterHardeningSuite:
         self._print("\nRunning Unit Tests...", "info")
 
         # Run pytest for parsers and utils (skip services as they need full db setup)
-        test_dirs = [
-            "tests/parsers",
-            "tests/utils"
-        ]
+        test_dirs = ["tests/parsers", "tests/utils"]
 
         for test_dir in test_dirs:
             test_path = Path(__file__).parent.parent / test_dir
@@ -277,39 +289,46 @@ class MasterHardeningSuite:
                         capture_output=True,
                         text=True,
                         timeout=60,
-                        cwd=str(Path(__file__).parent.parent)
+                        cwd=str(Path(__file__).parent.parent),
                     )
 
                     # Parse pytest output for pass/fail counts
                     stdout = proc.stdout or ""
                     import re
-                    match = re.search(r'(\d+) passed', stdout)
+
+                    match = re.search(r"(\d+) passed", stdout)
                     passed_count = int(match.group(1)) if match else 0
-                    match = re.search(r'(\d+) failed', stdout)
+                    match = re.search(r"(\d+) failed", stdout)
                     failed_count = int(match.group(1)) if match else 0
 
                     passed = proc.returncode == 0 or passed_count > 0
-                    result.tests.append(TestResult(
-                        name=f"pytest_{test_dir.replace('/', '_')}",
-                        passed=passed,
-                        duration_ms=0,
-                        error=None,
-                        details={"passed": passed_count, "failed": failed_count}
-                    ))
+                    result.tests.append(
+                        TestResult(
+                            name=f"pytest_{test_dir.replace('/', '_')}",
+                            passed=passed,
+                            duration_ms=0,
+                            error=None,
+                            details={"passed": passed_count, "failed": failed_count},
+                        )
+                    )
                 except subprocess.TimeoutExpired:
-                    result.tests.append(TestResult(
-                        name=f"pytest_{test_dir.replace('/', '_')}",
-                        passed=False,
-                        duration_ms=60000,
-                        error="Test timeout exceeded (60s)"
-                    ))
+                    result.tests.append(
+                        TestResult(
+                            name=f"pytest_{test_dir.replace('/', '_')}",
+                            passed=False,
+                            duration_ms=60000,
+                            error="Test timeout exceeded (60s)",
+                        )
+                    )
                 except Exception as e:
-                    result.tests.append(TestResult(
-                        name=f"pytest_{test_dir.replace('/', '_')}",
-                        passed=False,
-                        duration_ms=0,
-                        error=str(e)
-                    ))
+                    result.tests.append(
+                        TestResult(
+                            name=f"pytest_{test_dir.replace('/', '_')}",
+                            passed=False,
+                            duration_ms=0,
+                            error=str(e),
+                        )
+                    )
 
         result.end_time = time.time()
         return result
@@ -328,39 +347,41 @@ class MasterHardeningSuite:
                 capture_output=True,
                 text=True,
                 timeout=180,
-                cwd=str(Path(__file__).parent.parent)
+                cwd=str(Path(__file__).parent.parent),
             )
 
             # Parse pytest output for pass/fail counts
             stdout = proc.stdout or ""
             import re
-            match = re.search(r'(\d+) passed', stdout)
+
+            match = re.search(r"(\d+) passed", stdout)
             passed_count = int(match.group(1)) if match else 0
-            match = re.search(r'(\d+) failed', stdout)
+            match = re.search(r"(\d+) failed", stdout)
             failed_count = int(match.group(1)) if match else 0
 
             passed = proc.returncode == 0 or (passed_count > 0 and failed_count < passed_count)
-            result.tests.append(TestResult(
-                name="api_route_tests",
-                passed=passed,
-                duration_ms=0,
-                error=None,
-                details={"passed": passed_count, "failed": failed_count}
-            ))
+            result.tests.append(
+                TestResult(
+                    name="api_route_tests",
+                    passed=passed,
+                    duration_ms=0,
+                    error=None,
+                    details={"passed": passed_count, "failed": failed_count},
+                )
+            )
         except subprocess.TimeoutExpired:
-            result.tests.append(TestResult(
-                name="api_route_tests",
-                passed=False,
-                duration_ms=180000,
-                error="Test timeout exceeded (180s)"
-            ))
+            result.tests.append(
+                TestResult(
+                    name="api_route_tests",
+                    passed=False,
+                    duration_ms=180000,
+                    error="Test timeout exceeded (180s)",
+                )
+            )
         except Exception as e:
-            result.tests.append(TestResult(
-                name="api_route_tests",
-                passed=False,
-                duration_ms=0,
-                error=str(e)
-            ))
+            result.tests.append(
+                TestResult(name="api_route_tests", passed=False, duration_ms=0, error=str(e))
+            )
 
         # Run IPC handler tests
         ipc_test_path = Path(__file__).parent / "ipc_hardening_tests.py"
@@ -371,36 +392,38 @@ class MasterHardeningSuite:
                     capture_output=True,
                     text=True,
                     timeout=60,
-                    cwd=str(Path(__file__).parent.parent)
+                    cwd=str(Path(__file__).parent.parent),
                 )
 
                 stdout = proc.stdout or ""
                 import re
-                match = re.search(r'(\d+) passed', stdout)
+
+                match = re.search(r"(\d+) passed", stdout)
                 passed_count = int(match.group(1)) if match else 0
 
                 passed = proc.returncode == 0
-                result.tests.append(TestResult(
-                    name="ipc_handler_tests",
-                    passed=passed,
-                    duration_ms=0,
-                    error=None,
-                    details={"passed": passed_count}
-                ))
+                result.tests.append(
+                    TestResult(
+                        name="ipc_handler_tests",
+                        passed=passed,
+                        duration_ms=0,
+                        error=None,
+                        details={"passed": passed_count},
+                    )
+                )
             except subprocess.TimeoutExpired:
-                result.tests.append(TestResult(
-                    name="ipc_handler_tests",
-                    passed=False,
-                    duration_ms=60000,
-                    error="Test timeout exceeded (60s)"
-                ))
+                result.tests.append(
+                    TestResult(
+                        name="ipc_handler_tests",
+                        passed=False,
+                        duration_ms=60000,
+                        error="Test timeout exceeded (60s)",
+                    )
+                )
             except Exception as e:
-                result.tests.append(TestResult(
-                    name="ipc_handler_tests",
-                    passed=False,
-                    duration_ms=0,
-                    error=str(e)
-                ))
+                result.tests.append(
+                    TestResult(name="ipc_handler_tests", passed=False, duration_ms=0, error=str(e))
+                )
 
         result.end_time = time.time()
         return result
@@ -419,23 +442,22 @@ class MasterHardeningSuite:
                 capture_output=True,
                 text=True,
                 timeout=300,
-                cwd=str(Path(__file__).parent.parent)
+                cwd=str(Path(__file__).parent.parent),
             )
 
             passed = proc.returncode == 0
-            result.tests.append(TestResult(
-                name="e2e_workflow_tests",
-                passed=passed,
-                duration_ms=0,
-                error=proc.stderr if not passed else None
-            ))
+            result.tests.append(
+                TestResult(
+                    name="e2e_workflow_tests",
+                    passed=passed,
+                    duration_ms=0,
+                    error=proc.stderr if not passed else None,
+                )
+            )
         except Exception as e:
-            result.tests.append(TestResult(
-                name="e2e_workflow_tests",
-                passed=False,
-                duration_ms=0,
-                error=str(e)
-            ))
+            result.tests.append(
+                TestResult(name="e2e_workflow_tests", passed=False, duration_ms=0, error=str(e))
+            )
 
         # Run workflow hardening tests if they exist
         workflow_test_path = Path(__file__).parent / "workflow_hardening_tests.py"
@@ -446,23 +468,24 @@ class MasterHardeningSuite:
                     capture_output=True,
                     text=True,
                     timeout=300,
-                    cwd=str(Path(__file__).parent.parent)
+                    cwd=str(Path(__file__).parent.parent),
                 )
 
                 passed = proc.returncode == 0
-                result.tests.append(TestResult(
-                    name="workflow_hardening_tests",
-                    passed=passed,
-                    duration_ms=0,
-                    error=proc.stderr if not passed else None
-                ))
+                result.tests.append(
+                    TestResult(
+                        name="workflow_hardening_tests",
+                        passed=passed,
+                        duration_ms=0,
+                        error=proc.stderr if not passed else None,
+                    )
+                )
             except Exception as e:
-                result.tests.append(TestResult(
-                    name="workflow_hardening_tests",
-                    passed=False,
-                    duration_ms=0,
-                    error=str(e)
-                ))
+                result.tests.append(
+                    TestResult(
+                        name="workflow_hardening_tests", passed=False, duration_ms=0, error=str(e)
+                    )
+                )
 
         result.end_time = time.time()
         return result
@@ -481,23 +504,24 @@ class MasterHardeningSuite:
                 capture_output=True,
                 text=True,
                 timeout=300,
-                cwd=str(Path(__file__).parent.parent)
+                cwd=str(Path(__file__).parent.parent),
             )
 
             passed = proc.returncode == 0
-            result.tests.append(TestResult(
-                name="performance_benchmark_tests",
-                passed=passed,
-                duration_ms=0,
-                error=proc.stderr if not passed else None
-            ))
+            result.tests.append(
+                TestResult(
+                    name="performance_benchmark_tests",
+                    passed=passed,
+                    duration_ms=0,
+                    error=proc.stderr if not passed else None,
+                )
+            )
         except Exception as e:
-            result.tests.append(TestResult(
-                name="performance_benchmark_tests",
-                passed=False,
-                duration_ms=0,
-                error=str(e)
-            ))
+            result.tests.append(
+                TestResult(
+                    name="performance_benchmark_tests", passed=False, duration_ms=0, error=str(e)
+                )
+            )
 
         result.end_time = time.time()
         return result
@@ -518,24 +542,23 @@ class MasterHardeningSuite:
                 capture_output=True,
                 text=True,
                 timeout=180,
-                cwd=str(desktop_path)
+                cwd=str(desktop_path),
             )
 
             passed = proc.returncode == 0
-            result.tests.append(TestResult(
-                name="vitest_unit_tests",
-                passed=passed,
-                duration_ms=0,
-                error=proc.stderr if not passed else None,
-                details={"stdout": proc.stdout[-500:] if proc.stdout else None}
-            ))
+            result.tests.append(
+                TestResult(
+                    name="vitest_unit_tests",
+                    passed=passed,
+                    duration_ms=0,
+                    error=proc.stderr if not passed else None,
+                    details={"stdout": proc.stdout[-500:] if proc.stdout else None},
+                )
+            )
         except Exception as e:
-            result.tests.append(TestResult(
-                name="vitest_unit_tests",
-                passed=False,
-                duration_ms=0,
-                error=str(e)
-            ))
+            result.tests.append(
+                TestResult(name="vitest_unit_tests", passed=False, duration_ms=0, error=str(e))
+            )
 
         # Run TypeScript compilation check
         try:
@@ -544,23 +567,22 @@ class MasterHardeningSuite:
                 capture_output=True,
                 text=True,
                 timeout=120,
-                cwd=str(desktop_path)
+                cwd=str(desktop_path),
             )
 
             passed = proc.returncode == 0
-            result.tests.append(TestResult(
-                name="typescript_compilation",
-                passed=passed,
-                duration_ms=0,
-                error=proc.stderr if not passed else None
-            ))
+            result.tests.append(
+                TestResult(
+                    name="typescript_compilation",
+                    passed=passed,
+                    duration_ms=0,
+                    error=proc.stderr if not passed else None,
+                )
+            )
         except Exception as e:
-            result.tests.append(TestResult(
-                name="typescript_compilation",
-                passed=False,
-                duration_ms=0,
-                error=str(e)
-            ))
+            result.tests.append(
+                TestResult(name="typescript_compilation", passed=False, duration_ms=0, error=str(e))
+            )
 
         result.end_time = time.time()
         return result
@@ -593,16 +615,20 @@ class MasterHardeningSuite:
                     self._print_result(category_result)
                 except Exception as e:
                     self._print(f"Error running {level.name} tests: {e}", "error")
-                    self.report.categories.append(CategoryResult(
-                        name=level.name,
-                        level=level,
-                        tests=[TestResult(
-                            name=f"{level.name}_runner_error",
-                            passed=False,
-                            duration_ms=0,
-                            error=str(e)
-                        )]
-                    ))
+                    self.report.categories.append(
+                        CategoryResult(
+                            name=level.name,
+                            level=level,
+                            tests=[
+                                TestResult(
+                                    name=f"{level.name}_runner_error",
+                                    passed=False,
+                                    duration_ms=0,
+                                    error=str(e),
+                                )
+                            ],
+                        )
+                    )
 
         # Finalize report
         self.report.end_time = datetime.now().isoformat()
@@ -612,9 +638,14 @@ class MasterHardeningSuite:
         self._print_header("SUMMARY")
         self._print(f"\nTotal Tests: {self.report.total_tests}", "bold")
         self._print(f"Passed: {self.report.total_passed}", "success")
-        self._print(f"Failed: {self.report.total_failed}", "error" if self.report.total_failed > 0 else "info")
-        self._print(f"Pass Rate: {self.report.overall_pass_rate:.1f}%",
-                   "success" if self.report.overall_pass_rate >= 90 else "warning")
+        self._print(
+            f"Failed: {self.report.total_failed}",
+            "error" if self.report.total_failed > 0 else "info",
+        )
+        self._print(
+            f"Pass Rate: {self.report.overall_pass_rate:.1f}%",
+            "success" if self.report.overall_pass_rate >= 90 else "warning",
+        )
         self._print(f"Duration: {self.report.duration_seconds:.2f}s", "info")
 
         # Save reports
@@ -667,14 +698,16 @@ class MasterHardeningSuite:
         ]
 
         for category in self.report.categories:
-            lines.extend([
-                "-" * 70,
-                f"{category.name} ({category.level.name})",
-                "-" * 70,
-                f"  Passed: {category.passed}/{category.total} ({category.pass_rate:.1f}%)",
-                f"  Duration: {category.duration_seconds:.2f}s",
-                ""
-            ])
+            lines.extend(
+                [
+                    "-" * 70,
+                    f"{category.name} ({category.level.name})",
+                    "-" * 70,
+                    f"  Passed: {category.passed}/{category.total} ({category.pass_rate:.1f}%)",
+                    f"  Duration: {category.duration_seconds:.2f}s",
+                    "",
+                ]
+            )
 
             # List failed tests
             failed_tests = [t for t in category.tests if not t.passed]
@@ -808,28 +841,16 @@ class MasterHardeningSuite:
 
 async def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="SceneMachine Master Hardening Test Suite"
-    )
+    parser = argparse.ArgumentParser(description="SceneMachine Master Hardening Test Suite")
     parser.add_argument(
         "--level",
         choices=["smoke", "quick", "ci", "full", "investor"],
         default="full",
-        help="Test level to run (default: full)"
+        help="Test level to run (default: full)",
     )
-    parser.add_argument(
-        "--database-url",
-        help="Database URL for tests"
-    )
-    parser.add_argument(
-        "--output-dir",
-        help="Output directory for reports"
-    )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Verbose output"
-    )
+    parser.add_argument("--database-url", help="Database URL for tests")
+    parser.add_argument("--output-dir", help="Output directory for reports")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
 
@@ -837,7 +858,7 @@ async def main():
         level=args.level,
         database_url=args.database_url,
         output_dir=args.output_dir,
-        verbose=args.verbose
+        verbose=args.verbose,
     )
 
     report = await suite.run()

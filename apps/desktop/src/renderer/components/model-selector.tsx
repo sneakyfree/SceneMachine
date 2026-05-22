@@ -73,10 +73,12 @@ export function ModelSelector({
 
   if (isLoading) {
     return (
-      <div className={cn(
-        'flex items-center gap-2 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg',
-        compact && 'px-2 py-1.5 text-sm'
-      )}>
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg',
+          compact && 'px-2 py-1.5 text-sm'
+        )}
+      >
         <Loader2 className="w-4 h-4 animate-spin text-surface-500" />
         <span className="text-surface-500">Loading models...</span>
       </div>
@@ -85,10 +87,12 @@ export function ModelSelector({
 
   if (error) {
     return (
-      <div className={cn(
-        'flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400',
-        compact && 'px-2 py-1.5 text-sm'
-      )}>
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400',
+          compact && 'px-2 py-1.5 text-sm'
+        )}
+      >
         <AlertCircle className="w-4 h-4" />
         <span>Failed to load models</span>
       </div>
@@ -97,10 +101,12 @@ export function ModelSelector({
 
   if (!models || models.length === 0) {
     return (
-      <div className={cn(
-        'flex items-center gap-2 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-surface-500',
-        compact && 'px-2 py-1.5 text-sm'
-      )}>
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-surface-500',
+          compact && 'px-2 py-1.5 text-sm'
+        )}
+      >
         <Info className="w-4 h-4" />
         <span>No models available</span>
       </div>
@@ -125,7 +131,9 @@ export function ModelSelector({
         )}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <Zap className={cn('w-4 h-4 shrink-0', currentModel ? 'text-brand-400' : 'text-surface-500')} />
+          <Zap
+            className={cn('w-4 h-4 shrink-0', currentModel ? 'text-brand-400' : 'text-surface-500')}
+          />
           <div className="text-left min-w-0">
             <div className={cn('font-medium truncate', compact ? 'text-sm' : 'text-base')}>
               {currentModel?.name || 'Select model'}
@@ -137,10 +145,12 @@ export function ModelSelector({
             )}
           </div>
         </div>
-        <ChevronDown className={cn(
-          'w-4 h-4 shrink-0 text-surface-500 transition-transform',
-          isOpen && 'rotate-180'
-        )} />
+        <ChevronDown
+          className={cn(
+            'w-4 h-4 shrink-0 text-surface-500 transition-transform',
+            isOpen && 'rotate-180'
+          )}
+        />
       </button>
 
       {/* Dropdown */}
@@ -179,22 +189,21 @@ function ModelOption({ model, isSelected, onClick, showCost }: ModelOptionProps)
       onClick={onClick}
       className={cn(
         'w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors',
-        isSelected
-          ? 'bg-brand-500/20 text-brand-300'
-          : 'hover:bg-surface-800'
+        isSelected ? 'bg-brand-500/20 text-brand-300' : 'hover:bg-surface-800'
       )}
     >
-      <Zap className={cn(
-        'w-4 h-4 mt-0.5 shrink-0',
-        isSelected ? 'text-brand-400' : 'text-surface-500'
-      )} />
+      <Zap
+        className={cn(
+          'w-4 h-4 mt-0.5 shrink-0',
+          isSelected ? 'text-brand-400' : 'text-surface-500'
+        )}
+      />
       <div className="flex-1 min-w-0">
         <div className="font-medium">{model.name}</div>
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-surface-400">
           {showCost && (
             <span className="flex items-center gap-1">
-              <DollarSign className="w-3 h-3" />
-              ${model.cost_per_second.toFixed(4)}/sec
+              <DollarSign className="w-3 h-3" />${model.cost_per_second.toFixed(4)}/sec
             </span>
           )}
           <span className="flex items-center gap-1">
@@ -235,11 +244,7 @@ export function ModelBadge({
     <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-surface-800 rounded text-xs">
       <Zap className="w-3 h-3 text-brand-400" />
       <span className="text-surface-200">{model.name}</span>
-      {showCost && (
-        <span className="text-surface-500">
-          ${model.cost_per_second.toFixed(3)}/s
-        </span>
-      )}
+      {showCost && <span className="text-surface-500">${model.cost_per_second.toFixed(3)}/s</span>}
     </div>
   );
 }

@@ -274,21 +274,13 @@ function InlineError({
 }: InlineErrorProps) {
   return (
     <div
-      className={cn(
-        'flex items-center gap-2 px-3 py-2 rounded-lg border',
-        colorClass,
-        className
-      )}
+      className={cn('flex items-center gap-2 px-3 py-2 rounded-lg border', colorClass, className)}
       role="alert"
     >
       {icon}
       <div className="flex-1 min-w-0">
-        <p className={cn('font-medium', compact ? 'text-xs' : 'text-sm')}>
-          {message}
-        </p>
-        {!compact && hint && (
-          <p className="text-xs opacity-80 truncate">{hint}</p>
-        )}
+        <p className={cn('font-medium', compact ? 'text-xs' : 'text-sm')}>{message}</p>
+        {!compact && hint && <p className="text-xs opacity-80 truncate">{hint}</p>}
       </div>
       {canRetry && onRetry && (
         <button
@@ -345,9 +337,7 @@ function BannerError({
         <p className="text-xs opacity-80">{hint}</p>
       </div>
       <div className="flex items-center gap-2">
-        {countdown > 0 && (
-          <span className="text-xs opacity-70">Retrying in {countdown}s...</span>
-        )}
+        {countdown > 0 && <span className="text-xs opacity-70">Retrying in {countdown}s...</span>}
         {canRetry && onRetry && !countdown && (
           <button
             onClick={onRetry}
@@ -383,13 +373,7 @@ interface ToastErrorProps {
   className?: string;
 }
 
-function ToastError({
-  icon,
-  message,
-  onDismiss,
-  colorClass,
-  className,
-}: ToastErrorProps) {
+function ToastError({ icon, message, onDismiss, colorClass, className }: ToastErrorProps) {
   return (
     <div
       className={cn(
@@ -455,11 +439,7 @@ function CardError({
 }: CardErrorProps) {
   return (
     <div
-      className={cn(
-        'rounded-lg border overflow-hidden',
-        colorClass,
-        className
-      )}
+      className={cn('rounded-lg border overflow-hidden', colorClass, className)}
       role="alert"
       aria-live="polite"
     >
@@ -521,9 +501,7 @@ function CardError({
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
-            <RefreshCw
-              className={cn('w-3.5 h-3.5', retryState.isRetrying && 'animate-spin')}
-            />
+            <RefreshCw className={cn('w-3.5 h-3.5', retryState.isRetrying && 'animate-spin')} />
             {retryState.isRetrying ? 'Retrying...' : 'Try Again'}
           </button>
         )}
@@ -568,19 +546,16 @@ function CardError({
               <span className="opacity-60">Category:</span> {appError.category}
             </p>
             <p>
-              <span className="opacity-60">Timestamp:</span>{' '}
-              {appError.timestamp.toISOString()}
+              <span className="opacity-60">Timestamp:</span> {appError.timestamp.toISOString()}
             </p>
             {appError.context && (
               <p>
-                <span className="opacity-60">Context:</span>{' '}
-                {JSON.stringify(appError.context)}
+                <span className="opacity-60">Context:</span> {JSON.stringify(appError.context)}
               </p>
             )}
             {appError.originalError && (
               <p className="break-all">
-                <span className="opacity-60">Original:</span>{' '}
-                {appError.originalError.message}
+                <span className="opacity-60">Original:</span> {appError.originalError.message}
               </p>
             )}
           </div>
@@ -612,24 +587,15 @@ export function DataLoadError({
 
   return (
     <div
-      className={cn(
-        'flex flex-col items-center justify-center py-12 px-4 text-center',
-        className
-      )}
+      className={cn('flex flex-col items-center justify-center py-12 px-4 text-center', className)}
       role="alert"
     >
       <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
         <AlertTriangle className="w-8 h-8 text-red-400" />
       </div>
-      <h3 className="text-lg font-semibold text-surface-100 mb-2">
-        Unable to load {entity}
-      </h3>
-      <p className="text-surface-400 text-sm max-w-md mb-2">
-        {formatted.message}
-      </p>
-      <p className="text-surface-500 text-xs max-w-md mb-6">
-        {formatted.hint}
-      </p>
+      <h3 className="text-lg font-semibold text-surface-100 mb-2">Unable to load {entity}</h3>
+      <p className="text-surface-400 text-sm max-w-md mb-2">{formatted.message}</p>
+      <p className="text-surface-500 text-xs max-w-md mb-6">{formatted.hint}</p>
       {formatted.canRetry && onRetry && (
         <button
           onClick={onRetry}
@@ -646,23 +612,11 @@ export function DataLoadError({
 /**
  * Compact error for form fields.
  */
-export function FieldError({
-  error,
-  className,
-}: {
-  error: string | unknown;
-  className?: string;
-}) {
-  const message =
-    typeof error === 'string'
-      ? error
-      : formatErrorForDisplay(error).message;
+export function FieldError({ error, className }: { error: string | unknown; className?: string }) {
+  const message = typeof error === 'string' ? error : formatErrorForDisplay(error).message;
 
   return (
-    <p
-      className={cn('text-xs text-red-400 mt-1 flex items-center gap-1', className)}
-      role="alert"
-    >
+    <p className={cn('text-xs text-red-400 mt-1 flex items-center gap-1', className)} role="alert">
       <AlertCircle className="w-3 h-3" />
       {message}
     </p>
@@ -690,9 +644,7 @@ export function ConnectionError({
       <WifiOff className="w-5 h-5" />
       <div className="flex-1">
         <p className="font-medium text-sm">Cannot connect to server</p>
-        <p className="text-xs opacity-80">
-          Make sure the backend is running and try again.
-        </p>
+        <p className="text-xs opacity-80">Make sure the backend is running and try again.</p>
       </div>
       {onRetry && (
         <button

@@ -207,9 +207,7 @@ export const OptimizedImage = memo(function OptimizedImage({
       style={containerStyle}
     >
       {/* Skeleton placeholder */}
-      {!isLoaded && !currentSrc && (
-        <Skeleton className="absolute inset-0 rounded-none" />
-      )}
+      {!isLoaded && !currentSrc && <Skeleton className="absolute inset-0 rounded-none" />}
 
       {/* Blur placeholder */}
       {placeholder && !isLoaded && currentSrc === placeholder && (
@@ -332,14 +330,7 @@ export const ImageGallery = memo(function ImageGallery({
   };
 
   return (
-    <div
-      className={cn(
-        'grid',
-        columnClasses[columns],
-        gapClasses[gap],
-        className
-      )}
-    >
+    <div className={cn('grid', columnClasses[columns], gapClasses[gap], className)}>
       {images.map((image, index) => (
         <button
           key={`${image.src}-${index}`}
@@ -419,8 +410,7 @@ export const AvatarImage = memo(function AvatarImage({
     .slice(0, 2);
 
   // Generate a consistent color based on the name
-  const colorIndex =
-    name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 8;
+  const colorIndex = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 8;
   const colors = [
     'bg-red-500',
     'bg-orange-500',
@@ -451,11 +441,7 @@ export const AvatarImage = memo(function AvatarImage({
 
   return (
     <div
-      className={cn(
-        'rounded-full overflow-hidden bg-surface-800',
-        sizeClasses[size],
-        className
-      )}
+      className={cn('rounded-full overflow-hidden bg-surface-800', sizeClasses[size], className)}
     >
       <img
         src={src}

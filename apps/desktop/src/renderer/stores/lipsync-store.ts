@@ -36,11 +36,7 @@ interface LipSyncStore {
   error: string | null;
 
   // Actions
-  startLipSync: (
-    videoId: string,
-    audioId: string,
-    provider: string
-  ) => Promise<LipSyncJob>;
+  startLipSync: (videoId: string, audioId: string, provider: string) => Promise<LipSyncJob>;
   cancelLipSync: (jobId: string) => Promise<void>;
   fetchJobs: () => Promise<void>;
   fetchProviders: () => Promise<void>;
@@ -145,10 +141,7 @@ export const useLipSyncStore = create<LipSyncStore>()(
           });
 
           try {
-            const response = await window.electronAPI.backendRequest(
-              'lipsync.getProviders',
-              {}
-            );
+            const response = await window.electronAPI.backendRequest('lipsync.getProviders', {});
 
             // Handle response safely
             const providersData = response as { providers?: Provider[] } | undefined;
@@ -207,10 +200,7 @@ export const useLipSyncStore = create<LipSyncStore>()(
 );
 
 // WebSocket connection for job progress updates
-function startJobWebSocket(
-  jobId: string,
-  onUpdate: (update: Partial<LipSyncJob>) => void
-): void {
+function startJobWebSocket(jobId: string, onUpdate: (update: Partial<LipSyncJob>) => void): void {
   // TODO: Implement WebSocket connection to /api/lipsync/ws/{job_id}
   // For now, we'll poll the job status
   const pollInterval = setInterval(async () => {

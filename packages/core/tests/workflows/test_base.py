@@ -1,17 +1,17 @@
 """Tests for the workflow orchestration framework."""
 
-import pytest
 from dataclasses import dataclass
-from typing import Any, Dict, List
-from uuid import uuid4
+from typing import Any
+
+import pytest
 
 from scenemachine.workflows.base import (
+    StepResult,
+    StepStatus,
     Workflow,
     WorkflowRegistry,
-    WorkflowStep,
     WorkflowStatus,
-    StepStatus,
-    StepResult,
+    WorkflowStep,
 )
 
 
@@ -19,6 +19,7 @@ from scenemachine.workflows.base import (
 @dataclass
 class TestWorkflowContext:
     """Context for test workflow."""
+
     value: int = 0
     processed: bool = False
 
@@ -30,7 +31,7 @@ class SimpleTestWorkflow(Workflow[TestWorkflowContext]):
     def workflow_type(self) -> str:
         return "test_simple"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="step1",
@@ -54,13 +55,13 @@ class SimpleTestWorkflow(Workflow[TestWorkflowContext]):
             ),
         ]
 
-    async def step_one(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_one(self, context: dict[str, Any]) -> dict[str, Any]:
         return {"step1_done": True, "value": context.get("value", 0) + 1}
 
-    async def step_two(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_two(self, context: dict[str, Any]) -> dict[str, Any]:
         return {"step2_done": True, "value": context.get("value", 0) + 10}
 
-    async def step_three(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_three(self, context: dict[str, Any]) -> dict[str, Any]:
         return {"step3_done": True, "processed": True}
 
 
@@ -71,7 +72,7 @@ class FailingWorkflow(Workflow[TestWorkflowContext]):
     def workflow_type(self) -> str:
         return "test_failing"
 
-    def define_steps(self) -> List[WorkflowStep]:
+    def define_steps(self) -> list[WorkflowStep]:
         return [
             WorkflowStep(
                 id="step1",
@@ -89,10 +90,10 @@ class FailingWorkflow(Workflow[TestWorkflowContext]):
             ),
         ]
 
-    async def step_one(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_one(self, context: dict[str, Any]) -> dict[str, Any]:
         return {"step1_done": True}
 
-    async def step_fail(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def step_fail(self, context: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("This step always fails")
 
 

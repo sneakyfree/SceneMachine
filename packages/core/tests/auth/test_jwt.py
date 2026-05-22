@@ -1,6 +1,6 @@
 """Tests for JWT token utilities."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -51,7 +51,7 @@ class TestCreateAccessToken:
         data = decode_token(token)
 
         # Check expiry is approximately 1 hour from now
-        expected_exp = datetime.now(timezone.utc) + expires_delta
+        expected_exp = datetime.now(UTC) + expires_delta
         assert abs((data.exp - expected_exp).total_seconds()) < 5
 
     def test_create_access_token_extra_claims(self):
@@ -94,7 +94,7 @@ class TestCreateRefreshToken:
         token = create_refresh_token(user_id, jti, expires_delta=expires_delta)
         data = decode_token(token)
 
-        expected_exp = datetime.now(timezone.utc) + expires_delta
+        expected_exp = datetime.now(UTC) + expires_delta
         assert abs((data.exp - expected_exp).total_seconds()) < 5
 
 
@@ -169,13 +169,13 @@ class TestGetTokenExpiry:
         """get_token_expiry should return future datetime for access token."""
         expiry = get_token_expiry(TokenType.ACCESS)
         assert isinstance(expiry, datetime)
-        assert expiry > datetime.now(timezone.utc)
+        assert expiry > datetime.now(UTC)
 
     def test_get_token_expiry_refresh(self):
         """get_token_expiry should return future datetime for refresh token."""
         expiry = get_token_expiry(TokenType.REFRESH)
         assert isinstance(expiry, datetime)
-        assert expiry > datetime.now(timezone.utc)
+        assert expiry > datetime.now(UTC)
 
     def test_refresh_expiry_longer_than_access(self):
         """Refresh token expiry should be longer than access token."""

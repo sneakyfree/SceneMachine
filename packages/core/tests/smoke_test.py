@@ -6,51 +6,46 @@ This script performs comprehensive testing of all modules and components
 without requiring a running database, using module imports and unit tests.
 """
 
-import asyncio
-import importlib
 import inspect
-import json
 import logging
 import sys
 import time
-import traceback
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Add the parent directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class TestResult:
     """Result of a single test."""
+
     name: str
     category: str
     passed: bool
     duration_ms: float
     message: str = ""
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class SmokeTestReport:
     """Complete smoke test report."""
+
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     total_tests: int = 0
     passed_tests: int = 0
     failed_tests: int = 0
     skipped_tests: int = 0
-    results: List[TestResult] = field(default_factory=list)
-    module_stats: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    results: list[TestResult] = field(default_factory=list)
+    module_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def add_result(self, result: TestResult):
         self.results.append(result)
@@ -75,7 +70,9 @@ class SmokeTestReport:
             "",
             f"Start Time: {self.start_time.isoformat()}",
             f"End Time: {self.end_time.isoformat() if self.end_time else 'N/A'}",
-            f"Duration: {(self.end_time - self.start_time).total_seconds():.2f}s" if self.end_time else "",
+            f"Duration: {(self.end_time - self.start_time).total_seconds():.2f}s"
+            if self.end_time
+            else "",
             "",
             "-" * 40,
             "SUMMARY",
@@ -88,25 +85,29 @@ class SmokeTestReport:
         ]
 
         if self.module_stats:
-            lines.extend([
-                "-" * 40,
-                "MODULE STATISTICS",
-                "-" * 40,
-            ])
+            lines.extend(
+                [
+                    "-" * 40,
+                    "MODULE STATISTICS",
+                    "-" * 40,
+                ]
+            )
             for module, stats in sorted(self.module_stats.items()):
                 lines.append(f"  {module}:")
                 for key, value in stats.items():
                     lines.append(f"    {key}: {value}")
 
-        lines.extend([
-            "",
-            "-" * 40,
-            "TEST RESULTS BY CATEGORY",
-            "-" * 40,
-        ])
+        lines.extend(
+            [
+                "",
+                "-" * 40,
+                "TEST RESULTS BY CATEGORY",
+                "-" * 40,
+            ]
+        )
 
         # Group by category
-        categories: Dict[str, List[TestResult]] = {}
+        categories: dict[str, list[TestResult]] = {}
         for result in self.results:
             if result.category not in categories:
                 categories[result.category] = []
@@ -127,23 +128,27 @@ class SmokeTestReport:
         # Failed tests summary
         failed = [r for r in self.results if not r.passed]
         if failed:
-            lines.extend([
-                "",
-                "-" * 40,
-                "FAILED TESTS DETAILS",
-                "-" * 40,
-            ])
+            lines.extend(
+                [
+                    "",
+                    "-" * 40,
+                    "FAILED TESTS DETAILS",
+                    "-" * 40,
+                ]
+            )
             for result in failed:
                 lines.append(f"\n  {result.name}")
                 lines.append(f"  Category: {result.category}")
                 lines.append(f"  Error: {result.message}")
 
-        lines.extend([
-            "",
-            "=" * 80,
-            f"OVERALL STATUS: {'PASS' if self.failed_tests == 0 else 'FAIL'}",
-            "=" * 80,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 80,
+                f"OVERALL STATUS: {'PASS' if self.failed_tests == 0 else 'FAIL'}",
+                "=" * 80,
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -152,16 +157,9 @@ class SmokeTest:
     """End-to-end smoke test for SceneMachine."""
 
     def __init__(self):
-        self.report = SmokeTestReport(start_time=datetime.now(timezone.utc))
+        self.report = SmokeTestReport(start_time=datetime.now(UTC))
 
-    def run_test(
-        self,
-        name: str,
-        category: str,
-        test_func,
-        *args,
-        **kwargs
-    ) -> TestResult:
+    def run_test(self, name: str, category: str, test_func, *args, **kwargs) -> TestResult:
         """Run a single test and record the result."""
         start = time.time()
         try:
@@ -205,7 +203,9 @@ class SmokeTest:
 
         # ============ SERVICE IMPORTS ============
         self.run_test("Import Assembly service", "Services", self.test_import_assembly_service)
-        self.run_test("Import Generation providers", "Services", self.test_import_generation_providers)
+        self.run_test(
+            "Import Generation providers", "Services", self.test_import_generation_providers
+        )
         self.run_test("Import Audio library service", "Services", self.test_import_audio_library)
         self.run_test("Import Cost tracking service", "Services", self.test_import_cost_tracking)
         self.run_test("Import Character service", "Services", self.test_import_character_service)
@@ -221,7 +221,9 @@ class SmokeTest:
         self.run_test("Import Sharing routes", "API Routes", self.test_import_sharing_routes)
         self.run_test("Import Settings routes", "API Routes", self.test_import_settings_routes)
         self.run_test("Import Audio routes", "API Routes", self.test_import_audio_routes)
-        self.run_test("Import Text overlay routes", "API Routes", self.test_import_text_overlay_routes)
+        self.run_test(
+            "Import Text overlay routes", "API Routes", self.test_import_text_overlay_routes
+        )
 
         # ============ IPC HANDLERS ============
         self.run_test("Import IPC handlers", "IPC", self.test_import_ipc_handlers)
@@ -249,7 +251,9 @@ class SmokeTest:
         self.run_test("Test Fountain parsing", "Functionality", self.test_fountain_parsing)
         self.run_test("Test ExportSettings defaults", "Functionality", self.test_export_settings)
         self.run_test("Test ColorGradeSettings", "Functionality", self.test_color_grade_settings)
-        self.run_test("Test Circuit breaker states", "Functionality", self.test_circuit_breaker_states)
+        self.run_test(
+            "Test Circuit breaker states", "Functionality", self.test_circuit_breaker_states
+        )
         self.run_test("Test Cost estimation", "Functionality", self.test_cost_estimation)
 
         # ============ INTEGRATION CHECKS ============
@@ -264,18 +268,24 @@ class SmokeTest:
         self.run_test("Import ComfyUI provider", "Phase 15-22", self.test_import_comfyui_provider)
         self.run_test("Import RunPod provider", "Phase 15-22", self.test_import_runpod_provider)
         self.run_test("Import Provider registry", "Phase 15-22", self.test_import_provider_registry)
-        self.run_test("Import Rate limiter middleware", "Phase 15-22", self.test_import_rate_limiter)
-        self.run_test("Import Security middleware", "Phase 15-22", self.test_import_security_middleware)
+        self.run_test(
+            "Import Rate limiter middleware", "Phase 15-22", self.test_import_rate_limiter
+        )
+        self.run_test(
+            "Import Security middleware", "Phase 15-22", self.test_import_security_middleware
+        )
         self.run_test("Import Shortcuts manager", "Phase 15-22", self.test_import_shortcuts_manager)
         self.run_test("Import Watermarks routes", "Phase 15-22", self.test_import_watermarks_routes)
         self.run_test("Import Archive routes", "Phase 15-22", self.test_import_archive_routes)
         self.run_test("Import Health routes", "Phase 15-22", self.test_import_health_routes)
-        self.run_test("Import Project duplicator", "Phase 15-22", self.test_import_project_duplicator)
+        self.run_test(
+            "Import Project duplicator", "Phase 15-22", self.test_import_project_duplicator
+        )
 
         # Collect module statistics
         self._collect_module_stats()
 
-        self.report.end_time = datetime.now(timezone.utc)
+        self.report.end_time = datetime.now(UTC)
         logger.info("Smoke tests completed.")
 
     def _collect_module_stats(self):
@@ -284,19 +294,19 @@ class SmokeTest:
 
         # Count models
         from scenemachine import models
+
         model_classes = [
-            name for name, obj in inspect.getmembers(models)
-            if inspect.isclass(obj) and hasattr(obj, '__tablename__')
+            name
+            for name, obj in inspect.getmembers(models)
+            if inspect.isclass(obj) and hasattr(obj, "__tablename__")
         ]
         stats["models"] = {"table_count": len(model_classes)}
 
         # Count routes
         try:
             from scenemachine.api import routes
-            route_modules = [
-                name for name in dir(routes)
-                if not name.startswith('_')
-            ]
+
+            route_modules = [name for name in dir(routes) if not name.startswith("_")]
             stats["api_routes"] = {"module_count": len(route_modules)}
         except:
             pass
@@ -306,69 +316,75 @@ class SmokeTest:
     # ============ MODEL IMPORT TESTS ============
 
     def test_import_base_models(self):
-        from scenemachine.models import Base, UUIDMixin, TimestampMixin
+        from scenemachine.models import Base, TimestampMixin, UUIDMixin
+
         assert Base is not None
         assert UUIDMixin is not None
         assert TimestampMixin is not None
 
     def test_import_project(self):
         from scenemachine.models import Project, ProjectState
-        assert hasattr(Project, '__tablename__')
-        assert Project.__tablename__ == 'projects'
+
+        assert hasattr(Project, "__tablename__")
+        assert Project.__tablename__ == "projects"
         assert len(ProjectState) >= 5
 
     def test_import_character(self):
-        from scenemachine.models import Character, CharacterGender, CharacterLockState
-        assert hasattr(Character, '__tablename__')
-        assert Character.__tablename__ == 'characters'
+        from scenemachine.models import Character, CharacterGender
+
+        assert hasattr(Character, "__tablename__")
+        assert Character.__tablename__ == "characters"
         assert CharacterGender.MALE is not None
         assert CharacterGender.FEMALE is not None
 
     def test_import_scene(self):
-        from scenemachine.models import Scene, SceneType, TimeOfDay, SceneState
-        assert hasattr(Scene, '__tablename__')
+        from scenemachine.models import Scene, SceneType, TimeOfDay
+
+        assert hasattr(Scene, "__tablename__")
         assert SceneType.INTERIOR is not None
         assert SceneType.EXTERIOR is not None
         assert TimeOfDay.DAY is not None
 
     def test_import_shot(self):
-        from scenemachine.models import Shot, ShotType, CameraMovement, ShotState
-        assert hasattr(Shot, '__tablename__')
+        from scenemachine.models import CameraMovement, Shot, ShotType
+
+        assert hasattr(Shot, "__tablename__")
         assert len(list(ShotType)) >= 10
         assert len(list(CameraMovement)) >= 5
 
     def test_import_generation_job(self):
-        from scenemachine.models import GenerationJob, JobStatus, JobProvider
-        assert hasattr(GenerationJob, '__tablename__')
+        from scenemachine.models import GenerationJob, JobStatus
+
+        assert hasattr(GenerationJob, "__tablename__")
         assert JobStatus.PENDING is not None
         assert JobStatus.COMPLETED is not None
 
     def test_import_audio_asset(self):
         from scenemachine.models import AudioAsset, AudioAssetType
-        assert hasattr(AudioAsset, '__tablename__')
+
+        assert hasattr(AudioAsset, "__tablename__")
         assert AudioAssetType.SOUND_EFFECT is not None
         assert AudioAssetType.MUSIC is not None
 
     def test_import_text_overlay(self):
-        from scenemachine.models import (
-            TextOverlay, TextOverlayType, TextPosition, TextAnimation
-        )
-        assert hasattr(TextOverlay, '__tablename__')
+        from scenemachine.models import TextAnimation, TextOverlay, TextOverlayType, TextPosition
+
+        assert hasattr(TextOverlay, "__tablename__")
         assert TextOverlayType.TITLE is not None
         assert TextPosition.CENTER is not None
         assert TextAnimation.FADE_IN is not None
 
     def test_import_share_models(self):
-        from scenemachine.models import (
-            ProjectShare, ProjectComment, SharePermission, ShareStatus
-        )
-        assert hasattr(ProjectShare, '__tablename__')
+        from scenemachine.models import ProjectShare, SharePermission
+
+        assert hasattr(ProjectShare, "__tablename__")
         assert SharePermission.VIEW is not None
         assert SharePermission.EDIT is not None
 
     def test_import_settings(self):
-        from scenemachine.models import UserSettings, LLMProvider, VideoProvider, ThemeMode
-        assert hasattr(UserSettings, '__tablename__')
+        from scenemachine.models import LLMProvider, UserSettings, VideoProvider
+
+        assert hasattr(UserSettings, "__tablename__")
         assert LLMProvider.ANTHROPIC is not None
         assert VideoProvider.REPLICATE is not None
 
@@ -376,90 +392,109 @@ class SmokeTest:
 
     def test_import_assembly_service(self):
         from scenemachine.services.assembly import (
-            AssemblyService, ExportSettings, ExportFormat, ExportQuality
+            AssemblyService,
+            ExportFormat,
         )
+
         assert AssemblyService is not None
         assert ExportFormat.MP4_H264 is not None
 
     def test_import_generation_providers(self):
         from scenemachine.generators import (
-            GenerationProvider, ReplicateProvider, FalProvider, MockGenerationProvider
+            GenerationProvider,
+            MockGenerationProvider,
+            ReplicateProvider,
         )
+
         assert GenerationProvider is not None
         assert ReplicateProvider is not None
         assert MockGenerationProvider is not None
 
     def test_import_audio_library(self):
         from scenemachine.services.audio_library import AudioLibraryService
+
         assert AudioLibraryService is not None
 
     def test_import_cost_tracking(self):
         from scenemachine.services.cost_tracking import CostTrackingService
+
         assert CostTrackingService is not None
 
     def test_import_character_service(self):
         from scenemachine.services.character import CharacterService
+
         assert CharacterService is not None
 
     def test_import_scene_planning(self):
         from scenemachine.services.scene_planning import ScenePlanningService
+
         assert ScenePlanningService is not None
 
     # ============ API ROUTE TESTS ============
 
     def test_import_projects_routes(self):
         from scenemachine.api.routes import projects
-        assert hasattr(projects, 'router')
+
+        assert hasattr(projects, "router")
 
     def test_import_characters_routes(self):
         from scenemachine.api.routes import characters
-        assert hasattr(characters, 'router')
+
+        assert hasattr(characters, "router")
 
     def test_import_scenes_routes(self):
         from scenemachine.api.routes import scenes
-        assert hasattr(scenes, 'router')
+
+        assert hasattr(scenes, "router")
 
     def test_import_generation_routes(self):
         from scenemachine.api.routes import generation
-        assert hasattr(generation, 'router')
+
+        assert hasattr(generation, "router")
 
     def test_import_assembly_routes(self):
         from scenemachine.api.routes import assembly
-        assert hasattr(assembly, 'router')
+
+        assert hasattr(assembly, "router")
 
     def test_import_analytics_routes(self):
         from scenemachine.api.routes import analytics
-        assert hasattr(analytics, 'router')
+
+        assert hasattr(analytics, "router")
 
     def test_import_sharing_routes(self):
         from scenemachine.api.routes import sharing
-        assert hasattr(sharing, 'router')
+
+        assert hasattr(sharing, "router")
 
     def test_import_settings_routes(self):
         from scenemachine.api.routes import settings
-        assert hasattr(settings, 'router')
+
+        assert hasattr(settings, "router")
 
     def test_import_audio_routes(self):
         from scenemachine.api.routes import audio
-        assert hasattr(audio, 'router')
+
+        assert hasattr(audio, "router")
 
     def test_import_text_overlay_routes(self):
         from scenemachine.api.routes import text_overlays
-        assert hasattr(text_overlays, 'router')
+
+        assert hasattr(text_overlays, "router")
 
     # ============ IPC TESTS ============
 
     def test_import_ipc_handlers(self):
         from scenemachine.ipc import handlers
+
         assert handlers is not None
 
     def test_ipc_handler_count(self):
         """Verify minimum number of IPC handlers exist."""
-        from scenemachine.ipc import handlers
         # Read the file and count handler decorators
         handler_file = Path(__file__).parent.parent / "scenemachine" / "ipc" / "handlers.py"
         content = handler_file.read_text()
-        handler_count = content.count('@server.handler(')
+        handler_count = content.count("@server.handler(")
         assert handler_count >= 50, f"Expected at least 50 handlers, found {handler_count}"
         self.report.module_stats["ipc_handlers"] = {"count": handler_count}
 
@@ -467,85 +502,99 @@ class SmokeTest:
 
     def test_import_ffmpeg(self):
         from scenemachine.utils.ffmpeg import FFmpeg, FFmpegValidator
+
         assert FFmpeg is not None
         assert FFmpegValidator is not None
 
     def test_import_circuit_breaker(self):
         from scenemachine.utils.circuit_breaker import (
-            CircuitBreaker, CircuitBreakerRegistry, CircuitState
+            CircuitBreaker,
+            CircuitState,
         )
+
         assert CircuitBreaker is not None
         assert CircuitState.CLOSED is not None
         assert CircuitState.OPEN is not None
 
     def test_import_caching(self):
-        from scenemachine.utils.cache import LRUCache, FileCache, cached
+        from scenemachine.utils.cache import FileCache, LRUCache, cached
+
         assert LRUCache is not None
         assert FileCache is not None
         assert cached is not None
 
     def test_import_logging(self):
         from scenemachine.utils.logging import setup_logging
+
         assert setup_logging is not None
 
     # ============ PARSER TESTS ============
 
     def test_import_fountain_parser(self):
         from scenemachine.parsers.fountain import FountainParser
+
         assert FountainParser is not None
 
     def test_import_pdf_parser(self):
         from scenemachine.parsers.pdf import PDFParser
+
         assert PDFParser is not None
 
     def test_parsers_module(self):
         from scenemachine import parsers
+
         assert parsers is not None
-        assert hasattr(parsers, 'FountainParser') or hasattr(parsers, 'fountain')
+        assert hasattr(parsers, "FountainParser") or hasattr(parsers, "fountain")
 
     # ============ ENUM TESTS ============
 
     def test_project_state_enum(self):
         from scenemachine.models import ProjectState
+
         states = list(ProjectState)
         assert len(states) >= 5
         state_names = [s.name for s in states]
-        assert 'EMPTY' in state_names or 'SCREENPLAY_UPLOADED' in state_names
+        assert "EMPTY" in state_names or "SCREENPLAY_UPLOADED" in state_names
 
     def test_shot_type_enum(self):
         from scenemachine.models import ShotType
+
         types = list(ShotType)
         assert len(types) >= 10
         type_names = [t.value for t in types]
-        assert any('wide' in t.lower() or 'close' in t.lower() for t in type_names)
+        assert any("wide" in t.lower() or "close" in t.lower() for t in type_names)
 
     def test_camera_movement_enum(self):
         from scenemachine.models import CameraMovement
+
         movements = list(CameraMovement)
         assert len(movements) >= 5
         movement_names = [m.value for m in movements]
-        assert any('static' in m.lower() or 'pan' in m.lower() for m in movement_names)
+        assert any("static" in m.lower() or "pan" in m.lower() for m in movement_names)
 
     def test_job_status_enum(self):
         from scenemachine.models import JobStatus
+
         statuses = list(JobStatus)
         status_names = [s.name for s in statuses]
-        assert 'PENDING' in status_names
-        assert 'COMPLETED' in status_names
-        assert 'FAILED' in status_names
+        assert "PENDING" in status_names
+        assert "COMPLETED" in status_names
+        assert "FAILED" in status_names
 
     def test_text_animation_enum(self):
         from scenemachine.models import TextAnimation
+
         animations = list(TextAnimation)
         assert len(animations) >= 5
         anim_names = [a.value for a in animations]
-        assert 'none' in anim_names
-        assert 'fade_in' in anim_names
+        assert "none" in anim_names
+        assert "fade_in" in anim_names
 
     # ============ FUNCTIONALITY TESTS ============
 
     def test_fountain_parsing(self):
         from scenemachine.parsers.fountain import FountainParser
+
         parser = FountainParser()
         sample = """
 INT. COFFEE SHOP - DAY
@@ -558,140 +607,164 @@ Hello, is anyone here?
         result = parser.parse(sample)
         assert result is not None
         # Result is a ParsedScreenplay object
-        assert hasattr(result, 'scenes') or hasattr(result, 'title')
+        assert hasattr(result, "scenes") or hasattr(result, "title")
 
     def test_export_settings(self):
-        from scenemachine.services.assembly import ExportSettings, ExportFormat, ExportQuality
+        from scenemachine.services.assembly import ExportFormat, ExportQuality, ExportSettings
+
         settings = ExportSettings()
         assert settings.format == ExportFormat.MP4_H264
         assert settings.quality == ExportQuality.HIGH
         assert settings.resolution == "1920x1080"
         assert settings.frame_rate == 24
-        assert settings.include_audio == True
-        assert settings.include_text_overlays == True
+        assert settings.include_audio
+        assert settings.include_text_overlays
 
     def test_color_grade_settings(self):
         from scenemachine.services.assembly import ColorGradeSettings
+
         grade = ColorGradeSettings(
             exposure=0.5,
             contrast=10,
             saturation=-5,
             lut_path="/path/to/lut.cube",
-            lut_intensity=80.0
+            lut_intensity=80.0,
         )
         assert grade.exposure == 0.5
         assert grade.lut_intensity == 80.0
 
     def test_circuit_breaker_states(self):
         from scenemachine.utils.circuit_breaker import (
-            CircuitBreaker, CircuitState, CircuitBreakerConfig
+            CircuitBreaker,
+            CircuitBreakerConfig,
+            CircuitState,
         )
-        config = CircuitBreakerConfig(
-            failure_threshold=3,
-            recovery_timeout=30,
-            success_threshold=2
-        )
+
+        config = CircuitBreakerConfig(failure_threshold=3, recovery_timeout=30, success_threshold=2)
         cb = CircuitBreaker(name="test", config=config)
         assert cb.state == CircuitState.CLOSED
         assert cb.stats.consecutive_failures == 0
 
     def test_cost_estimation(self):
         from scenemachine.services.cost_tracking import CostTrackingService
+
         # Verify class has expected methods
-        assert hasattr(CostTrackingService, 'estimate_generation_cost')
-        assert hasattr(CostTrackingService, 'get_project_costs')
+        assert hasattr(CostTrackingService, "estimate_generation_cost")
+        assert hasattr(CostTrackingService, "get_project_costs")
 
     # ============ INTEGRATION TESTS ============
 
     def test_api_app_creation(self):
         from scenemachine.api.app import create_app
+
         # Test the factory function exists and is callable
         assert create_app is not None
         assert callable(create_app)
 
     def test_route_registration(self):
         # Test individual routers can be imported with their router attributes
-        from scenemachine.api.routes import projects, characters, scenes
-        assert hasattr(projects, 'router')
-        assert hasattr(characters, 'router')
-        assert hasattr(scenes, 'router')
+        from scenemachine.api.routes import characters, projects, scenes
+
+        assert hasattr(projects, "router")
+        assert hasattr(characters, "router")
+        assert hasattr(scenes, "router")
 
     def test_model_relationships(self):
-        from scenemachine.models import Project, Scene, Shot, Character
+        from scenemachine.models import Project, Scene, Shot
+
         # Check relationship attributes exist
-        assert hasattr(Project, 'scenes')
-        assert hasattr(Project, 'characters')
-        assert hasattr(Scene, 'shots')
-        assert hasattr(Scene, 'project')
-        assert hasattr(Shot, 'scene')
+        assert hasattr(Project, "scenes")
+        assert hasattr(Project, "characters")
+        assert hasattr(Scene, "shots")
+        assert hasattr(Scene, "project")
+        assert hasattr(Shot, "scene")
 
     # ============ PHASE 15-22 FEATURE TESTS ============
 
     def test_import_queue_worker(self):
         from scenemachine.services.queue_worker import QueueWorker, WorkerStats
+
         assert QueueWorker is not None
         assert WorkerStats is not None
 
     def test_import_job_queue(self):
         from scenemachine.services.job_queue import BackgroundJobQueue, JobPriority
+
         assert BackgroundJobQueue is not None
         assert JobPriority.HIGH is not None
 
     def test_import_export_history(self):
         from scenemachine.models import ExportHistory
-        assert hasattr(ExportHistory, '__tablename__')
-        assert ExportHistory.__tablename__ == 'export_history'
+
+        assert hasattr(ExportHistory, "__tablename__")
+        assert ExportHistory.__tablename__ == "export_history"
 
     def test_import_comfyui_provider(self):
         from scenemachine.generators.comfyui import ComfyUIProvider
+
         assert ComfyUIProvider is not None
 
     def test_import_runpod_provider(self):
         from scenemachine.generators.runpod import RunPodProvider
+
         assert RunPodProvider is not None
 
     def test_import_provider_registry(self):
         from scenemachine.generators.registry import ProviderRegistry, get_provider_registry
+
         assert ProviderRegistry is not None
         assert get_provider_registry is not None
         # Note: Don't instantiate here as it may need settings
-        assert hasattr(ProviderRegistry, 'register')
+        assert hasattr(ProviderRegistry, "register")
 
     def test_import_rate_limiter(self):
-        from scenemachine.api.middleware.security import (
-            RateLimitMiddleware, TokenBucket
-        )
+        from scenemachine.api.middleware.security import RateLimitMiddleware, TokenBucket
+
         assert RateLimitMiddleware is not None
         assert TokenBucket is not None
 
     def test_import_security_middleware(self):
         from scenemachine.api.middleware.security import (
-            SecurityHeadersMiddleware, RequestValidationMiddleware
+            RequestValidationMiddleware,
+            SecurityHeadersMiddleware,
         )
+
         assert SecurityHeadersMiddleware is not None
         assert RequestValidationMiddleware is not None
 
     def test_import_shortcuts_manager(self):
         # Frontend-only, test that the TypeScript file exists
-        shortcuts_path = Path(__file__).parent.parent.parent.parent / "apps" / "desktop" / "src" / "renderer" / "lib" / "shortcuts-manager.ts"
+        shortcuts_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "apps"
+            / "desktop"
+            / "src"
+            / "renderer"
+            / "lib"
+            / "shortcuts-manager.ts"
+        )
         assert shortcuts_path.exists(), f"Shortcuts manager not found at {shortcuts_path}"
 
     def test_import_watermarks_routes(self):
         from scenemachine.api.routes import watermarks
-        assert hasattr(watermarks, 'router')
+
+        assert hasattr(watermarks, "router")
 
     def test_import_archive_routes(self):
         from scenemachine.api.routes import archive
-        assert hasattr(archive, 'router')
+
+        assert hasattr(archive, "router")
 
     def test_import_health_routes(self):
         from scenemachine.api.routes import health
-        assert hasattr(health, 'router')
+
+        assert hasattr(health, "router")
 
     def test_import_project_duplicator(self):
         from scenemachine.services.project_duplicator import ProjectDuplicator
+
         assert ProjectDuplicator is not None
-        assert hasattr(ProjectDuplicator, 'duplicate')
+        assert hasattr(ProjectDuplicator, "duplicate")
 
 
 class SmokeTestSuite:
@@ -703,7 +776,7 @@ class SmokeTestSuite:
     def __init__(self):
         self.smoke_test = SmokeTest()
 
-    def run_all(self) -> Dict[str, Dict[str, Any]]:
+    def run_all(self) -> dict[str, dict[str, Any]]:
         """
         Run all smoke tests and return results as a dictionary.
 
@@ -719,11 +792,11 @@ class SmokeTestSuite:
         results = {}
         for result in self.smoke_test.report.results:
             results[result.name] = {
-                'passed': result.passed,
-                'duration_ms': result.duration_ms,
-                'error': result.message if not result.passed else None,
-                'details': result.details if result.details else None,
-                'category': result.category
+                "passed": result.passed,
+                "duration_ms": result.duration_ms,
+                "error": result.message if not result.passed else None,
+                "details": result.details if result.details else None,
+                "category": result.category,
             }
 
         return results

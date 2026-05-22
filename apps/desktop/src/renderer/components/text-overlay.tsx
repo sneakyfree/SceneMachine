@@ -198,15 +198,8 @@ interface TextOverlayEditorProps {
   onDuplicate: () => void;
 }
 
-function TextOverlayEditor({
-  overlay,
-  onChange,
-  onDelete,
-  onDuplicate,
-}: TextOverlayEditorProps) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['text', 'style'])
-  );
+function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOverlayEditorProps) {
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['text', 'style']));
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -259,16 +252,10 @@ function TextOverlayEditor({
             onClick={() => onChange({ ...overlay, isVisible: !overlay.isVisible })}
             className={cn(
               'p-1 rounded transition-colors',
-              overlay.isVisible
-                ? 'text-surface-400 hover:text-surface-200'
-                : 'text-surface-600'
+              overlay.isVisible ? 'text-surface-400 hover:text-surface-200' : 'text-surface-600'
             )}
           >
-            {overlay.isVisible ? (
-              <Eye className="w-4 h-4" />
-            ) : (
-              <EyeOff className="w-4 h-4" />
-            )}
+            {overlay.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
           </button>
           <button
             onClick={onDuplicate}
@@ -472,9 +459,7 @@ function TextOverlayEditor({
                     max="1"
                     step="0.1"
                     value={overlay.style.backgroundOpacity}
-                    onChange={(e) =>
-                      updateStyle({ backgroundOpacity: parseFloat(e.target.value) })
-                    }
+                    onChange={(e) => updateStyle({ backgroundOpacity: parseFloat(e.target.value) })}
                     className="w-full accent-brand-500"
                   />
                 </div>
@@ -504,9 +489,7 @@ function TextOverlayEditor({
                       min="0"
                       max="20"
                       value={overlay.style.textShadowBlur}
-                      onChange={(e) =>
-                        updateStyle({ textShadowBlur: parseInt(e.target.value) })
-                      }
+                      onChange={(e) => updateStyle({ textShadowBlur: parseInt(e.target.value) })}
                       className="w-16 accent-brand-500"
                     />
                   </>
@@ -533,9 +516,7 @@ function TextOverlayEditor({
             <div className="space-y-3">
               <select
                 value={overlay.position}
-                onChange={(e) =>
-                  onChange({ ...overlay, position: e.target.value as TextPosition })
-                }
+                onChange={(e) => onChange({ ...overlay, position: e.target.value as TextPosition })}
                 className="w-full px-2 py-1.5 bg-surface-900 border border-surface-700 rounded text-sm"
               >
                 {POSITIONS.map((pos) => (
@@ -556,9 +537,7 @@ function TextOverlayEditor({
                       min="0"
                       max="100"
                       value={overlay.customX ?? 50}
-                      onChange={(e) =>
-                        onChange({ ...overlay, customX: parseInt(e.target.value) })
-                      }
+                      onChange={(e) => onChange({ ...overlay, customX: parseInt(e.target.value) })}
                       className="w-full accent-brand-500"
                     />
                   </div>
@@ -571,9 +550,7 @@ function TextOverlayEditor({
                       min="0"
                       max="100"
                       value={overlay.customY ?? 50}
-                      onChange={(e) =>
-                        onChange({ ...overlay, customY: parseInt(e.target.value) })
-                      }
+                      onChange={(e) => onChange({ ...overlay, customY: parseInt(e.target.value) })}
                       className="w-full accent-brand-500"
                     />
                   </div>
@@ -603,9 +580,7 @@ function TextOverlayEditor({
                   <label className="text-xs text-surface-500 mb-1 block">In</label>
                   <select
                     value={overlay.animation.in}
-                    onChange={(e) =>
-                      updateAnimation({ in: e.target.value as TextAnimation })
-                    }
+                    onChange={(e) => updateAnimation({ in: e.target.value as TextAnimation })}
                     className="w-full px-2 py-1.5 bg-surface-900 border border-surface-700 rounded text-sm"
                   >
                     {ANIMATIONS.map((anim) => (
@@ -619,9 +594,7 @@ function TextOverlayEditor({
                   <label className="text-xs text-surface-500 mb-1 block">Out</label>
                   <select
                     value={overlay.animation.out}
-                    onChange={(e) =>
-                      updateAnimation({ out: e.target.value as TextAnimation })
-                    }
+                    onChange={(e) => updateAnimation({ out: e.target.value as TextAnimation })}
                     className="w-full px-2 py-1.5 bg-surface-900 border border-surface-700 rounded text-sm"
                   >
                     {ANIMATIONS.map((anim) => (
@@ -643,9 +616,7 @@ function TextOverlayEditor({
                     max="2000"
                     step="100"
                     value={overlay.animation.inDuration}
-                    onChange={(e) =>
-                      updateAnimation({ inDuration: parseInt(e.target.value) })
-                    }
+                    onChange={(e) => updateAnimation({ inDuration: parseInt(e.target.value) })}
                     className="w-full accent-brand-500"
                   />
                 </div>
@@ -659,9 +630,7 @@ function TextOverlayEditor({
                     max="2000"
                     step="100"
                     value={overlay.animation.outDuration}
-                    onChange={(e) =>
-                      updateAnimation({ outDuration: parseInt(e.target.value) })
-                    }
+                    onChange={(e) => updateAnimation({ outDuration: parseInt(e.target.value) })}
                     className="w-full accent-brand-500"
                   />
                 </div>
@@ -861,9 +830,7 @@ export function TextOverlayPanel({
             <div className="text-center py-8 text-surface-400">
               <Type className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p>No text overlays</p>
-              <p className="text-sm text-surface-500 mt-1">
-                Click a preset above to add text
-              </p>
+              <p className="text-sm text-surface-500 mt-1">Click a preset above to add text</p>
             </div>
           )}
         </div>

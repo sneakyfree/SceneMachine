@@ -8,15 +8,15 @@ Provides a centralized interface for FFmpeg operations with:
 """
 
 import asyncio
+import contextlib
 import json
 import logging
-import os
 import re
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class FFmpegNotFoundError(FFmpegError):
 class FFmpegExecutionError(FFmpegError):
     """FFmpeg command execution failed."""
 
-    def __init__(self, message: str, stderr: str = "", returncode: int = -1):
+    def __init__(self, message: str, stderr: str = "", returncode: int = -1) -> None:
         super().__init__(message)
         self.stderr = stderr
         self.returncode = returncode
@@ -53,15 +53,15 @@ class FFmpegInfo:
     """Information about the FFmpeg installation."""
 
     available: bool = False
-    ffmpeg_path: Optional[str] = None
-    ffprobe_path: Optional[str] = None
-    version: Optional[str] = None
-    codecs: List[str] = field(default_factory=list)
-    formats: List[str] = field(default_factory=list)
+    ffmpeg_path: str | None = None
+    ffprobe_path: str | None = None
+    version: str | None = None
+    codecs: list[str] = field(default_factory=list)
+    formats: list[str] = field(default_factory=list)
     has_nvenc: bool = False
     has_vaapi: bool = False
     has_qsv: bool = False
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 @dataclass
@@ -77,8 +77,8 @@ class VideoInfo:
     bitrate: int = 0
     file_size_bytes: int = 0
     has_audio: bool = False
-    audio_codec: Optional[str] = None
-    audio_sample_rate: Optional[int] = None
+    audio_codec: str | None = None
+    audio_sample_rate: int | None = None
 
 
 @dataclass
@@ -97,7 +97,7 @@ class FFmpegValidator:
     """Validates and provides information about FFmpeg installation."""
 
     _instance: Optional["FFmpegValidator"] = None
-    _info: Optional[FFmpegInfo] = None
+    _info: FFmpegInfo | None = None
 
     def __new__(cls) -> "FFmpegValidator":
         if cls._instance is None:
@@ -222,9 +222,7 @@ class FFmpegValidator:
                 loop.close()
 
         if not cls._info or not cls._info.available:
-            raise FFmpegNotFoundError(
-                cls._info.error_message if cls._info else "FFmpeg not found"
-            )
+            raise FFmpegNotFoundError(cls._info.error_message if cls._info else "FFmpeg not found")
 
     @classmethod
     def is_available(cls) -> bool:
@@ -237,8 +235,8 @@ class FFmpegValidator:
 class FFmpeg:
     """High-level interface for FFmpeg operations."""
 
-    def __init__(self):
-        self._info: Optional[FFmpegInfo] = None
+    def __init__(self) -> None:
+        self._info: FFmpegInfo | None = None
 
     async def ensure_available(self) -> FFmpegInfo:
         """Ensure FFmpeg is available.
@@ -279,8 +277,10 @@ class FFmpeg:
         try:
             cmd = [
                 self._info.ffprobe_path or "ffprobe",
-                "-v", "quiet",
-                "-print_format", "json",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
                 "-show_format",
                 "-show_streams",
                 str(video_path),
@@ -350,9 +350,12 @@ class FFmpeg:
         try:
             cmd = [
                 self._info.ffprobe_path or "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 str(file_path),
             ]
 
@@ -422,19 +425,20 @@ class FFmpeg:
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if timestamp < 0:
-            seek_args = ["-sseof", str(timestamp)]
-        else:
-            seek_args = ["-ss", str(timestamp)]
+        seek_args = ["-sseof", str(timestamp)] if timestamp < 0 else ["-ss", str(timestamp)]
 
         cmd = [
             self._info.ffmpeg_path or "ffmpeg",
             "-y",
             *seek_args,
-            "-i", str(video_path),
-            "-update", "1",
-            "-frames:v", "1",
-            "-q:v", str(quality),
+            "-i",
+            str(video_path),
+            "-update",
+            "1",
+            "-frames:v",
+            "1",
+            "-q:v",
+            str(quality),
             str(output_path),
         ]
 
@@ -458,9 +462,9 @@ class FFmpeg:
 
     async def concatenate_videos(
         self,
-        input_paths: List[Path],
+        input_paths: list[Path],
         output_path: Path,
-        progress_callback: Optional[Callable[[FFmpegProgress], None]] = None,
+        progress_callback: Callable[[FFmpegProgress], None] | None = None,
         timeout: int = 3600,
     ) -> Path:
         """Concatenate multiple videos into one.
@@ -497,11 +501,16 @@ class FFmpeg:
             cmd = [
                 self._info.ffmpeg_path or "ffmpeg",
                 "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(concat_file),
-                "-c", "copy",
-                "-progress", "pipe:1",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_file),
+                "-c",
+                "copy",
+                "-progress",
+                "pipe:1",
                 str(output_path),
             ]
 
@@ -514,10 +523,8 @@ class FFmpeg:
             # Calculate total duration for progress
             total_duration = 0.0
             for path in input_paths:
-                try:
+                with contextlib.suppress(Exception):
                     total_duration += await self.get_duration(path)
-                except Exception:
-                    pass
 
             # Parse progress output
             if progress_callback and total_duration > 0:
@@ -535,7 +542,7 @@ class FFmpeg:
                     returncode=process.returncode,
                 )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             process.kill()
             raise FFmpegTimeoutError(f"Concatenation timed out after {timeout}s")
 
@@ -551,13 +558,13 @@ class FFmpeg:
         output_path: Path,
         video_codec: str = "libx264",
         audio_codec: str = "aac",
-        video_bitrate: Optional[str] = None,
+        video_bitrate: str | None = None,
         audio_bitrate: str = "192k",
-        resolution: Optional[Tuple[int, int]] = None,
-        fps: Optional[int] = None,
-        crf: Optional[int] = None,
+        resolution: tuple[int, int] | None = None,
+        fps: int | None = None,
+        crf: int | None = None,
         preset: str = "medium",
-        progress_callback: Optional[Callable[[FFmpegProgress], None]] = None,
+        progress_callback: Callable[[FFmpegProgress], None] | None = None,
         timeout: int = 3600,
     ) -> Path:
         """Transcode a video file.
@@ -589,10 +596,14 @@ class FFmpeg:
         cmd = [
             self._info.ffmpeg_path or "ffmpeg",
             "-y",
-            "-i", str(input_path),
-            "-c:v", video_codec,
-            "-c:a", audio_codec,
-            "-preset", preset,
+            "-i",
+            str(input_path),
+            "-c:v",
+            video_codec,
+            "-c:a",
+            audio_codec,
+            "-preset",
+            preset,
         ]
 
         if video_bitrate:
@@ -636,7 +647,7 @@ class FFmpeg:
                     returncode=process.returncode,
                 )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             process.kill()
             raise FFmpegTimeoutError(f"Transcoding timed out after {timeout}s")
 
@@ -651,7 +662,7 @@ class FFmpeg:
         """Parse FFmpeg progress output and call callback."""
         progress = FFmpegProgress()
 
-        async def read_progress():
+        async def read_progress() -> None:
             while True:
                 if process.stdout is None:
                     break
@@ -664,24 +675,18 @@ class FFmpeg:
 
                 # Parse progress values
                 if line_str.startswith("frame="):
-                    try:
+                    with contextlib.suppress(ValueError, IndexError):
                         progress.frame = int(line_str.split("=")[1])
-                    except (ValueError, IndexError):
-                        pass
 
                 elif line_str.startswith("fps="):
-                    try:
+                    with contextlib.suppress(ValueError, IndexError):
                         progress.fps = float(line_str.split("=")[1])
-                    except (ValueError, IndexError):
-                        pass
 
                 elif line_str.startswith("out_time_ms="):
                     try:
                         time_ms = int(line_str.split("=")[1])
                         progress.time_seconds = time_ms / 1_000_000
-                        progress.percent = min(
-                            100, (progress.time_seconds / total_duration) * 100
-                        )
+                        progress.percent = min(100, (progress.time_seconds / total_duration) * 100)
                     except (ValueError, IndexError):
                         pass
 
@@ -699,14 +704,12 @@ class FFmpeg:
                     except Exception as e:
                         logger.warning(f"Progress callback error: {e}")
 
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(read_progress(), timeout=1.0)
-        except asyncio.TimeoutError:
-            pass
 
 
 # Global FFmpeg instance
-_ffmpeg: Optional[FFmpeg] = None
+_ffmpeg: FFmpeg | None = None
 
 
 def get_ffmpeg() -> FFmpeg:

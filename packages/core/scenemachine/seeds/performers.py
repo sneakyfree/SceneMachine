@@ -7,7 +7,7 @@ for development and testing purposes.
 
 import asyncio
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -16,11 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.models.performer import (
     Performer,
-    PerformerType,
     PerformerAvailability,
+    PerformerType,
     PerformerVerification,
 )
-
 
 # Sample performer data with diverse demographics
 SAMPLE_PERFORMERS: list[dict[str, Any]] = [
@@ -605,7 +604,11 @@ def _generate_motion_capabilities(performer_type: PerformerType, aci_score: floa
     base_capabilities = {
         "supports_liveportrait": True,
         "supports_roop_gs_anim": aci_score > 75,
-        "face_tracking_quality": "high" if aci_score > 85 else "medium" if aci_score > 70 else "standard",
+        "face_tracking_quality": "high"
+        if aci_score > 85
+        else "medium"
+        if aci_score > 70
+        else "standard",
         "hand_tracking": aci_score > 65,
         "body_tracking": aci_score > 80,
     }
@@ -637,24 +640,30 @@ def _get_availability(total_bookings: int) -> PerformerAvailability:
     """Determine availability status based on activity."""
     if total_bookings > 500:
         # Busy performers are sometimes unavailable
-        return random.choice([
-            PerformerAvailability.AVAILABLE,
-            PerformerAvailability.AVAILABLE,
-            PerformerAvailability.BUSY,
-        ])
+        return random.choice(
+            [
+                PerformerAvailability.AVAILABLE,
+                PerformerAvailability.AVAILABLE,
+                PerformerAvailability.BUSY,
+            ]
+        )
     elif total_bookings > 100:
         return PerformerAvailability.AVAILABLE
     elif total_bookings > 20:
-        return random.choice([
-            PerformerAvailability.AVAILABLE,
-            PerformerAvailability.OFFLINE,
-        ])
+        return random.choice(
+            [
+                PerformerAvailability.AVAILABLE,
+                PerformerAvailability.OFFLINE,
+            ]
+        )
     else:
-        return random.choice([
-            PerformerAvailability.AVAILABLE,
-            PerformerAvailability.OFFLINE,
-            PerformerAvailability.OFFLINE,
-        ])
+        return random.choice(
+            [
+                PerformerAvailability.AVAILABLE,
+                PerformerAvailability.OFFLINE,
+                PerformerAvailability.OFFLINE,
+            ]
+        )
 
 
 async def seed_performers(session: AsyncSession, force: bool = False) -> list[Performer]:
@@ -682,7 +691,7 @@ async def seed_performers(session: AsyncSession, force: bool = False) -> list[Pe
         print("Deleted existing performers.")
 
     created_performers = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     for data in SAMPLE_PERFORMERS:
         # Calculate derived values
@@ -746,7 +755,7 @@ async def seed_performers(session: AsyncSession, force: bool = False) -> list[Pe
     return created_performers
 
 
-async def main():
+async def main() -> None:
     """Run performer seeding as standalone script."""
     from scenemachine.database import get_async_session
 

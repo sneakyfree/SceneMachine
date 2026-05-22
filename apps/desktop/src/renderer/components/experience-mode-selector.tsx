@@ -6,15 +6,7 @@
  */
 
 import { useState } from 'react';
-import {
-  Wand2,
-  Palette,
-  Settings2,
-  ChevronDown,
-  Check,
-  RotateCcw,
-  Info,
-} from 'lucide-react';
+import { Wand2, Palette, Settings2, ChevronDown, Check, RotateCcw, Info } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   useExperienceStore,
@@ -188,22 +180,29 @@ export function ExperienceModeSelector({
               )}
             >
               <div className="flex items-center gap-2 mb-2">
-                <Icon className={cn(
-                  'w-5 h-5',
-                  isSelected && (
-                    mode === 'story' ? 'text-green-400' :
-                    mode === 'creator' ? 'text-blue-400' :
-                    'text-purple-400'
-                  )
-                )} />
+                <Icon
+                  className={cn(
+                    'w-5 h-5',
+                    isSelected &&
+                      (mode === 'story'
+                        ? 'text-green-400'
+                        : mode === 'creator'
+                          ? 'text-blue-400'
+                          : 'text-purple-400')
+                  )}
+                />
                 <span className="font-medium">{info.name}</span>
                 {isSelected && (
-                  <Check className={cn(
-                    'w-4 h-4 ml-auto',
-                    mode === 'story' ? 'text-green-400' :
-                    mode === 'creator' ? 'text-blue-400' :
-                    'text-purple-400'
-                  )} />
+                  <Check
+                    className={cn(
+                      'w-4 h-4 ml-auto',
+                      mode === 'story'
+                        ? 'text-green-400'
+                        : mode === 'creator'
+                          ? 'text-blue-400'
+                          : 'text-purple-400'
+                    )}
+                  />
                 )}
               </div>
               <p className="text-xs text-surface-400">{info.description}</p>
@@ -281,9 +280,7 @@ export function ExperienceModeSlider({
         </div>
       </div>
 
-      <p className="text-xs text-center text-surface-500">
-        {MODE_INFO[currentMode].description}
-      </p>
+      <p className="text-xs text-center text-surface-500">{MODE_INFO[currentMode].description}</p>
     </div>
   );
 }

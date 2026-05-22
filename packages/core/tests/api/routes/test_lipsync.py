@@ -1,15 +1,15 @@
 """Tests for Lip Sync API routes."""
 
+from uuid import uuid4
+
 import pytest
 import pytest_asyncio
-from uuid import uuid4, UUID
-
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from scenemachine.api.main import app
-from scenemachine.models.asset import Asset, AssetType, AssetStatus
 from scenemachine.database import get_db_manager
+from scenemachine.models.asset import Asset, AssetStatus, AssetType
 
 
 class TestLipSyncRoutes:
@@ -72,7 +72,7 @@ class TestLipSyncRoutes:
         """Test POST /lipsync/ returns 404 for missing video_id."""
         nonexistent_video_id = str(uuid4())
         audio_id = str(uuid4())
-        
+
         response = await client.post(
             "/api/lipsync/",
             json={
@@ -86,12 +86,10 @@ class TestLipSyncRoutes:
         assert "video asset" in response.json()["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_start_lipsync_audio_not_found(
-        self, client: AsyncClient, video_asset: Asset
-    ):
+    async def test_start_lipsync_audio_not_found(self, client: AsyncClient, video_asset: Asset):
         """Test POST /lipsync/ returns 404 for missing audio_id."""
         nonexistent_audio_id = str(uuid4())
-        
+
         response = await client.post(
             "/api/lipsync/",
             json={

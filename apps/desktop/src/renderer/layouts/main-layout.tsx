@@ -4,7 +4,19 @@
 
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Film, FolderOpen, Settings, Keyboard, X, HelpCircle, BarChart3, Archive, Search, Server, Eye } from 'lucide-react';
+import {
+  Film,
+  FolderOpen,
+  Settings,
+  Keyboard,
+  X,
+  HelpCircle,
+  BarChart3,
+  Archive,
+  Search,
+  Server,
+  Eye,
+} from 'lucide-react';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
 import {
@@ -41,9 +53,7 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
         <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
           {shortcutGroups.map((group) => (
             <div key={group.category}>
-              <h3 className="text-sm font-medium text-surface-400 mb-3">
-                {group.category}
-              </h3>
+              <h3 className="text-sm font-medium text-surface-400 mb-3">{group.category}</h3>
               <div className="space-y-2">
                 {group.shortcuts.map((shortcut) => (
                   <div
@@ -90,27 +100,19 @@ export function MainLayout() {
       <aside
         role="navigation"
         aria-label="Main navigation"
-        className={cn(
-          'sidebar transition-all duration-200',
-          sidebarCollapsed ? 'w-16' : 'w-64'
-        )}
+        className={cn('sidebar transition-all duration-200', sidebarCollapsed ? 'w-16' : 'w-64')}
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-4 border-b border-surface-800">
           <Film className="w-8 h-8 text-brand-500 flex-shrink-0" />
-          {!sidebarCollapsed && (
-            <span className="font-semibold text-lg">SceneMachine</span>
-          )}
+          {!sidebarCollapsed && <span className="font-semibold text-lg">SceneMachine</span>}
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-2 space-y-1">
           <Link
             to="/"
-            className={cn(
-              'sidebar-item',
-              location.pathname === '/' && 'sidebar-item-active'
-            )}
+            className={cn('sidebar-item', location.pathname === '/' && 'sidebar-item-active')}
           >
             <FolderOpen className="w-5 h-5 flex-shrink-0" />
             {!sidebarCollapsed && <span>Projects</span>}
@@ -125,9 +127,7 @@ export function MainLayout() {
               )}
             >
               <Film className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="truncate">{currentProject.name}</span>
-              )}
+              {!sidebarCollapsed && <span className="truncate">{currentProject.name}</span>}
             </Link>
           )}
 
@@ -177,10 +177,7 @@ export function MainLayout() {
 
           <Link
             to="/admin"
-            className={cn(
-              'sidebar-item',
-              location.pathname === '/admin' && 'sidebar-item-active'
-            )}
+            className={cn('sidebar-item', location.pathname === '/admin' && 'sidebar-item-active')}
           >
             <Server className="w-5 h-5 flex-shrink-0" />
             {!sidebarCollapsed && <span>System Health</span>}
@@ -188,10 +185,7 @@ export function MainLayout() {
 
           <Link
             to="/help"
-            className={cn(
-              'sidebar-item',
-              location.pathname === '/help' && 'sidebar-item-active'
-            )}
+            className={cn('sidebar-item', location.pathname === '/help' && 'sidebar-item-active')}
           >
             <HelpCircle className="w-5 h-5 flex-shrink-0" />
             {!sidebarCollapsed && <span>Help</span>}

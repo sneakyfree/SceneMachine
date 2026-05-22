@@ -111,9 +111,10 @@ describe('Character Lab Page', () => {
 
       renderCharacterLabPage();
       // Should have character display area
-      const characterArea = screen.queryByRole('list') ||
-                            screen.queryByRole('grid') ||
-                            screen.queryByTestId('character-list');
+      const characterArea =
+        screen.queryByRole('list') ||
+        screen.queryByRole('grid') ||
+        screen.queryByTestId('character-list');
       expect(characterArea !== null || true).toBe(true);
     });
   });
@@ -122,9 +123,10 @@ describe('Character Lab Page', () => {
     it('should have character detail panel or modal', () => {
       renderCharacterLabPage();
       // Look for detail panel elements
-      const detailPanel = screen.queryByRole('region') ||
-                          screen.queryByTestId('character-details') ||
-                          screen.queryByText(/details|properties/i);
+      const detailPanel =
+        screen.queryByRole('region') ||
+        screen.queryByTestId('character-details') ||
+        screen.queryByText(/details|properties/i);
       expect(detailPanel !== null || true).toBe(true);
     });
   });

@@ -1,23 +1,22 @@
 """Performer API routes for ActForge marketplace."""
 
 import logging
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, and_, or_, func
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.database import get_session
 from scenemachine.models import (
-    Performer,
-    PerformerType,
-    PerformerAvailability,
-    PerformerVerification,
     PerformanceTake,
+    Performer,
+    PerformerAvailability,
+    PerformerType,
+    PerformerVerification,
     TakeStatus,
 )
 from scenemachine.services.aci import get_aci_service
@@ -35,10 +34,10 @@ router = APIRouter(prefix="/performers", tags=["performers"])
 class PerformerPricingSchema(BaseModel):
     """Performer pricing schema."""
 
-    blink: Optional[float] = None
-    deep: Optional[float] = None
-    epic_per_minute: Optional[float] = None
-    auction_minimum: Optional[float] = None
+    blink: float | None = None
+    deep: float | None = None
+    epic_per_minute: float | None = None
+    auction_minimum: float | None = None
 
 
 class MotionCapabilitiesSchema(BaseModel):
@@ -46,7 +45,7 @@ class MotionCapabilitiesSchema(BaseModel):
 
     supports_liveportrait: bool = True
     supports_roop_gs_anim: bool = True
-    supported_resolutions: List[str] = Field(default_factory=lambda: ["480p", "720p", "1080p"])
+    supported_resolutions: list[str] = Field(default_factory=lambda: ["480p", "720p", "1080p"])
     max_take_duration_seconds: int = 1200
     face_tracking_quality: str = "high"
     body_tracking: bool = False
@@ -58,21 +57,21 @@ class PerformerCreateRequest(BaseModel):
 
     stage_name: str = Field(..., min_length=1, max_length=255)
     performer_type: PerformerType = PerformerType.HUMAN
-    bio: Optional[str] = None
-    specialties: List[str] = Field(default_factory=list)
-    pricing: Optional[PerformerPricingSchema] = None
-    motion_capabilities: Optional[MotionCapabilitiesSchema] = None
+    bio: str | None = None
+    specialties: list[str] = Field(default_factory=list)
+    pricing: PerformerPricingSchema | None = None
+    motion_capabilities: MotionCapabilitiesSchema | None = None
 
 
 class PerformerUpdateRequest(BaseModel):
     """Request to update a performer profile."""
 
-    stage_name: Optional[str] = None
-    bio: Optional[str] = None
-    specialties: Optional[List[str]] = None
-    pricing: Optional[PerformerPricingSchema] = None
-    motion_capabilities: Optional[MotionCapabilitiesSchema] = None
-    availability_status: Optional[PerformerAvailability] = None
+    stage_name: str | None = None
+    bio: str | None = None
+    specialties: list[str] | None = None
+    pricing: PerformerPricingSchema | None = None
+    motion_capabilities: MotionCapabilitiesSchema | None = None
+    availability_status: PerformerAvailability | None = None
 
 
 class PerformerListItemResponse(BaseModel):
@@ -81,32 +80,32 @@ class PerformerListItemResponse(BaseModel):
     id: str
     stage_name: str
     performer_type: str
-    profile_image_url: Optional[str]
-    specialties: List[str]
+    profile_image_url: str | None
+    specialties: list[str]
     aci_score: float
     availability_status: str
     verification_status: str
     total_bookings: int
-    average_rating: Optional[float]
-    pricing: Optional[dict]
+    average_rating: float | None
+    pricing: dict | None
 
 
 class PerformerDetailResponse(PerformerListItemResponse):
     """Detailed performer response."""
 
-    bio: Optional[str]
-    motion_capabilities: Optional[dict]
-    demo_reel_takes: List[dict]
+    bio: str | None
+    motion_capabilities: dict | None
+    demo_reel_takes: list[dict]
     revenue_split_percent: float
     completed_bookings: int
     joined_at: str
-    last_active_at: Optional[str]
+    last_active_at: str | None
 
 
 class PerformerListResponse(BaseModel):
     """List of performers response."""
 
-    performers: List[PerformerListItemResponse]
+    performers: list[PerformerListItemResponse]
     total: int
     page: int
     page_size: int
@@ -120,12 +119,12 @@ class TakeResponse(BaseModel):
     take_name: str
     mode: str
     duration_seconds: float
-    emotion_tags: List[str]
+    emotion_tags: list[str]
     motion_score: float
     status: str
     is_demo_reel: bool
-    thumbnail_url: Optional[str]
-    preview_video_url: Optional[str]
+    thumbnail_url: str | None
+    preview_video_url: str | None
     usage_count: int
     recording_date: str
 
@@ -158,7 +157,7 @@ class LeaderboardEntryResponse(BaseModel):
     aci_score: float
     performer_type: str
     total_bookings: int
-    specialties: List[str]
+    specialties: list[str]
 
 
 # =============================================================================
@@ -190,14 +189,16 @@ def performer_to_detail_response(performer: Performer) -> PerformerDetailRespons
     if performer.takes:
         for take in performer.takes:
             if take.is_demo_reel and take.status == TakeStatus.AVAILABLE:
-                demo_takes.append({
-                    "id": str(take.id),
-                    "take_name": take.take_name,
-                    "duration_seconds": take.duration_seconds,
-                    "emotion_tags": take.emotion_tags or [],
-                    "thumbnail_url": take.thumbnail_path,
-                    "preview_video_url": take.preview_video_path,
-                })
+                demo_takes.append(
+                    {
+                        "id": str(take.id),
+                        "take_name": take.take_name,
+                        "duration_seconds": take.duration_seconds,
+                        "emotion_tags": take.emotion_tags or [],
+                        "thumbnail_url": take.thumbnail_path,
+                        "preview_video_url": take.preview_video_path,
+                    }
+                )
 
     return PerformerDetailResponse(
         id=str(performer.id),
@@ -231,13 +232,13 @@ async def list_performers(
     session: AsyncSession = Depends(get_session),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    specialties: Optional[List[str]] = Query(None),
-    min_aci: Optional[float] = Query(None, ge=0, le=100),
-    max_price: Optional[float] = Query(None, ge=0),
-    availability: Optional[PerformerAvailability] = None,
-    performer_type: Optional[PerformerType] = None,
+    specialties: list[str] | None = Query(None),
+    min_aci: float | None = Query(None, ge=0, le=100),
+    max_price: float | None = Query(None, ge=0),
+    availability: PerformerAvailability | None = None,
+    performer_type: PerformerType | None = None,
     sort_by: str = Query("aci", regex="^(aci|price|availability|rating)$"),
-    search: Optional[str] = None,
+    search: str | None = None,
 ) -> PerformerListResponse:
     """
     List performers with filtering and pagination.
@@ -307,11 +308,11 @@ async def list_performers(
     )
 
 
-@router.get("/featured", response_model=List[PerformerListItemResponse])
+@router.get("/featured", response_model=list[PerformerListItemResponse])
 async def get_featured_performers(
     session: AsyncSession = Depends(get_session),
     limit: int = Query(10, ge=1, le=50),
-) -> List[PerformerListItemResponse]:
+) -> list[PerformerListItemResponse]:
     """
     Get featured/top performers.
 
@@ -323,10 +324,12 @@ async def get_featured_performers(
             and_(
                 Performer.is_active == True,  # noqa: E712
                 Performer.availability_status == PerformerAvailability.AVAILABLE,
-                Performer.verification_status.in_([
-                    PerformerVerification.VERIFIED,
-                    PerformerVerification.ELITE,
-                ]),
+                Performer.verification_status.in_(
+                    [
+                        PerformerVerification.VERIFIED,
+                        PerformerVerification.ELITE,
+                    ]
+                ),
             )
         )
         .order_by(Performer.aci_score.desc())
@@ -339,12 +342,12 @@ async def get_featured_performers(
     return [performer_to_list_response(p) for p in performers]
 
 
-@router.get("/leaderboard", response_model=List[LeaderboardEntryResponse])
+@router.get("/leaderboard", response_model=list[LeaderboardEntryResponse])
 async def get_leaderboard(
     session: AsyncSession = Depends(get_session),
     limit: int = Query(100, ge=1, le=500),
     min_bookings: int = Query(5, ge=0),
-) -> List[LeaderboardEntryResponse]:
+) -> list[LeaderboardEntryResponse]:
     """
     Get ACI leaderboard.
 
@@ -363,9 +366,7 @@ async def get_performer(
 ) -> PerformerDetailResponse:
     """Get detailed performer profile."""
     stmt = (
-        select(Performer)
-        .where(Performer.id == performer_id)
-        .options(selectinload(Performer.takes))
+        select(Performer).where(Performer.id == performer_id).options(selectinload(Performer.takes))
     )
     result = await session.execute(stmt)
     performer = result.scalar_one_or_none()
@@ -379,12 +380,12 @@ async def get_performer(
     return performer_to_detail_response(performer)
 
 
-@router.get("/{performer_id}/takes", response_model=List[TakeResponse])
+@router.get("/{performer_id}/takes", response_model=list[TakeResponse])
 async def get_performer_takes(
     performer_id: UUID,
     session: AsyncSession = Depends(get_session),
     demo_only: bool = Query(False),
-) -> List[TakeResponse]:
+) -> list[TakeResponse]:
     """Get performer's available takes."""
     # Verify performer exists
     performer_stmt = select(Performer.id).where(Performer.id == performer_id)
@@ -463,10 +464,12 @@ async def create_performer(
         bio=request.bio,
         specialties=request.specialties,
         pricing=request.pricing.model_dump() if request.pricing else None,
-        motion_capabilities=request.motion_capabilities.model_dump() if request.motion_capabilities else None,
+        motion_capabilities=request.motion_capabilities.model_dump()
+        if request.motion_capabilities
+        else None,
         availability_status=PerformerAvailability.OFFLINE,
         verification_status=PerformerVerification.UNVERIFIED,
-        joined_at=datetime.now(timezone.utc),
+        joined_at=datetime.now(UTC),
     )
 
     session.add(performer)
@@ -486,9 +489,7 @@ async def update_performer(
 ) -> PerformerDetailResponse:
     """Update performer profile."""
     stmt = (
-        select(Performer)
-        .where(Performer.id == performer_id)
-        .options(selectinload(Performer.takes))
+        select(Performer).where(Performer.id == performer_id).options(selectinload(Performer.takes))
     )
     result = await session.execute(stmt)
     performer = result.scalar_one_or_none()
@@ -513,7 +514,7 @@ async def update_performer(
     if request.availability_status is not None:
         performer.availability_status = request.availability_status
         if request.availability_status == PerformerAvailability.AVAILABLE:
-            performer.last_active_at = datetime.now(timezone.utc)
+            performer.last_active_at = datetime.now(UTC)
 
     await session.commit()
     await session.refresh(performer)
@@ -542,7 +543,7 @@ async def set_availability(
 
     performer.availability_status = availability
     if availability == PerformerAvailability.AVAILABLE:
-        performer.last_active_at = datetime.now(timezone.utc)
+        performer.last_active_at = datetime.now(UTC)
 
     await session.commit()
 

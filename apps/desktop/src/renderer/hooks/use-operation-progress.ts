@@ -117,25 +117,22 @@ export function useOperationProgress(
   });
 
   // Handle failure
-  useWebSocketEvent<FailedEventPayload>(
-    failedEventType || EventType.BACKEND_ERROR,
-    (event) => {
-      if (!operationId || event.payload.operationId !== operationId) {
-        return;
-      }
-
-      const elapsed = startTimeRef.current
-        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
-        : undefined;
-
-      setProgress((prev) => ({
-        ...prev,
-        status: 'failed',
-        errorMessage: event.payload.error,
-        elapsedSeconds: elapsed,
-      }));
+  useWebSocketEvent<FailedEventPayload>(failedEventType || EventType.BACKEND_ERROR, (event) => {
+    if (!operationId || event.payload.operationId !== operationId) {
+      return;
     }
-  );
+
+    const elapsed = startTimeRef.current
+      ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+      : undefined;
+
+    setProgress((prev) => ({
+      ...prev,
+      status: 'failed',
+      errorMessage: event.payload.error,
+      elapsedSeconds: elapsed,
+    }));
+  });
 
   const startTracking = useCallback((id: string) => {
     setOperationId(id);
@@ -181,10 +178,7 @@ export function useGenerationProgress() {
  * Hook specifically for assembly/export progress
  */
 export function useAssemblyProgress() {
-  return useOperationProgress(
-    EventType.ASSEMBLY_PROGRESS,
-    EventType.ASSEMBLY_COMPLETED
-  );
+  return useOperationProgress(EventType.ASSEMBLY_PROGRESS, EventType.ASSEMBLY_COMPLETED);
 }
 
 /**
@@ -203,9 +197,7 @@ export function useMultiOperationProgress(
     const { operationId, ...progressData } = event.payload;
 
     const startTime = startTimesRef.current.get(operationId);
-    const elapsed = startTime
-      ? Math.floor((Date.now() - startTime) / 1000)
-      : undefined;
+    const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : undefined;
 
     setOperations((prev) => {
       const newMap = new Map(prev);
@@ -229,9 +221,7 @@ export function useMultiOperationProgress(
     const { operationId } = event.payload;
 
     const startTime = startTimesRef.current.get(operationId);
-    const elapsed = startTime
-      ? Math.floor((Date.now() - startTime) / 1000)
-      : undefined;
+    const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : undefined;
 
     setOperations((prev) => {
       const newMap = new Map(prev);
@@ -250,31 +240,26 @@ export function useMultiOperationProgress(
   });
 
   // Handle failure
-  useWebSocketEvent<FailedEventPayload>(
-    failedEventType || EventType.BACKEND_ERROR,
-    (event) => {
-      const { operationId, error } = event.payload;
+  useWebSocketEvent<FailedEventPayload>(failedEventType || EventType.BACKEND_ERROR, (event) => {
+    const { operationId, error } = event.payload;
 
-      const startTime = startTimesRef.current.get(operationId);
-      const elapsed = startTime
-        ? Math.floor((Date.now() - startTime) / 1000)
-        : undefined;
+    const startTime = startTimesRef.current.get(operationId);
+    const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : undefined;
 
-      setOperations((prev) => {
-        const newMap = new Map(prev);
-        const existing = newMap.get(operationId);
-        if (existing) {
-          newMap.set(operationId, {
-            ...existing,
-            status: 'failed',
-            errorMessage: error,
-            elapsedSeconds: elapsed,
-          });
-        }
-        return newMap;
-      });
-    }
-  );
+    setOperations((prev) => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(operationId);
+      if (existing) {
+        newMap.set(operationId, {
+          ...existing,
+          status: 'failed',
+          errorMessage: error,
+          elapsedSeconds: elapsed,
+        });
+      }
+      return newMap;
+    });
+  });
 
   const startTracking = useCallback((operationId: string) => {
     startTimesRef.current.set(operationId, Date.now());

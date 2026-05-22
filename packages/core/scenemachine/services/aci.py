@@ -10,19 +10,19 @@ All components are normalized to 0-100 scale.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Dict, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.models import (
-    Performer,
-    PerformanceTake,
     Booking,
     BookingStatus,
+    PerformanceTake,
+    Performer,
     PerformerRating,
 )
 
@@ -68,7 +68,7 @@ class ACIBreakdown:
     total_ratings: int
     total_takes: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "placement_rate": round(self.placement_rate, 2),
@@ -99,7 +99,7 @@ class ACIService:
     - MotionScore: Technical quality of motion capture data
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession) -> None:
         """Initialize service with database session."""
         self._session = session
 
@@ -187,7 +187,7 @@ class ACIService:
 
         return breakdown
 
-    async def _get_performer(self, performer_id: UUID) -> Optional[Performer]:
+    async def _get_performer(self, performer_id: UUID) -> Performer | None:
         """Get performer with relationships loaded."""
         stmt = (
             select(Performer)
@@ -274,17 +274,14 @@ class ACIService:
         Formula:
             buzz = (recent_votes × 1.5 + older_votes × 1.0) / max_possible_votes × 100
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recency_cutoff = now - timedelta(days=BUZZ_RECENCY_WINDOW_DAYS)
 
         # Get public ratings with engagement
-        ratings_stmt = (
-            select(PerformerRating)
-            .where(
-                and_(
-                    PerformerRating.performer_id == performer_id,
-                    PerformerRating.is_public == True,  # noqa: E712
-                )
+        ratings_stmt = select(PerformerRating).where(
+            and_(
+                PerformerRating.performer_id == performer_id,
+                PerformerRating.is_public == True,  # noqa: E712
             )
         )
         ratings_result = await self._session.execute(ratings_stmt)
@@ -310,6 +307,7 @@ class ACIService:
             return DEFAULT_ACI_SCORE
 
         import math
+
         # Log scale: 100 votes = 50 points, 1000 votes = 75 points, 10000 votes = 100 points
         normalized = min(100, 25 * math.log10(total_weighted_engagement + 1))
 
@@ -322,14 +320,11 @@ class ACIService:
         Average quality_metrics.motion_score across all available takes.
         """
         # Get takes with quality metrics
-        takes_stmt = (
-            select(PerformanceTake)
-            .where(
-                and_(
-                    PerformanceTake.performer_id == performer_id,
-                    PerformanceTake.status == "available",
-                    PerformanceTake.quality_metrics.isnot(None),
-                )
+        takes_stmt = select(PerformanceTake).where(
+            and_(
+                PerformanceTake.performer_id == performer_id,
+                PerformanceTake.status == "available",
+                PerformanceTake.quality_metrics.isnot(None),
             )
         )
         takes_result = await self._session.execute(takes_stmt)
@@ -349,7 +344,7 @@ class ACIService:
 
         return sum(motion_scores) / len(motion_scores)
 
-    async def recalculate_all_performers(self) -> Dict[str, int]:
+    async def recalculate_all_performers(self) -> dict[str, int]:
         """
         Recalculate ACI for all active performers.
 
@@ -380,7 +375,7 @@ class ACIService:
         self,
         limit: int = 100,
         min_bookings: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get ACI leaderboard.
 
@@ -420,7 +415,7 @@ class ACIService:
 
 
 # Singleton instance management
-_aci_service_instance: Optional[ACIService] = None
+_aci_service_instance: ACIService | None = None
 
 
 def get_aci_service(session: AsyncSession) -> ACIService:

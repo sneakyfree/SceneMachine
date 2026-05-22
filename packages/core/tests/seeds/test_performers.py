@@ -4,18 +4,17 @@ Tests for performer seed data.
 Validates that the sample performer data is correct and complete.
 """
 
-import pytest
-from scenemachine.seeds.performers import (
-    SAMPLE_PERFORMERS,
-    _generate_pricing,
-    _generate_motion_capabilities,
-    _calculate_earnings,
-    _get_availability,
-)
 from scenemachine.models.performer import (
+    PerformerAvailability,
     PerformerType,
     PerformerVerification,
-    PerformerAvailability,
+)
+from scenemachine.seeds.performers import (
+    SAMPLE_PERFORMERS,
+    _calculate_earnings,
+    _generate_motion_capabilities,
+    _generate_pricing,
+    _get_availability,
 )
 
 
@@ -42,7 +41,9 @@ class TestSamplePerformersData:
 
         for performer in SAMPLE_PERFORMERS:
             for field in required_fields:
-                assert field in performer, f"Missing field '{field}' in performer: {performer.get('stage_name')}"
+                assert field in performer, (
+                    f"Missing field '{field}' in performer: {performer.get('stage_name')}"
+                )
 
     def test_stage_names_are_unique(self):
         """All stage names should be unique."""
@@ -113,7 +114,9 @@ class TestSamplePerformersData:
 
     def test_has_elite_performers(self):
         """Should have some elite verified performers."""
-        elite = [p for p in SAMPLE_PERFORMERS if p["verification_status"] == PerformerVerification.ELITE]
+        elite = [
+            p for p in SAMPLE_PERFORMERS if p["verification_status"] == PerformerVerification.ELITE
+        ]
         assert len(elite) >= 3, "Should have at least 3 elite performers"
 
     def test_profile_images_have_valid_urls(self):

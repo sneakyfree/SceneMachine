@@ -5,24 +5,26 @@ Tests all 159 IPC handlers to ensure they are properly registered,
 callable, and handle errors appropriately.
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
-from typing import Any, Dict, List
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class MockIPCServer:
     """Mock IPC server for testing handler registration."""
 
     def __init__(self):
-        self.handlers: Dict[str, Any] = {}
+        self.handlers: dict[str, Any] = {}
 
     def handler(self, name: str):
         """Decorator to register a handler."""
+
         def decorator(func):
             self.handlers[name] = func
             return func
+
         return decorator
 
 
@@ -37,12 +39,14 @@ class TestIPCHandlerRegistration:
     def test_register_handlers_imports(self):
         """Test that register_handlers function can be imported."""
         from scenemachine.ipc.handlers import register_handlers
+
         assert register_handlers is not None
         assert callable(register_handlers)
 
     def test_handler_count(self, mock_server):
         """Test that expected number of handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         # We expect at least 150 handlers
@@ -53,6 +57,7 @@ class TestIPCHandlerRegistration:
     def test_core_handlers_registered(self, mock_server):
         """Test that core handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         core_handlers = [
@@ -73,6 +78,7 @@ class TestIPCHandlerRegistration:
     def test_character_handlers_registered(self, mock_server):
         """Test that character handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         character_handlers = [
@@ -96,6 +102,7 @@ class TestIPCHandlerRegistration:
     def test_scene_handlers_registered(self, mock_server):
         """Test that scene handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         scene_handlers = [
@@ -116,6 +123,7 @@ class TestIPCHandlerRegistration:
     def test_shot_handlers_registered(self, mock_server):
         """Test that shot handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         shot_handlers = [
@@ -133,6 +141,7 @@ class TestIPCHandlerRegistration:
     def test_generation_handlers_registered(self, mock_server):
         """Test that generation handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         generation_handlers = [
@@ -163,6 +172,7 @@ class TestIPCHandlerRegistration:
     def test_assembly_handlers_registered(self, mock_server):
         """Test that assembly handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         assembly_handlers = [
@@ -180,6 +190,7 @@ class TestIPCHandlerRegistration:
     def test_settings_handlers_registered(self, mock_server):
         """Test that settings handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         settings_handlers = [
@@ -200,6 +211,7 @@ class TestIPCHandlerRegistration:
     def test_sharing_handlers_registered(self, mock_server):
         """Test that sharing handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         sharing_handlers = [
@@ -216,13 +228,12 @@ class TestIPCHandlerRegistration:
 
         # Need at least 5 of these (there may be aliases)
         found = [h for h in sharing_handlers if h in mock_server.handlers]
-        assert len(found) >= 5, (
-            f"Expected at least 5 sharing handlers, found {len(found)}: {found}"
-        )
+        assert len(found) >= 5, f"Expected at least 5 sharing handlers, found {len(found)}: {found}"
 
     def test_analytics_handlers_registered(self, mock_server):
         """Test that analytics handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         analytics_handlers = [
@@ -240,6 +251,7 @@ class TestIPCHandlerRegistration:
     def test_archive_handlers_registered(self, mock_server):
         """Test that archive handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         archive_handlers = [
@@ -257,6 +269,7 @@ class TestIPCHandlerRegistration:
     def test_audio_handlers_registered(self, mock_server):
         """Test that audio handlers are registered."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         audio_handlers = [
@@ -283,6 +296,7 @@ class TestIPCHandlerCallability:
     def test_ping_handler_is_async(self, mock_server):
         """Test that ping handler is an async function."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         ping = mock_server.handlers.get("ping")
@@ -292,6 +306,7 @@ class TestIPCHandlerCallability:
     def test_version_handler_is_async(self, mock_server):
         """Test that version handler is an async function."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         version = mock_server.handlers.get("version")
@@ -301,6 +316,7 @@ class TestIPCHandlerCallability:
     def test_all_handlers_are_async(self, mock_server):
         """Test that all handlers are async functions."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         for name, handler in mock_server.handlers.items():
@@ -321,6 +337,7 @@ class TestIPCHandlerBehavior:
     async def test_ping_returns_pong(self, mock_server):
         """Test that ping handler returns pong."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         ping = mock_server.handlers.get("ping")
@@ -333,11 +350,8 @@ class TestIPCHandlerBehavior:
         """Test that version handler returns version info."""
         from scenemachine.ipc.handlers import register_handlers
 
-        with patch('scenemachine.ipc.handlers.get_settings') as mock_settings:
-            mock_settings.return_value = MagicMock(
-                version="1.0.0",
-                environment="test"
-            )
+        with patch("scenemachine.ipc.handlers.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(version="1.0.0", environment="test")
             register_handlers(mock_server)
 
             version = mock_server.handlers.get("version")
@@ -357,31 +371,25 @@ class TestIPCHandlerCategories:
     def test_handler_naming_convention(self, mock_server):
         """Test that handlers follow naming convention."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         # Most handlers should have a category prefix
-        categorized = [
-            name for name in mock_server.handlers.keys()
-            if "." in name
-        ]
-        standalone = [
-            name for name in mock_server.handlers.keys()
-            if "." not in name
-        ]
+        categorized = [name for name in mock_server.handlers if "." in name]
+        standalone = [name for name in mock_server.handlers if "." not in name]
 
         # Only ping and version should be standalone
-        assert len(standalone) <= 3, (
-            f"Too many standalone handlers: {standalone}"
-        )
+        assert len(standalone) <= 3, f"Too many standalone handlers: {standalone}"
         assert len(categorized) >= 150
 
     def test_handler_categories(self, mock_server):
         """Test that all expected categories exist."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         categories = set()
-        for name in mock_server.handlers.keys():
+        for name in mock_server.handlers:
             if "." in name:
                 category = name.split(".")[0]
                 categories.add(category)
@@ -403,9 +411,7 @@ class TestIPCHandlerCategories:
         }
 
         for expected in expected_categories:
-            assert expected in categories, (
-                f"Expected category '{expected}' not found"
-            )
+            assert expected in categories, f"Expected category '{expected}' not found"
 
 
 class TestIPCHandlerCount:
@@ -418,10 +424,11 @@ class TestIPCHandlerCount:
     def test_count_by_category(self, mock_server):
         """Count handlers per category."""
         from scenemachine.ipc.handlers import register_handlers
+
         register_handlers(mock_server)
 
         counts = {}
-        for name in mock_server.handlers.keys():
+        for name in mock_server.handlers:
             if "." in name:
                 category = name.split(".")[0]
                 counts[category] = counts.get(category, 0) + 1
@@ -447,20 +454,23 @@ class TestIPCServerIntegration:
     def test_ipc_server_class_exists(self):
         """Test that IPCServer class exists."""
         from scenemachine.ipc.server import IPCServer
+
         assert IPCServer is not None
 
     def test_ipc_server_has_handler_decorator(self):
         """Test that IPCServer has handler decorator."""
         from scenemachine.ipc.server import IPCServer
+
         # IPCServer requires a socket_path parameter
         server = IPCServer(socket_path="/tmp/test.sock")
-        assert hasattr(server, 'handler')
+        assert hasattr(server, "handler")
         assert callable(server.handler)
 
     def test_ipc_module_exports(self):
         """Test that ipc module has expected exports."""
         from scenemachine import ipc
-        assert hasattr(ipc, 'handlers')
+
+        assert hasattr(ipc, "handlers")
 
 
 # Run tests with: pytest tests/ipc_hardening_tests.py -v
