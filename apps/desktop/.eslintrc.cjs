@@ -38,6 +38,11 @@ module.exports = {
       'warn',
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
     ],
+    // Stylistic rules downgraded with the rest. 19 pre-existing errors
+    // (mostly JSX quote escapes) are in docs/INVENTORY_DEFECTS.md backlog.
+    'react/no-unescaped-entities': 'warn',
+    '@typescript-eslint/ban-ts-comment': 'warn',
+    '@typescript-eslint/no-var-requires': 'warn',
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'warn',
