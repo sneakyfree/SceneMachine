@@ -24,6 +24,15 @@ from uuid import UUID, uuid4
 logger = logging.getLogger(__name__)
 
 
+class BlockerCheckError(Exception):
+    """Raised when ``_check_blockers`` cannot run cleanly.
+
+    Pre-2026-05-21 the method returned ``[]`` on any exception, hiding
+    syntactic/integration bugs in the BlockersEngine. Now raised so the
+    caller can distinguish corrupted-engine from no-blockers-found.
+    """
+
+
 class AssemblyError(Exception):
     """Raised when ``_assemble_movie`` cannot produce a real movie file.
 
@@ -505,7 +514,15 @@ class ProductionPipeline:
             return False
 
     async def _check_blockers(self) -> list[dict[str, Any]]:
-        """Check for generation blockers."""
+        """Check for generation blockers.
+
+        Raises ``BlockerCheckError`` if the BlockersEngine itself crashes —
+        callers should NOT confuse a corrupted-engine failure with the
+        clean "no blockers found" outcome. Caught 2026-05-21 in the
+        silent-fail audit (P0): pre-fix this method returned ``[]`` on
+        every exception, so a syntactic bug in the engine made the
+        pipeline silently skip blocker resolution.
+        """
         try:
             from scenemachine.services.blockers_engine import BlockersEngine
 
@@ -527,8 +544,12 @@ class ProductionPipeline:
             return self.blockers
 
         except Exception as e:
-            logger.exception(f"Blocker check error: {e}")
-            return []
+            logger.exception("Blocker check error: %s", e)
+            raise BlockerCheckError(
+                f"BlockersEngine.analyze_project raised {type(e).__name__}: {e}. "
+                "Pre-fix this method returned [] silently, hiding engine bugs. "
+                "Callers must distinguish corrupted-engine from no-blockers."
+            ) from e
 
     async def _prepare_characters(self) -> None:
         """Prepare character references and voices."""
