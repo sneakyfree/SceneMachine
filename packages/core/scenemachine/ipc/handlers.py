@@ -3135,6 +3135,199 @@ def register_handlers(server: IPCServer) -> None:
             "lipSyncData": result.lip_sync_data.to_dict() if result.lip_sync_data else None,
         }
 
+    # Asynchronous lip sync job handlers — mirror the HTTP routes in
+    # api/routes/lipsync.py (start/list/get/cancel) so the desktop
+    # lipsync UI works without an embedded HTTP client. Closes the
+    # remaining 4/5 of P0-2 from docs/INVENTORY_DEFECTS.md (the
+    # `lipsync.start`/`.cancel`/`.listJobs`/`.getJob` calls had no
+    # IPC handler under either casing, so the lipsync UI's start +
+    # poll loop was dead end-to-end). Requires lipsync_jobs table
+    # from alembic migration 007 (PR #107).
+
+    def _serialize_lipsync_job(job: Any) -> dict[str, Any]:
+        """Shared shape for IPC lipsync job dicts.
+
+        Matches the field naming the renderer expects in
+        `apps/desktop/src/renderer/types/lipsync.ts` / `stores/lipsync-store.ts`.
+        """
+        return {
+            "job_id": str(job.id),
+            "video_id": str(job.video_asset_id),
+            "audio_id": str(job.audio_asset_id),
+            "provider": job.provider,
+            "status": job.status.value,
+            "progress_percent": job.progress_percent,
+            "progress_message": job.progress_message,
+            "output_path": job.output_path,
+            "error_message": job.error_message,
+            "created_at": job.created_at.isoformat(),
+            "completed_at": (job.completed_at.isoformat() if job.completed_at else None),
+        }
+
+    @server.handler("lipsync.start")
+    async def handle_lipsync_start(
+        video_id: str,
+        audio_id: str,
+        provider: str = "mock",
+    ) -> dict[str, Any]:
+        """Queue a new lip sync job and start background processing.
+
+        Validates provider availability + that the video and audio assets
+        exist and have the right `AssetType`. Persists a `LipsyncJob` row
+        and schedules the same `_process_lip_sync_job` background task that
+        the HTTP route uses, so progress + completion writes happen
+        identically regardless of whether the start came from IPC or HTTP.
+        """
+        from scenemachine.services.lipsync import LipSyncProvider, get_lip_sync_service
+
+        # Validate cheap stuff first so unit tests can stub the service
+        # and DB without importing the full FastAPI route module (which
+        # has heavy schema dependencies like email-validator).
+        try:
+            provider_enum = LipSyncProvider(provider)
+        except ValueError as exc:
+            raise ValueError(f"Invalid lipsync provider: {provider}") from exc
+
+        try:
+            video_uuid = UUID(video_id)
+        except ValueError as exc:
+            raise ValueError(f"Invalid video_id format: {video_id}") from exc
+        try:
+            audio_uuid = UUID(audio_id)
+        except ValueError as exc:
+            raise ValueError(f"Invalid audio_id format: {audio_id}") from exc
+
+        service = get_lip_sync_service()
+        await service.initialize_providers()
+        available = await service.get_available_providers()
+        provider_info = next(
+            (p for p in available if p["provider"] == provider_enum.value),
+            None,
+        )
+        if not provider_info or not provider_info["available"]:
+            raise RuntimeError(
+                f"Lipsync provider {provider_enum.value} is not available",
+            )
+
+        from scenemachine.api.routes.lipsync import _process_lip_sync_job
+        from scenemachine.models import Asset
+        from scenemachine.models.asset import AssetType
+        from scenemachine.models.lipsync_job import LipsyncJob, LipsyncJobStatus
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            video_asset = (
+                await session.execute(select(Asset).where(Asset.id == video_uuid))
+            ).scalar_one_or_none()
+            if not video_asset:
+                raise FileNotFoundError(f"Video asset {video_id} not found")
+            if not video_asset.is_video:
+                raise ValueError(
+                    f"Asset {video_id} is not a video (type: {video_asset.asset_type.value})",
+                )
+
+            audio_asset = (
+                await session.execute(select(Asset).where(Asset.id == audio_uuid))
+            ).scalar_one_or_none()
+            if not audio_asset:
+                raise FileNotFoundError(f"Audio asset {audio_id} not found")
+            if audio_asset.asset_type != AssetType.SHOT_AUDIO:
+                raise ValueError(
+                    f"Asset {audio_id} is not an audio file (type: {audio_asset.asset_type.value})",
+                )
+
+            job = LipsyncJob(
+                video_asset_id=video_uuid,
+                audio_asset_id=audio_uuid,
+                provider=provider_enum.value,
+                status=LipsyncJobStatus.QUEUED,
+                progress_percent=0.0,
+                progress_message="Job queued",
+            )
+            session.add(job)
+            await session.commit()
+            await session.refresh(job)
+
+            # Reuse the HTTP route's background task — same persistence
+            # semantics for progress + completion writes.
+            import asyncio as _asyncio
+
+            _asyncio.create_task(_process_lip_sync_job(str(job.id)))
+
+            return _serialize_lipsync_job(job)
+
+    @server.handler("lipsync.listJobs")
+    async def handle_lipsync_list_jobs() -> list[dict[str, Any]]:
+        """Return all lip sync jobs, newest first."""
+        from scenemachine.models.lipsync_job import LipsyncJob
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            result = await session.execute(
+                select(LipsyncJob).order_by(LipsyncJob.created_at.desc()),
+            )
+            jobs = result.scalars().all()
+            return [_serialize_lipsync_job(job) for job in jobs]
+
+    @server.handler("lipsync.getJob")
+    async def handle_lipsync_get_job(job_id: str) -> dict[str, Any]:
+        """Return a single lip sync job by id.
+
+        Renderer polls this from `startJobWebSocket` while the WebSocket
+        path is still unimplemented (P1-9). Raises FileNotFoundError if
+        the job is missing so the renderer can stop polling instead of
+        silently hammering forever.
+        """
+        from scenemachine.models.lipsync_job import LipsyncJob
+
+        try:
+            job_uuid = UUID(job_id)
+        except ValueError as exc:
+            raise ValueError(f"Invalid job_id format: {job_id}") from exc
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            result = await session.execute(
+                select(LipsyncJob).where(LipsyncJob.id == job_uuid),
+            )
+            job = result.scalar_one_or_none()
+            if not job:
+                raise FileNotFoundError(f"Lipsync job {job_id} not found")
+            return _serialize_lipsync_job(job)
+
+    @server.handler("lipsync.cancel")
+    async def handle_lipsync_cancel(job_id: str) -> dict[str, Any]:
+        """Cancel a queued/processing lip sync job.
+
+        Raises if the job is already finished — cancelling a completed
+        job is meaningless and the renderer should refresh state instead.
+        """
+        from scenemachine.models.lipsync_job import LipsyncJob, LipsyncJobStatus
+
+        try:
+            job_uuid = UUID(job_id)
+        except ValueError as exc:
+            raise ValueError(f"Invalid job_id format: {job_id}") from exc
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            result = await session.execute(
+                select(LipsyncJob).where(LipsyncJob.id == job_uuid),
+            )
+            job = result.scalar_one_or_none()
+            if not job:
+                raise FileNotFoundError(f"Lipsync job {job_id} not found")
+            if job.is_finished:
+                raise ValueError(
+                    f"Lipsync job {job_id} is already {job.status.value}; nothing to cancel",
+                )
+
+            job.status = LipsyncJobStatus.CANCELLED
+            job.error_message = "Job cancelled by user"
+            await session.commit()
+
+            return {"status": "cancelled", "job_id": job_id}
+
     # Production Pipeline handlers
     @server.handler("pipeline.run")
     async def handle_pipeline_run(
