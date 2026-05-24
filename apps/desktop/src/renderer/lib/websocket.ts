@@ -3,6 +3,8 @@
  * Provides real-time communication with the backend
  */
 
+import { useEffect, useRef, useSyncExternalStore } from 'react';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -342,10 +344,10 @@ export function useWebSocketEvent<T = unknown>(
   eventType: EventType | string,
   handler: (message: WebSocketMessage<T>) => void
 ): void {
-  // Inline React import to avoid top-level import in a non-React file
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { useEffect, useRef } = require('react');
-
+  // Note: this was previously `require('react')` which threw
+  // "require is not defined" in the Vite/browser context, killing
+  // the generation + timeline pages outright. Moved to a top-level
+  // ES import.
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
 
@@ -472,7 +474,7 @@ const wsStore = new WebSocketStore();
 
 /** React hook to access WebSocket connection state */
 export function useWebSocketStore(): WebSocketStoreState {
-  const { useSyncExternalStore } = require('react');
+  // Was `require('react')` — threw in browser. Top-level ES import now.
   return useSyncExternalStore(
     (cb: StoreListener) => wsStore.subscribe(cb),
     () => wsStore.getState()
