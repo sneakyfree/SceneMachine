@@ -3328,6 +3328,51 @@ def register_handlers(server: IPCServer) -> None:
 
             return {"status": "cancelled", "job_id": job_id}
 
+    @server.handler("lipsync.deleteJob")
+    async def handle_lipsync_delete_job(job_id: str) -> dict[str, Any]:
+        """Hard-delete a lip sync job row.
+
+        Different from `cancel`: this works on any status (including
+        completed/failed/cancelled) and removes the row entirely.
+        Renderer uses this for the "trash" affordance on terminal-state
+        jobs in `lipsync-panel.tsx`. The iter 13 trash button was hidden
+        because this handler didn't exist; iter 15 ships it.
+
+        Asset rows (video/audio/output) are NOT deleted — they may be
+        referenced by other jobs or the user may still want them. Only
+        the lipsync_jobs row goes away.
+
+        Args:
+            job_id: Lipsync job UUID string.
+
+        Returns:
+            ``{"status": "deleted", "job_id": "..."}`` on success.
+
+        Raises:
+            ValueError: malformed UUID.
+            FileNotFoundError: job does not exist.
+        """
+        from scenemachine.models.lipsync_job import LipsyncJob
+
+        try:
+            job_uuid = UUID(job_id)
+        except ValueError as exc:
+            raise ValueError(f"Invalid job_id format: {job_id}") from exc
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            result = await session.execute(
+                select(LipsyncJob).where(LipsyncJob.id == job_uuid),
+            )
+            job = result.scalar_one_or_none()
+            if not job:
+                raise FileNotFoundError(f"Lipsync job {job_id} not found")
+
+            await session.delete(job)
+            await session.commit()
+
+            return {"status": "deleted", "job_id": job_id}
+
     # Production Pipeline handlers
     @server.handler("pipeline.run")
     async def handle_pipeline_run(

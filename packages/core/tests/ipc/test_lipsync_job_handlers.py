@@ -66,7 +66,13 @@ def _fake_db_session_context(session: MagicMock):
 
 def test_all_four_handlers_are_registered(ipc_server: IPCServer) -> None:
     """P0-2 regression guard: each channel must exist."""
-    for channel in ("lipsync.start", "lipsync.cancel", "lipsync.getJob", "lipsync.listJobs"):
+    for channel in (
+        "lipsync.start",
+        "lipsync.cancel",
+        "lipsync.getJob",
+        "lipsync.listJobs",
+        "lipsync.deleteJob",
+    ):
         assert channel in ipc_server.handlers, f"{channel} must be registered"
 
 
@@ -236,3 +242,74 @@ async def test_start_rejects_unavailable_provider(ipc_server: IPCServer) -> None
                 audio_id=str(uuid4()),
                 provider="mock",
             )
+
+
+# ---------------------------------------------------------------------------
+# lipsync.deleteJob (iter 15)
+# ---------------------------------------------------------------------------
+
+
+async def test_delete_job_hard_deletes_row(ipc_server: IPCServer) -> None:
+    """Delete should call session.delete + commit and return success shape."""
+    handler = ipc_server.handlers["lipsync.deleteJob"]
+    job = _fake_job(status="completed", is_finished=True)
+
+    fake_session = MagicMock()
+    fake_session.execute = AsyncMock(return_value=MagicMock())
+    fake_session.execute.return_value.scalar_one_or_none.return_value = job
+    fake_session.delete = AsyncMock()
+    fake_session.commit = AsyncMock()
+
+    with patch(
+        "scenemachine.ipc.handlers.get_db_manager",
+        return_value=_fake_db_session_context(fake_session),
+    ):
+        result = await handler(job_id=str(job.id))
+
+    assert result == {"status": "deleted", "job_id": str(job.id)}
+    fake_session.delete.assert_awaited_once_with(job)
+    fake_session.commit.assert_awaited_once()
+
+
+async def test_delete_job_works_on_terminal_status(ipc_server: IPCServer) -> None:
+    """Unlike cancel, delete must succeed on completed/failed/cancelled."""
+    handler = ipc_server.handlers["lipsync.deleteJob"]
+    for terminal_status in ("completed", "failed", "cancelled"):
+        job = _fake_job(status=terminal_status, is_finished=True)
+
+        fake_session = MagicMock()
+        fake_session.execute = AsyncMock(return_value=MagicMock())
+        fake_session.execute.return_value.scalar_one_or_none.return_value = job
+        fake_session.delete = AsyncMock()
+        fake_session.commit = AsyncMock()
+
+        with patch(
+            "scenemachine.ipc.handlers.get_db_manager",
+            return_value=_fake_db_session_context(fake_session),
+        ):
+            result = await handler(job_id=str(job.id))
+
+        assert result["status"] == "deleted", (
+            f"delete must work on terminal status {terminal_status!r}"
+        )
+
+
+async def test_delete_job_missing_raises(ipc_server: IPCServer) -> None:
+    handler = ipc_server.handlers["lipsync.deleteJob"]
+
+    fake_session = MagicMock()
+    fake_session.execute = AsyncMock(return_value=MagicMock())
+    fake_session.execute.return_value.scalar_one_or_none.return_value = None
+
+    with patch(
+        "scenemachine.ipc.handlers.get_db_manager",
+        return_value=_fake_db_session_context(fake_session),
+    ):
+        with pytest.raises(FileNotFoundError):
+            await handler(job_id=str(uuid4()))
+
+
+async def test_delete_job_invalid_uuid_raises(ipc_server: IPCServer) -> None:
+    handler = ipc_server.handlers["lipsync.deleteJob"]
+    with pytest.raises(ValueError):
+        await handler(job_id="not-a-uuid")
