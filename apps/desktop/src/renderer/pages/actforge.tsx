@@ -25,9 +25,9 @@ import type { Performer, BookingMode, PerformerType } from '../api/client';
 
 export function ActForgePage(): JSX.Element {
   const {
-    performers,
-    featuredPerformers,
-    leaderboard,
+    performers: rawPerformers,
+    featuredPerformers: rawFeatured,
+    leaderboard: rawLeaderboard,
     searchParams,
     searchTotal,
     searchHasMore,
@@ -51,6 +51,15 @@ export function ActForgePage(): JSX.Element {
   const [filterType, setFilterType] = useState<PerformerType | undefined>(undefined);
   const [filterVerified, setFilterVerified] = useState<boolean | undefined>(undefined);
   const [sortBy, setSortBy] = useState<'aci_score' | 'price' | 'rating' | 'bookings'>('aci_score');
+
+  // Defensive: coerce to arrays so a backend that returns non-array (mock,
+  // partial state, or shape drift) doesn't crash `.length` / `.map` /
+  // `.filter` downstream. The store initializes these as [] but a
+  // misbehaving handler write could leave them undefined. Found by
+  // /qa_screenshot_tour killing the whole ActForge page on `.length`.
+  const performers = Array.isArray(rawPerformers) ? rawPerformers : [];
+  const featuredPerformers = Array.isArray(rawFeatured) ? rawFeatured : [];
+  const leaderboard = Array.isArray(rawLeaderboard) ? rawLeaderboard : [];
 
   // Initial load
   useEffect(() => {

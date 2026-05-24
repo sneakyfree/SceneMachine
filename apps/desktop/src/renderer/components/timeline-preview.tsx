@@ -47,13 +47,16 @@ export function TimelinePreview({
   onShotClick,
   className,
 }: TimelinePreviewProps) {
-  // Calculate progress
+  // Calculate progress. `scenes` and `scene.shots` may be undefined when
+  // the backend returns partial state (new project, mid-load, etc.) —
+  // guarding both prevents a render-time `.forEach` crash that took down
+  // the entire Export page. Found by /qa_screenshot_tour.
   const stats = useMemo(() => {
     let totalShots = 0;
     let completedShots = 0;
 
-    scenes.forEach((scene) => {
-      scene.shots.forEach((shot) => {
+    (scenes ?? []).forEach((scene) => {
+      (scene.shots ?? []).forEach((shot) => {
         totalShots++;
         if (shot.hasOutput) completedShots++;
       });
@@ -80,7 +83,7 @@ export function TimelinePreview({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Film className="w-4 h-4 text-surface-400" />
-            <span className="text-sm text-surface-400">{scenes.length} scenes</span>
+            <span className="text-sm text-surface-400">{(scenes ?? []).length} scenes</span>
           </div>
           <div className="flex items-center gap-2">
             <Image className="w-4 h-4 text-surface-400" />
@@ -129,7 +132,7 @@ export function TimelinePreview({
 
         {/* Scene blocks */}
         <div className="flex gap-1 h-24">
-          {scenes.map((scene) => (
+          {(scenes ?? []).map((scene) => (
             <div
               key={scene.sceneId}
               className={cn(

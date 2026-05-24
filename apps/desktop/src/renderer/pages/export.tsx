@@ -447,8 +447,14 @@ export function ExportPage() {
                   </div>
                 </div>
 
-                {/* Missing shots warning */}
-                {assemblyStatus.missingShots.length > 0 && (
+                {/* Missing shots warning. `assemblyStatus` is truthy in this
+                    branch but `missingShots` can be undefined when the
+                    backend returns partial state — guarding the inner
+                    property prevents an "undefined.length" crash that
+                    used to take down the entire Export page. Found by
+                    /qa_screenshot_tour. */}
+                {Array.isArray(assemblyStatus.missingShots) &&
+                  assemblyStatus.missingShots.length > 0 && (
                   <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-yellow-400 mb-2">
                       <AlertTriangle className="w-4 h-4" />

@@ -193,7 +193,9 @@ function WorkerStatusPanel({ status }: { status: WorkerStatus | null }) {
           <div className="text-xs text-surface-400">Failed</div>
         </div>
         <div className="bg-brand-500/10 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-brand-400">{status.success_rate.toFixed(1)}%</div>
+          <div className="text-2xl font-bold text-brand-400">
+            {(status.success_rate ?? 0).toFixed(1)}%
+          </div>
           <div className="text-xs text-surface-400">Success Rate</div>
         </div>
       </div>
@@ -254,12 +256,16 @@ export function AdminPage() {
     fetchWorkerStatus();
   }, []);
 
-  // Count available providers
-  const availableProviders = providersHealth?.filter((p) => p.available).length || 0;
-  const totalProviders = providersHealth?.length || 0;
+  // Count available providers. providersHealth can come back as undefined or
+  // even an object when the backend returns partial state — guarding with
+  // Array.isArray prevents "filter is not a function" which took down the
+  // whole Admin page. Found by /qa_screenshot_tour.
+  const providersList = Array.isArray(providersHealth) ? providersHealth : [];
+  const availableProviders = providersList.filter((p) => p.available).length;
+  const totalProviders = providersList.length;
 
   // Determine system status
-  const hasProviderIssues = providersHealth?.some((p) => p.configured && !p.available);
+  const hasProviderIssues = providersList.some((p) => p.configured && !p.available);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -326,7 +332,7 @@ export function AdminPage() {
             value={generationStats?.totalGenerations?.toString() || '0'}
             subtext={
               generationStats
-                ? `${generationStats.successRate.toFixed(1)}% success rate`
+                ? `${(generationStats.successRate ?? 0).toFixed(1)}% success rate`
                 : undefined
             }
             color="text-brand-400"

@@ -342,7 +342,11 @@ export function CircuitBreakerPanel() {
     );
   }
 
-  if (!data || data.circuits.length === 0) {
+  // `data` may be truthy but `data.circuits` undefined if the handler returns
+  // partial state (e.g., new install with no breakers registered, or backend
+  // shape drift). Guarding the inner property too prevents a renderer crash
+  // that takes down the whole Settings page. Found by /qa_screenshot_tour.
+  if (!data || !Array.isArray(data.circuits) || data.circuits.length === 0) {
     return (
       <div className="text-center py-8 text-surface-400">
         <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />

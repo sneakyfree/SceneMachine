@@ -108,18 +108,38 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
     return <EmptyState icon={Eye} message="No project data available yet" />;
   }
 
+  // The runtime type doesn't always match the static `DashboardStats` shape
+  // (e.g., backend returns partial state or a new install with no rows
+  // yet — `stats.projects`, `stats.costs`, etc. can be undefined even when
+  // `stats` is truthy). Defaulting to zeroes prevents a renderer crash on
+  // `.totalScenes`/`.totalCostUsd`/`.completedJobs` that took down the
+  // whole Explainability page. Found by /qa_screenshot_tour.
+  const projects = stats.projects ?? {
+    totalScenes: 0,
+    totalShots: 0,
+    totalCharacters: 0,
+  };
+  const costs = stats.costs ?? { totalCostUsd: 0 };
+  const generation = stats.generation ?? {
+    totalJobs: 0,
+    completedJobs: 0,
+    failedJobs: 0,
+    successRate: 0,
+    avgGenerationTimeSeconds: 0,
+  };
+
   return (
     <div className="space-y-6">
       {/* Project summary */}
       <div className="card">
         <h3 className="text-lg font-medium mb-4">Project Overview</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <SummaryCard label="Scenes" value={stats.projects.totalScenes} icon={Film} />
-          <SummaryCard label="Shots" value={stats.projects.totalShots} icon={Clapperboard} />
-          <SummaryCard label="Characters" value={stats.projects.totalCharacters} icon={Eye} />
+          <SummaryCard label="Scenes" value={projects.totalScenes} icon={Film} />
+          <SummaryCard label="Shots" value={projects.totalShots} icon={Clapperboard} />
+          <SummaryCard label="Characters" value={projects.totalCharacters} icon={Eye} />
           <SummaryCard
             label="Total Cost"
-            value={`$${stats.costs.totalCostUsd.toFixed(2)}`}
+            value={`$${(costs.totalCostUsd ?? 0).toFixed(2)}`}
             icon={DollarSign}
           />
         </div>
@@ -132,7 +152,7 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
           <div className="flex items-center justify-between">
             <span className="text-surface-400">Progress</span>
             <span className="text-sm">
-              {stats.generation.completedJobs} / {stats.generation.totalJobs} shots complete
+              {generation.completedJobs} / {generation.totalJobs} shots complete
             </span>
           </div>
           <div className="h-3 bg-surface-700 rounded-full overflow-hidden">
@@ -140,8 +160,8 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
               className="h-full bg-green-500 rounded-full transition-all"
               style={{
                 width: `${
-                  stats.generation.totalJobs > 0
-                    ? (stats.generation.completedJobs / stats.generation.totalJobs) * 100
+                  generation.totalJobs > 0
+                    ? (generation.completedJobs / generation.totalJobs) * 100
                     : 0
                 }%`,
               }}
@@ -150,15 +170,15 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-400" />
-              <span>{stats.generation.completedJobs} completed</span>
+              <span>{generation.completedJobs} completed</span>
             </div>
             <div className="flex items-center gap-2">
               <XCircle className="w-4 h-4 text-red-400" />
-              <span>{stats.generation.failedJobs} failed</span>
+              <span>{generation.failedJobs} failed</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-yellow-400" />
-              <span>{stats.generation.avgGenerationTimeSeconds.toFixed(0)}s avg</span>
+              <span>{generation.avgGenerationTimeSeconds.toFixed(0)}s avg</span>
             </div>
           </div>
         </div>
@@ -204,8 +224,8 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
           Based on current rates, remaining shots should complete in approximately{' '}
           <span className="text-white font-medium">
             {Math.ceil(
-              ((stats.generation.totalJobs - stats.generation.completedJobs) *
-                stats.generation.avgGenerationTimeSeconds) /
+              ((generation.totalJobs - generation.completedJobs) *
+                generation.avgGenerationTimeSeconds) /
                 60
             )}{' '}
             minutes
