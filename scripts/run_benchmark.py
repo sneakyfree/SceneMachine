@@ -153,6 +153,25 @@ PRESETS: Dict[str, BenchmarkPreset] = {
         use_continuity=True,
         expected_wallclock_minutes_per_47_shots=8 * 60,
     ),
+    # V9b — fixes V9's identity-lock failure. V9 ran 47 shots in one
+    # global I2V chain → identity locked to shot 1's face → diversity
+    # collapsed (0.873 = worst of any preset, jack_harris dominated
+    # 43/47 shots). V9b combines V8's first-appearance Animate anchor
+    # WITH per-character I2V chains: each character's first shot anchors
+    # via Animate, subsequent same-character shots propagate visually
+    # via I2V. Cross-character cuts trigger a fresh anchor instead of
+    # carrying the wrong face forward.
+    "V9b_animate_anchor_per_char_chain": BenchmarkPreset(
+        name="V9b_animate_anchor_per_char_chain",
+        description=(
+            "V8's first-appearance Animate per character + per-character "
+            "I2V chains. Anchor identity once, propagate within character."
+        ),
+        num_inference_steps=30,
+        use_continuity=True,
+        use_animate_first_appearance_only=True,
+        expected_wallclock_minutes_per_47_shots=6 * 60 + 30,
+    ),
     "V5_animate": BenchmarkPreset(
         name="V5_animate",
         description="V1 + Animate when named characters in frame (needs character refs first).",
@@ -473,6 +492,14 @@ async def run_one_screenplay(
                     shot_character_ids.append(cid)
                     seen.add(cid)
 
+        # Capture primary character BEFORE V8's first-appearance strip
+        # below — V9b uses this to group I2V chains per-character so each
+        # character's first shot anchors via Animate and subsequent shots
+        # propagate via I2V *within that character's chain*. Avoids V9's
+        # failure mode (one global chain → identity locks to whoever
+        # appeared in shot 1, every shot inherits that face).
+        shot_primary_char = shot_character_ids[0] if shot_character_ids else None
+
         # V8 hybrid routing: keep only character_ids that haven't been
         # seen YET in this run. First scene mentioning Ellie → Animate
         # routes; subsequent scenes mentioning Ellie → empty char_ids →
@@ -506,15 +533,29 @@ async def run_one_screenplay(
             "scene_number": sd["scene_number"],
             "shots": [shot_payload],
         })
-        # Chain mode for continuity presets: when preset.use_continuity is
-        # True, all shots share a single synthetic scene_id so the I2V
-        # routing logic (which groups shots by scene_id, only passing
-        # prev_shot_last_frame within a group) treats the whole run as one
-        # big chain. RADAR_LOVE_2's per-scene decomposition gives 1 shot
-        # per scene; without this, prev_shot_last_frame is always None and
-        # I2V routing never fires (V4-as-broken on 2026-05-21 confirmed
-        # this null result). Tracked as P1-7 in docs/INVENTORY_DEFECTS.md.
-        chain_scene_id = "_continuity_chain" if preset.use_continuity else sd["scene_number"]
+        # Chain mode for continuity presets:
+        #
+        #   - V9 (use_continuity only): all 47 shots share a single
+        #     scene_id "_continuity_chain" → one global I2V chain. V9
+        #     showed this LOCKS identity on shot 1's face and propagates
+        #     it across every subsequent shot regardless of which
+        #     character the scene is about.
+        #
+        #   - V9b (use_continuity + use_animate_first_appearance_only):
+        #     scene_id = "_char_<primary_character>" so each character's
+        #     shots form their own chain. The character's first shot
+        #     anchors via Animate (V8's logic); subsequent same-character
+        #     shots propagate visually via I2V from the prior shot in
+        #     that character's chain. No cross-character bleed.
+        #
+        #   - Default (no continuity): scene_id = scene_number, no chain.
+        if preset.use_continuity:
+            if (preset.use_animate_first_appearance_only and shot_primary_char):
+                chain_scene_id = f"_char_{shot_primary_char}"
+            else:
+                chain_scene_id = "_continuity_chain"
+        else:
+            chain_scene_id = sd["scene_number"]
         shot_statuses.append(ShotGenerationStatus(
             shot_id=shot_id, scene_id=chain_scene_id, status="queued",
         ))
