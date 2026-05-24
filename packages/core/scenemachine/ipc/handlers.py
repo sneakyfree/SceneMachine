@@ -2582,6 +2582,96 @@ def register_handlers(server: IPCServer) -> None:
                 "bytesFreed": result["bytes_freed"],
             }
 
+    @server.handler("files.downloadFile")
+    async def handle_download_file(path: str, filename: str) -> dict[str, Any]:
+        """Copy a generated file from the data directory to the user's Downloads folder.
+
+        This is the backend half of the desktop "Download" buttons in the shot
+        preview and lipsync panels. The previous IPC inventory flagged this as
+        a P0 dead UI call: the renderer fired `files.downloadFile` but no
+        handler existed, so every Download click hung the renderer. See
+        docs/INVENTORY_DEFECTS.md §"P0-3 files.downloadFile IPC".
+
+        Args:
+            path: Absolute or relative path to the source file. Must resolve
+                under the configured data directory — anything else is rejected
+                to prevent the renderer from reading arbitrary host files.
+            filename: Bare filename (no directory components) to use at the
+                destination. Path-separators and "." traversal are rejected.
+
+        Returns:
+            ``{"success": True, "destinationPath": "<abs path>"}`` on success.
+
+        Raises:
+            ValueError: filename contains path separators or traversal tokens.
+            PermissionError: source path resolves outside the data directory.
+            FileNotFoundError: source path does not exist.
+        """
+        from pathlib import Path
+
+        settings = get_settings()
+
+        # Reject any filename that could escape the Downloads dir.
+        # The renderer only ever passes simple names like "shot-7.mp4";
+        # anything else is either a bug or an attempt to traverse.
+        if not filename or "/" in filename or "\\" in filename or filename in {".", ".."}:
+            raise ValueError(
+                f"files.downloadFile rejected filename {filename!r}: "
+                "must be a bare filename with no path separators",
+            )
+
+        # Resolve the source under the configured data dir. Reject anything
+        # else — the renderer must not be able to ask Python to read /etc/passwd.
+        data_root = settings.data_dir.resolve()
+        source = Path(path)
+        if not source.is_absolute():
+            source = (data_root / source).resolve()
+        else:
+            source = source.resolve()
+
+        try:
+            source.relative_to(data_root)
+        except ValueError as exc:
+            raise PermissionError(
+                f"files.downloadFile refused source {source}: "
+                f"resolves outside data dir {data_root}",
+            ) from exc
+
+        if not source.exists():
+            raise FileNotFoundError(f"files.downloadFile: source {source} not found")
+        if not source.is_file():
+            raise ValueError(
+                f"files.downloadFile: source {source} is not a regular file",
+            )
+
+        downloads_dir = Path.home() / "Downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+
+        # Don't clobber an existing file — append ` (1)`, ` (2)`, ... until free.
+        # Mirrors browser download behavior so users don't silently lose data.
+        destination = downloads_dir / filename
+        if destination.exists():
+            stem = destination.stem
+            suffix = destination.suffix
+            counter = 1
+            while True:
+                candidate = downloads_dir / f"{stem} ({counter}){suffix}"
+                if not candidate.exists():
+                    destination = candidate
+                    break
+                counter += 1
+
+        # Use shutil.copy2 to preserve mtime — helps users tell which take was
+        # downloaded when they grab several from the same shot.
+        import shutil
+
+        shutil.copy2(source, destination)
+
+        return {
+            "success": True,
+            "destinationPath": str(destination),
+        }
+
     @server.handler("settings.getLlmProviders")
     async def handle_get_llm_providers() -> list[dict[str, Any]]:
         """Get available LLM providers."""

@@ -15,7 +15,7 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 |---:|---|---|---|---|
 | P0-1 | `production_pipeline.py:489` `_check_blockers` | Returns `[]` on exception; caller treats as authoritative blocker list; corrupted engine silently proceeds | silent-fail audit | (pending) |
 | P0-2 | `api/routes/lipsync.py` namespace `lipSync.*` vs renderer `lipsync.*` | 4 IPC handlers registered with camelCase, renderer calls lowercase; **entire lipsync UI dead** | IPC inventory | (pending — task #28) |
-| P0-3 | `files.downloadFile` IPC | Renderer calls; no handler exists; **export downloads broken** | IPC inventory | (pending) |
+| ~~P0-3~~ | `files.downloadFile` IPC | Renderer calls; no handler exists; **export downloads broken** | IPC inventory | **closed**: handler added at `handlers.py` (path-traversal protected, data-dir sandboxed, name-collision safe). Loop iter 2 / PR follow-up. |
 | P0-4 | `generation.listJobs` IPC | Renderer calls; only `generation.getPendingJobs` registered; **generation page job-list broken** | IPC inventory | (pending) |
 | P0-5 | `screenplays.autoFix` + `.autoFixAll` IPC | Renderer calls; no handlers; **screenplay auto-fix dead** | IPC inventory | (pending) |
 | P0-6 | `sharing.deleteComment` IPC | Renderer calls; only `sharing.resolveComment` exists; **comment delete broken** | IPC inventory | (pending) |
