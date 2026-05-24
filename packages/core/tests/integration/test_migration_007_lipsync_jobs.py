@@ -48,9 +48,7 @@ def test_migration_007_upgrade_downgrade_cycle(tmp_path: Path) -> None:
     # We stub the FK targets so 007's foreign keys reference real tables.
     with sqlite3.connect(db_path) as con:
         cur = con.cursor()
-        cur.execute(
-            "CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY)"
-        )
+        cur.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) PRIMARY KEY)")
         cur.execute("INSERT INTO alembic_version VALUES ('006_accessibility')")
         cur.execute("CREATE TABLE shots (id BLOB PRIMARY KEY)")
         cur.execute("CREATE TABLE assets (id BLOB PRIMARY KEY)")
@@ -60,10 +58,7 @@ def test_migration_007_upgrade_downgrade_cycle(tmp_path: Path) -> None:
     command.upgrade(cfg, "007_lipsync_jobs")
     with sqlite3.connect(db_path) as con:
         cur = con.cursor()
-        cur.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type='table' AND name='lipsync_jobs'"
-        )
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lipsync_jobs'")
         assert cur.fetchone() is not None, "lipsync_jobs must exist after upgrade"
 
         cur.execute("PRAGMA table_info(lipsync_jobs)")
@@ -101,20 +96,14 @@ def test_migration_007_upgrade_downgrade_cycle(tmp_path: Path) -> None:
     command.downgrade(cfg, "006_accessibility")
     with sqlite3.connect(db_path) as con:
         cur = con.cursor()
-        cur.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type='table' AND name='lipsync_jobs'"
-        )
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lipsync_jobs'")
         assert cur.fetchone() is None, "lipsync_jobs must be gone after downgrade"
 
     # Re-upgrade — must succeed (proves downgrade left a clean slate).
     command.upgrade(cfg, "007_lipsync_jobs")
     with sqlite3.connect(db_path) as con:
         cur = con.cursor()
-        cur.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type='table' AND name='lipsync_jobs'"
-        )
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='lipsync_jobs'")
         assert cur.fetchone() is not None, "lipsync_jobs must re-create cleanly"
 
 

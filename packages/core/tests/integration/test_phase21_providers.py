@@ -1071,14 +1071,8 @@ class TestComfyUIProvider:
             character_references=[{"reference_image_path": "ref.png"}],
         )
         wf = provider._build_wan_animate_workflow(request, model, num_frames=69)
-        animate_embeds = next(
-            n for n in wf.values()
-            if n["class_type"] == "WanVideoAnimateEmbeds"
-        )
-        clip_encode = next(
-            n for n in wf.values()
-            if n["class_type"] == "WanVideoClipVisionEncode"
-        )
+        animate_embeds = next(n for n in wf.values() if n["class_type"] == "WanVideoAnimateEmbeds")
+        clip_encode = next(n for n in wf.values() if n["class_type"] == "WanVideoClipVisionEncode")
         assert animate_embeds["inputs"]["face_strength"] == 1.0
         assert animate_embeds["inputs"]["pose_strength"] == 1.0
         assert clip_encode["inputs"]["strength_1"] == 1.0
@@ -1100,10 +1094,7 @@ class TestComfyUIProvider:
             extra_params={"face_strength": 0.5, "pose_strength": 0.3},
         )
         wf = provider._build_wan_animate_workflow(request, model, num_frames=69)
-        animate_embeds = next(
-            n for n in wf.values()
-            if n["class_type"] == "WanVideoAnimateEmbeds"
-        )
+        animate_embeds = next(n for n in wf.values() if n["class_type"] == "WanVideoAnimateEmbeds")
         assert animate_embeds["inputs"]["face_strength"] == 0.5
         assert animate_embeds["inputs"]["pose_strength"] == 0.3
 
@@ -1122,10 +1113,7 @@ class TestComfyUIProvider:
             extra_params={"clip_vision_strength": 0.5},
         )
         wf = provider._build_wan_animate_workflow(request, model, num_frames=69)
-        clip_encode = next(
-            n for n in wf.values()
-            if n["class_type"] == "WanVideoClipVisionEncode"
-        )
+        clip_encode = next(n for n in wf.values() if n["class_type"] == "WanVideoClipVisionEncode")
         assert clip_encode["inputs"]["strength_1"] == 0.5
         assert clip_encode["inputs"]["strength_2"] == 0.5
 
