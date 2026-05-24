@@ -665,11 +665,21 @@ class ProductionPipeline:
                 logger.info("continuity: extracted last frame -> %s", out)
                 return fname
             except Exception as e:
-                logger.warning(
+                # Was logger.warning pre-2026-05-23. Upgraded to error
+                # so operators see this in the same severity bucket as
+                # generation failures — extraction failure means the
+                # NEXT shot loses its I2V seed and silently falls back
+                # to T2V, breaking continuity-chain presets. Per the
+                # silent-fail audit P1-1 — better to be loud than
+                # mysteriously skip continuity. Also include traceback
+                # at debug level for diagnosis.
+                logger.error(
                     "continuity frame extraction failed for shot %s: %s "
-                    "(next shot will route T2V instead of I2V)",
+                    "(next shot will route T2V instead of I2V — "
+                    "continuity chain broken at this seam)",
                     shot_id,
                     e,
+                    exc_info=True,
                 )
                 return None
 

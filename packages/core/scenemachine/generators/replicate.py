@@ -488,8 +488,20 @@ class ReplicateProvider(GenerationProvider):
         video_path: Path,
         thumbnail_path: Path,
     ) -> str | None:
-        """Generate thumbnail from video using ffmpeg."""
+        """Generate thumbnail from video using ffmpeg.
+
+        Returns the thumbnail path on success, None on failure. Failure
+        is logged at warning (missing source) or error+exc_info (ffmpeg
+        crash) so operators can distinguish "video doesn't exist yet"
+        from "thumbnail extraction broke" — per silent-fail audit P1-3.
+        Pre-2026-05-23 both paths returned None with a single warning,
+        making the broken case invisible.
+        """
         if not video_path.exists():
+            logger.warning(
+                "Replicate _generate_thumbnail: source video missing at %s",
+                video_path,
+            )
             return None
 
         try:
@@ -503,10 +515,21 @@ class ReplicateProvider(GenerationProvider):
                 quality=2,
             )
 
-            if thumbnail_path.exists():
+            if thumbnail_path.exists() and thumbnail_path.stat().st_size > 0:
                 return str(thumbnail_path)
+            logger.error(
+                "Replicate _generate_thumbnail: ffmpeg returned but output "
+                "missing or 0-byte at %s",
+                thumbnail_path,
+            )
         except Exception as e:
-            logger.warning(f"Thumbnail generation failed: {e}")
+            logger.error(
+                "Replicate _generate_thumbnail: ffmpeg crashed extracting "
+                "thumbnail at %s: %s",
+                thumbnail_path,
+                e,
+                exc_info=True,
+            )
 
         return None
 
