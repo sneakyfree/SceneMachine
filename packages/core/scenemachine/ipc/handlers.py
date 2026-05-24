@@ -3161,9 +3161,7 @@ def register_handlers(server: IPCServer) -> None:
             "output_path": job.output_path,
             "error_message": job.error_message,
             "created_at": job.created_at.isoformat(),
-            "completed_at": (
-                job.completed_at.isoformat() if job.completed_at else None
-            ),
+            "completed_at": (job.completed_at.isoformat() if job.completed_at else None),
         }
 
     @server.handler("lipsync.start")
@@ -3225,8 +3223,7 @@ def register_handlers(server: IPCServer) -> None:
                 raise FileNotFoundError(f"Video asset {video_id} not found")
             if not video_asset.is_video:
                 raise ValueError(
-                    f"Asset {video_id} is not a video "
-                    f"(type: {video_asset.asset_type.value})",
+                    f"Asset {video_id} is not a video (type: {video_asset.asset_type.value})",
                 )
 
             audio_asset = (
@@ -3236,8 +3233,7 @@ def register_handlers(server: IPCServer) -> None:
                 raise FileNotFoundError(f"Audio asset {audio_id} not found")
             if audio_asset.asset_type != AssetType.SHOT_AUDIO:
                 raise ValueError(
-                    f"Asset {audio_id} is not an audio file "
-                    f"(type: {audio_asset.asset_type.value})",
+                    f"Asset {audio_id} is not an audio file (type: {audio_asset.asset_type.value})",
                 )
 
             job = LipsyncJob(
@@ -3323,8 +3319,7 @@ def register_handlers(server: IPCServer) -> None:
                 raise FileNotFoundError(f"Lipsync job {job_id} not found")
             if job.is_finished:
                 raise ValueError(
-                    f"Lipsync job {job_id} is already {job.status.value}; "
-                    "nothing to cancel",
+                    f"Lipsync job {job_id} is already {job.status.value}; nothing to cancel",
                 )
 
             job.status = LipsyncJobStatus.CANCELLED
