@@ -493,20 +493,25 @@ class CharacterImageGenerator:
                 metadata={"mock": True},
             )
 
-        except ImportError:
-            # No PIL, create empty file
-            output_path = self.output_dir / f"{image_id}.png"
-            output_path.write_bytes(b"")
-
-            return GeneratedImage(
-                image_id=image_id,
-                success=True,
-                image_path=str(output_path),
-                width=width,
-                height=height,
-                provider=ImageProvider.MOCK,
-                metadata={"mock": True, "empty": True},
+        except ImportError as exc:
+            # P1-2 in docs/INVENTORY_DEFECTS.md: before iter 9 this branch
+            # wrote a 0-byte placeholder PNG and returned `success=True`. The
+            # downstream character-reference pipeline then loaded an empty
+            # file as if it were a real image, silently corrupting any
+            # follow-on Animate / I2V step that depended on the reference.
+            # Surface the missing-PIL state instead — production deploys
+            # have PIL pinned; if this fires it's a packaging bug worth
+            # screaming about, not silently masking.
+            logger.error(
+                "character_image_generator._generate_mock: PIL import failed; "
+                "cannot produce a real placeholder image. Original error: %s",
+                exc,
+                exc_info=True,
             )
+            raise RuntimeError(
+                "character_image_generator requires Pillow; install with "
+                "`pip install Pillow` or reinstall the scenemachine package",
+            ) from exc
 
     async def generate_multi_angle_references(
         self,

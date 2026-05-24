@@ -42,7 +42,7 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 | # | site | description | source |
 |---:|---|---|---|
 | P1-1 | `production_pipeline.py:605` `extract_last_frame()` | Returns None on failure; next shot falls back to T2V silently; caller can't see why I2V routing died | silent-fail audit |
-| P1-2 | `services/character_image_generator.py:489` | Returns `success=True` with empty file when PIL import fails; downstream treats as real image | silent-fail audit |
+| ~~P1-2~~ | `services/character_image_generator.py:489` | Returns `success=True` with empty file when PIL import fails; downstream treats as real image | silent-fail audit — **closed loop iter 9**: raises RuntimeError instead; no 0-byte stub PNG written to disk |
 | P1-3 | `generators/replicate.py:521` `_generate_thumbnail()` | Returns None on failure without error detail | silent-fail audit |
 | P1-4 | `services/audio.py:210` MockTTSProvider.touch() | Creates empty file, reports success; lip-sync fails on silent audio | silent-fail audit |
 | P1-5 | `services/video_quality_reviewer.py:440` Laplacian failure | logger.debug() when 100% of frames fail; returns score 0.5/conf 0.1 (look-acceptable) | silent-fail audit |
@@ -84,7 +84,7 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 
 | # | site | description |
 |---|---|---|
-| P3-1 | `services/character_image_generator.py:498` `metadata={"mock": True, "empty": True}` | Contradictory flags |
+| ~~P3-1~~ | `services/character_image_generator.py:498` `metadata={"mock": True, "empty": True}` | Contradictory flags — **closed loop iter 9** (same fix: the dead branch that set both flags is gone) |
 | P3-2 | Settings page 64 KB monolithic | Sprawl risk |
 | P3-3 | Marketplace surface: auctions + auction_bids SKELETON | DB-only, zero code; **scope-defer to v2** |
 | P3-4 | Hardcoded staging URLs in `deploy.yml` | `https://staging.scenemachine.ai`, `https://app.scenemachine.ai` |
