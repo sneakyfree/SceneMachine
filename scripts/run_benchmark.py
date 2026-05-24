@@ -92,6 +92,14 @@ class BenchmarkPreset:
     # reduced strength values.
     use_animate_first_appearance_only: bool = False
     use_quality_gate_regen: bool = False
+    # When True, cycle a per-shot camera/composition variation into each
+    # shot's description string. V5 locks identity via Animate but the
+    # resulting shots cluster tightly because every prompt is the same
+    # "wide static" template — V5's 0.70 worst-cluster rigidity number.
+    # V11 hypothesis: appending "close-up", "low angle dramatic", etc.
+    # to each shot's prompt gives the Animate-conditioned model varied
+    # spatial composition to render while keeping the face anchored.
+    scene_diversification: bool = False
     # Per-shot extra_params merged into the GenerationRequest. Used for
     # provider-specific tuning knobs (e.g. Wan Animate's face_strength,
     # clip_vision_strength) that don't deserve top-level preset fields.
@@ -178,6 +186,25 @@ PRESETS: Dict[str, BenchmarkPreset] = {
         num_inference_steps=30,
         use_animate_when_chars=True,
         expected_wallclock_minutes_per_47_shots=2 * 60,
+    ),
+    # V11 — V5's Animate routing (identity champion: ref_sim 0.80) PLUS
+    # per-shot scene-diversification appended to the prompt. V5 lost on
+    # diversity (0.70 worst-cluster rigidity); V8/V9/V9b traded identity
+    # for diversity and lost both. V11 keeps the Animate anchor and tries
+    # to push diversity via prompt variation alone — cycling through 6
+    # camera/composition variations across shots. If Animate respects the
+    # prompt-level variation, V11 could be the first preset to hit BOTH
+    # quality bars (identity ≥ 0.65 AND diversity ≤ 0.60).
+    "V11_animate_diversified": BenchmarkPreset(
+        name="V11_animate_diversified",
+        description=(
+            "V5 + per-shot camera/composition cycling. Keeps Animate "
+            "identity anchor; varies prompt to break shot rigidity."
+        ),
+        num_inference_steps=30,
+        use_animate_when_chars=True,
+        scene_diversification=True,
+        expected_wallclock_minutes_per_47_shots=11 * 60,
     ),
     "V6_quality_regen": BenchmarkPreset(
         name="V6_quality_regen",
@@ -465,7 +492,19 @@ async def run_one_screenplay(
     # Tracks first-appearance per character for V8 hybrid routing.
     # Pre-loop scope so it persists across iterations.
     chars_seen_globally: set[str] = set()
-    for sd in scene_data:
+    # V11 scene-diversification cycle. Six camera/composition variations
+    # rotated through consecutive shots; the goal is to break V5's
+    # 0.70 worst-cluster rigidity by varying spatial composition while
+    # Animate keeps the face anchored.
+    V11_DIVERSIFICATION = [
+        "wide establishing shot, full body, environmental context",
+        "medium close-up, shoulders and face, intimate framing",
+        "low angle dramatic, looking up, towering perspective",
+        "over-the-shoulder, observing perspective, subject in mid-distance",
+        "high angle overview, looking down, wider environmental scope",
+        "tight close-up, face and eyes, emotional focus",
+    ]
+    for shot_index, sd in enumerate(scene_data):
         if llm_prompts_map:
             description = llm_prompts_map[sd["scene_number"]]
         else:
@@ -477,6 +516,14 @@ async def run_one_screenplay(
                 "Cinematic wide establishing shot. " + " — ".join(snippets)
                 if snippets else "Cinematic wide establishing shot"
             )
+
+        # V11 — prepend a per-shot camera/composition variation. Cycles
+        # through 6 variations; gives Animate-conditioned generations
+        # spatial variety even when the underlying scene text is
+        # similar across shots.
+        if preset.scene_diversification:
+            variation = V11_DIVERSIFICATION[shot_index % len(V11_DIVERSIFICATION)]
+            description = f"{variation}. {description}"
 
         # V5 character detection: scan the raw scene content (longer
         # than the truncated description) for any character keyword.
