@@ -17,6 +17,73 @@ from scenemachine.services import get_storage_service
 logger = logging.getLogger(__name__)
 
 
+# Paths a renderer must never be able to ask Python to read, even via
+# symlinks or a normalized absolute path. These are the directories on
+# a typical Linux/macOS host that hold system secrets or kernel data.
+# Windows users get the same protection because resolved paths are
+# absolute and lowercased compared below.
+_FORBIDDEN_PATH_PREFIXES: tuple[str, ...] = (
+    "/etc/",
+    "/proc/",
+    "/sys/",
+    "/dev/",
+    "/root/",
+    "/private/etc/",
+    "/private/var/",
+)
+
+
+def _validate_uploaded_file_path(file_path: str) -> "Path":
+    """Validate a renderer-supplied path before reading bytes from it.
+
+    The desktop file picker hands us absolute paths to arbitrary user
+    files (e.g., `~/Documents/script.fountain`), so we can't require
+    the file to live under `settings.data_dir` the way we do for
+    `files.downloadFile`'s source. But we CAN refuse the malicious or
+    buggy renderer cases — paths that traverse with `..` tokens or
+    resolve into system-secret directories. See P1 IPC path-traversal
+    entries in docs/INVENTORY_DEFECTS.md§"Stage 1 IPC fuzz".
+
+    Args:
+        file_path: Renderer-supplied path string.
+
+    Returns:
+        The resolved `Path` object, ready to be opened.
+
+    Raises:
+        ValueError: traversal tokens (`..`) appear anywhere in the input.
+        PermissionError: resolved path is under a system-secret directory.
+        FileNotFoundError: the resolved path doesn't exist or isn't a file.
+    """
+    from pathlib import Path
+
+    # Reject `..` BEFORE resolving — a real desktop file picker never
+    # produces a path with traversal tokens, so seeing one in the IPC
+    # payload is a bug or attack signal.
+    if ".." in Path(file_path).parts:
+        raise ValueError(
+            f"file_path {file_path!r} contains '..' traversal token; refused",
+        )
+
+    resolved = Path(file_path).expanduser().resolve()
+    # Resolve symlinks too — symlinks pointing into /etc/ would otherwise
+    # bypass the prefix check.
+    resolved_str = str(resolved).lower()
+    for forbidden in _FORBIDDEN_PATH_PREFIXES:
+        if resolved_str.startswith(forbidden):
+            raise PermissionError(
+                f"file_path {resolved} resolves into protected system "
+                f"directory {forbidden}; refused",
+            )
+
+    if not resolved.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    if not resolved.is_file():
+        raise ValueError(f"Path {resolved} is not a regular file")
+
+    return resolved
+
+
 def register_handlers(server: IPCServer) -> None:
     """Register all IPC method handlers.
 
@@ -308,9 +375,7 @@ def register_handlers(server: IPCServer) -> None:
             service = ScreenplayService(session)
 
             # Open file from disk
-            file_path_obj = Path(file_path)
-            if not file_path_obj.exists():
-                raise ValueError(f"File not found: {file_path}")
+            file_path_obj = _validate_uploaded_file_path(file_path)
 
             with open(file_path_obj, "rb") as f:
                 screenplay = await service.upload_screenplay(
@@ -798,9 +863,7 @@ def register_handlers(server: IPCServer) -> None:
         async with db_manager.session() as session:
             service = CharacterService(session)
 
-            file_path_obj = Path(file_path)
-            if not file_path_obj.exists():
-                raise ValueError(f"File not found: {file_path}")
+            file_path_obj = _validate_uploaded_file_path(file_path)
 
             with open(file_path_obj, "rb") as f:
                 asset = await service.upload_reference_image(

@@ -137,9 +137,10 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 - `packages/core/scenemachine/models/lipsync_job.py` model exists but **no alembic migration creates the table** (001-006 don't include it). Fresh DB → "relation lipsync_jobs does not exist". Fix: write migration 007.
 - **Closed** by `packages/core/alembic/versions/007_add_lipsync_jobs.py` — creates table + `lipsync_job_status` enum + 4 indexes (shot_id, video_asset_id, audio_asset_id, status); downgrade is symmetric. Verified upgrade → downgrade → upgrade cycle on temp sqlite db with stubbed shots/assets tables. Loop iter 1, 2026-05-24.
 
-### IPC path traversal (P1)
+### ~~IPC path traversal~~ (P1) — **CLOSED**
 - `ipc/handlers.py:290-319` `handle_upload_screenplay` opens `Path(file_path)` directly. `file_path="../../etc/passwd"` reads anything. Fix: validate under safe dir; `Path.resolve()` + whitelist.
 - `ipc/handlers.py:779-801` `handle_add_character_reference` same vulnerability.
+- **Closed** by loop iter 7: new `_validate_uploaded_file_path` helper rejects `..` traversal tokens + paths resolving into /etc/, /proc/, /sys/, /dev/, /root/, /private/etc/, /private/var/. Symlinks followed but target gets the same checks. Both handlers route through helper. 13 regression tests.
 
 ### IPC UUID-parse fragility (P1)
 - `ipc/handlers.py:99,201,236,265,...` | P1 | 40+ handlers do bare `UUID(id)` cast → `ValueError` propagates → renderer hangs. Fix: wrap or Pydantic validator.
