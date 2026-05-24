@@ -308,6 +308,8 @@ class TestHarnessRecordsAssemblyError:
     """
 
     def test_run_one_screenplay_catches_assembly_error(self):
+        import inspect
+
         # The harness script lives outside the package so we read source
         # directly. This is the same approach the test_pr46* tests use
         # for production_pipeline.
