@@ -20,7 +20,7 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 | P0-5 | `screenplays.autoFix` + `.autoFixAll` IPC | Renderer calls; no handlers; **screenplay auto-fix dead** | IPC inventory | (pending) |
 | ~~P0-6~~ | `sharing.deleteComment` IPC | Renderer calls; only `sharing.resolveComment` exists; **comment delete broken** | IPC inventory | **closed**: handler added, wraps `SharingService.delete_comment` (loop iter 3) |
 | P0-7 | `crew.getLogs` IPC | Renderer calls; only `crew.getActionLogs` exists; **crew log view broken** | IPC inventory | (pending) |
-| P0-8 | `analytics.setBudget` IPC | Renderer calls; no handler; **budget setting dead** | IPC inventory | (pending) |
+| ~~P0-8~~ | `analytics.setBudget` + `analytics.getBudget` IPC | Both renderer calls had no backend handler; cost-dashboard budget widget dead end-to-end. `cost_tracking.set_budget_limit` was in-memory only. | IPC inventory | **closed** by loop iter 6: alembic migration 008 adds `cost_budget_limit_usd` + `cost_budget_period_days` columns to user_settings; 2 new IPC handlers persist + read budget; getBudget integrates with CostTrackingService for current spend + alert; full roundtrip tested |
 | P0-9 | `docker-compose.prod.yml` references `./tools/docker/nginx.conf` + `./tools/docker/ssl/` | Both referenced but not tracked in repo; **production deploy broken** | CI inventory | (pending) |
 | P0-10 | Alembic `005_actcore` downgrade | Missing explicit `performer_type_enum.drop()` calls; **`alembic downgrade base` fails on PostgreSQL** | DB inventory | (pending) |
 
