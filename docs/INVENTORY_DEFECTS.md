@@ -126,6 +126,62 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 ### Settings page sprawl
 - `pages/settings.tsx` 1725 lines | P2 | monolithic, needs decomposition into `components/settings/*`
 
+## Stage 1 IPC fuzz + DB migration + audio/lipsync findings (2026-05-23)
+
+### IPC authorization gaps (P0 — security)
+- `ipc/handlers.py:232-254` `handle_delete_project` | P0 | deletes any project by id with **NO ownership check** — any renderer can delete another user's project. Fix: `if project.owner_id != current_user_id: raise PermissionError`.
+- `ipc/handlers.py:456-474` `handle_delete_screenplay` | P0 | same authz gap.
+- `ipc/handlers.py:1213-1240` `handle_delete_shot` | P0 | same authz gap.
+
+### Missing migration for lipsync_jobs (P0)
+- `packages/core/scenemachine/models/lipsync_job.py` model exists but **no alembic migration creates the table** (001-006 don't include it). Fresh DB → "relation lipsync_jobs does not exist". Fix: write migration 007.
+
+### IPC path traversal (P1)
+- `ipc/handlers.py:290-319` `handle_upload_screenplay` opens `Path(file_path)` directly. `file_path="../../etc/passwd"` reads anything. Fix: validate under safe dir; `Path.resolve()` + whitelist.
+- `ipc/handlers.py:779-801` `handle_add_character_reference` same vulnerability.
+
+### IPC UUID-parse fragility (P1)
+- `ipc/handlers.py:99,201,236,265,...` | P1 | 40+ handlers do bare `UUID(id)` cast → `ValueError` propagates → renderer hangs. Fix: wrap or Pydantic validator.
+
+### IPC pagination unbounded (P2)
+- `ipc/handlers.py:59-72,1676,3226,3541,3613` | P2 | `limit` param lacks upper bound. `limit=999999999` → memory exhaustion.
+
+### DB migration 004 missing index drops (P2)
+- `004_add_integrity_constraints.py` creates indexes; downgrade misses several (e.g. `ix_project_shares_unique`). down→up→down leaves orphans.
+
+### CASCADE asymmetry in lipsync_jobs (P1)
+- `models/lipsync_job.py:58,64,72` | P1 | video/audio_asset_id CASCADE on delete, output_asset_id SET NULL. Inconsistent.
+
+### Audio service fallback gaps (P2)
+- `services/audio.py:750-764` | P2 | ElevenLabs failure has no fallback to OpenAI/Mock.
+- `services/audio.py:519-524` | P2 | `_get_audio_duration()` fallback uses `size/16000` heuristic — wildly wrong on corrupted files; lipsync timings desync silently.
+
+## Stage 1 pipeline external-out failure modes (2026-05-23)
+
+### ComfyUI workflow output gaps (P0)
+- `generators/comfyui.py:1547-1565` | P0 | `outputs` dict can be empty after status checks pass — workflow executed but produced no files. Shot `video_path=None`; assembly raises AssemblyError (per PR #96) but ComfyUI-side root cause unknown.
+- `generators/comfyui.py:455-462` | P0 | API succeeds but response.json() lacks `prompt_id` → silent no-op. Fix: validate response shape.
+- `generators/comfyui.py:1551-1554` | P0 | Race: two queued jobs with same prompt_id history can overwrite. Add client_id filtering.
+
+### FFmpeg truncated/0-byte outputs (P0)
+- `utils/ffmpeg.py:452,538` | P0 | `extract_frame`/`concatenate_videos` returncode=0 but output 0-byte or partial (av1 GOP rounding, or timeout-killed mid-write). Fix: verify `output.stat().st_size > 0` before returning.
+
+### Network without timeouts (P1)
+- `add_audio_to_movie.py:113-117,130,164,182` | P1 | `subprocess.run(["ffmpeg/ffprobe", ...])` never sets `timeout=`. Hangs forever if ffmpeg crashes.
+- `comfyui.py:398,438,539,614,1654,1704` | P1 | httpx client timeout 10-30s per op, but ComfyUI jobs run hours; timeout fires mid-poll and kills jobs.
+
+### TTS rate-limit + 0-byte mock (P1)
+- `add_audio_to_movie.py:78-109` | P1 | gTTS retries no jitter; concurrent compound rate-limit.
+- ~~`services/audio.py:212` MockTTSProvider .touch()~~ — **closed in PR #103**.
+
+### Disk-space checks missing (P1)
+- `utils/ffmpeg.py:462,551,654` | P1 | No `shutil.disk_usage()` check before writing. ffmpeg silently truncates on ENOSPC.
+
+### HuggingFace push gaps (P1-P2)
+- `run_benchmark.py:695-707` | P1 | HF push silently logged as warning on failure (rate-limit / token-expired).
+- `run_benchmark.py:698-704` | P2 | No checksum validation post-upload.
+- HF push has no timeout; can block indefinitely.
+
 ## Stage 1 marketplace battery findings (2026-05-21)
 
 ### Booking flow — money path bugs
