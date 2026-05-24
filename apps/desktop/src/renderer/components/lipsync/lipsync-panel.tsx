@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, Play, Loader2, AlertCircle, CheckCircle, Info, Trash2, Download } from 'lucide-react';
+import { X, Play, Loader2, AlertCircle, CheckCircle, Info, Download } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   useLipSyncStore,
@@ -92,6 +92,20 @@ export function LipSyncPanel({
     }
   }, []);
 
+  // Re-queue a failed job with the same parameters. Backend `lipsync.start`
+  // landed in PR #111; before iter 13 this button was a TODO no-op. Used
+  // for the per-job "Retry" affordance in the failed-status branch.
+  const handleRetryJob = useCallback(
+    async (videoId: string, audioId: string, provider: string) => {
+      try {
+        await startLipSync(videoId, audioId, provider);
+      } catch (error) {
+        console.error('Failed to retry lip sync job:', error);
+      }
+    },
+    [startLipSync],
+  );
+
   const canApplyLipSync =
     selectedVideo && selectedAudio && selectedProvider && processingJobs.length === 0;
 
@@ -114,15 +128,18 @@ export function LipSyncPanel({
         <div className="flex items-center gap-2">
           <Play className="w-5 h-5 text-brand-400" />
           <h2 className="text-lg font-bold">Lip Sync</h2>
-          <button
-            onClick={() => {
-              // Show info tooltip
-            }}
-            className="p-1 hover:bg-surface-800 rounded transition-colors"
+          {/* Info icon shows native browser tooltip on hover via `title`.
+              Was a <button> with an empty onClick — looked clickable but
+              did nothing (P2 from /qa_screenshot_tour iter 13).
+              Converted to a non-interactive span with cursor-help so the
+              UX matches the actual behavior. */}
+          <span
+            className="p-1 cursor-help"
             title="Automatically sync character lip movements to audio dialogue"
+            aria-label="About lip sync"
           >
             <Info className="w-4 h-4 text-surface-400" />
-          </button>
+          </span>
         </div>
 
         <button
@@ -338,15 +355,12 @@ export function LipSyncPanel({
                           <Download className="w-3 h-3 mr-1" />
                           Download
                         </button>
-                        <button
-                          onClick={() => {
-                            /* TODO: Delete job */
-                          }}
-                          className="btn-secondary text-xs px-2"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        {/* Delete-job button intentionally hidden: backend
+                            has no `lipsync.deleteJob` IPC handler yet (the
+                            iter 5 backend in PR #111 only adds
+                            start/cancel/listJobs/getJob). Showing a button
+                            whose onClick is a TODO is worse than not showing
+                            it. Tracked as iter 14 candidate. */}
                       </>
                     )}
 
@@ -361,9 +375,9 @@ export function LipSyncPanel({
 
                     {job.status === 'failed' && (
                       <button
-                        onClick={() => {
-                          /* TODO: Retry job */
-                        }}
+                        onClick={() =>
+                          handleRetryJob(job.video_id, job.audio_id, job.provider)
+                        }
                         className="flex-1 btn-primary text-xs"
                       >
                         Retry
