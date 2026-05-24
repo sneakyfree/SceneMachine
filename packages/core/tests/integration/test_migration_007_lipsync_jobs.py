@@ -12,9 +12,10 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+
+from alembic import command
 
 ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
 
