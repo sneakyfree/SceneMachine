@@ -18,7 +18,7 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 | ~~P0-3~~ | `files.downloadFile` IPC | Renderer calls; no handler exists; **export downloads broken** | IPC inventory | **closed**: handler added at `handlers.py` (path-traversal protected, data-dir sandboxed, name-collision safe). Loop iter 2 / PR follow-up. |
 | P0-4 | `generation.listJobs` IPC | Renderer calls; only `generation.getPendingJobs` registered; **generation page job-list broken** | IPC inventory | (pending) |
 | P0-5 | `screenplays.autoFix` + `.autoFixAll` IPC | Renderer calls; no handlers; **screenplay auto-fix dead** | IPC inventory | (pending) |
-| P0-6 | `sharing.deleteComment` IPC | Renderer calls; only `sharing.resolveComment` exists; **comment delete broken** | IPC inventory | (pending) |
+| ~~P0-6~~ | `sharing.deleteComment` IPC | Renderer calls; only `sharing.resolveComment` exists; **comment delete broken** | IPC inventory | **closed**: handler added, wraps `SharingService.delete_comment` (loop iter 3) |
 | P0-7 | `crew.getLogs` IPC | Renderer calls; only `crew.getActionLogs` exists; **crew log view broken** | IPC inventory | (pending) |
 | P0-8 | `analytics.setBudget` IPC | Renderer calls; no handler; **budget setting dead** | IPC inventory | (pending) |
 | P0-9 | `docker-compose.prod.yml` references `./tools/docker/nginx.conf` + `./tools/docker/ssl/` | Both referenced but not tracked in repo; **production deploy broken** | CI inventory | (pending) |

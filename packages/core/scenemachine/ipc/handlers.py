@@ -4375,6 +4375,35 @@ def register_handlers(server: IPCServer) -> None:
             success = await service.resolve_comment(cid)
             return {"success": success}
 
+    @server.handler("sharing.deleteComment")
+    async def handle_delete_comment(comment_id: str) -> dict[str, Any]:
+        """Delete a comment.
+
+        Backs the desktop "delete comment" affordance in
+        `stores/sharing-store.ts:206`. The renderer optimistically removes
+        the comment from local state; we just need to mirror that on the
+        backend. Closes P0-6 in docs/INVENTORY_DEFECTS.md — previously the
+        renderer fired `sharing.deleteComment` and got back an
+        "unknown method" error because only `sharing.resolveComment` was
+        registered.
+
+        Args:
+            comment_id: Comment UUID
+
+        Returns:
+            ``{"success": True}`` if a row was deleted,
+            ``{"success": False}`` if the comment did not exist.
+        """
+        from scenemachine.services.sharing import SharingService
+
+        cid = UUID(comment_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = SharingService(session)
+            success = await service.delete_comment(cid)
+            return {"success": success}
+
     # System handlers
     @server.handler("system.logError")
     async def handle_log_error(
