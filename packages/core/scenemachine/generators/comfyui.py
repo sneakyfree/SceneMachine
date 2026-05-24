@@ -1311,12 +1311,8 @@ class ComfyUIProvider(GenerationProvider):
                 "inputs": {
                     "clip_vision": ["6", 0],
                     "image_1": ["5", 0],
-                    "strength_1": float(
-                        self._p(request, model, "clip_vision_strength", 1.0)
-                    ),
-                    "strength_2": float(
-                        self._p(request, model, "clip_vision_strength", 1.0)
-                    ),
+                    "strength_1": float(self._p(request, model, "clip_vision_strength", 1.0)),
+                    "strength_2": float(self._p(request, model, "clip_vision_strength", 1.0)),
                     "crop": "center",
                     "combine_embeds": "average",
                     "force_offload": True,
@@ -1334,12 +1330,8 @@ class ComfyUIProvider(GenerationProvider):
                     "force_offload": True,
                     "frame_window_size": int(self._p(request, model, "frame_window_size", 77)),
                     "colormatch": "disabled",
-                    "pose_strength": float(
-                        self._p(request, model, "pose_strength", 1.0)
-                    ),
-                    "face_strength": float(
-                        self._p(request, model, "face_strength", 1.0)
-                    ),
+                    "pose_strength": float(self._p(request, model, "pose_strength", 1.0)),
+                    "face_strength": float(self._p(request, model, "face_strength", 1.0)),
                 },
             },
             "8": {

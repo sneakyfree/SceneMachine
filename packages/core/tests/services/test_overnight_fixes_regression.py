@@ -221,6 +221,7 @@ class TestAssemblyRaisesOnFailure:
     @pytest.fixture
     def pipeline(self, tmp_path):
         from scenemachine.services.production_pipeline import ProductionPipeline
+
         return ProductionPipeline(
             project_id="test-no-silent-fail",
             output_dir=tmp_path,
@@ -229,6 +230,7 @@ class TestAssemblyRaisesOnFailure:
     @pytest.mark.asyncio
     async def test_empty_shots_list_raises(self, pipeline):
         from scenemachine.services.production_pipeline import AssemblyError
+
         with pytest.raises(AssemblyError) as excinfo:
             await pipeline._assemble_movie([])
         assert "no completed shots" in str(excinfo.value).lower()
@@ -246,6 +248,7 @@ class TestAssemblyRaisesOnFailure:
             AssemblyError,
             ShotGenerationStatus,
         )
+
         shots = [
             ShotGenerationStatus(
                 shot_id=f"shot-{i}",
@@ -269,6 +272,7 @@ class TestAssemblyRaisesOnFailure:
             AssemblyError,
             ShotGenerationStatus,
         )
+
         # The harness's path-existence filter inside _assemble_movie drops
         # shots that lack a video_path or whose video_path doesn't exist.
         # If every shot is in this state, video_paths == [] and we should
@@ -304,14 +308,13 @@ class TestHarnessRecordsAssemblyError:
     """
 
     def test_run_one_screenplay_catches_assembly_error(self):
-        import inspect
         # The harness script lives outside the package so we read source
         # directly. This is the same approach the test_pr46* tests use
         # for production_pipeline.
         from pathlib import Path as _Path
+
         harness_path = (
-            _Path(__file__).parent.parent.parent.parent.parent
-            / "scripts" / "run_benchmark.py"
+            _Path(__file__).parent.parent.parent.parent.parent / "scripts" / "run_benchmark.py"
         )
         src = harness_path.read_text()
         # Look for the AssemblyError catch in run_one_screenplay.

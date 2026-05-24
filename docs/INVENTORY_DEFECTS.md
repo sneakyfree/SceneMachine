@@ -133,8 +133,9 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 - `ipc/handlers.py:456-474` `handle_delete_screenplay` | P0 | same authz gap.
 - `ipc/handlers.py:1213-1240` `handle_delete_shot` | P0 | same authz gap.
 
-### Missing migration for lipsync_jobs (P0)
+### ~~Missing migration for lipsync_jobs~~ (P0) — **CLOSED**
 - `packages/core/scenemachine/models/lipsync_job.py` model exists but **no alembic migration creates the table** (001-006 don't include it). Fresh DB → "relation lipsync_jobs does not exist". Fix: write migration 007.
+- **Closed** by `packages/core/alembic/versions/007_add_lipsync_jobs.py` — creates table + `lipsync_job_status` enum + 4 indexes (shot_id, video_asset_id, audio_asset_id, status); downgrade is symmetric. Verified upgrade → downgrade → upgrade cycle on temp sqlite db with stubbed shots/assets tables. Loop iter 1, 2026-05-24.
 
 ### IPC path traversal (P1)
 - `ipc/handlers.py:290-319` `handle_upload_screenplay` opens `Path(file_path)` directly. `file_path="../../etc/passwd"` reads anything. Fix: validate under safe dir; `Path.resolve()` + whitelist.

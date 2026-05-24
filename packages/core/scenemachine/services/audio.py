@@ -215,13 +215,23 @@ class MockTTSProvider(TTSProviderBase):
         est_duration = max(0.5, (words / 150) * 60 / request.speed)
         try:
             import subprocess
+
             subprocess.run(
                 [
-                    "ffmpeg", "-y", "-loglevel", "error",
-                    "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
-                    "-t", f"{est_duration:.2f}",
-                    "-q:a", "9",
-                    "-acodec", "libmp3lame",
+                    "ffmpeg",
+                    "-y",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "anullsrc=r=44100:cl=mono",
+                    "-t",
+                    f"{est_duration:.2f}",
+                    "-q:a",
+                    "9",
+                    "-acodec",
+                    "libmp3lame",
                     str(output_path),
                 ],
                 timeout=30,
