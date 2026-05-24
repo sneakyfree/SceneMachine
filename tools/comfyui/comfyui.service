@@ -1,0 +1,70 @@
+# systemd unit for the ComfyUI server on the Blackwell box.
+#
+# Installs as a user-scoped unit so it doesn't need root for normal
+# operation. On every boot, this brings ComfyUI up before any
+# benchmark or pipeline could need it — closes P1-12 from
+# docs/INVENTORY_DEFECTS.md ("no systemd unit; ComfyUI dies on
+# every reboot, every reboot costs 30+ min manual recovery").
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user/
+#   cp tools/comfyui/comfyui.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable comfyui.service
+#   systemctl --user start comfyui.service
+#   # Enable lingering so the user unit starts on boot even when
+#   # the user isn't logged in:
+#   sudo loginctl enable-linger "$USER"
+#
+# Status / logs:
+#   systemctl --user status comfyui
+#   journalctl --user -u comfyui -f
+#
+# Restart manually:
+#   systemctl --user restart comfyui
+
+[Unit]
+Description=ComfyUI server (Wan 2.2 + LTX-2 inference backend)
+Documentation=file:///home/user1-gpu/Desktop/grants_folder/SceneMachine/tools/comfyui/README.md
+# Wait for the GPU driver + filesystem + network. Without these,
+# ComfyUI will start but crash on its first model load.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ai/comfyui
+# Use the project's pinned venv interpreter — don't shell out to
+# whatever ``python3`` happens to resolve to.
+ExecStart=/opt/ai/comfyui/venv/bin/python main.py --listen 127.0.0.1 --port 8188
+# 25s SIGTERM grace period before SIGKILL. ComfyUI takes a few
+# seconds to release CUDA contexts; this gives it time without
+# blocking shutdown forever.
+TimeoutStopSec=25
+# Auto-restart on crash. Animate workflows leak occasionally, and
+# the explicit Stage 3a restart between V8/V3 (PR #92) is fine,
+# but unintentional crashes during a benchmark would otherwise
+# require manual intervention.
+Restart=on-failure
+RestartSec=15
+# Don't restart-loop forever if there's a structural failure.
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+# CUDA needs HOME for ~/.cache/torch and friends.
+Environment=HOME=/home/user1-gpu
+# Don't buffer stdout — journald reads it line-by-line.
+Environment=PYTHONUNBUFFERED=1
+# Make ComfyUI's child processes also see the python from the venv.
+Environment=PATH=/opt/ai/comfyui/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Resource guards. Adjust per box. On the Blackwell box with 256 GB
+# RAM and a 32 GB GPU, ComfyUI's RSS sits at 6-12 GB; cap at 24 GB
+# to surface leaks before they OOM the host.
+MemoryMax=24G
+# CPU affinity — leave the first two cores for system + the
+# benchmark harness, give ComfyUI everything else.
+CPUAffinity=2-31
+
+[Install]
+WantedBy=default.target
