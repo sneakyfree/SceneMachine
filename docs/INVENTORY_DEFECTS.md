@@ -14,13 +14,13 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 | # | site | description | source | fix branch / PR |
 |---:|---|---|---|---|
 | ~~P0-1~~ | `production_pipeline.py:489` `_check_blockers` | Returns `[]` on exception; caller treats as authoritative blocker list; corrupted engine silently proceeds | silent-fail audit | **closed** by PR #100 (raises `BlockerCheckError` instead) |
-| P0-2 | `api/routes/lipsync.py` namespace `lipSync.*` vs renderer `lipsync.*` | 4 IPC handlers registered with camelCase, renderer calls lowercase; **entire lipsync UI dead** | IPC inventory | (pending — task #28) |
+| ~~P0-2~~ | `api/routes/lipsync.py` namespace `lipSync.*` vs renderer `lipsync.*` | 4 IPC handlers registered with camelCase, renderer calls lowercase; **entire lipsync UI dead** | IPC inventory | **closed**: PR #101 caller rename for `lipSync.getProviders` + **PR #111** (loop iter 5) adds 4 new lowercase handlers `lipsync.start`/`.cancel`/`.listJobs`/`.getJob` |
 | ~~P0-3~~ | `files.downloadFile` IPC | Renderer calls; no handler exists; **export downloads broken** | IPC inventory | **closed**: handler added at `handlers.py` (path-traversal protected, data-dir sandboxed, name-collision safe). Loop iter 2 / PR follow-up. |
-| P0-4 | `generation.listJobs` IPC | Renderer calls; only `generation.getPendingJobs` registered; **generation page job-list broken** | IPC inventory | (pending) |
+| ~~P0-4~~ | `generation.listJobs` IPC | Renderer calls; only `generation.getPendingJobs` registered; **generation page job-list broken** | IPC inventory | **closed** by PR #101 (caller renamed to `generation.getPendingJobs`) |
 | P0-5 | `screenplays.autoFix` + `.autoFixAll` IPC | Renderer calls; no handlers; **screenplay auto-fix dead** | IPC inventory | (pending) |
 | ~~P0-6~~ | `sharing.deleteComment` IPC | Renderer calls; only `sharing.resolveComment` exists; **comment delete broken** | IPC inventory | **closed**: handler added, wraps `SharingService.delete_comment` (loop iter 3) |
-| P0-7 | `crew.getLogs` IPC | Renderer calls; only `crew.getActionLogs` exists; **crew log view broken** | IPC inventory | (pending) |
-| P0-8 | `analytics.setBudget` IPC | Renderer calls; no handler; **budget setting dead** | IPC inventory | (pending) |
+| ~~P0-7~~ | `crew.getLogs` IPC | Renderer calls; only `crew.getActionLogs` exists; **crew log view broken** | IPC inventory | **closed** by PR #101 (caller renamed to `crew.getActionLogs`) |
+| ~~P0-8~~ | `analytics.setBudget` + `analytics.getBudget` IPC | Both renderer calls had no backend handler; cost-dashboard budget widget dead end-to-end | IPC inventory | **closed** by **PR #112** (loop iter 6): alembic migration 008 adds persistence columns; 2 new handlers persist + read budget with full integration tests |
 | ~~P0-9~~ | `docker-compose.prod.yml` references `./tools/docker/nginx.conf` + `./tools/docker/ssl/` | Both referenced but not tracked in repo; **production deploy broken** | CI inventory | **closed** by PR #98 (`tools/docker/nginx.conf` + `ssl/` placeholders tracked) |
 | ~~P0-10~~ | Alembic `005_actcore` downgrade | Missing explicit `performer_type_enum.drop()` calls; **`alembic downgrade base` fails on PostgreSQL** | DB inventory | **not actually open**: verified 005_add_actcore_tables.py downgrade DOES `op.execute("DROP TYPE IF EXISTS ...")` for all 10 enums in correct order (lines after table drops). Catalog entry was stale (perhaps an inventory-time misread). Closing without code change. |
 
