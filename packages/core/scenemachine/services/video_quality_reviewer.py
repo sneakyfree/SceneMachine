@@ -486,6 +486,7 @@ class VideoQualityReviewer:
                 )
 
             variances = []
+            failures: list[tuple[Path, str]] = []
             for p in frame_paths:
                 try:
                     variances.append(
@@ -496,18 +497,40 @@ class VideoQualityReviewer:
                         )
                     )
                 except Exception as e:
-                    logger.debug("Laplacian failed for %s: %s", p, e)
+                    # P1-5: previously this was logger.debug, so an operator
+                    # would see nothing even when 100% of frames failed and
+                    # the function returned a look-acceptable 0.5/0.1
+                    # placeholder. Track failures and surface ratio later.
+                    failures.append((p, str(e)))
+                    logger.warning("Laplacian failed for %s: %s", p, e)
 
             # Best-effort cleanup of /tmp frames
             with contextlib.suppress(Exception):
                 shutil.rmtree(frame_paths[0].parent, ignore_errors=True)
 
             if not variances:
+                # ALL frames failed. The old code returned score=0.5,
+                # confidence=0.1 which looks "acceptable" in a scorecard.
+                # Now we return score=0.0 with confidence near zero AND a
+                # distinctive notes field so the failure shows up in any
+                # scorecard or alert that reads either field.
+                first_err = failures[0][1] if failures else "unknown"
+                logger.error(
+                    "Laplacian visual-fidelity check: ALL %d frames failed "
+                    "(first error: %s) — returning score=0.0 to flag "
+                    "explicitly instead of the old 0.5 placeholder",
+                    len(failures),
+                    first_err,
+                )
                 return QualityScore(
                     dimension=QualityDimension.VISUAL_FIDELITY,
-                    score=0.5,
-                    confidence=0.1,
-                    notes="Frames decoded but Laplacian computation failed",
+                    score=0.0,
+                    confidence=0.05,
+                    notes=(
+                        "LAPLACIAN_ALL_FRAMES_FAILED: all "
+                        f"{len(failures)} frames raised during Laplacian "
+                        f"computation (first error: {first_err})"
+                    ),
                 )
 
             mean_var = sum(variances) / len(variances)
