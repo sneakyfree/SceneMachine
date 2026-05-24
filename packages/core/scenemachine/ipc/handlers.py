@@ -1737,7 +1737,17 @@ def register_handlers(server: IPCServer) -> None:
 
     @server.handler("generation.getPendingJobs")
     async def handle_get_pending_jobs(limit: int = 20) -> list[dict[str, Any]]:
-        """Get pending jobs in queue."""
+        """Get pending jobs in queue.
+
+        Returns both the camelCase canonical fields (id, shotId, jobNumber,
+        status, provider, queuedAt) AND the snake_case fields the
+        Explainability renderer expects (shot_number, model, cost_usd,
+        generation_time_seconds, prompt, error, created_at). Before iter 17
+        the latter were missing and Explainability's Operator/Technical
+        views rendered "#undefined", "$undefined", "N/A" for every job —
+        the renderer never broke, but every column was a lie. Shape
+        mismatch flagged in docs/UI_STRESS_TEST_REPORT_2026-05-24.md.
+        """
         from scenemachine.services.generation import GenerationService
 
         db_manager = get_db_manager()
@@ -1746,17 +1756,49 @@ def register_handlers(server: IPCServer) -> None:
             service = GenerationService(session)
             jobs = await service.get_pending_jobs(limit)
 
-            return [
-                {
-                    "id": str(job.id),
-                    "shotId": str(job.shot_id),
-                    "jobNumber": job.job_number,
-                    "status": job.status.value,
-                    "provider": job.provider.value,
-                    "queuedAt": job.queued_at.isoformat() if job.queued_at else None,
-                }
-                for job in jobs
-            ]
+            result: list[dict[str, Any]] = []
+            for job in jobs:
+                # Derive computed fields the renderer expects but the row
+                # doesn't expose directly.
+                generation_time = None
+                if job.started_at and job.completed_at:
+                    generation_time = (job.completed_at - job.started_at).total_seconds()
+
+                input_params = job.input_params or {}
+                parameters = job.parameters or {}
+                prompt = input_params.get("prompt") or parameters.get("prompt") or None
+                error_msg = None
+                if job.error_info:
+                    error_msg = job.error_info.get("error_message") or job.error_info.get("message")
+
+                # Eagerly access shot.shot_number via the loaded relationship.
+                # service.get_pending_jobs() does NOT eagerly load shot;
+                # this access triggers a lazy SELECT per job. Acceptable for
+                # the typical limit=20 default — far simpler than retrofitting
+                # the service signature.
+                shot_number = None
+                if job.shot is not None:
+                    shot_number = job.shot.shot_number
+
+                result.append(
+                    {
+                        "id": str(job.id),
+                        "shotId": str(job.shot_id),
+                        "jobNumber": job.job_number,
+                        "status": job.status.value,
+                        "provider": job.provider.value,
+                        "queuedAt": job.queued_at.isoformat() if job.queued_at else None,
+                        # Snake-case fields for the Explainability renderer:
+                        "shot_number": shot_number,
+                        "model": job.model_id,
+                        "cost_usd": job.cost_usd,
+                        "generation_time_seconds": generation_time,
+                        "prompt": prompt,
+                        "error": error_msg,
+                        "created_at": job.created_at.isoformat() if job.created_at else None,
+                    }
+                )
+            return result
 
     @server.handler("generation.getShotJobs")
     async def handle_get_shot_jobs(shot_id: str) -> list[dict[str, Any]]:
