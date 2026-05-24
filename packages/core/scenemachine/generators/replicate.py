@@ -518,14 +518,12 @@ class ReplicateProvider(GenerationProvider):
             if thumbnail_path.exists() and thumbnail_path.stat().st_size > 0:
                 return str(thumbnail_path)
             logger.error(
-                "Replicate _generate_thumbnail: ffmpeg returned but output "
-                "missing or 0-byte at %s",
+                "Replicate _generate_thumbnail: ffmpeg returned but output missing or 0-byte at %s",
                 thumbnail_path,
             )
         except Exception as e:
             logger.error(
-                "Replicate _generate_thumbnail: ffmpeg crashed extracting "
-                "thumbnail at %s: %s",
+                "Replicate _generate_thumbnail: ffmpeg crashed extracting thumbnail at %s: %s",
                 thumbnail_path,
                 e,
                 exc_info=True,

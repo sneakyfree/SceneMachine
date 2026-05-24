@@ -53,9 +53,7 @@ def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
-async def test_downloads_file_to_user_downloads(
-    download_handler, fake_source, fake_home
-) -> None:
+async def test_downloads_file_to_user_downloads(download_handler, fake_source, fake_home) -> None:
     """Happy path: copies the source into ~/Downloads with the requested name."""
     result = await download_handler(
         path=str(fake_source),
@@ -70,9 +68,7 @@ async def test_downloads_file_to_user_downloads(
     assert destination.read_bytes() == fake_source.read_bytes()
 
 
-async def test_collision_appends_counter(
-    download_handler, fake_source, fake_home
-) -> None:
+async def test_collision_appends_counter(download_handler, fake_source, fake_home) -> None:
     """A second download of the same name must NOT overwrite the first."""
     first = await download_handler(path=str(fake_source), filename="shot.mp4")
     second = await download_handler(path=str(fake_source), filename="shot.mp4")
@@ -106,18 +102,14 @@ async def test_rejects_source_outside_data_dir(
         await download_handler(path=str(outside), filename="leaked.mp4")
 
 
-async def test_missing_source_raises(
-    download_handler, fake_source, fake_home
-) -> None:
+async def test_missing_source_raises(download_handler, fake_source, fake_home) -> None:
     """If source doesn't exist, raise FileNotFoundError instead of writing 0 bytes."""
     missing = fake_source.parent / "nonexistent.mp4"
     with pytest.raises(FileNotFoundError):
         await download_handler(path=str(missing), filename="ghost.mp4")
 
 
-async def test_rejects_non_regular_file(
-    download_handler, fake_source, fake_home
-) -> None:
+async def test_rejects_non_regular_file(download_handler, fake_source, fake_home) -> None:
     """Directories are not downloadable — raise ValueError, don't recurse."""
     # The directory containing fake_source is inside the data dir.
     a_dir = fake_source.parent
