@@ -4,7 +4,16 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, Play, Loader2, AlertCircle, CheckCircle, Info, Download } from 'lucide-react';
+import {
+  X,
+  Play,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  Info,
+  Download,
+  Trash2,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   useLipSyncStore,
@@ -104,6 +113,25 @@ export function LipSyncPanel({
       }
     },
     [startLipSync],
+  );
+
+  // Hard-delete a completed job. Backend `lipsync.deleteJob` landed in
+  // iter 15; the iter 13 trash button was hidden because the handler
+  // didn't exist yet. After delete we trigger fetchJobs so the row
+  // disappears from local state too.
+  const fetchJobs = useLipSyncStore((state) => state.fetchJobs);
+  const handleDeleteJob = useCallback(
+    async (jobId: string) => {
+      try {
+        await window.electronAPI.backendRequest('lipsync.deleteJob', {
+          job_id: jobId,
+        });
+        await fetchJobs();
+      } catch (error) {
+        console.error('Failed to delete lip sync job:', error);
+      }
+    },
+    [fetchJobs],
   );
 
   const canApplyLipSync =
@@ -355,12 +383,14 @@ export function LipSyncPanel({
                           <Download className="w-3 h-3 mr-1" />
                           Download
                         </button>
-                        {/* Delete-job button intentionally hidden: backend
-                            has no `lipsync.deleteJob` IPC handler yet (the
-                            iter 5 backend in PR #111 only adds
-                            start/cancel/listJobs/getJob). Showing a button
-                            whose onClick is a TODO is worse than not showing
-                            it. Tracked as iter 14 candidate. */}
+                        <button
+                          onClick={() => handleDeleteJob(job.job_id)}
+                          className="btn-secondary text-xs px-2"
+                          title="Delete this job"
+                          aria-label="Delete lip sync job"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </>
                     )}
 
