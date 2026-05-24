@@ -97,7 +97,13 @@ const frameRateOptions = [
   { value: 60, label: '60 fps (Smooth)' },
 ];
 
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number | undefined | null): string {
+  // Guard NaN/undefined — assemblyStatus.totalDuration is undefined for a new
+  // project and the page used to render "NaN:NaN" across the duration card +
+  // timeline axis labels (caught by /qa_screenshot_tour iter 13).
+  if (seconds === undefined || seconds === null || !Number.isFinite(seconds) || seconds <= 0) {
+    return '0:00';
+  }
   const hours = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
@@ -402,7 +408,7 @@ export function ExportPage() {
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-surface-400">Shots Generated</span>
                     <span>
-                      {assemblyStatus.generatedShots}/{assemblyStatus.totalShots}
+                      {assemblyStatus.generatedShots ?? 0}/{assemblyStatus.totalShots ?? 0}
                     </span>
                   </div>
                   <div className="w-full h-2 bg-surface-800 rounded-full overflow-hidden">
@@ -426,7 +432,7 @@ export function ExportPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-surface-800/50 rounded-lg p-3">
                     <div className="text-surface-400 text-xs mb-1">Scenes</div>
-                    <div className="text-xl font-bold">{assemblyStatus.totalScenes}</div>
+                    <div className="text-xl font-bold">{assemblyStatus.totalScenes ?? 0}</div>
                   </div>
                   <div className="bg-surface-800/50 rounded-lg p-3">
                     <div className="text-surface-400 text-xs mb-1">Total Duration</div>

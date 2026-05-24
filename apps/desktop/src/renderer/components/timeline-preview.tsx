@@ -32,7 +32,12 @@ interface TimelinePreviewProps {
   className?: string;
 }
 
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number | undefined | null): string {
+  // Guard NaN/undefined so timeline axis labels don't render "NaN:NaN" on
+  // an empty project (caught by /qa_screenshot_tour iter 13).
+  if (seconds === undefined || seconds === null || !Number.isFinite(seconds) || seconds < 0) {
+    return '0:00';
+  }
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;

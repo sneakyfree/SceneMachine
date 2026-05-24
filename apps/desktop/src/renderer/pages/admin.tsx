@@ -29,9 +29,15 @@ import { useGenerationStore } from '../stores/generation-store';
 
 /**
  * Format bytes to human readable string.
+ * Guards against undefined/NaN input — the storage stats handler can
+ * return partial state on a new install, which used to render as
+ * `NaN undefined` across all four Storage Usage cards (caught by
+ * /qa_screenshot_tour iter 13).
  */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
+function formatBytes(bytes: number | undefined | null): string {
+  if (bytes === undefined || bytes === null || Number.isNaN(bytes) || bytes === 0) {
+    return '0 B';
+  }
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -40,8 +46,12 @@ function formatBytes(bytes: number): string {
 
 /**
  * Format duration in seconds to human readable string.
+ * Guards undefined/NaN like formatBytes above.
  */
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number | undefined | null): string {
+  if (seconds === undefined || seconds === null || Number.isNaN(seconds) || seconds <= 0) {
+    return '0s';
+  }
   if (seconds < 60) return `${Math.round(seconds)}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
@@ -114,14 +124,19 @@ function StorageGauge({
   total: number;
   color: string;
 }) {
-  const percentage = total > 0 ? (used / total) * 100 : 0;
+  // Coerce undefined/NaN to 0 so the "X% of Y" subtext + width math don't
+  // render "NaN undefined" / "0.0% of NaN undefined" on a new install with
+  // no storage stats yet (caught by /qa_screenshot_tour iter 13).
+  const safeUsed = Number.isFinite(used) ? used : 0;
+  const safeTotal = Number.isFinite(total) ? total : 0;
+  const percentage = safeTotal > 0 ? (safeUsed / safeTotal) * 100 : 0;
   const isHigh = percentage > 80;
 
   return (
     <div className="bg-surface-800/50 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm text-surface-300">{label}</span>
-        <span className="text-sm font-medium">{formatBytes(used)}</span>
+        <span className="text-sm font-medium">{formatBytes(safeUsed)}</span>
       </div>
       <div className="h-2 bg-surface-700 rounded-full overflow-hidden">
         <div
@@ -130,7 +145,7 @@ function StorageGauge({
         />
       </div>
       <div className="text-xs text-surface-500 mt-1">
-        {percentage.toFixed(1)}% of {formatBytes(total)}
+        {percentage.toFixed(1)}% of {formatBytes(safeTotal)}
       </div>
     </div>
   );
