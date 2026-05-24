@@ -204,12 +204,38 @@ class MockTTSProvider(TTSProviderBase):
 
         await asyncio.sleep(0.5)
 
-        # Create a placeholder audio file path
-        # In production, would generate actual audio
+        # Create a real silence mp3 of the estimated duration. Originally
+        # ``output_path.touch()`` created a 0-byte file that downstream
+        # lip-sync + audio assembly choked on (silent fail). Per the
+        # 2026-05-23 Stage 1 audit, generate genuine silence via ffmpeg
+        # so the file is a valid mp3 even though it carries no signal.
         output_path = output_dir / f"tts_{request.voice_id}_{hash(request.text) % 10000}.mp3"
-
-        # For mock, just create an empty file or copy a sample
-        output_path.touch()
+        # Pre-compute estimated duration so we generate a matching silence.
+        words = len(request.text.split())
+        est_duration = max(0.5, (words / 150) * 60 / request.speed)
+        try:
+            import subprocess
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+                    "-t", f"{est_duration:.2f}",
+                    "-q:a", "9",
+                    "-acodec", "libmp3lame",
+                    str(output_path),
+                ],
+                timeout=30,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
+            # ffmpeg unavailable → fall back to touch BUT flag in metadata
+            # so callers can tell this is a degraded stub, not a real file.
+            output_path.touch()
+            logger.warning(
+                "MockTTSProvider could not generate silence mp3 (%s); fell back "
+                "to 0-byte touch — downstream lipsync will fail on this asset.",
+                e,
+            )
 
         if progress_callback:
             await progress_callback(
@@ -220,9 +246,8 @@ class MockTTSProvider(TTSProviderBase):
                 )
             )
 
-        # Estimate duration based on text length (rough: 150 words per minute)
-        words = len(request.text.split())
-        duration = (words / 150) * 60 / request.speed
+        # Duration already computed above as est_duration.
+        duration = est_duration
 
         return TTSResult(
             success=True,

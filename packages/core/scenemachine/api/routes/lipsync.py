@@ -535,6 +535,10 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str) -> None:
                 await websocket.send_json({"error": "Job not found"})
                 break
 
+            # Field set matches the LipsyncJob model surface. PR #97 originally
+            # referenced started_at and error_info which don't exist on the
+            # model — caught by Stage 1 audit 2026-05-23. Using the actual
+            # model fields: progress_percent, progress_message, error_message.
             await websocket.send_json(
                 {
                     "type": "job_update",
@@ -542,9 +546,12 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str) -> None:
                         "id": str(job.id),
                         "status": job.status.value if hasattr(job.status, "value") else job.status,
                         "shot_id": str(job.shot_id) if job.shot_id else None,
-                        "started_at": job.started_at.isoformat() if job.started_at else None,
+                        "progress_percent": job.progress_percent,
+                        "progress_message": job.progress_message,
                         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-                        "error_info": job.error_info,
+                        "error_message": job.error_message,
+                        "provider": job.provider,
+                        "output_path": job.output_path,
                     },
                 }
             )

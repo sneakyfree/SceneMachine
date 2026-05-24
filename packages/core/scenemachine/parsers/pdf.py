@@ -247,7 +247,15 @@ class PDFParser:
             return text
 
         except Exception as e:
-            logger.warning(f"OCR failed: {e}")
+            # Was logger.warning pre-2026-05-23. Upgraded to error +
+            # exc_info so the caller (who treats None as
+            # not-attempted-OR-failed) at least sees the structural cause
+            # in logs. Per silent-fail audit P1-6.
+            logger.error(
+                "OCR failed on PDF page (pytesseract/PIL/PyMuPDF chain): %s",
+                e,
+                exc_info=True,
+            )
             return None
 
     def _fallback_extraction(self, data: bytes) -> PDFExtractionResult:
