@@ -8,7 +8,7 @@ from typing import Any
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from sqlalchemy import JSON, Boolean, String, Text
+from sqlalchemy import JSON, Boolean, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from scenemachine.models.base import Base, TimestampMixin, UUIDMixin
@@ -190,6 +190,19 @@ class UserSettings(Base, UUIDMixin, TimestampMixin):
         nullable=False,
     )
 
+    # Cost Budget Settings (persisted; was previously in-memory only on
+    # CostTrackingService — see P0-8). limit_usd is nullable so "no budget
+    # configured" stays expressible.
+    cost_budget_limit_usd: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+    cost_budget_period_days: Mapped[int] = mapped_column(
+        Integer,
+        default=30,
+        nullable=False,
+    )
+
     # Accessibility Settings
     font_size_scale: Mapped[str] = mapped_column(
         String(20),
@@ -309,6 +322,9 @@ class UserSettings(Base, UUIDMixin, TimestampMixin):
             "maxCacheSizeGb": self.max_cache_size_gb,
             "defaultExportFormat": self.default_export_format,
             "defaultExportQuality": self.default_export_quality,
+            # Cost budget
+            "costBudgetLimitUsd": self.cost_budget_limit_usd,
+            "costBudgetPeriodDays": self.cost_budget_period_days,
             # Accessibility settings
             "fontSizeScale": self.font_size_scale,
             "highContrastEnabled": self.high_contrast_enabled,

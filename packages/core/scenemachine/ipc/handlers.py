@@ -3324,6 +3324,149 @@ def register_handlers(server: IPCServer) -> None:
         return {"total_cost_usd": action_logger.get_total_cost()}
 
     # Analytics handlers
+    @server.handler("analytics.getBudget")
+    async def handle_get_budget(project_id: str | None = None) -> dict[str, Any]:
+        """Return persisted cost budget + current spend + budget alert.
+
+        The desktop cost dashboard's "Budget" widget calls this on mount.
+        Before iter 6 the handler didn't exist and the budget widget rendered
+        an infinite spinner. The persisted budget lives on the singleton
+        `user_settings` row (migration 008); current spend is computed live
+        from `CostTrackingService` using the same `check_budget_alert` logic
+        as the HTTP `/analytics/dashboard` endpoint, so the IPC and HTTP
+        surfaces agree on what "75% used" means.
+
+        Args:
+            project_id: Optional project filter for spend computation.
+                Renderer currently doesn't pass one (account-wide budget).
+        """
+        from scenemachine.models.settings import UserSettings
+        from scenemachine.services.cost_tracking import CostTrackingService
+
+        pid = UUID(project_id) if project_id else None
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            settings_row = (
+                await session.execute(
+                    select(UserSettings).where(UserSettings.settings_key == "default"),
+                )
+            ).scalar_one_or_none()
+
+            limit_usd = settings_row.cost_budget_limit_usd if settings_row else None
+            period_days = settings_row.cost_budget_period_days if settings_row else 30
+
+            cost_service = CostTrackingService(session)
+            if limit_usd is not None:
+                cost_service.set_budget_limit(limit_usd, period_days)
+
+            budget_alert = await cost_service.check_budget_alert(pid)
+
+            # Current-period spend (matches the period budget covers).
+            from datetime import UTC, datetime, timedelta
+
+            end_date = datetime.now(UTC)
+            start_date = end_date - timedelta(days=period_days)
+            period_stats = await cost_service.get_period_costs(
+                start_date,
+                end_date,
+                pid,
+            )
+            current_spend = period_stats.total_cost_usd
+
+        has_budget = limit_usd is not None
+        if has_budget and limit_usd:
+            percent_used = (current_spend / limit_usd) * 100
+            remaining = max(0.0, limit_usd - current_spend)
+            if percent_used >= 100:
+                status = "exceeded"
+            elif percent_used >= 80:
+                status = "warning"
+            else:
+                status = "ok"
+        else:
+            percent_used = None
+            remaining = None
+            status = "no_budget"
+
+        return {
+            "budget": {
+                "has_budget": has_budget,
+                "limit_usd": limit_usd,
+                "remaining_usd": remaining,
+                "percent_used": percent_used,
+                "period_days": period_days,
+                "status": status,
+            },
+            "currentSpend": current_spend,
+            "totalJobs": period_stats.total_jobs,
+            "budgetAlert": budget_alert,
+        }
+
+    @server.handler("analytics.setBudget")
+    async def handle_set_budget(
+        limit_usd: float,
+        period_days: int = 30,
+    ) -> dict[str, Any]:
+        """Persist the cost budget on the singleton `user_settings` row.
+
+        Before iter 6 the handler didn't exist; the "Set Budget" button in
+        the desktop cost dashboard fired into the void. Even worse, the
+        only path that did anything (`CostTrackingService.set_budget_limit`)
+        mutated an instance attribute lost on every IPC call. Migration 008
+        adds the persistence columns; this handler writes through to them.
+
+        Args:
+            limit_usd: Budget limit in USD. Must be > 0.
+            period_days: Rolling window for the budget (default 30).
+                Must be in [1, 365].
+
+        Returns:
+            ``{"success": True, "limit_usd": ..., "period_days": ...}``.
+
+        Raises:
+            ValueError: if either argument is out of range.
+        """
+        from scenemachine.models.settings import UserSettings
+
+        if limit_usd <= 0:
+            raise ValueError(
+                f"analytics.setBudget: limit_usd must be > 0, got {limit_usd}",
+            )
+        if period_days < 1 or period_days > 365:
+            raise ValueError(
+                f"analytics.setBudget: period_days must be in [1, 365], got {period_days}",
+            )
+
+        db_manager = get_db_manager()
+        async with db_manager.session() as session:
+            settings_row = (
+                await session.execute(
+                    select(UserSettings).where(UserSettings.settings_key == "default"),
+                )
+            ).scalar_one_or_none()
+
+            if settings_row is None:
+                # First-run desktop: no settings row yet. Create the singleton
+                # with the budget set; defaults fill in the rest of the columns.
+                settings_row = UserSettings(
+                    settings_key="default",
+                    cost_budget_limit_usd=limit_usd,
+                    cost_budget_period_days=period_days,
+                )
+                session.add(settings_row)
+            else:
+                settings_row.cost_budget_limit_usd = limit_usd
+                settings_row.cost_budget_period_days = period_days
+
+            await session.commit()
+
+        return {
+            "success": True,
+            "limit_usd": limit_usd,
+            "period_days": period_days,
+        }
+
     @server.handler("analytics.getGenerationStats")
     async def handle_get_generation_stats(
         time_range: str = "7d",
