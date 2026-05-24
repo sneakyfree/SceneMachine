@@ -24,6 +24,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ShotCard } from '../components/shot-card';
+import { useToast } from '../components/toast';
 import { cn } from '../lib/utils';
 
 interface Scene {
@@ -91,6 +92,11 @@ export function ScenePlanningPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Surface mutation errors to the user. Before iter 14 all 5 mutations
+  // on this page swallowed errors silently (no onError handler at all),
+  // so a save failure looked indistinguishable from success. Found by the
+  // UI stress-test report.
+  const { showToast } = useToast();
 
   const [expandedScenes, setExpandedScenes] = useState<Set<string>>(new Set());
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
@@ -158,6 +164,10 @@ export function ScenePlanningPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
     },
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Failed to generate breakdown';
+      showToast(`Generate breakdown failed: ${msg}`, 'error');
+    },
   });
 
   // Approve breakdown mutation
@@ -170,6 +180,10 @@ export function ScenePlanningPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    },
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Failed to approve breakdown';
+      showToast(`Approve breakdown failed: ${msg}`, 'error');
     },
   });
 
@@ -188,6 +202,10 @@ export function ScenePlanningPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
+    },
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Failed to update shot';
+      showToast(`Update shot failed: ${msg}`, 'error');
     },
   });
 
@@ -214,6 +232,10 @@ export function ScenePlanningPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
     },
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Failed to add shot';
+      showToast(`Add shot failed: ${msg}`, 'error');
+    },
   });
 
   // Delete shot mutation
@@ -225,6 +247,10 @@ export function ScenePlanningPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
+    },
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : 'Failed to delete shot';
+      showToast(`Delete shot failed: ${msg}`, 'error');
     },
   });
 
