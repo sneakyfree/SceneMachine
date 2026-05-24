@@ -41,13 +41,40 @@ interface FAQItem {
   answer: string;
 }
 
-// Collapsible FAQ component
-function FAQAccordion({ items }: { items: FAQItem[] }) {
+// Collapsible FAQ component. Accepts an optional `searchQuery` to live-filter
+// items by case-insensitive substring match on question OR answer. Before
+// iter 16 the help page captured `searchQuery` state but never used it —
+// the search box was decorative (P2 from /qa_screenshot_tour report).
+function FAQAccordion({
+  items,
+  searchQuery = '',
+}: {
+  items: FAQItem[];
+  searchQuery?: string;
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const query = searchQuery.trim().toLowerCase();
+  const filtered = query
+    ? items.filter(
+        (item) =>
+          item.question.toLowerCase().includes(query) ||
+          item.answer.toLowerCase().includes(query),
+      )
+    : items;
+
+  if (query && filtered.length === 0) {
+    return (
+      <div className="text-center py-8 text-surface-400">
+        <p>No FAQ items match {`"${searchQuery}"`}.</p>
+        <p className="text-sm mt-1">Try a different search term.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
-      {items.map((item, index) => (
+      {filtered.map((item, index) => (
         <div key={index} className="border border-surface-700 rounded-lg overflow-hidden">
           <button
             onClick={() => setOpenIndex(openIndex === index ? null : index)}
@@ -60,7 +87,7 @@ function FAQAccordion({ items }: { items: FAQItem[] }) {
               <ChevronRight className="w-5 h-5 text-surface-400" />
             )}
           </button>
-          {openIndex === index && (
+          {(openIndex === index || query) && (
             <div className="px-4 pb-4 text-surface-300 text-sm leading-relaxed">{item.answer}</div>
           )}
         </div>
@@ -321,6 +348,12 @@ export function HelpPage() {
   const [activeSection, setActiveSection] = useState('quickstart');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // When the user types anything in the search box, auto-switch to the FAQ
+  // section since that's where searchable content lives. Iter 16 wiring —
+  // the input state existed since the page shipped but never affected the
+  // view.
+  const effectiveSection = searchQuery.trim() ? 'faq' : activeSection;
+
   const sections: HelpSection[] = [
     {
       id: 'quickstart',
@@ -344,11 +377,11 @@ export function HelpPage() {
       id: 'faq',
       title: 'FAQ',
       icon: MessageCircle,
-      content: <FAQAccordion items={faqItems} />,
+      content: <FAQAccordion items={faqItems} searchQuery={searchQuery} />,
     },
   ];
 
-  const activeContent = sections.find((s) => s.id === activeSection);
+  const activeContent = sections.find((s) => s.id === effectiveSection);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -384,10 +417,16 @@ export function HelpPage() {
               {sections.map((section) => (
                 <button
                   key={section.id}
-                  onClick={() => setActiveSection(section.id)}
+                  onClick={() => {
+                    setActiveSection(section.id);
+                    // Clicking a sidebar item also clears any active search
+                    // so the user can navigate freely. Without this, the
+                    // searchQuery override would re-route them to FAQ.
+                    setSearchQuery('');
+                  }}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors',
-                    activeSection === section.id
+                    effectiveSection === section.id
                       ? 'bg-brand-500/20 text-brand-400'
                       : 'text-surface-400 hover:bg-surface-800 hover:text-surface-200'
                   )}
