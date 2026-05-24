@@ -45,7 +45,7 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 | P1-2 | `services/character_image_generator.py:489` | Returns `success=True` with empty file when PIL import fails; downstream treats as real image | silent-fail audit |
 | P1-3 | `generators/replicate.py:521` `_generate_thumbnail()` | Returns None on failure without error detail | silent-fail audit |
 | P1-4 | `services/audio.py:210` MockTTSProvider.touch() | Creates empty file, reports success; lip-sync fails on silent audio | silent-fail audit |
-| P1-5 | `services/video_quality_reviewer.py:440` Laplacian failure | logger.debug() when 100% of frames fail; returns score 0.5/conf 0.1 (look-acceptable) | silent-fail audit |
+| ~~P1-5~~ | `services/video_quality_reviewer.py:440` Laplacian failure | logger.debug() when 100% of frames fail; returns score 0.5/conf 0.1 (look-acceptable) | silent-fail audit — **closed loop iter 10**: per-frame failures now WARNING; all-fail returns score=0.0 + LAPLACIAN_ALL_FRAMES_FAILED sentinel |
 | P1-6 | `parsers/pdf.py:249` `_ocr_page()` returns None on OCR fail | Caller can't distinguish attempted-failed from not-attempted | silent-fail audit |
 | P1-7 | `run_benchmark.py:351` `scene_id = scene_number` | One shot per scene → I2V routing never fires (V4_continuity null result confirmed 2026-05-21) | V4 run forensics |
 | P1-8 | `scripts/v_scorecard.py` auto-recommendation heuristic | Returns "tune face_strength + clip_vision_strength" for V3 (no Animate) and V8 (not a strength experiment) — preset-blind | V8/V3 results |
