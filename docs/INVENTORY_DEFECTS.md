@@ -41,18 +41,18 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 
 | # | site | description | source |
 |---:|---|---|---|
-| P1-1 | `production_pipeline.py:605` `extract_last_frame()` | Returns None on failure; next shot falls back to T2V silently; caller can't see why I2V routing died | silent-fail audit |
+| ~~P1-1~~ | `production_pipeline.py:605` `extract_last_frame()` | Returns None on failure; next shot falls back to T2V silently; caller can't see why I2V routing died | silent-fail audit — **closed by PR #103**: logger.warning→logger.error + exc_info; explicit note that next shot falls to T2V. Observability now adequate. |
 | ~~P1-2~~ | `services/character_image_generator.py:489` | Returns `success=True` with empty file when PIL import fails; downstream treats as real image | silent-fail audit — **closed loop iter 9**: raises RuntimeError instead; no 0-byte stub PNG written to disk |
-| P1-3 | `generators/replicate.py:521` `_generate_thumbnail()` | Returns None on failure without error detail | silent-fail audit |
-| P1-4 | `services/audio.py:210` MockTTSProvider.touch() | Creates empty file, reports success; lip-sync fails on silent audio | silent-fail audit |
+| ~~P1-3~~ | `generators/replicate.py:521` `_generate_thumbnail()` | Returns None on failure without error detail | silent-fail audit — **closed by PR #103**: distinguishes missing-source (warning) from ffmpeg-crashed (error) + 0-byte detection |
+| ~~P1-4~~ | `services/audio.py:210` MockTTSProvider.touch() | Creates empty file, reports success; lip-sync fails on silent audio | silent-fail audit — **closed by PR #103**: MockTTSProvider now generates real silence via ffmpeg lavfi anullsrc; no more 0-byte audio files |
 | ~~P1-5~~ | `services/video_quality_reviewer.py:440` Laplacian failure | logger.debug() when 100% of frames fail; returns score 0.5/conf 0.1 (look-acceptable) | silent-fail audit — **closed loop iter 10**: per-frame failures now WARNING; all-fail returns score=0.0 + LAPLACIAN_ALL_FRAMES_FAILED sentinel |
-| P1-6 | `parsers/pdf.py:249` `_ocr_page()` returns None on OCR fail | Caller can't distinguish attempted-failed from not-attempted | silent-fail audit |
-| P1-7 | `run_benchmark.py:351` `scene_id = scene_number` | One shot per scene → I2V routing never fires (V4_continuity null result confirmed 2026-05-21) | V4 run forensics |
+| ~~P1-6~~ | `parsers/pdf.py:249` `_ocr_page()` returns None on OCR fail | Caller can't distinguish attempted-failed from not-attempted | silent-fail audit — **closed by PR #103**: logger.warning→logger.error + exc_info; caller still gets None but operator sees the structural cause |
+| ~~P1-7~~ | `run_benchmark.py:351` `scene_id = scene_number` | One shot per scene → I2V routing never fires (V4_continuity null result confirmed 2026-05-21) | V4 run forensics — **closed by PR #99**: chain-mode logic for continuity presets; V9b ran with real I2V chain in production |
 | ~~P1-8~~ | `scripts/v_scorecard.py` auto-recommendation heuristic | Returns "tune face_strength + clip_vision_strength" for V3 (no Animate) and V8 (not a strength experiment) — preset-blind | V8/V3 results — **closed loop iter 18**: TAG_STRATEGY map + STRATEGY_EXHAUSTED reasons; preset-aware recommendations; V11 scorecard updated in place; 7 regression tests |
 | P1-9 | `apps/desktop` lipsync-store.ts:214 | TODO: WebSocket connection to `/api/lipsync/ws/{job_id}` not implemented (matched on backend by P0-2/P0-F) | Electron inventory |
 | P1-10 | `apps/desktop/src/renderer/pages/timeline.tsx:810` | TODO: "Integrate with actual audio tracks from project" — audio is placeholder | Electron inventory |
 | P1-11 | ComfyUI VRAM leak across workflow types (V8 Animate → V3 T2V) | T5 encoder OOMs because Animate weights pinned; mitigated in sequencer (PR #92) but root cause unaddressed at harness level | 2026-05-20 incident |
-| P1-12 | No systemd unit for ComfyUI | Reboot kills GPU server; every restart costs 30+ min manual recovery | 2026-05-19 incident |
+| ~~P1-12~~ | No systemd unit for ComfyUI | Reboot kills GPU server; every restart costs 30+ min manual recovery | 2026-05-19 incident — **closed by PR #104**: comfyui.service unit + restart-comfyui.sh wrapper at tools/comfyui/ |
 
 ## P1 — closed in flight
 
