@@ -58,6 +58,81 @@ RIGIDITY_THRESHOLD_ACCEPTABLE = 0.75  # per-char self-sim above this = "still ri
 REF_SIM_IDENTITY_FLOOR = 0.65  # below this = identity probably collapsed
 DIVERSITY_FLOOR = 0.65  # inter-shot diversity below this = healthy variety
 
+# Tag → strategy category. Used by recommend_next() to give preset-aware
+# advice instead of the dead-end "tune strength values" recommendation for
+# experiments that were never about strength values. P1-8 in the defect
+# catalog: V11 (a diversification experiment) hit the wrong branch and
+# was advised to do strength sweeps that V8 had already disproved.
+#
+# Strategies marked EXHAUSTED have empirical evidence (from earlier V_N
+# runs) that the mechanism doesn't crack rigidity even when identity
+# is preserved.
+TAG_STRATEGY: dict[str, str] = {
+    "V0": "baseline",
+    "V1": "step_count",
+    "V2": "resolution",
+    "V3": "llm_prompts",
+    "V4": "continuity_chain_broken",  # harness bug confirmed 2026-05-21
+    "V5": "animate_routing_full",
+    "V6a": "strength_tweak",
+    "V6b": "strength_tweak",
+    "V6c": "strength_tweak",
+    "V7": "combined",
+    "V8": "animate_first_only",
+    "V9": "global_i2v_chain",
+    "V9b": "per_character_i2v_chain",
+    "V10": "per_character_lora",  # unexplored next rung
+    "V11": "prompt_diversification",
+    "V12": "embedding_injection",  # unexplored
+    "V13": "lora_plus_embedding",  # unexplored hybrid
+}
+
+# Strategies for which strength-sweep advice is wrong. Each entry maps
+# to a one-line explanation of why the mechanism is exhausted/inapplicable
+# so the scorecard can be specific. New strategies are added here as the
+# V_N ladder accumulates empirical evidence.
+STRATEGY_EXHAUSTED: dict[str, str] = {
+    "animate_routing_full": (
+        "Animate routing was the V5 champion for identity but capped diversity at "
+        "~0.70 across multiple runs — routing alone doesn't crack rigidity."
+    ),
+    "animate_first_only": (
+        "V8 already tested Animate-on-first-appearance with strength sweeps; "
+        "identity collapsed back to V0 floor while diversity improved only marginally. "
+        "Strength tweaks under Animate routing are exhausted."
+    ),
+    "global_i2v_chain": (
+        "V9 global I2V chain over-corrected — identity locked to shot-1's face. "
+        "Chain-based fixes are exhausted at the global granularity."
+    ),
+    "per_character_i2v_chain": (
+        "V9b per-character chain improved direction but couldn't beat V5 identity. "
+        "Chain-based identity-carry is exhausted; primary-char detection is the bottleneck."
+    ),
+    "prompt_diversification": (
+        "V11 demonstrated that per-shot prompt variation has no measurable effect on "
+        "rigidity when Animate routing is engaged — CLIP-vision conditioning dominates "
+        "text-conditioning. Prompt-level diversification mechanism is exhausted."
+    ),
+    "strength_tweak": (
+        "Strength sweeps (V6a/b/c) showed no path through the rigidity ceiling without "
+        "collapsing identity. Strength-tweak mechanism is exhausted."
+    ),
+}
+
+# When an exhausted strategy hits rigidity-not-cracked-but-identity-preserved,
+# the next ladder rung lives at a different abstraction layer.
+NEXT_LADDER_RUNGS = (
+    "**V10 — per-character LoRA** (anchors identity at the model WEIGHT level "
+    "instead of via routing/seeding; allows pure T2V for non-Animate shots which "
+    "would unlock real diversity; ~3.5h training + ~5h inference)"
+)
+NEXT_LADDER_RUNGS_2 = (
+    "**V12 — embedding injection** (extract Animate's CLIP-vision embedding per "
+    "character at first appearance, cache, inject into subsequent T2V text-encoder "
+    "calls; most invasive but theoretical best ceiling)"
+)
+
 
 def fmt(value: Any, places: int = 4) -> str:
     if value is None:
@@ -248,21 +323,63 @@ def recommend_next(
         f"(lower = more diverse; prefer ≤ {DIVERSITY_FLOOR + 0.05:.2f})."
     )
 
-    # Recommendation
+    # Preset-aware advice. The original recommendation was preset-blind and
+    # always sent the user to strength-tweak V6a/b/c presets — even when the
+    # experiment was a diversification or routing test where strength tweaks
+    # are demonstrably exhausted. P1-8 in INVENTORY_DEFECTS.md; V11 hit this
+    # last night.
+    strategy = TAG_STRATEGY.get(target_tag)
+    exhausted_reason = STRATEGY_EXHAUSTED.get(strategy) if strategy else None
+
     if worst_rigidity > RIGIDITY_THRESHOLD_ACCEPTABLE and ref_sim > REF_SIM_IDENTITY_FLOOR:
-        rec = (
-            "**Rigidity not yet addressed but identity preserved.** "
-            "Sweep strength harder: try `face_strength=0.3, "
-            "clip_vision_strength=0.3` as V6b. Identity has headroom."
-        )
+        if exhausted_reason:
+            # Rigidity unmet + identity preserved + the strategy we just tested
+            # is already known to plateau here. Don't suggest more of the same.
+            rec = (
+                "**Rigidity not addressed but identity preserved — and the "
+                f"`{strategy}` mechanism is exhausted.** {exhausted_reason} "
+                "Next ladder rungs operate below the prompt/routing layer:\n\n"
+                f"- {NEXT_LADDER_RUNGS}\n"
+                f"- {NEXT_LADDER_RUNGS_2}"
+            )
+        elif strategy in {"baseline", "step_count", "resolution", "llm_prompts"}:
+            # These were never about cracking rigidity; they're sanity checks
+            # or alternate axes. Don't pretend the result speaks to rigidity.
+            rec = (
+                f"**{target_tag} is a `{strategy}` experiment — not a rigidity test.** "
+                f"Rigidity {worst_rigidity:.3f} is informational only; this preset "
+                "doesn't change the mechanism that drives rigidity. Compare to V5 "
+                "to gauge whether identity holds; for actual rigidity work see V10/V12."
+            )
+        else:
+            # Unknown strategy → fall back to a generic, non-prescriptive prompt
+            # so we don't repeat the P1-8 bad-advice pattern for future presets.
+            rec = (
+                "**Rigidity not addressed but identity preserved.** Strategy "
+                f"`{strategy or 'unknown'}` is not in the empirical-exhaustion "
+                "table yet — human review needed. If this preset's mechanism is "
+                "prompt/routing/strength based, prefer V10 (LoRA) or V12 "
+                "(embedding injection) as the next rung; if it's something new, "
+                "log the result and update `TAG_STRATEGY` in this file."
+            )
     elif ref_sim < REF_SIM_IDENTITY_FLOOR:
-        rec = (
-            "**Identity collapsed** — the strength values were too aggressive. "
-            "Try `face_strength=1.0` (keep identity tight) + "
-            "`clip_vision_strength=0.5` (only the global CLIP-Vision knob) "
-            "as V6c. Hypothesis: face attention preserves identity while "
-            "CLIP-Vision was the rigidity driver."
-        )
+        # Identity collapse is always a clear signal regardless of strategy.
+        if strategy == "strength_tweak":
+            rec = (
+                "**Identity collapsed** — strength values too aggressive. "
+                "Try `face_strength=1.0` + `clip_vision_strength=0.5` as a "
+                "follow-up V6c. Hypothesis: face attention preserves identity "
+                "while CLIP-Vision was the rigidity driver."
+            )
+        else:
+            rec = (
+                f"**Identity collapsed** ({ref_sim:.3f} < {REF_SIM_IDENTITY_FLOOR}). "
+                "Whatever mechanism this preset changed disrupted identity carry. "
+                "Revert to a known-good identity baseline (V5 = 0.80) and "
+                "re-introduce the mechanism more gradually, or move to V10 LoRA "
+                "which anchors identity at the weight level so prompt/routing "
+                "experiments stop trading off against it."
+            )
     elif worst_rigidity <= RIGIDITY_THRESHOLD_ACCEPTABLE and ref_sim >= REF_SIM_IDENTITY_FLOOR:
         rec = (
             "**Rigidity addressed without losing identity.** Ship a properly-"
