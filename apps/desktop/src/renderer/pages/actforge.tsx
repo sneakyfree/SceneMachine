@@ -249,7 +249,7 @@ export function ActForgePage(): JSX.Element {
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-blue-400" />
                 All Performers
-                <span className="text-sm text-gray-400 font-normal">({searchTotal} total)</span>
+                <span className="text-sm text-gray-400 font-normal">({searchTotal ?? 0} total)</span>
               </h2>
             </div>
 

@@ -419,11 +419,11 @@ export function AdminPage() {
               <div className="text-xs text-surface-500 space-y-1">
                 <div className="flex justify-between">
                   <span>Data Directory</span>
-                  <span className="font-mono">{storageStats.dataDir}</span>
+                  <span className="font-mono">{storageStats.dataDir || 'Not configured'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Cache Directory</span>
-                  <span className="font-mono">{storageStats.cacheDir}</span>
+                  <span className="font-mono">{storageStats.cacheDir || 'Not configured'}</span>
                 </div>
               </div>
             </div>
