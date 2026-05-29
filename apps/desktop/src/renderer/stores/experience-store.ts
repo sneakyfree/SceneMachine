@@ -572,7 +572,10 @@ export const useExperienceStore = create<ExperienceStoreState>()(
         featureOverrides: {},
         rememberGlobal: true,
         stevenEnabled: true,
-        stevenMinimized: false,
+        // Start minimized as a floating bubble so the assistant never covers
+        // page content (inputs, form controls, docs) on first load. Users open
+        // it on demand; the choice then persists.
+        stevenMinimized: true,
         stevenLastMessage: null,
         stevenMessageHistory: [],
 
