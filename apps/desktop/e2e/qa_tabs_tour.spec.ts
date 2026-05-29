@@ -79,16 +79,18 @@ interface TabbedPage {
   tabs: string[];
 }
 
+// Real in-page tabs verified against source. (admin.tsx has NO tabs — it's a
+// single scrolling page — so it is intentionally not listed here.)
 const TABBED_PAGES: TabbedPage[] = [
   {
     page: 'explainability',
     route: `/#/project/${FIXTURE_PROJECT}/explainability`,
-    tabs: ['Overview', 'Operator', 'Technical', 'Audit'],
+    tabs: ['Client', 'Operator', 'Technical', 'Audit'],
   },
   {
-    page: 'admin',
-    route: '/#/admin',
-    tabs: ['Overview', 'Providers', 'Queue', 'Storage', 'Logs', 'System', 'Feedback', 'Settings'],
+    page: 'dna-strand',
+    route: '/#/dna-strand-demo',
+    tabs: ['Overview', 'Blockers', 'Pipeline', 'Agents'],
   },
 ];
 
@@ -123,9 +125,13 @@ for (const tp of TABBED_PAGES) {
       const beforeConsole = consoleErrors.length;
       const beforePage = pageErrors.length;
 
-      // Tab controls render as <button> with the label as text. Scope to the
-      // tab bar by taking the first button match; sidebar nav items are <a>.
-      const btn = page.getByRole('button', { name: tab, exact: true }).first();
+      // Tab controls render as <button> with the label as text. Match the
+      // accessible name case-insensitively + whitespace-tolerantly: some tabs
+      // render lowercase text styled with CSS `capitalize` (e.g. dna-strand),
+      // so an exact "Blockers" match would miss the real "blockers" node.
+      const btn = page
+        .getByRole('button', { name: new RegExp(`^\\s*${tab}\\s*$`, 'i') })
+        .first();
       if (await btn.count()) {
         await btn.click().catch(() => {});
         await page.waitForTimeout(500);
