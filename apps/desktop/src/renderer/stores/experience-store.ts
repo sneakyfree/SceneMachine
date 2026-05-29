@@ -10,7 +10,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
-import { type Locale, DEFAULT_LOCALE } from '../i18n';
+import { type Locale, detectLocale } from '../i18n';
 
 // Experience mode levels
 export type ExperienceMode = 'story' | 'creator' | 'pro';
@@ -579,7 +579,9 @@ export const useExperienceStore = create<ExperienceStoreState>()(
         globalMode: 'creator',
         featureOverrides: {},
         rememberGlobal: true,
-        locale: DEFAULT_LOCALE,
+        // First-launch default = the user's OS/browser language (if supported);
+        // a persisted explicit choice overrides this via zustand persist.
+        locale: detectLocale(),
         stevenEnabled: true,
         // Start minimized as a floating bubble so the assistant never covers
         // page content (inputs, form controls, docs) on first load. Users open

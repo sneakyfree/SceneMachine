@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { translate, LOCALES, CATALOG_KEYS, DEFAULT_LOCALE } from '../i18n';
+import { translate, LOCALES, CATALOG_KEYS, DEFAULT_LOCALE, matchLocale } from '../i18n';
 
 describe('i18n catalog', () => {
   it('every locale translates every English key (no silent EN fallback)', () => {
@@ -24,5 +24,19 @@ describe('i18n catalog', () => {
   it('default locale is English', () => {
     expect(DEFAULT_LOCALE).toBe('en');
     expect(translate(DEFAULT_LOCALE, 'common.save')).toBe('Save');
+  });
+
+  it('matchLocale maps BCP-47 tags to supported locales (or null)', () => {
+    expect(matchLocale('ja-JP')).toBe('ja');
+    expect(matchLocale('zh-CN')).toBe('zh'); // Simplified is the only Chinese we ship
+    expect(matchLocale('zh-Hant-TW')).toBe('zh');
+    expect(matchLocale('de-AT')).toBe('de');
+    expect(matchLocale('fr-CA')).toBe('fr');
+    expect(matchLocale('es-419')).toBe('es');
+    expect(matchLocale('en-GB')).toBe('en');
+    expect(matchLocale('pt-BR')).toBeNull(); // unsupported → caller falls back to en
+    expect(matchLocale('it')).toBeNull();
+    expect(matchLocale(undefined)).toBeNull();
+    expect(matchLocale('')).toBeNull();
   });
 });

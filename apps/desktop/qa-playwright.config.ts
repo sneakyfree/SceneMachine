@@ -21,6 +21,10 @@ export default defineConfig({
     trace: 'off',
     screenshot: 'off',
     viewport: { width: 1440, height: 900 },
+    // Deterministic English for tours that don't pre-seed a locale — the app
+    // now auto-detects the browser language on first launch (detectLocale()),
+    // so pin en-US here; i18n tours override per-test via test.use({ locale }).
+    locale: 'en-US',
   },
   projects: [
     {
