@@ -538,6 +538,47 @@ def register_handlers(server: IPCServer) -> None:
 
             return {"success": True}
 
+    @server.handler("screenplays.autoFix")
+    async def handle_auto_fix_screenplay(
+        screenplay_id: str,
+        issue_index: int | None = None,
+    ) -> dict[str, Any]:
+        """Apply deterministic auto-fixes to a screenplay (closes P0-5).
+
+        Both the single-issue and Fix-All affordances run the same safe,
+        non-destructive fixer (missing sluglines + unnamed characters);
+        ``issue_index`` is accepted for renderer compatibility but the fixer
+        operates over all auto-fixable issues at once.
+
+        Args:
+            screenplay_id: Screenplay UUID string
+            issue_index: Ignored (renderer-compat); full deterministic fix runs.
+        """
+        from scenemachine.services.screenplay import ScreenplayService
+
+        sid = UUID(screenplay_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = ScreenplayService(session)
+            return await service.auto_fix_screenplay(sid)
+
+    @server.handler("screenplays.autoFixAll")
+    async def handle_auto_fix_all_screenplay(screenplay_id: str) -> dict[str, Any]:
+        """Apply all deterministic auto-fixes to a screenplay (closes P0-5).
+
+        Args:
+            screenplay_id: Screenplay UUID string
+        """
+        from scenemachine.services.screenplay import ScreenplayService
+
+        sid = UUID(screenplay_id)
+        db_manager = get_db_manager()
+
+        async with db_manager.session() as session:
+            service = ScreenplayService(session)
+            return await service.auto_fix_screenplay(sid)
+
     # Movie Plan handlers
     @server.handler("moviePlan.generate")
     async def handle_generate_movie_plan(
