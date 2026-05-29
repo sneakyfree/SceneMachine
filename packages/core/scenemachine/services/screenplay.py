@@ -413,6 +413,35 @@ class ScreenplayService:
 
         return True
 
+    async def auto_fix_screenplay(self, screenplay_id: UUID) -> dict[str, Any]:
+        """Apply deterministic auto-fixes to a screenplay's parsed content.
+
+        Closes P0-5: backs the renderer's Auto-Fix / Fix-All affordances with a
+        real, non-destructive fixer (missing sluglines, unnamed characters).
+
+        Returns:
+            ``{"success": bool, "fixedCount": int, "message"?: str}``.
+        """
+        from scenemachine.services.screenplay_autofix import apply_auto_fixes
+
+        screenplay = await self._get_screenplay(screenplay_id)
+        if not screenplay:
+            raise ValueError(f"Screenplay {screenplay_id} not found")
+
+        if not screenplay.parsed_content:
+            return {
+                "success": False,
+                "fixedCount": 0,
+                "message": "Screenplay has not been parsed yet — nothing to fix.",
+            }
+
+        fixed_content, count = apply_auto_fixes(screenplay.parsed_content)
+        if count > 0:
+            screenplay.parsed_content = fixed_content
+            await self.session.commit()
+
+        return {"success": True, "fixedCount": count}
+
     async def _get_project(self, project_id: UUID) -> Project | None:
         """Get project by ID."""
         stmt = select(Project).where(Project.id == project_id)
