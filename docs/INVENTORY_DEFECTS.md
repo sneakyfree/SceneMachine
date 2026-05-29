@@ -302,4 +302,12 @@ the `NaN:NaN` displays on `/export` and `/admin` flagged 2026-05-24 are gone.
   proven by stash/pop per-file count diffs), vite build green, full QA suite 53
   green. **What's NOT translated (by design)**: dynamic user data (project/
   character names, dialogue, timecodes, counts, currency), brand identifiers,
-  API keys, hex colors. Adding a 3rd locale = one catalog object.
+  API keys, hex colors.
+
+- **i18n — 4 locales live** (2026-05-29, PR #146): English, Spanish, **French**,
+  **German**. All 2336 keys translated to fr+de; `catalog.generated.ts` emits
+  `genEn/genEs/genFr/genDe`; the sidebar language selector shows 🇬🇧/🇪🇸/🇫🇷/🇩🇪.
+  Verified by parity test (every locale resolves every key), `qa_i18n_tour` (FR+DE
+  nav switch+persist), and a German layout sweep across all 15 routes (0 crashes,
+  0 overflow — German compounds fit). Adding another locale = run the translation
+  fan-out for the new lang field + 1 `LOCALES` entry + 1 nav/common catalog.
