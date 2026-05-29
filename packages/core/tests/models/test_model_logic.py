@@ -15,6 +15,7 @@ from scenemachine.models.character import Character, CharacterLockState
 from scenemachine.models.generation_job import GenerationJob, JobStatus, JobType
 from scenemachine.models.project import Project, ProjectState
 from scenemachine.models.scene import Scene, SceneState, SceneType, TimeOfDay
+from scenemachine.models.settings import UserSettings
 from scenemachine.models.shot import CameraMovement, Shot, ShotState, ShotType
 
 
@@ -327,3 +328,53 @@ def test_job_repr():
     assert "GenerationJob" in repr(
         _job(status=JobStatus.PENDING, job_type=list(JobType)[0], progress=0.0)
     )
+
+
+# ==========================================================================
+# UserSettings model logic (API-key crypto, masking, to_dict)
+# ==========================================================================
+
+def test_settings_mask_api_key():
+    s = UserSettings()
+    assert s.mask_api_key("abc") == "****"          # too short
+    assert s.mask_api_key("") == "****"             # empty
+    assert s.mask_api_key("sk-1234567890") == "sk-1...7890"
+
+
+def test_settings_api_key_roundtrip_all_providers():
+    s = UserSettings()
+    s.anthropic_api_key = "sk-ant-0000000000"
+    s.openai_api_key = "sk-oai-1111111111"
+    s.replicate_api_key = "r8-2222222222"
+    s.fal_api_key = "fal-3333333333"
+    s.runwayml_api_key = "rw-4444444444"
+    assert s.anthropic_api_key == "sk-ant-0000000000"
+    assert s.openai_api_key == "sk-oai-1111111111"
+    assert s.replicate_api_key == "r8-2222222222"
+    assert s.fal_api_key == "fal-3333333333"
+    assert s.runwayml_api_key == "rw-4444444444"
+
+
+def test_settings_has_api_key():
+    s = UserSettings()
+    assert s.has_api_key("anthropic") is False
+    s.anthropic_api_key = "sk-ant-0000000000"
+    assert s.has_api_key("anthropic") is True
+    assert s.has_api_key("ANTHROPIC") is True  # case-insensitive
+    assert s.has_api_key("openai") is False
+
+
+def test_settings_to_dict_without_keys():
+    d = UserSettings().to_dict(include_keys=False)
+    assert "apiKeys" not in d
+    assert "llmProvider" in d and "themeMode" in d
+
+
+def test_settings_to_dict_with_keys_masks_configured():
+    s = UserSettings()
+    s.anthropic_api_key = "sk-ant-0000000000"
+    d = s.to_dict(include_keys=True)
+    assert d["apiKeys"]["anthropic"]["configured"] is True
+    assert d["apiKeys"]["anthropic"]["masked"] is not None
+    assert d["apiKeys"]["openai"]["configured"] is False
+    assert d["apiKeys"]["openai"]["masked"] is None
