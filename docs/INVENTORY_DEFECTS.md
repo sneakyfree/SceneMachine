@@ -318,3 +318,20 @@ the `NaN:NaN` displays on `/export` and `/admin` flagged 2026-05-24 are gone.
   + 1 `LOCALES` entry + 1 nav/common catalog (and a per-locale click test —
   adding the 5th/6th locale surfaced a sidebar-selector overflow fixed with
   `flex-wrap`).
+
+- **i18n — 8 locales live + RTL** (2026-05-29, PR #151): added **Korean** (ko)
+  and **Arabic** (ar). All keys translated to all 8 languages; `catalog.generated.ts`
+  now emits `genKo/genAr`; the sidebar selector adds 🇰🇷/🇸🇦. **Arabic is the first
+  right-to-left locale**: `index.ts` gains `RTL_LOCALES`/`isRTL()`/`dirFor()`, and
+  `main-layout.tsx` drives `document.documentElement.dir` + `lang` from the active
+  locale via `useEffect`, so switching to AR flips the whole document to `dir="rtl"`
+  (bidi + flex layout mirror) and switching back restores `ltr`. Verified by the
+  parity test (every locale resolves every key — no silent EN fallback), a new
+  `isRTL`/`dirFor` unit test (only `ar` is RTL), `qa_i18n_tour` KO/AR nav
+  switch+persist, and a dedicated RTL e2e asserting the `dir` flip + revert.
+  **All 16 i18n e2e pass** (run against a private renderer port — :5173 was held by
+  another user's dev server on the shared box). **RTL caveat for follow-up**:
+  `dir="rtl"` is set at the document root, but per-component layout was not
+  individually audited for mirroring (icon sides, chevrons, padding-start/end);
+  Arabic glyphs + text flow are correct, fine-grained LTR-baked spacing is the
+  next hardening pass if AR ships to production.
