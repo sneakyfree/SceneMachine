@@ -11,6 +11,7 @@ we cover the state-machine + percentage + empty-collection paths.
 import datetime
 import uuid
 
+from scenemachine.models.asset import Asset, AssetStatus, AssetType
 from scenemachine.models.audio_asset import AudioAsset, AudioAssetType
 from scenemachine.models.booking import Booking, BookingStatus
 from scenemachine.models.character import Character, CharacterLockState
@@ -537,3 +538,49 @@ def test_booking_turnaround_seconds():
 def test_booking_calculate_payout():
     fee, payout = _booking(price_usd=100.0).calculate_payout(80.0)
     assert (fee, payout) == (20.0, 80.0)
+
+
+# ==========================================================================
+# Asset model logic (type/status flags + metadata accessors)
+# ==========================================================================
+
+def _asset(**kw):
+    a = Asset(
+        asset_type=kw.pop("asset_type", AssetType.SHOT_VIDEO),
+        status=kw.pop("status", AssetStatus.READY),
+        file_path="/tmp/a",
+    )
+    for k, v in kw.items():
+        setattr(a, k, v)
+    return a
+
+
+def test_asset_type_flags():
+    assert _asset(asset_type=AssetType.CHARACTER_REFERENCE).is_image is True
+    assert _asset(asset_type=AssetType.SHOT_VIDEO).is_image is False
+    assert _asset(asset_type=AssetType.SHOT_VIDEO).is_video is True
+    assert _asset(asset_type=AssetType.CHARACTER_LORA).is_model_artifact is True
+    assert _asset(asset_type=AssetType.SHOT_VIDEO).is_model_artifact is False
+
+
+def test_asset_is_ready():
+    assert _asset(status=AssetStatus.READY).is_ready is True
+    assert _asset(status=AssetStatus.UPLOADING).is_ready is False
+
+
+def test_asset_file_size_display():
+    assert _asset(file_size_bytes=None).file_size_display == "Unknown"
+    assert _asset(file_size_bytes=2048).file_size_display == "2.0 KB"
+
+
+def test_asset_dimensions():
+    assert _asset(asset_metadata={"width": 1920, "height": 1080}).dimensions == (1920, 1080)
+    assert _asset(asset_metadata={"width": 1920}).dimensions is None
+    assert _asset(asset_metadata=None).dimensions is None
+
+
+def test_asset_duration_seconds():
+    vid = _asset(asset_type=AssetType.SHOT_VIDEO, asset_metadata={"duration_seconds": 5.0})
+    assert vid.duration_seconds == 5.0
+    img = _asset(asset_type=AssetType.CHARACTER_REFERENCE, asset_metadata={"duration_seconds": 5.0})
+    assert img.duration_seconds is None  # non-video
