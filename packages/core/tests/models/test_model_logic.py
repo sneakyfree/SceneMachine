@@ -12,7 +12,9 @@ import datetime
 import uuid
 
 from scenemachine.models.audio_asset import AudioAsset, AudioAssetType
+from scenemachine.models.booking import Booking, BookingStatus
 from scenemachine.models.character import Character, CharacterLockState
+from scenemachine.models.export_history import ExportHistory
 from scenemachine.models.generation_job import GenerationJob, JobStatus, JobType
 from scenemachine.models.project import Project, ProjectState
 from scenemachine.models.scene import Scene, SceneState, SceneType, TimeOfDay
@@ -459,3 +461,79 @@ def test_audio_file_size_display():
     assert _audio(file_size_bytes=512).file_size_display == "512.0 B"
     assert _audio(file_size_bytes=2048).file_size_display == "2.0 KB"
     assert _audio(file_size_bytes=5 * 1024 * 1024).file_size_display == "5.0 MB"
+
+
+# ==========================================================================
+# ExportHistory model logic (status flags + human-readable formatting)
+# ==========================================================================
+
+def _export(**kw):
+    e = ExportHistory(project_id=uuid.uuid4(), format="mp4")
+    for k, v in kw.items():
+        setattr(e, k, v)
+    return e
+
+
+def test_export_status_flags():
+    assert _export(status="completed").is_complete is True
+    assert _export(status="failed").is_complete is False
+    assert _export(status="failed").is_failed is True
+
+
+def test_export_encoding_time_display():
+    assert _export(encoding_duration_seconds=None).encoding_time_display == "N/A"
+    assert _export(encoding_duration_seconds=45).encoding_time_display == "45s"
+    assert _export(encoding_duration_seconds=90).encoding_time_display == "1m 30s"
+
+
+def test_export_file_size_display():
+    assert _export(file_size_bytes=None).file_size_display == "N/A"
+    assert _export(file_size_bytes=2048).file_size_display == "2.0 KB"
+
+
+def test_export_duration_display():
+    assert _export(actual_duration_seconds=None).duration_display == "N/A"
+    assert _export(actual_duration_seconds=125).duration_display == "2:05"
+    assert _export(actual_duration_seconds=3725).duration_display == "1:02:05"
+
+
+# ==========================================================================
+# Booking model logic (marketplace — model methods only; surface deferred)
+# ==========================================================================
+
+def _booking(**kw):
+    b = Booking(
+        requester_user_id=uuid.uuid4(),
+        status=kw.pop("status", BookingStatus.REQUESTED),
+        price_usd=kw.pop("price_usd", 100.0),
+    )
+    b.retry_count = 0
+    b.max_retries = 2
+    for k, v in kw.items():
+        setattr(b, k, v)
+    return b
+
+
+def test_booking_active_and_terminal():
+    assert _booking(status=BookingStatus.REQUESTED).is_active is True
+    assert _booking(status=BookingStatus.REQUESTED).is_terminal is False
+    assert _booking(status=BookingStatus.COMPLETED).is_active is False
+    assert _booking(status=BookingStatus.COMPLETED).is_terminal is True
+
+
+def test_booking_can_retry():
+    assert _booking(status=BookingStatus.DISPUTED, retry_count=0, max_retries=2).can_retry is True
+    assert _booking(status=BookingStatus.DISPUTED, retry_count=2, max_retries=2).can_retry is False
+    assert _booking(status=BookingStatus.REQUESTED).can_retry is False
+
+
+def test_booking_turnaround_seconds():
+    t0 = datetime.datetime(2026, 1, 1, 10, 0, 0)
+    t1 = datetime.datetime(2026, 1, 1, 10, 5, 0)
+    assert _booking(requested_at=t0, completed_at=t1).turnaround_seconds == 300.0
+    assert _booking(requested_at=None, completed_at=None).turnaround_seconds is None
+
+
+def test_booking_calculate_payout():
+    fee, payout = _booking(price_usd=100.0).calculate_payout(80.0)
+    assert (fee, payout) == (20.0, 80.0)
