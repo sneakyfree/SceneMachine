@@ -407,7 +407,7 @@ export function HomePage() {
                           : 'bg-brand-500/20 text-brand-400'
                     )}
                   >
-                    {project.state.replace(/_/g, ' ')}
+                    {t(`home.state.${project.state}`, project.state.replace(/_/g, ' '))}
                   </span>
                 </div>
               </div>
