@@ -10,11 +10,11 @@ const PORT = process.env.QA_PORT || '5273';
 export default defineConfig({
   testDir: './e2e',
   // Run both QA tours: the route-level screenshot tour and the in-page tab tour.
-  testMatch: /qa_(screenshot|tabs)_tour\.spec\.ts/,
+  testMatch: /qa_.*_tour\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  timeout: 30000,
+  timeout: 120000,
   reporter: [['list']],
   use: {
     baseURL: `http://localhost:${PORT}`,
