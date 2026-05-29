@@ -11,10 +11,12 @@ we cover the state-machine + percentage + empty-collection paths.
 import datetime
 import uuid
 
+from scenemachine.models.audio_asset import AudioAsset, AudioAssetType
 from scenemachine.models.character import Character, CharacterLockState
 from scenemachine.models.generation_job import GenerationJob, JobStatus, JobType
 from scenemachine.models.project import Project, ProjectState
 from scenemachine.models.scene import Scene, SceneState, SceneType, TimeOfDay
+from scenemachine.models.screenplay import Screenplay
 from scenemachine.models.settings import UserSettings
 from scenemachine.models.shot import CameraMovement, Shot, ShotState, ShotType
 
@@ -378,3 +380,82 @@ def test_settings_to_dict_with_keys_masks_configured():
     assert d["apiKeys"]["anthropic"]["masked"] is not None
     assert d["apiKeys"]["openai"]["configured"] is False
     assert d["apiKeys"]["openai"]["masked"] is None
+
+
+# ==========================================================================
+# Screenplay model logic (parsed_content accessors)
+# ==========================================================================
+
+def _screenplay(parsed=None):
+    sp = Screenplay(
+        project_id=uuid.uuid4(),
+        original_filename="s.fountain",
+        original_format="fountain",
+        file_hash="0" * 64,
+        original_file_path="/tmp/s.fountain",
+    )
+    sp.parsed_content = parsed
+    return sp
+
+
+def test_screenplay_accessors_empty_when_unparsed():
+    sp = _screenplay(None)
+    assert sp.title is None
+    assert sp.author is None
+    assert sp.character_names == []
+    assert sp.scene_count == 0
+    assert sp.page_count is None
+
+
+def test_screenplay_accessors_from_parsed_content():
+    sp = _screenplay(
+        {
+            "title_page": {"title": "My Movie", "author": "Me"},
+            "elements": [
+                {"type": "character", "name": "bob"},
+                {"type": "scene_heading"},
+                {"type": "character", "name": "BOB"},  # dedups with 'bob' (upper)
+                {"type": "character", "name": "alice"},
+            ],
+            "metadata": {"page_count": 12},
+        }
+    )
+    assert sp.title == "My Movie"
+    assert sp.author == "Me"
+    assert sp.character_names == ["ALICE", "BOB"]  # deduped, uppercased, sorted
+    assert sp.scene_count == 1
+    assert sp.page_count == 12
+
+
+# ==========================================================================
+# AudioAsset model logic (type flags + human-readable formatting)
+# ==========================================================================
+
+def _audio(**kw):
+    a = AudioAsset(
+        asset_type=kw.pop("asset_type", AudioAssetType.MUSIC),
+        name="track",
+        file_path="/tmp/a.wav",
+    )
+    for k, v in kw.items():
+        setattr(a, k, v)
+    return a
+
+
+def test_audio_type_flags():
+    assert _audio(asset_type=AudioAssetType.SOUND_EFFECT).is_sound_effect is True
+    assert _audio(asset_type=AudioAssetType.SOUND_EFFECT).is_music is False
+    assert _audio(asset_type=AudioAssetType.MUSIC).is_music is True
+
+
+def test_audio_duration_display():
+    assert _audio(duration_seconds=0.25).duration_display == "250ms"
+    assert _audio(duration_seconds=45).duration_display == "45s"
+    assert _audio(duration_seconds=90).duration_display == "1:30"
+
+
+def test_audio_file_size_display():
+    assert _audio(file_size_bytes=None).file_size_display is None
+    assert _audio(file_size_bytes=512).file_size_display == "512.0 B"
+    assert _audio(file_size_bytes=2048).file_size_display == "2.0 KB"
+    assert _audio(file_size_bytes=5 * 1024 * 1024).file_size_display == "5.0 MB"
