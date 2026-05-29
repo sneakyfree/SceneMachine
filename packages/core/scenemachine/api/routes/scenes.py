@@ -9,10 +9,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from scenemachine.auth.dependencies import OptionalUser
 from scenemachine.database import get_session
-from scenemachine.models.shot import CameraMovement, ShotType
+from scenemachine.models.project import Project
+from scenemachine.models.scene import Scene
+from scenemachine.models.shot import CameraMovement, Shot, ShotType
 from scenemachine.services.scene_planning import ScenePlanningService
 
 logger = logging.getLogger(__name__)
@@ -584,8 +588,13 @@ async def update_shot(
 async def delete_shot(
     shot_id: str,
     session: AsyncSession = Depends(get_session),
+    current_user: OptionalUser = None,
 ) -> dict[str, bool]:
     """Delete a shot.
+
+    A shot inherits its scene's project owner: a *different* authenticated user
+    can't delete it (403). Unowned projects and unauthenticated (desktop/IPC)
+    callers stay allowed for back-compat (same model as project/screenplay).
 
     Args:
         shot_id: Shot UUID
@@ -600,6 +609,34 @@ async def delete_shot(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid shot ID format",
         )
+
+    # Ownership: shot -> scene -> project.owner_id
+    shot = (
+        await session.execute(select(Shot).where(Shot.id == sid))
+    ).scalar_one_or_none()
+    if shot is not None:
+        scene = (
+            await session.execute(select(Scene).where(Scene.id == shot.scene_id))
+        ).scalar_one_or_none()
+        project = (
+            (
+                await session.execute(
+                    select(Project).where(Project.id == scene.project_id)
+                )
+            ).scalar_one_or_none()
+            if scene is not None
+            else None
+        )
+        if (
+            project is not None
+            and project.owner_id is not None
+            and current_user is not None
+            and project.owner_id != current_user.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to delete this shot",
+            )
 
     service = ScenePlanningService(session)
 
