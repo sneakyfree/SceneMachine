@@ -139,34 +139,51 @@ multi-tenant auth + ownership model. Verified against current code, none of that
 1. **`owner_id` is never assigned.** The only non-test references to `owner_id` in the whole
    `packages/core` tree are the column declaration + relationship in `models/project.py:70,136-141`.
    No create-path sets it; every project has `owner_id = NULL`. There is no ownership data to bypass.
-2. **API auth is a stub.** `api/routes/auth.py` uses an in-memory `_users` dict, plaintext
-   passwords, integer-string user ids (`"1"`, `"2"`…) that can never equal a UUID `owner_id`,
-   and `HTTPBearer(auto_error=False)` so `get_current_user` returns `None` when no token is sent.
-3. **No enforcement.** No global auth middleware; `api/routes/projects.py` `delete_project`
-   (and screenplay/scenes) take only `db: Depends(get_db)` — no `current_user` dependency.
-4. **IPC is single-tenant by design.** The Electron renderer and the Python backend share one
-   trust boundary (the user's own machine); there is no "other user" to defend against on the
-   desktop path. The multi-tenant attack surface is the FastAPI layer — which has no real auth.
+2. **A real JWT auth system EXISTS but is not wired into resource endpoints.**
+   `packages/core/scenemachine/auth/` is a proper implementation — `password.py`
+   (real password hashing), `jwt.py` (access/refresh tokens), `service.py`
+   (`AuthService`: register/authenticate, account lockout, token refresh), and
+   `dependencies.py` (`get_current_user` / `get_current_active_user` / the
+   `CurrentActiveUser` dependency). It's used by `api/routes/auth.py`.
+   _(Correction 2026-05-28: an earlier draft of this entry called the auth an
+   "in-memory `_users` stub" — that was a misread; the only in-memory `_sessions`
+   in the tree is the unrelated `services/live_studio.py` collab feature.)_
+3. **The auth is not applied to mutations.** `api/routes/projects.py` `delete_project`
+   (and `screenplay.py`/`scenes.py`) take only `db: Depends(get_db)` — no
+   `CurrentActiveUser` dependency — so the HTTP API delete endpoints are reachable
+   with no token at all.
+4. **IPC is single-trust-boundary.** Desktop deletes go through `electronAPI.backendRequest`
+   → IPC handlers (renderer + backend share one machine); there is no "other user" on the
+   desktop path. (The renderer makes only a couple of direct `fetch('/api/v1/...')` calls —
+   feedback + consistency-check — never deletes.) The multi-tenant attack surface is the
+   HTTP API.
 
-**Conclusion:** these 3 are NOT a present P0 (nothing to exploit — no ownership, no auth).
-A backward-compatible ownership check added today would be **dead code** (owner_id always NULL,
-current_user always None on the desktop path) — security theater, which violates the
-no-silent-fallbacks principle (false confidence is a silent failure). So no such no-op is shipped.
+**Conclusion:** these 3 are not exploitable as the original "delete another user's project"
+P0, because `owner_id` is never populated (always NULL — no ownership to violate). A
+backward-compatible ownership check today would be **dead code** (owner_id NULL) — security
+theater, which violates no-silent-fallbacks. So no such no-op is shipped.
 
-The genuine gap is a **net-new architecture feature: build real multi-tenant auth + ownership**
-(DB-backed users, hashed passwords, UUID user ids, owner_id assigned at project creation,
-enforced `get_current_user`, ownership checks on all mutating endpoints). **This is a HARD
-BLOCKER requiring Grant's decision** (STRESS_TEST_PLAN §7): enforcing auth globally would break
-the desktop app's deliberately-tokenless API usage, so the desktop-vs-web auth boundary is an
-architectural fork only Grant can call. Tracked as **ARCH-1** below; removed from the P0 count.
+The genuine gap is **ARCH-1: wire the existing auth into the HTTP mutation endpoints + assign
+`owner_id` at creation + add ownership checks.** This is NOT a from-scratch build (the auth
+system already exists) — it's an integration + ownership-population task. Because the desktop
+deletes via IPC (not HTTP), the HTTP delete endpoints can require `CurrentActiveUser` without
+breaking the desktop app. **The one Grant-gated decision** is the auth posture for the few
+direct desktop `fetch('/api/v1/...')` calls and whether the HTTP API should require auth
+globally vs per-mutation (STRESS_TEST_PLAN §7). Tracked as **ARCH-1** below; removed from the
+P0 count.
 
-### ARCH-1 (Grant-gated) — multi-tenant auth + ownership is unbuilt
-Net-new architecture feature, not a bug-fix. Required for the API/web deployment to be
-multi-tenant-safe; the desktop (IPC) deployment is single-trust-boundary and does not need it.
-Scope: DB-backed users + hashed passwords, UUID user ids, `owner_id` set at project creation,
-an enforced `get_current_user`, ownership checks on all mutating endpoints, and a decision on
-the desktop-vs-web auth boundary (global enforcement breaks the desktop app's tokenless API
-usage). **Blocked on Grant's architectural direction.** Subsumes the reclassified "IPC authz ×3".
+### ARCH-1 (Grant-gated) — wire existing auth into HTTP mutations + populate ownership
+NOT a from-scratch build: the auth system (`scenemachine/auth/` — hashed passwords, JWT,
+`CurrentActiveUser`) already exists and is used by `api/routes/auth.py`. The work is integration:
+1. Assign `owner_id` at project creation (currently never set → always NULL).
+2. Add `CurrentActiveUser` + ownership checks to HTTP mutation endpoints (`delete_project`/
+   `delete_screenplay`/`delete_scene`/etc.). Desktop deletes via IPC, so this won't break it.
+3. **Grant decision:** auth posture for the few direct desktop `fetch('/api/v1/...')` calls
+   (feedback, consistency-check) + whether the HTTP API requires auth globally vs per-mutation.
+Required for the API/web deployment to be multi-tenant-safe; the desktop (IPC) path is
+single-trust-boundary and doesn't need it. Subsumes the reclassified "IPC authz ×3".
+**Blocked on the §3 Grant decision; the rest (owner_id assignment + delete-endpoint guards) is
+a normal fix once that posture is set.**
 
 ### ~~Missing migration for lipsync_jobs~~ (P0) — **CLOSED**
 - `packages/core/scenemachine/models/lipsync_job.py` model exists but **no alembic migration creates the table** (001-006 don't include it). Fresh DB → "relation lipsync_jobs does not exist". Fix: write migration 007.
