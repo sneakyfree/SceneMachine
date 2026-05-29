@@ -20,6 +20,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useToast } from '../components/toast';
 
 interface ScreenplayUploadProps {
   projectId: string;
@@ -249,6 +250,7 @@ export function ScreenplayUpload({
   const [screenplayId, setScreenplayId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const { showToast } = useToast();
 
   // Update elapsed time during active phases
   useEffect(() => {
@@ -728,8 +730,15 @@ export function ScreenplayUpload({
                             b.fixType === 'auto' ? { ...b, isFixing: false, isFixed: true } : b
                           )
                         );
-                      } catch {
+                        showToast('Auto-fixable issues resolved', 'success');
+                      } catch (err) {
+                        // No-silent-fallbacks: surface the failure instead of
+                        // just reverting the spinner with no feedback.
                         setParseBlockers((prev) => prev.map((b) => ({ ...b, isFixing: false })));
+                        showToast(
+                          err instanceof Error ? `Auto-fix failed: ${err.message}` : 'Auto-fix failed',
+                          'error'
+                        );
                       }
                     }}
                     className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
@@ -803,9 +812,15 @@ export function ScreenplayUpload({
                                   i === idx ? { ...b, isFixing: false, isFixed: true } : b
                                 )
                               );
-                            } catch {
+                              showToast('Issue fixed', 'success');
+                            } catch (err) {
+                              // No-silent-fallbacks: tell the user it failed.
                               setParseBlockers((prev) =>
                                 prev.map((b, i) => (i === idx ? { ...b, isFixing: false } : b))
+                              );
+                              showToast(
+                                err instanceof Error ? `Auto-fix failed: ${err.message}` : 'Auto-fix failed',
+                                'error'
                               );
                             }
                           }}

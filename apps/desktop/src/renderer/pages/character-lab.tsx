@@ -328,11 +328,18 @@ export function CharacterLabPage() {
         });
 
         queryClient.invalidateQueries({ queryKey: ['characters', projectId] });
+        addToast({ type: 'success', title: 'Reference image uploaded' });
       } catch (error) {
-        console.error('Failed to upload reference:', error);
+        // No-silent-fallbacks: a dropped image that fails to upload was
+        // previously invisible to the user (console-only).
+        addToast({
+          type: 'error',
+          title: 'Image upload failed',
+          message: error instanceof Error ? error.message : 'Please try again.',
+        });
       }
     },
-    [projectId, queryClient]
+    [projectId, queryClient, addToast]
   );
 
   // Delete reference handler
@@ -345,10 +352,15 @@ export function CharacterLabPage() {
         });
         queryClient.invalidateQueries({ queryKey: ['characters', projectId] });
       } catch (error) {
-        console.error('Failed to delete reference:', error);
+        // No-silent-fallbacks: surface delete failures to the user.
+        addToast({
+          type: 'error',
+          title: 'Failed to delete reference',
+          message: error instanceof Error ? error.message : 'Please try again.',
+        });
       }
     },
-    [projectId, queryClient]
+    [projectId, queryClient, addToast]
   );
 
   // Filter characters
