@@ -344,19 +344,22 @@ export function ProductionDashboard({
   const stats = useMemo(() => {
     if (!status) return null;
 
-    const completedShots = status.shots.filter((s) => s.status === 'completed').length;
-    const failedShots = status.shots.filter((s) => s.status === 'failed').length;
-    const avgQuality = status.shots
+    // status.shots can be absent (partial/empty backend payload) — guard so the
+    // dashboard renders an empty state instead of crashing the tab.
+    const shots = status.shots ?? [];
+    const completedShots = shots.filter((s) => s.status === 'completed').length;
+    const failedShots = shots.filter((s) => s.status === 'failed').length;
+    const avgQuality = shots
       .filter((s) => s.qualityScore > 0)
       .reduce((sum, s, _, arr) => sum + s.qualityScore / arr.length, 0);
 
     return {
       completedShots,
       failedShots,
-      totalShots: status.shotsTotal,
+      totalShots: status.shotsTotal ?? 0,
       avgQuality,
-      cost: status.totalCost,
-      budgetRemaining: status.budgetRemaining,
+      cost: status.totalCost ?? 0,
+      budgetRemaining: status.budgetRemaining ?? 0,
     };
   }, [status]);
 
