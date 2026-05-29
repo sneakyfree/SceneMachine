@@ -8,9 +8,11 @@ need real mapped instances and are covered by the DB-backed model tests; here
 we cover the state-machine + percentage + empty-collection paths.
 """
 
+import datetime
 import uuid
 
 from scenemachine.models.character import Character, CharacterLockState
+from scenemachine.models.generation_job import GenerationJob, JobStatus, JobType
 from scenemachine.models.project import Project, ProjectState
 from scenemachine.models.scene import Scene, SceneState, SceneType, TimeOfDay
 from scenemachine.models.shot import CameraMovement, Shot, ShotState, ShotType
@@ -269,3 +271,59 @@ def test_character_can_transition_to():
     c = _char_model(lock_state=CharacterLockState.UNDEFINED)
     assert c.can_transition_to(CharacterLockState.DRAFT) is True
     assert c.can_transition_to(CharacterLockState.LOCKED) is False
+
+
+# ==========================================================================
+# GenerationJob model logic
+# ==========================================================================
+
+def _job(**kw):
+    j = GenerationJob(shot_id=uuid.uuid4(), status=JobStatus.PENDING)
+    for k, v in kw.items():
+        setattr(j, k, v)
+    return j
+
+
+def test_job_status_flags():
+    assert _job(status=JobStatus.RUNNING).is_active is True
+    assert _job(status=JobStatus.COMPLETED).is_active is False
+    assert _job(status=JobStatus.COMPLETED).is_complete is True
+    assert _job(status=JobStatus.RUNNING).is_complete is False
+    assert _job(status=JobStatus.COMPLETED).is_successful is True
+    assert _job(status=JobStatus.FAILED).is_successful is False
+
+
+def test_job_can_retry():
+    assert _job(status=JobStatus.FAILED, retry_count=1, max_retries=3).can_retry is True
+    assert _job(status=JobStatus.FAILED, retry_count=3, max_retries=3).can_retry is False
+    assert _job(status=JobStatus.RUNNING, retry_count=0, max_retries=3).can_retry is False
+
+
+def test_job_duration_and_wait():
+    t0 = datetime.datetime(2026, 1, 1, 10, 0, 0)
+    t1 = datetime.datetime(2026, 1, 1, 10, 0, 30)
+    t2 = datetime.datetime(2026, 1, 1, 10, 1, 0)
+    j = _job(queued_at=t0, started_at=t1, completed_at=t2)
+    assert j.wait_time_seconds == 30.0
+    assert j.duration_seconds == 30.0
+    assert _job(started_at=None, completed_at=None).duration_seconds is None
+    assert _job(queued_at=None, started_at=None).wait_time_seconds is None
+
+
+def test_job_costs():
+    j = _job(cost_info={"estimated_cost_usd": 1.0, "actual_cost_usd": 1.5})
+    assert j.estimated_cost == 1.0
+    assert j.actual_cost == 1.5
+    assert j.cost_usd == 1.5  # prefers actual
+    assert _job(cost_info=None).cost_usd == 0.0
+
+
+def test_job_can_transition_to():
+    assert _job(status=JobStatus.PENDING).can_transition_to(JobStatus.QUEUED) is True
+    assert _job(status=JobStatus.COMPLETED).can_transition_to(JobStatus.RUNNING) is False
+
+
+def test_job_repr():
+    assert "GenerationJob" in repr(
+        _job(status=JobStatus.PENDING, job_type=list(JobType)[0], progress=0.0)
+    )
