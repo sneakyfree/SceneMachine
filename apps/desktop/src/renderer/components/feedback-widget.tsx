@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from '../i18n/use-translation';
 
 // Types
 interface FeedbackData {
@@ -51,6 +52,7 @@ export function FeedbackWidget({
   onSubmit,
   position = 'bottom-right',
 }: FeedbackWidgetProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [formData, setFormData] = useState<Partial<FeedbackData>>({
@@ -170,7 +172,7 @@ export function FeedbackWidget({
       }, 2000);
     } catch (error) {
       console.error('Failed to submit feedback:', error);
-      alert('Failed to submit feedback. Please try again.');
+      alert(t('feedback.submitErrorAlert', 'Failed to submit feedback. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -212,10 +214,10 @@ export function FeedbackWidget({
           e.currentTarget.style.transform = 'scale(1)';
           e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.4)';
         }}
-        title="Send Feedback (Shift+F)"
+        title={t('feedback.triggerButtonTitle', 'Send Feedback (Shift+F)')}
       >
         <span>💬</span>
-        <span>Feedback</span>
+        <span>{t('feedback.feedback', 'Feedback')}</span>
       </button>
 
       {/* Feedback Dialog */}
@@ -267,7 +269,7 @@ export function FeedbackWidget({
                   color: 'white',
                 }}
               >
-                Send Feedback
+                {t('feedback.dialogTitle', 'Send Feedback')}
               </h2>
               <button
                 onClick={() => setIsOpen(false)}
@@ -293,7 +295,7 @@ export function FeedbackWidget({
                 }}
               >
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✓</div>
-                <p style={{ margin: 0, fontSize: '1.125rem' }}>Thank you for your feedback!</p>
+                <p style={{ margin: 0, fontSize: '1.125rem' }}>{t('feedback.successMessage', 'Thank you for your feedback!')}</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
@@ -307,7 +309,7 @@ export function FeedbackWidget({
                       fontSize: '0.875rem',
                     }}
                   >
-                    Type
+                    {t('feedback.typeLabel', 'Type')}
                   </label>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {(['bug', 'feature', 'improvement', 'question'] as const).map((type) => (
@@ -329,7 +331,15 @@ export function FeedbackWidget({
                         }}
                       >
                         <span>{TYPE_ICONS[type]}</span>
-                        <span style={{ textTransform: 'capitalize' }}>{type}</span>
+                        <span style={{ textTransform: 'capitalize' }}>
+                          {type === 'bug'
+                            ? t('feedback.typeBug', 'bug')
+                            : type === 'feature'
+                            ? t('feedback.typeFeature', 'feature')
+                            : type === 'improvement'
+                            ? t('feedback.typeImprovement', 'improvement')
+                            : t('feedback.typeQuestion', 'question')}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -345,7 +355,7 @@ export function FeedbackWidget({
                       fontSize: '0.875rem',
                     }}
                   >
-                    Severity
+                    {t('feedback.severityLabel', 'Severity')}
                   </label>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     {(['critical', 'high', 'medium', 'low'] as const).map((severity) => (
@@ -371,7 +381,13 @@ export function FeedbackWidget({
                           fontSize: '0.875rem',
                         }}
                       >
-                        {severity}
+                        {severity === 'critical'
+                          ? t('feedback.severityCritical', 'critical')
+                          : severity === 'high'
+                          ? t('feedback.severityHigh', 'high')
+                          : severity === 'medium'
+                          ? t('feedback.severityMedium', 'medium')
+                          : t('feedback.severityLow', 'low')}
                       </button>
                     ))}
                   </div>
@@ -387,13 +403,13 @@ export function FeedbackWidget({
                       fontSize: '0.875rem',
                     }}
                   >
-                    Title
+                    {t('feedback.titleLabel', 'Title')}
                   </label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                    placeholder="Brief summary of the issue"
+                    placeholder={t('feedback.titlePlaceholder', 'Brief summary of the issue')}
                     required
                     style={{
                       width: '100%',
@@ -417,14 +433,14 @@ export function FeedbackWidget({
                       fontSize: '0.875rem',
                     }}
                   >
-                    Description
+                    {t('feedback.descriptionLabel', 'Description')}
                   </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, description: e.target.value }))
                     }
-                    placeholder="Describe what happened and what you expected"
+                    placeholder={t('feedback.descriptionPlaceholder', 'Describe what happened and what you expected')}
                     rows={4}
                     style={{
                       width: '100%',
@@ -449,13 +465,13 @@ export function FeedbackWidget({
                       fontSize: '0.875rem',
                     }}
                   >
-                    Screenshot
+                    {t('feedback.screenshotLabel', 'Screenshot')}
                   </label>
                   {screenshot ? (
                     <div style={{ position: 'relative' }}>
                       <img
                         src={screenshot}
-                        alt="Screenshot"
+                        alt={t('feedback.screenshotAlt', 'Screenshot')}
                         style={{
                           width: '100%',
                           borderRadius: '0.5rem',
@@ -478,7 +494,7 @@ export function FeedbackWidget({
                           fontSize: '0.75rem',
                         }}
                       >
-                        Remove
+                        {t('feedback.removeButton', 'Remove')}
                       </button>
                     </div>
                   ) : (
@@ -501,7 +517,7 @@ export function FeedbackWidget({
                       }}
                     >
                       <span>📷</span>
-                      <span>{isCapturing ? 'Capturing...' : 'Capture Screenshot'}</span>
+                      <span>{isCapturing ? t('feedback.capturing', 'Capturing...') : t('feedback.captureScreenshot', 'Capture Screenshot')}</span>
                     </button>
                   )}
                 </div>
@@ -538,12 +554,12 @@ export function FeedbackWidget({
                           animation: 'spin 0.8s linear infinite',
                         }}
                       ></span>
-                      <span>Submitting...</span>
+                      <span>{t('feedback.submitting', 'Submitting...')}</span>
                     </>
                   ) : (
                     <>
                       <span>📤</span>
-                      <span>Submit Feedback</span>
+                      <span>{t('feedback.submitButton', 'Submit Feedback')}</span>
                     </>
                   )}
                 </button>
@@ -557,7 +573,7 @@ export function FeedbackWidget({
                     fontSize: '0.75rem',
                   }}
                 >
-                  Press{' '}
+                  {t('feedback.keyboardHintPrefix', 'Press')}{' '}
                   <kbd
                     style={{
                       padding: '0.125rem 0.375rem',
@@ -567,7 +583,7 @@ export function FeedbackWidget({
                   >
                     Shift+F
                   </kbd>{' '}
-                  to toggle feedback
+                  {t('feedback.keyboardHintSuffix', 'to toggle feedback')}
                 </p>
               </form>
             )}

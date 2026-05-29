@@ -9,6 +9,7 @@ import { memo, useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, Keyboard, Star, Clock, RotateCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import {
   DEFAULT_SHORTCUTS,
   CATEGORY_LABELS,
@@ -124,6 +125,7 @@ const ShortcutRow = memo(function ShortcutRow({
   isRecent?: boolean;
   onClick?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -147,7 +149,7 @@ const ShortcutRow = memo(function ShortcutRow({
         <span className="text-sm text-surface-200">{shortcut.description}</span>
         {shortcut.global && (
           <span className="px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 text-xs rounded">
-            Global
+            {t('shortcutsOv.globalBadge', 'Global')}
           </span>
         )}
       </div>
@@ -199,6 +201,7 @@ export const ShortcutsOverlay = memo(function ShortcutsOverlay({
   onClose,
   onShortcutSelect,
 }: ShortcutsOverlayProps) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ShortcutCategory | 'all' | 'recent'>(
     'all'
@@ -317,7 +320,7 @@ export const ShortcutsOverlay = memo(function ShortcutsOverlay({
           'animate-in fade-in zoom-in-95 duration-200'
         )}
         role="dialog"
-        aria-label="Keyboard Shortcuts"
+        aria-label={t('shortcutsOv.dialogAria', 'Keyboard Shortcuts')}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700">
@@ -326,17 +329,20 @@ export const ShortcutsOverlay = memo(function ShortcutsOverlay({
               <Keyboard className="w-5 h-5 text-primary-400" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-surface-100">Keyboard Shortcuts</h2>
+              <h2 className="text-lg font-semibold text-surface-100">
+                {t('shortcutsOv.heading', 'Keyboard Shortcuts')}
+              </h2>
               <p className="text-sm text-surface-400">
-                Press <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs">?</kbd> anytime
-                to show this overlay
+                {t('shortcutsOv.pressPrefix', 'Press')}{' '}
+                <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs">?</kbd>{' '}
+                {t('shortcutsOv.pressSuffix', 'anytime to show this overlay')}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-surface-700 transition-colors"
-            aria-label="Close"
+            aria-label={t('shortcutsOv.closeAria', 'Close')}
           >
             <X className="w-5 h-5 text-surface-400" />
           </button>
@@ -352,7 +358,7 @@ export const ShortcutsOverlay = memo(function ShortcutsOverlay({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search shortcuts..."
+                placeholder={t('shortcutsOv.searchPlaceholder', 'Search shortcuts...')}
                 className={cn(
                   'w-full pl-10 pr-4 py-2 rounded-lg',
                   'bg-surface-800 border border-surface-700',
@@ -377,11 +383,11 @@ export const ShortcutsOverlay = memo(function ShortcutsOverlay({
                   )}
                 >
                   {cat === 'all' ? (
-                    'All'
+                    t('shortcutsOv.filterAll', 'All')
                   ) : cat === 'recent' ? (
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      Recent
+                      {t('shortcutsOv.filterRecent', 'Recent')}
                     </span>
                   ) : (
                     CATEGORY_LABELS[cat]
@@ -397,7 +403,9 @@ export const ShortcutsOverlay = memo(function ShortcutsOverlay({
           {filteredShortcuts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Search className="w-12 h-12 text-surface-600 mb-4" />
-              <p className="text-surface-400">No shortcuts match your search</p>
+              <p className="text-surface-400">
+                {t('shortcutsOv.noMatch', 'No shortcuts match your search')}
+              </p>
               <button
                 onClick={() => {
                   setSearchQuery('');
@@ -406,7 +414,7 @@ export const ShortcutsOverlay = memo(function ShortcutsOverlay({
                 className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-800 text-surface-300 hover:bg-surface-700 transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
-                Clear filters
+                {t('shortcutsOv.clearFilters', 'Clear filters')}
               </button>
             </div>
           ) : selectedCategory === 'all' || selectedCategory === 'recent' ? (
@@ -442,19 +450,22 @@ export const ShortcutsOverlay = memo(function ShortcutsOverlay({
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-surface-700 rounded">↑</kbd>
                 <kbd className="px-1.5 py-0.5 bg-surface-700 rounded">↓</kbd>
-                to navigate
+                {t('shortcutsOv.toNavigate', 'to navigate')}
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-surface-700 rounded">Enter</kbd>
-                to execute
+                {t('shortcutsOv.toExecute', 'to execute')}
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-surface-700 rounded">Esc</kbd>
-                to close
+                {t('shortcutsOv.toClose', 'to close')}
               </span>
             </div>
             <span>
-              {filteredShortcuts.length} shortcut{filteredShortcuts.length !== 1 ? 's' : ''}
+              {filteredShortcuts.length}{' '}
+              {filteredShortcuts.length !== 1
+                ? t('shortcutsOv.countPlural', 'shortcuts')
+                : t('shortcutsOv.countSingular', 'shortcut')}
             </span>
           </div>
         </div>

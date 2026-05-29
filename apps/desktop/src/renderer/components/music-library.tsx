@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useToast } from './toast';
+import { useTranslation } from '../i18n/use-translation';
 
 interface MusicTrack {
   id: string;
@@ -105,6 +106,7 @@ function TrackItem({
   onPlay: () => void;
   onToggleFavorite: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -135,7 +137,7 @@ function TrackItem({
           <span className="font-medium truncate">{track.title}</span>
           {track.isCustom && (
             <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded">
-              Custom
+              {t('musicLib.custom', 'Custom')}
             </span>
           )}
         </div>
@@ -146,7 +148,7 @@ function TrackItem({
           {track.bpm && (
             <>
               <span>•</span>
-              <span>{track.bpm} BPM</span>
+              <span>{track.bpm} {t('musicLib.bpm', 'BPM')}</span>
             </>
           )}
         </div>
@@ -202,6 +204,7 @@ export function MusicLibrary({
   sceneId,
   compact = false,
 }: MusicLibraryProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -214,6 +217,32 @@ export function MusicLibrary({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [volume, setVolume] = useState(0.7);
   const [showFilters, setShowFilters] = useState(!compact);
+
+  // Localized labels for module-scope genre/mood values (values are sent to the backend as-is).
+  const genreLabels: Record<string, string> = {
+    Cinematic: t('musicLib.genreCinematic', 'Cinematic'),
+    Ambient: t('musicLib.genreAmbient', 'Ambient'),
+    Electronic: t('musicLib.genreElectronic', 'Electronic'),
+    Orchestral: t('musicLib.genreOrchestral', 'Orchestral'),
+    Acoustic: t('musicLib.genreAcoustic', 'Acoustic'),
+    Pop: t('musicLib.genrePop', 'Pop'),
+    Rock: t('musicLib.genreRock', 'Rock'),
+    Jazz: t('musicLib.genreJazz', 'Jazz'),
+    Classical: t('musicLib.genreClassical', 'Classical'),
+    World: t('musicLib.genreWorld', 'World'),
+  };
+  const moodLabels: Record<string, string> = {
+    Epic: t('musicLib.moodEpic', 'Epic'),
+    Dramatic: t('musicLib.moodDramatic', 'Dramatic'),
+    Tense: t('musicLib.moodTense', 'Tense'),
+    Peaceful: t('musicLib.moodPeaceful', 'Peaceful'),
+    Romantic: t('musicLib.moodRomantic', 'Romantic'),
+    Mysterious: t('musicLib.moodMysterious', 'Mysterious'),
+    Action: t('musicLib.moodAction', 'Action'),
+    Sad: t('musicLib.moodSad', 'Sad'),
+    Happy: t('musicLib.moodHappy', 'Happy'),
+    Inspiring: t('musicLib.moodInspiring', 'Inspiring'),
+  };
 
   // Fetch tracks
   const { data: tracks, isLoading } = useQuery({
@@ -249,10 +278,10 @@ export function MusicLibrary({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['music-library'] });
-      showToast('Track uploaded successfully', 'success');
+      showToast(t('musicLib.trackUploadedSuccessfully', 'Track uploaded successfully'), 'success');
     },
     onError: (error: any) => {
-      showToast(`Upload failed: ${error.message}`, 'error');
+      showToast(`${t('musicLib.uploadFailed', 'Upload failed')}: ${error.message}`, 'error');
     },
   });
 
@@ -298,8 +327,13 @@ export function MusicLibrary({
   const handleUpload = async () => {
     try {
       const result = await window.electronAPI.openFile({
-        title: 'Select Music File',
-        filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac'] }],
+        title: t('musicLib.selectMusicFile', 'Select Music File'),
+        filters: [
+          {
+            name: t('musicLib.audioFiles', 'Audio Files'),
+            extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac'],
+          },
+        ],
         properties: ['openFile'],
       });
 
@@ -317,9 +351,11 @@ export function MusicLibrary({
       <div className="flex items-center justify-between p-4 border-b border-surface-800">
         <div className="flex items-center gap-2">
           <Music className="w-5 h-5 text-brand-400" />
-          <h2 className="font-semibold">Music Library</h2>
+          <h2 className="font-semibold">{t('musicLib.musicLibrary', 'Music Library')}</h2>
           {tracks && (
-            <span className="text-sm text-surface-400">({filteredTracks?.length ?? 0} tracks)</span>
+            <span className="text-sm text-surface-400">
+              ({filteredTracks?.length ?? 0} {t('musicLib.tracks', 'tracks')})
+            </span>
           )}
         </div>
 
@@ -353,7 +389,7 @@ export function MusicLibrary({
             ) : (
               <Upload className="w-4 h-4 mr-1" />
             )}
-            Upload
+            {t('musicLib.upload', 'Upload')}
           </button>
         </div>
       </div>
@@ -367,7 +403,7 @@ export function MusicLibrary({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by title, artist, genre..."
+            placeholder={t('musicLib.searchByTitleArtistGenre', 'Search by title, artist, genre...')}
             className="w-full pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
           />
         </div>
@@ -378,7 +414,7 @@ export function MusicLibrary({
           className="flex items-center gap-2 text-sm text-surface-400 hover:text-surface-200"
         >
           <Filter className="w-4 h-4" />
-          Filters
+          {t('musicLib.filters', 'Filters')}
           {showFilters ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
 
@@ -387,7 +423,9 @@ export function MusicLibrary({
           <div className="space-y-3">
             {/* Genre filter */}
             <div>
-              <label className="text-xs text-surface-500 mb-1 block">Genre</label>
+              <label className="text-xs text-surface-500 mb-1 block">
+                {t('musicLib.genre', 'Genre')}
+              </label>
               <div className="flex flex-wrap gap-1">
                 <button
                   onClick={() => setSelectedGenre(null)}
@@ -398,7 +436,7 @@ export function MusicLibrary({
                       : 'bg-surface-700 text-surface-300 hover:bg-surface-600'
                   )}
                 >
-                  All
+                  {t('musicLib.all', 'All')}
                 </button>
                 {GENRES.map((genre) => (
                   <button
@@ -411,7 +449,7 @@ export function MusicLibrary({
                         : 'bg-surface-700 text-surface-300 hover:bg-surface-600'
                     )}
                   >
-                    {genre}
+                    {genreLabels[genre] ?? genre}
                   </button>
                 ))}
               </div>
@@ -419,7 +457,9 @@ export function MusicLibrary({
 
             {/* Mood filter */}
             <div>
-              <label className="text-xs text-surface-500 mb-1 block">Mood</label>
+              <label className="text-xs text-surface-500 mb-1 block">
+                {t('musicLib.mood', 'Mood')}
+              </label>
               <div className="flex flex-wrap gap-1">
                 <button
                   onClick={() => setSelectedMood(null)}
@@ -430,7 +470,7 @@ export function MusicLibrary({
                       : 'bg-surface-700 text-surface-300 hover:bg-surface-600'
                   )}
                 >
-                  All
+                  {t('musicLib.all', 'All')}
                 </button>
                 {MOODS.map((mood) => (
                   <button
@@ -443,7 +483,7 @@ export function MusicLibrary({
                         : 'bg-surface-700 text-surface-300 hover:bg-surface-600'
                     )}
                   >
-                    {mood}
+                    {moodLabels[mood] ?? mood}
                   </button>
                 ))}
               </div>
@@ -461,7 +501,7 @@ export function MusicLibrary({
                 )}
               >
                 <Heart className={cn('w-4 h-4', showFavoritesOnly && 'fill-current')} />
-                Favorites
+                {t('musicLib.favorites', 'Favorites')}
               </button>
               <button
                 onClick={() => setShowCustomOnly(!showCustomOnly)}
@@ -473,7 +513,7 @@ export function MusicLibrary({
                 )}
               >
                 <FolderOpen className="w-4 h-4" />
-                My Uploads
+                {t('musicLib.myUploads', 'My Uploads')}
               </button>
             </div>
           </div>
@@ -503,9 +543,9 @@ export function MusicLibrary({
         ) : (
           <div className="text-center py-12 text-surface-400">
             <Music2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No tracks found</p>
+            <p>{t('musicLib.noTracksFound', 'No tracks found')}</p>
             <p className="text-sm text-surface-500 mt-1">
-              Try adjusting your filters or upload custom music
+              {t('musicLib.tryAdjustingFiltersOrUpload', 'Try adjusting your filters or upload custom music')}
             </p>
           </div>
         )}
@@ -527,6 +567,7 @@ export function MusicSelector({
   selectedTrackId?: string;
   onSelect: (track: MusicTrack) => void;
 }) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: selectedTrack } = useQuery({
@@ -559,8 +600,12 @@ export function MusicSelector({
             </>
           ) : (
             <>
-              <div className="text-surface-400">Select background music</div>
-              <div className="text-sm text-surface-500">Browse library</div>
+              <div className="text-surface-400">
+                {t('musicLib.selectBackgroundMusic', 'Select background music')}
+              </div>
+              <div className="text-sm text-surface-500">
+                {t('musicLib.browseLibrary', 'Browse library')}
+              </div>
             </>
           )}
         </div>

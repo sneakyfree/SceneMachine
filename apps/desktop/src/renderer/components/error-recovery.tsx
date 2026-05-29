@@ -30,6 +30,7 @@ import {
   formatErrorForDisplay,
   classifyError,
 } from '../lib/errors';
+import { useTranslation } from '../i18n/use-translation';
 
 // =============================================================================
 // Error Icon Mapping
@@ -146,6 +147,7 @@ export const ErrorAlert = memo(function ErrorAlert({
   compact = false,
   className,
 }: ErrorAlertProps) {
+  const { t } = useTranslation();
   const appError = error instanceof AppError ? error : classifyError(error);
   const { title, message, hint, canRetry, helpLink } = formatErrorForDisplay(appError);
   const Icon = getErrorIcon(appError.category);
@@ -200,7 +202,7 @@ export const ErrorAlert = memo(function ErrorAlert({
           <button
             onClick={onDismiss}
             className="p-1 rounded hover:bg-white/10 transition-colors text-surface-400"
-            aria-label="Dismiss"
+            aria-label={t('errRecovery.dismiss', 'Dismiss')}
           >
             ×
           </button>
@@ -222,7 +224,9 @@ export const ErrorAlert = memo(function ErrorAlert({
               )}
             >
               <RefreshCw className={cn('w-4 h-4', isRetrying && 'animate-spin')} />
-              {isRetrying ? 'Retrying...' : 'Try again'}
+              {isRetrying
+                ? t('errRecovery.retrying', 'Retrying...')
+                : t('errRecovery.tryAgain', 'Try again')}
             </button>
           )}
           {helpLink && (
@@ -234,7 +238,7 @@ export const ErrorAlert = memo(function ErrorAlert({
               )}
             >
               <HelpCircle className="w-4 h-4" />
-              Learn more
+              {t('errRecovery.learnMore', 'Learn more')}
             </a>
           )}
         </div>
@@ -263,6 +267,7 @@ interface ErrorDetailsProps {
  * Expandable technical error details for debugging
  */
 export const ErrorDetails = memo(function ErrorDetails({ error, className }: ErrorDetailsProps) {
+  const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -295,7 +300,7 @@ export const ErrorDetails = memo(function ErrorDetails({ error, className }: Err
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between px-4 py-2 text-xs text-surface-500 hover:text-surface-400 transition-colors"
       >
-        <span>Technical Details</span>
+        <span>{t('errRecovery.technicalDetails', 'Technical Details')}</span>
         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </button>
 
@@ -308,7 +313,7 @@ export const ErrorDetails = memo(function ErrorDetails({ error, className }: Err
             <button
               onClick={handleCopy}
               className="absolute top-2 right-2 p-1.5 rounded bg-surface-800 hover:bg-surface-700 transition-colors"
-              title="Copy error details"
+              title={t('errRecovery.copyErrorDetails', 'Copy error details')}
             >
               {copied ? (
                 <Check className="w-3.5 h-3.5 text-green-400" />
@@ -319,7 +324,8 @@ export const ErrorDetails = memo(function ErrorDetails({ error, className }: Err
           </div>
 
           <div className="mt-2 text-xs text-surface-500">
-            Error Code: <code className="bg-surface-800 px-1 py-0.5 rounded">{error.code}</code>
+            {t('errRecovery.errorCode', 'Error Code:')}{' '}
+            <code className="bg-surface-800 px-1 py-0.5 rounded">{error.code}</code>
           </div>
         </div>
       )}
@@ -362,6 +368,7 @@ export const RetryCountdown = memo(function RetryCountdown({
   onCancel,
   className,
 }: RetryCountdownProps) {
+  const { t } = useTranslation();
   const [remaining, setRemaining] = useState(seconds);
 
   useEffect(() => {
@@ -380,10 +387,13 @@ export const RetryCountdown = memo(function RetryCountdown({
   return (
     <div className={cn('flex items-center gap-3 text-sm text-surface-400', className)}>
       <RefreshCw className="w-4 h-4 animate-spin" />
-      <span>Retrying in {remaining}s...</span>
+      <span>
+        {t('errRecovery.retryingIn', 'Retrying in')} {remaining}
+        {t('errRecovery.secondsSuffix', 's...')}
+      </span>
       {onCancel && (
         <button onClick={onCancel} className="text-surface-500 hover:text-surface-300 underline">
-          Cancel
+          {t('errRecovery.cancel', 'Cancel')}
         </button>
       )}
     </div>
@@ -443,6 +453,7 @@ export const ErrorRecoveryCard = memo(function ErrorRecoveryCard({
   showDetails = true,
   className,
 }: ErrorRecoveryCardProps) {
+  const { t } = useTranslation();
   const appError = error instanceof AppError ? error : classifyError(error);
   const [showCountdown, setShowCountdown] = useState(autoRetry && appError.canRetry);
 
@@ -494,7 +505,9 @@ export const ErrorRecoveryCard = memo(function ErrorRecoveryCard({
               )}
             >
               <RefreshCw className={cn('w-4 h-4', isRetrying && 'animate-spin')} />
-              {isRetrying ? 'Retrying...' : 'Try again'}
+              {isRetrying
+                ? t('errRecovery.retrying', 'Retrying...')
+                : t('errRecovery.tryAgain', 'Try again')}
             </button>
           )}
 
@@ -516,7 +529,7 @@ export const ErrorRecoveryCard = memo(function ErrorRecoveryCard({
               )}
             >
               <ExternalLink className="w-4 h-4" />
-              Get help
+              {t('errRecovery.getHelp', 'Get help')}
             </a>
           )}
         </div>

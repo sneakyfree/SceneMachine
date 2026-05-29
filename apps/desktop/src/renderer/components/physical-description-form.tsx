@@ -20,6 +20,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 export interface PhysicalDescription {
   hair_color: string;
@@ -121,6 +122,22 @@ export function PhysicalDescriptionForm({
   isLoading = false,
   compact = false,
 }: PhysicalDescriptionFormProps) {
+  const { t } = useTranslation();
+
+  // Translate a preset option label at render time (module-scope arrays
+  // hold canonical English; map to physForm.opt.<slug> keys with fallback).
+  const tOption = useCallback(
+    (opt: string) => {
+      const slug = opt
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+(.)/g, (_, c: string) => c.toUpperCase());
+      return t(`physForm.opt.${slug}`, opt);
+    },
+    [t]
+  );
+
   const [formData, setFormData] = useState<PhysicalDescription>({
     ...emptyDescription,
     ...initialData,
@@ -210,17 +227,17 @@ export function PhysicalDescriptionForm({
             compact && 'py-1.5 text-xs'
           )}
         >
-          <option value="">Select {label.toLowerCase()}...</option>
+          <option value="">{t('physForm.selectPlaceholder', 'Select {field}...').replace('{field}', label.toLowerCase())}</option>
           {options.map((opt) => (
             <option key={opt} value={opt}>
-              {opt}
+              {tOption(opt)}
             </option>
           ))}
         </select>
         {allowCustom && (
           <input
             type="text"
-            placeholder="Custom..."
+            placeholder={t('physForm.customPlaceholder', 'Custom...')}
             value={
               options
                 .map((o) => o.toLowerCase())
@@ -246,39 +263,39 @@ export function PhysicalDescriptionForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Hair Section */}
       <div className="grid grid-cols-2 gap-4">
-        <SelectField label="Hair Color" icon={Palette} field="hair_color" options={HAIR_COLORS} />
-        <SelectField label="Hair Style" icon={Scissors} field="hair_style" options={HAIR_STYLES} />
+        <SelectField label={t('physForm.hairColor', 'Hair Color')} icon={Palette} field="hair_color" options={HAIR_COLORS} />
+        <SelectField label={t('physForm.hairStyle', 'Hair Style')} icon={Scissors} field="hair_style" options={HAIR_STYLES} />
       </div>
 
       {/* Eyes & Skin */}
       <div className="grid grid-cols-2 gap-4">
-        <SelectField label="Eye Color" icon={Eye} field="eye_color" options={EYE_COLORS} />
-        <SelectField label="Skin Tone" icon={Palette} field="skin_tone" options={SKIN_TONES} />
+        <SelectField label={t('physForm.eyeColor', 'Eye Color')} icon={Eye} field="eye_color" options={EYE_COLORS} />
+        <SelectField label={t('physForm.skinTone', 'Skin Tone')} icon={Palette} field="skin_tone" options={SKIN_TONES} />
       </div>
 
       {/* Height & Build */}
       <div className="grid grid-cols-2 gap-4">
         <SelectField
-          label="Height"
+          label={t('physForm.height', 'Height')}
           icon={Ruler}
           field="height"
           options={HEIGHT_OPTIONS}
           allowCustom={false}
         />
-        <SelectField label="Build" icon={User} field="build" options={BUILD_OPTIONS} />
+        <SelectField label={t('physForm.build', 'Build')} icon={User} field="build" options={BUILD_OPTIONS} />
       </div>
 
       {/* Clothing Style */}
       <div className="space-y-1.5">
         <label className="flex items-center gap-1.5 text-sm font-medium text-surface-400">
           <Shirt className="w-3.5 h-3.5" />
-          Clothing Style
+          {t('physForm.clothingStyle', 'Clothing Style')}
         </label>
         <input
           type="text"
           value={formData.clothing_style}
           onChange={(e) => updateField('clothing_style', e.target.value)}
-          placeholder="e.g., Business casual, streetwear, formal suits..."
+          placeholder={t('physForm.clothingStylePlaceholder', 'e.g., Business casual, streetwear, formal suits...')}
           disabled={isLocked || isLoading}
           className={cn(
             'w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg',
@@ -293,7 +310,7 @@ export function PhysicalDescriptionForm({
       <div className="space-y-1.5">
         <label className="flex items-center gap-1.5 text-sm font-medium text-surface-400">
           <Sparkles className="w-3.5 h-3.5" />
-          Distinguishing Features
+          {t('physForm.distinguishingFeatures', 'Distinguishing Features')}
         </label>
         <div className="flex flex-wrap gap-2 mb-2">
           {formData.distinguishing_features.map((feature) => (
@@ -318,7 +335,7 @@ export function PhysicalDescriptionForm({
           ))}
           {formData.distinguishing_features.length === 0 && (
             <span className="text-xs text-surface-500 italic">
-              No distinguishing features added
+              {t('physForm.noFeaturesAdded', 'No distinguishing features added')}
             </span>
           )}
         </div>
@@ -334,7 +351,7 @@ export function PhysicalDescriptionForm({
                   addFeature();
                 }
               }}
-              placeholder="e.g., Scar on left cheek, birthmark, tattoo..."
+              placeholder={t('physForm.featurePlaceholder', 'e.g., Scar on left cheek, birthmark, tattoo...')}
               disabled={isLoading}
               className={cn(
                 'flex-1 px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg',
@@ -362,12 +379,12 @@ export function PhysicalDescriptionForm({
       {!compact && (
         <div className="space-y-1.5">
           <label className="flex items-center gap-1.5 text-sm font-medium text-surface-400">
-            Additional Notes
+            {t('physForm.additionalNotes', 'Additional Notes')}
           </label>
           <textarea
             value={formData.additional_notes}
             onChange={(e) => updateField('additional_notes', e.target.value)}
-            placeholder="Any other physical characteristics or notes..."
+            placeholder={t('physForm.additionalNotesPlaceholder', 'Any other physical characteristics or notes...')}
             disabled={isLocked || isLoading}
             rows={2}
             className={cn(
@@ -393,7 +410,7 @@ export function PhysicalDescriptionForm({
                 compact && 'px-2 py-1.5 text-xs'
               )}
             >
-              Cancel
+              {t('physForm.cancel', 'Cancel')}
             </button>
           )}
           <button
@@ -407,7 +424,7 @@ export function PhysicalDescriptionForm({
             )}
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Reset
+            {t('physForm.reset', 'Reset')}
           </button>
           <button
             type="submit"
@@ -420,7 +437,7 @@ export function PhysicalDescriptionForm({
             )}
           >
             <Save className="w-3.5 h-3.5" />
-            {isLoading ? 'Saving...' : 'Save Changes'}
+            {isLoading ? t('physForm.saving', 'Saving...') : t('physForm.saveChanges', 'Save Changes')}
           </button>
         </div>
       )}
@@ -428,7 +445,7 @@ export function PhysicalDescriptionForm({
       {/* Locked Message */}
       {isLocked && (
         <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg text-sm text-green-400">
-          <span>This character is locked. Unlock to edit physical description.</span>
+          <span>{t('physForm.lockedMessage', 'This character is locked. Unlock to edit physical description.')}</span>
         </div>
       )}
     </form>
@@ -440,6 +457,8 @@ export function PhysicalDescriptionForm({
  * Used when showing collapsed character info.
  */
 export function PhysicalDescriptionSummary({ data }: { data?: Partial<PhysicalDescription> }) {
+  const { t } = useTranslation();
+
   if (!data) return null;
 
   const parts: string[] = [];
@@ -447,12 +466,20 @@ export function PhysicalDescriptionSummary({ data }: { data?: Partial<PhysicalDe
   if (data.height) parts.push(data.height);
   if (data.build) parts.push(data.build);
   if (data.hair_color && data.hair_style) {
-    parts.push(`${data.hair_color} ${data.hair_style} hair`);
+    parts.push(
+      t('physForm.summaryHairFull', '{color} {style} hair')
+        .replace('{color}', data.hair_color)
+        .replace('{style}', data.hair_style)
+    );
   } else if (data.hair_color) {
-    parts.push(`${data.hair_color} hair`);
+    parts.push(t('physForm.summaryHair', '{color} hair').replace('{color}', data.hair_color));
   }
-  if (data.eye_color) parts.push(`${data.eye_color} eyes`);
-  if (data.skin_tone) parts.push(`${data.skin_tone} skin`);
+  if (data.eye_color) {
+    parts.push(t('physForm.summaryEyes', '{color} eyes').replace('{color}', data.eye_color));
+  }
+  if (data.skin_tone) {
+    parts.push(t('physForm.summarySkin', '{tone} skin').replace('{tone}', data.skin_tone));
+  }
 
   if (parts.length === 0) return null;
 

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useToast } from './toast';
+import { useTranslation } from '../i18n/use-translation';
 
 type EmotionType = 'neutral' | 'happy' | 'sad' | 'angry' | 'whisper';
 
@@ -56,12 +57,12 @@ function formatDuration(seconds: number): string {
   return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}.${ms}` : `${secs}.${ms}s`;
 }
 
-const EMOTION_OPTIONS: { value: EmotionType; label: string; emoji: string }[] = [
-  { value: 'neutral', label: 'Neutral', emoji: '😐' },
-  { value: 'happy', label: 'Happy', emoji: '😊' },
-  { value: 'sad', label: 'Sad', emoji: '😢' },
-  { value: 'angry', label: 'Angry', emoji: '😠' },
-  { value: 'whisper', label: 'Whisper', emoji: '🤫' },
+const EMOTION_OPTIONS: { value: EmotionType; labelKey: string; label: string; emoji: string }[] = [
+  { value: 'neutral', labelKey: 'dialogue.emotionNeutral', label: 'Neutral', emoji: '😐' },
+  { value: 'happy', labelKey: 'dialogue.emotionHappy', label: 'Happy', emoji: '😊' },
+  { value: 'sad', labelKey: 'dialogue.emotionSad', label: 'Sad', emoji: '😢' },
+  { value: 'angry', labelKey: 'dialogue.emotionAngry', label: 'Angry', emoji: '😠' },
+  { value: 'whisper', labelKey: 'dialogue.emotionWhisper', label: 'Whisper', emoji: '🤫' },
 ];
 
 function DialogueLineItem({
@@ -87,6 +88,8 @@ function DialogueLineItem({
   onEmotionChange: (emotion: EmotionType) => void;
   onSpeedChange: (speed: number) => void;
 }) {
+  const { t } = useTranslation();
+
   const getStatusIcon = () => {
     switch (line.generationStatus) {
       case 'generating':
@@ -108,7 +111,9 @@ function DialogueLineItem({
           {line.characterName[0]}
         </div>
         <span className="font-medium text-sm">{line.characterName}</span>
-        <span className="text-xs text-surface-500">Scene {line.sceneNumber}</span>
+        <span className="text-xs text-surface-500">
+          {t('dialogue.scene', 'Scene')} {line.sceneNumber}
+        </span>
         <div className="ml-auto">{getStatusIcon()}</div>
       </div>
 
@@ -121,16 +126,16 @@ function DialogueLineItem({
           value={emotion}
           onChange={(e) => onEmotionChange(e.target.value as EmotionType)}
           className="bg-surface-700 border border-surface-600 rounded-lg px-2 py-1 text-xs text-surface-200 focus:ring-1 focus:ring-brand-500 outline-none"
-          title="Emotion style"
+          title={t('dialogue.emotionStyle', 'Emotion style')}
         >
           {EMOTION_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {opt.emoji} {opt.label}
+              {opt.emoji} {t(opt.labelKey, opt.label)}
             </option>
           ))}
         </select>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-surface-500">Speed</span>
+          <span className="text-xs text-surface-500">{t('dialogue.speed', 'Speed')}</span>
           <input
             type="range"
             min="0.5"
@@ -166,14 +171,14 @@ function DialogueLineItem({
               onClick={onGenerate}
               disabled={isGenerating}
               className="p-2 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded transition-colors disabled:opacity-50"
-              title="Regenerate"
+              title={t('dialogue.regenerate', 'Regenerate')}
             >
               <RefreshCw className={cn('w-4 h-4', isGenerating && 'animate-spin')} />
             </button>
             <button
               onClick={onDelete}
               className="p-2 text-surface-400 hover:text-red-400 hover:bg-surface-700 rounded transition-colors"
-              title="Delete audio"
+              title={t('dialogue.deleteAudio', 'Delete audio')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -189,7 +194,7 @@ function DialogueLineItem({
             ) : (
               <Wand2 className="w-4 h-4" />
             )}
-            Generate Audio
+            {t('dialogue.generateAudio', 'Generate Audio')}
           </button>
         )}
       </div>
@@ -204,6 +209,7 @@ export function DialoguePanel({
   onDialogueGenerated,
   onDialogueSync,
 }: DialoguePanelProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -254,7 +260,7 @@ export function DialoguePanel({
 
       queryClient.invalidateQueries({ queryKey: ['dialogue', projectId] });
       onDialogueGenerated?.(result.dialogueId, result.audioUrl);
-      showToast('Dialogue audio generated', 'success');
+      showToast(t('dialogue.dialogueAudioGenerated', 'Dialogue audio generated'), 'success');
     },
     onError: (error: any, dialogueId) => {
       setGeneratingIds((prev) => {
@@ -262,7 +268,7 @@ export function DialoguePanel({
         next.delete(dialogueId);
         return next;
       });
-      showToast(`Generation failed: ${error.message}`, 'error');
+      showToast(`${t('dialogue.generationFailed', 'Generation failed')}: ${error.message}`, 'error');
     },
   });
 
@@ -294,7 +300,10 @@ export function DialoguePanel({
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['dialogue', projectId] });
-      showToast(`Generated ${count} dialogue clips`, 'success');
+      showToast(
+        `${t('dialogue.generated', 'Generated')} ${count} ${t('dialogue.dialogueClips', 'dialogue clips')}`,
+        'success'
+      );
     },
   });
 
@@ -307,7 +316,7 @@ export function DialoguePanel({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dialogue', projectId] });
-      showToast('Audio deleted', 'success');
+      showToast(t('dialogue.audioDeleted', 'Audio deleted'), 'success');
     },
   });
 
@@ -359,9 +368,9 @@ export function DialoguePanel({
       >
         <div className="flex items-center gap-3">
           <MessageSquare className="w-5 h-5 text-brand-400" />
-          <span className="font-medium">Dialogue</span>
+          <span className="font-medium">{t('dialogue.dialogue', 'Dialogue')}</span>
           <span className="text-sm text-surface-400">
-            {completedCount}/{dialogueLines?.length ?? 0} generated
+            {completedCount}/{dialogueLines?.length ?? 0} {t('dialogue.generatedSuffix', 'generated')}
           </span>
         </div>
         {isExpanded ? (
@@ -380,7 +389,11 @@ export function DialoguePanel({
               <button
                 onClick={() => setIsMuted(!isMuted)}
                 className="icon-btn p-2 text-surface-400 hover:text-surface-200 transition-colors rounded"
-                aria-label={isMuted ? 'Unmute dialogue' : 'Mute dialogue'}
+                aria-label={
+                  isMuted
+                    ? t('dialogue.unmuteDialogue', 'Unmute dialogue')
+                    : t('dialogue.muteDialogue', 'Mute dialogue')
+                }
               >
                 {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>
@@ -409,7 +422,7 @@ export function DialoguePanel({
                 ) : (
                   <Wand2 className="w-4 h-4 mr-2" />
                 )}
-                Generate All ({pendingCount})
+                {t('dialogue.generateAll', 'Generate All')} ({pendingCount})
               </button>
             )}
           </div>
@@ -440,9 +453,12 @@ export function DialoguePanel({
           ) : (
             <div className="text-center py-8 text-surface-400">
               <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>No dialogue lines found</p>
+              <p>{t('dialogue.noDialogueLinesFound', 'No dialogue lines found')}</p>
               <p className="text-sm text-surface-500 mt-1">
-                Dialogue will appear here once a screenplay is parsed
+                {t(
+                  'dialogue.dialogueWillAppearHint',
+                  'Dialogue will appear here once a screenplay is parsed'
+                )}
               </p>
             </div>
           )}

@@ -7,6 +7,7 @@
 import { memo } from 'react';
 import { Database, RefreshCw, Cloud, CloudOff, Check, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import { useOfflineCache } from '../hooks/use-offline-cache';
 import { useOnlineStatus } from '../hooks/use-online-status';
 
@@ -20,6 +21,7 @@ export const CachedBadge = memo(function CachedBadge({
   isCached: boolean;
   className?: string;
 }) {
+  const { t } = useTranslation();
   if (!isCached) return null;
 
   return (
@@ -29,10 +31,10 @@ export const CachedBadge = memo(function CachedBadge({
         'bg-surface-700/50 text-surface-300',
         className
       )}
-      title="Available offline"
+      title={t('cacheStatus.availableOffline', 'Available offline')}
     >
       <Database className="w-3 h-3" />
-      <span>Cached</span>
+      <span>{t('cacheStatus.cached', 'Cached')}</span>
     </span>
   );
 });
@@ -41,6 +43,7 @@ export const CachedBadge = memo(function CachedBadge({
  * Indicator showing pending sync items
  */
 export const SyncIndicator = memo(function SyncIndicator({ className }: { className?: string }) {
+  const { t } = useTranslation();
   const { pendingSync, isSyncing } = useOfflineCache();
   const { isOnline } = useOnlineStatus();
 
@@ -61,26 +64,26 @@ export const SyncIndicator = memo(function SyncIndicator({ className }: { classN
       )}
       title={
         isSyncing
-          ? 'Syncing changes...'
+          ? t('cacheStatus.syncingChanges', 'Syncing changes...')
           : isOnline
-            ? `${pendingSync.length} changes pending sync`
-            : `${pendingSync.length} changes will sync when online`
+            ? `${pendingSync.length} ${t('cacheStatus.changesPendingSync', 'changes pending sync')}`
+            : `${pendingSync.length} ${t('cacheStatus.changesWillSyncWhenOnline', 'changes will sync when online')}`
       }
     >
       {isSyncing ? (
         <>
           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-          <span>Syncing...</span>
+          <span>{t('cacheStatus.syncing', 'Syncing...')}</span>
         </>
       ) : isOnline ? (
         <>
           <Cloud className="w-3.5 h-3.5" />
-          <span>{pendingSync.length} pending</span>
+          <span>{pendingSync.length} {t('cacheStatus.pending', 'pending')}</span>
         </>
       ) : (
         <>
           <CloudOff className="w-3.5 h-3.5" />
-          <span>{pendingSync.length} queued</span>
+          <span>{pendingSync.length} {t('cacheStatus.queued', 'queued')}</span>
         </>
       )}
     </div>
@@ -97,6 +100,7 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
   className?: string;
   onSync?: () => void;
 }) {
+  const { t } = useTranslation();
   const { stats, pendingSync, isSyncing } = useOfflineCache();
   const { isOnline, isChecking } = useOnlineStatus();
 
@@ -104,7 +108,7 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
     <div className={cn('rounded-lg border border-surface-700 bg-surface-800 p-4', className)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-surface-200">Offline Cache</h3>
+        <h3 className="text-sm font-medium text-surface-200">{t('cacheStatus.offlineCache', 'Offline Cache')}</h3>
         <div
           className={cn(
             'flex items-center gap-1.5 px-2 py-0.5 rounded text-xs',
@@ -118,7 +122,7 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
           ) : (
             <AlertCircle className="w-3 h-3" />
           )}
-          <span>{isOnline ? 'Online' : 'Offline'}</span>
+          <span>{isOnline ? t('cacheStatus.online', 'Online') : t('cacheStatus.offline', 'Offline')}</span>
         </div>
       </div>
 
@@ -126,21 +130,21 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
       {stats && (
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="p-2 rounded bg-surface-900">
-            <div className="text-xs text-surface-400">Projects Cached</div>
+            <div className="text-xs text-surface-400">{t('cacheStatus.projectsCached', 'Projects Cached')}</div>
             <div className="text-lg font-medium text-surface-100">{stats.projectCount}</div>
           </div>
           <div className="p-2 rounded bg-surface-900">
-            <div className="text-xs text-surface-400">Videos Cached</div>
+            <div className="text-xs text-surface-400">{t('cacheStatus.videosCached', 'Videos Cached')}</div>
             <div className="text-lg font-medium text-surface-100">{stats.videoCount}</div>
           </div>
           <div className="p-2 rounded bg-surface-900">
-            <div className="text-xs text-surface-400">Cache Size</div>
+            <div className="text-xs text-surface-400">{t('cacheStatus.cacheSize', 'Cache Size')}</div>
             <div className="text-lg font-medium text-surface-100">
               {stats.totalVideoSizeMB.toFixed(1)} MB
             </div>
           </div>
           <div className="p-2 rounded bg-surface-900">
-            <div className="text-xs text-surface-400">Pending Sync</div>
+            <div className="text-xs text-surface-400">{t('cacheStatus.pendingSync', 'Pending Sync')}</div>
             <div className="text-lg font-medium text-surface-100">{stats.syncQueueCount}</div>
           </div>
         </div>
@@ -149,7 +153,7 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
       {/* Pending sync items */}
       {pendingSync.length > 0 && (
         <div className="border-t border-surface-700 pt-3 mt-3">
-          <div className="text-xs text-surface-400 mb-2">Pending Changes</div>
+          <div className="text-xs text-surface-400 mb-2">{t('cacheStatus.pendingChanges', 'Pending Changes')}</div>
           <div className="space-y-1 max-h-32 overflow-y-auto">
             {pendingSync.slice(0, 5).map((item) => (
               <div
@@ -160,12 +164,12 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
                   {item.type} {item.entity}
                 </span>
                 {item.retryCount > 0 && (
-                  <span className="text-yellow-400">Retry {item.retryCount}</span>
+                  <span className="text-yellow-400">{t('cacheStatus.retry', 'Retry')} {item.retryCount}</span>
                 )}
               </div>
             ))}
             {pendingSync.length > 5 && (
-              <div className="text-xs text-surface-500 pl-1">+{pendingSync.length - 5} more...</div>
+              <div className="text-xs text-surface-500 pl-1">+{pendingSync.length - 5} {t('cacheStatus.more', 'more...')}</div>
             )}
           </div>
 
@@ -185,12 +189,12 @@ export const SyncStatusPanel = memo(function SyncStatusPanel({
               {isSyncing ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Syncing...
+                  {t('cacheStatus.syncing', 'Syncing...')}
                 </>
               ) : (
                 <>
                   <Cloud className="w-4 h-4" />
-                  Sync Now
+                  {t('cacheStatus.syncNow', 'Sync Now')}
                 </>
               )}
             </button>

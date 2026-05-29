@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getAutoSaveManager, AutoSaveState, RecoveryInfo } from '../lib/auto-save';
+import { useTranslation } from '../i18n/use-translation';
 
 // =============================================================================
 // Types
@@ -118,6 +119,7 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
   onManualSave,
   className,
 }: AutoSaveStatusProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [lastSaved, setLastSaved] = useState<number | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -228,31 +230,31 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
         return {
           color: 'text-blue-400',
           bg: 'bg-blue-500/10',
-          label: 'Saving...',
+          label: t('autoSave.saving', 'Saving...'),
         };
       case 'saved':
         return {
           color: 'text-green-400',
           bg: 'bg-green-500/10',
-          label: 'Saved',
+          label: t('autoSave.saved', 'Saved'),
         };
       case 'error':
         return {
           color: 'text-red-400',
           bg: 'bg-red-500/10',
-          label: 'Save failed',
+          label: t('autoSave.saveFailed', 'Save failed'),
         };
       case 'offline':
         return {
           color: 'text-yellow-400',
           bg: 'bg-yellow-500/10',
-          label: 'Offline',
+          label: t('autoSave.offline', 'Offline'),
         };
       default:
         return {
           color: 'text-surface-400',
           bg: 'bg-surface-700',
-          label: lastSaved ? formatRelativeTime(lastSaved) : 'Not saved',
+          label: lastSaved ? formatRelativeTime(lastSaved) : t('autoSave.notSaved', 'Not saved'),
         };
     }
   };
@@ -264,7 +266,7 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
     return (
       <div
         className={cn('relative', className)}
-        title={`${config.label}${lastSaved ? ` - Last saved ${formatRelativeTime(lastSaved)}` : ''}`}
+        title={`${config.label}${lastSaved ? ` - ${t('autoSave.lastSaved', 'Last saved')} ${formatRelativeTime(lastSaved)}` : ''}`}
       >
         <StatusIcon status={status} className={cn('w-4 h-4', config.color)} />
         {status === 'saved' && (
@@ -314,10 +316,11 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-yellow-400">Unsaved changes detected</p>
+              <p className="text-sm font-medium text-yellow-400">{t('autoSave.unsavedChangesDetected', 'Unsaved changes detected')}</p>
               <p className="text-xs text-surface-400 mt-1">
-                Found auto-saved content from {formatRelativeTime(pendingRecovery.timestamp)}. Would
-                you like to recover it?
+                {t('autoSave.foundAutoSavedFrom', 'Found auto-saved content from')}{' '}
+                {formatRelativeTime(pendingRecovery.timestamp)}.{' '}
+                {t('autoSave.wouldYouLikeToRecover', 'Would you like to recover it?')}
               </p>
               <div className="flex gap-2 mt-3">
                 <button
@@ -331,13 +334,13 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
                   }}
                   className="px-3 py-1.5 bg-yellow-500 text-black text-xs font-medium rounded hover:bg-yellow-400 transition-colors"
                 >
-                  Recover
+                  {t('autoSave.recover', 'Recover')}
                 </button>
                 <button
                   onClick={handleDismissRecovery}
                   className="px-3 py-1.5 bg-surface-700 text-surface-300 text-xs rounded hover:bg-surface-600 transition-colors"
                 >
-                  Dismiss
+                  {t('autoSave.dismiss', 'Dismiss')}
                 </button>
               </div>
             </div>
@@ -354,7 +357,7 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
           <div>
             <p className={cn('text-sm font-medium', config.color)}>{config.label}</p>
             {lastSaved && status !== 'saving' && (
-              <p className="text-xs text-surface-500">Last saved {formatRelativeTime(lastSaved)}</p>
+              <p className="text-xs text-surface-500">{t('autoSave.lastSaved', 'Last saved')} {formatRelativeTime(lastSaved)}</p>
             )}
           </div>
         </div>
@@ -369,7 +372,7 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
                 'bg-surface-700 hover:bg-surface-600',
                 status === 'saving' && 'opacity-50 cursor-not-allowed'
               )}
-              title="Save now"
+              title={t('autoSave.saveNow', 'Save now')}
             >
               <Save className="w-4 h-4 text-surface-300" />
             </button>
@@ -379,7 +382,7 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="p-2 rounded-lg bg-surface-700 hover:bg-surface-600 transition-colors"
-              title="Version history"
+              title={t('autoSave.versionHistory', 'Version history')}
             >
               <History className="w-4 h-4 text-surface-300" />
             </button>
@@ -414,6 +417,7 @@ const VersionHistoryDropdown = memo(function VersionHistoryDropdown({
   onSelect,
   onClose,
 }: VersionHistoryDropdownProps) {
+  const { t } = useTranslation();
   // Close on escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -442,7 +446,7 @@ const VersionHistoryDropdown = memo(function VersionHistoryDropdown({
   if (history.length === 0) {
     return (
       <div className="version-history-dropdown absolute top-full left-0 mt-1 w-64 bg-surface-800 border border-surface-700 rounded-lg shadow-xl z-50 p-3">
-        <p className="text-sm text-surface-400 text-center">No version history</p>
+        <p className="text-sm text-surface-400 text-center">{t('autoSave.noVersionHistory', 'No version history')}</p>
       </div>
     );
   }
@@ -452,7 +456,7 @@ const VersionHistoryDropdown = memo(function VersionHistoryDropdown({
       <div className="px-3 py-2 border-b border-surface-700">
         <h4 className="text-sm font-medium text-surface-200 flex items-center gap-2">
           <History className="w-4 h-4" />
-          Version History
+          {t('autoSave.versionHistoryTitle', 'Version History')}
         </h4>
       </div>
 
@@ -470,7 +474,7 @@ const VersionHistoryDropdown = memo(function VersionHistoryDropdown({
             <Clock className="w-4 h-4 text-surface-500 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-surface-200">
-                {index === 0 ? 'Current' : `Version ${version.version}`}
+                {index === 0 ? t('autoSave.current', 'Current') : `${t('autoSave.version', 'Version')} ${version.version}`}
               </p>
               <p className="text-xs text-surface-500">
                 {formatTime(version.timestamp)} • {formatRelativeTime(version.timestamp)}
@@ -482,7 +486,7 @@ const VersionHistoryDropdown = memo(function VersionHistoryDropdown({
       </div>
 
       <div className="px-3 py-2 border-t border-surface-700 bg-surface-900/50">
-        <p className="text-xs text-surface-500">Click a version to restore it</p>
+        <p className="text-xs text-surface-500">{t('autoSave.clickVersionToRestore', 'Click a version to restore it')}</p>
       </div>
     </div>
   );
