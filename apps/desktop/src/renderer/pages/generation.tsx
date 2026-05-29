@@ -32,6 +32,7 @@ import { ShotPreview, ModelSelector, BatchCostSummary, ComparisonView } from '..
 import { QualityRadarChart } from '../components/quality-radar-chart';
 import { IPAdapterControls } from '../components/ip-adapter-controls';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import { useWebSocketEvent, EventType, WebSocketEvent } from '../lib/websocket';
 import { useToast } from '../stores/toast-store';
 import { useGenerationStore } from '../stores/generation-store';
@@ -93,6 +94,7 @@ export function GenerationPage() {
   const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
   const [showComparison, setShowComparison] = useState(false);
   const toast = useToast();
+  const { t } = useTranslation();
 
   // Generation store for provider/model selection
   const {
@@ -170,7 +172,10 @@ export function GenerationPage() {
     refetchJobs();
     refetchQueueStatus();
     setIsProcessing(true);
-    toast.info('Generation started', event.data?.message || 'Processing shot...');
+    toast.info(
+      t('generation.generationStarted', 'Generation started'),
+      event.data?.message || t('generation.processingShot', 'Processing shot...')
+    );
   });
 
   useWebSocketEvent(EventType.JOB_PROGRESS, () => {
@@ -181,7 +186,10 @@ export function GenerationPage() {
     refetchScenes();
     refetchJobs();
     refetchQueueStatus();
-    toast.success('Shot generated', event.data?.message || 'Generation completed successfully');
+    toast.success(
+      t('generation.shotGenerated', 'Shot generated'),
+      event.data?.message || t('generation.generationCompletedSuccessfully', 'Generation completed successfully')
+    );
   });
 
   useWebSocketEvent(EventType.JOB_FAILED, (event: WebSocketEvent) => {
@@ -189,12 +197,12 @@ export function GenerationPage() {
     refetchJobs();
     refetchQueueStatus();
     toast.error(
-      'Generation failed',
-      event.data?.error_message || 'An error occurred during generation',
+      t('generation.generationFailed', 'Generation failed'),
+      event.data?.error_message || t('generation.anErrorOccurredDuringGeneration', 'An error occurred during generation'),
       {
         action: event.data?.job_id
           ? {
-              label: 'Retry',
+              label: t('generation.retry', 'Retry'),
               onClick: () => {
                 window.electronAPI.backendRequest('generation.retryJob', {
                   job_id: event.data.job_id,
@@ -223,10 +231,13 @@ export function GenerationPage() {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
       queryClient.invalidateQueries({ queryKey: ['queueStatus', projectId] });
       setIsProcessing(true);
-      toast.success('Generation started', 'Project queued for generation');
+      toast.success(
+        t('generation.generationStarted', 'Generation started'),
+        t('generation.projectQueuedForGeneration', 'Project queued for generation')
+      );
     },
     onError: (error: Error) => {
-      toast.error('Failed to queue project', error.message);
+      toast.error(t('generation.failedToQueueProject', 'Failed to queue project'), error.message);
     },
   });
 
@@ -243,7 +254,7 @@ export function GenerationPage() {
       queryClient.invalidateQueries({ queryKey: ['pendingJobs'] });
     },
     onError: (error: Error) => {
-      toast.error('Failed to process job', error.message);
+      toast.error(t('generation.failedToProcessJob', 'Failed to process job'), error.message);
     },
   });
 
@@ -256,10 +267,13 @@ export function GenerationPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
-      toast.success('Shot approved', 'Shot marked as approved');
+      toast.success(
+        t('generation.shotApproved', 'Shot approved'),
+        t('generation.shotMarkedAsApproved', 'Shot marked as approved')
+      );
     },
     onError: (error: Error) => {
-      toast.error('Failed to approve shot', error.message);
+      toast.error(t('generation.failedToApproveShot', 'Failed to approve shot'), error.message);
     },
   });
 
@@ -273,10 +287,13 @@ export function GenerationPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
-      toast.info('Shot rejected', 'Shot will be regenerated');
+      toast.info(
+        t('generation.shotRejected', 'Shot rejected'),
+        t('generation.shotWillBeRegenerated', 'Shot will be regenerated')
+      );
     },
     onError: (error: Error) => {
-      toast.error('Failed to reject shot', error.message);
+      toast.error(t('generation.failedToRejectShot', 'Failed to reject shot'), error.message);
     },
   });
 
@@ -292,10 +309,13 @@ export function GenerationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
       queryClient.invalidateQueries({ queryKey: ['queueStatus', projectId] });
-      toast.info('Shot queued', 'Shot added to generation queue');
+      toast.info(
+        t('generation.shotQueued', 'Shot queued'),
+        t('generation.shotAddedToGenerationQueue', 'Shot added to generation queue')
+      );
     },
     onError: (error: Error) => {
-      toast.error('Failed to queue shot', error.message);
+      toast.error(t('generation.failedToQueueShot', 'Failed to queue shot'), error.message);
     },
   });
 
@@ -382,7 +402,10 @@ export function GenerationPage() {
           if (newSet.size < 3) {
             newSet.add(shotId);
           } else {
-            toast.warning('Maximum 3 videos', 'You can only compare up to 3 videos at once');
+            toast.warning(
+              t('generation.maximum3Videos', 'Maximum 3 videos'),
+              t('generation.youCanOnlyCompareUpTo3VideosAtOnce', 'You can only compare up to 3 videos at once')
+            );
           }
         }
         return newSet;
@@ -395,7 +418,10 @@ export function GenerationPage() {
     if (selectedForCompare.size >= 2) {
       setShowComparison(true);
     } else {
-      toast.info('Select videos', 'Select at least 2 videos to compare');
+      toast.info(
+        t('generation.selectVideos', 'Select videos'),
+        t('generation.selectAtLeast2VideosToCompare', 'Select at least 2 videos to compare')
+      );
     }
   }, [selectedForCompare, toast]);
 
@@ -412,7 +438,7 @@ export function GenerationPage() {
   if (isLoadingScenes) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-surface-400">Loading shots...</div>
+        <div className="text-surface-400">{t('generation.loadingShots', 'Loading shots...')}</div>
       </div>
     );
   }
@@ -431,9 +457,9 @@ export function GenerationPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Play className="w-7 h-7 text-brand-400" />
-              Generation
+              {t('generation.generation', 'Generation')}
             </h1>
-            <p className="text-surface-400 mt-1">Generate and review video content for each shot</p>
+            <p className="text-surface-400 mt-1">{t('generation.generateAndReviewVideoContentForEachShot', 'Generate and review video content for each shot')}</p>
           </div>
         </div>
 
@@ -446,14 +472,14 @@ export function GenerationPage() {
               className="btn-primary"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Generate All ({stats.pending})
+              {t('generation.generateAll', 'Generate All')} ({stats.pending})
             </button>
           )}
 
           {isProcessing && (
             <button onClick={() => setIsProcessing(false)} className="btn-secondary">
               <Pause className="w-4 h-4 mr-2" />
-              Pause
+              {t('generation.pause', 'Pause')}
             </button>
           )}
         </div>
@@ -462,18 +488,18 @@ export function GenerationPage() {
       {/* Stats Bar */}
       <div className="grid grid-cols-6 gap-4 mb-6">
         <div className="card p-4">
-          <div className="text-sm text-surface-400 mb-1">Total</div>
+          <div className="text-sm text-surface-400 mb-1">{t('generation.total', 'Total')}</div>
           <div className="text-2xl font-bold">{stats.total}</div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-surface-400 mb-1">Pending</div>
+          <div className="text-sm text-surface-400 mb-1">{t('generation.pending', 'Pending')}</div>
           <div className="text-2xl font-bold flex items-center gap-2">
             <Clock className="w-5 h-5 text-surface-500" />
             {stats.pending}
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-surface-400 mb-1">Generating</div>
+          <div className="text-sm text-surface-400 mb-1">{t('generation.generating', 'Generating')}</div>
           <div className="text-2xl font-bold flex items-center gap-2">
             <Loader2
               className={cn('w-5 h-5 text-yellow-400', stats.generating > 0 && 'animate-spin')}
@@ -482,21 +508,21 @@ export function GenerationPage() {
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-surface-400 mb-1">Review</div>
+          <div className="text-sm text-surface-400 mb-1">{t('generation.review', 'Review')}</div>
           <div className="text-2xl font-bold flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-brand-400" />
             {stats.review}
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-surface-400 mb-1">Approved</div>
+          <div className="text-sm text-surface-400 mb-1">{t('generation.approved', 'Approved')}</div>
           <div className="text-2xl font-bold flex items-center gap-2">
             <CheckCircle className="w-5 h-5 text-green-400" />
             {stats.approved}
           </div>
         </div>
         <div className="card p-4">
-          <div className="text-sm text-surface-400 mb-1">Failed</div>
+          <div className="text-sm text-surface-400 mb-1">{t('generation.failed', 'Failed')}</div>
           <div className="text-2xl font-bold flex items-center gap-2">
             <XCircle className="w-5 h-5 text-red-400" />
             {stats.failed}
@@ -507,7 +533,7 @@ export function GenerationPage() {
       {/* Progress Bar */}
       <div className="card p-4 mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-surface-400">Overall Progress</span>
+          <span className="text-sm text-surface-400">{t('generation.overallProgress', 'Overall Progress')}</span>
           <span className="text-sm font-medium">{Math.round(progress)}%</span>
         </div>
         <div className="w-full h-3 bg-surface-700 rounded-full overflow-hidden">
@@ -518,7 +544,8 @@ export function GenerationPage() {
         </div>
         {isProcessing && (
           <p className="text-xs text-surface-500 mt-2">
-            Processing... {queueStatus?.running || 0} job(s) running
+            {t('generation.processing', 'Processing...')} {queueStatus?.running || 0}{' '}
+            {t('generation.jobsRunning', 'job(s) running')}
           </p>
         )}
       </div>
@@ -531,7 +558,7 @@ export function GenerationPage() {
         >
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-brand-400" />
-            <span className="font-medium">Generation Settings</span>
+            <span className="font-medium">{t('generation.generationSettings', 'Generation Settings')}</span>
             {selectedProvider && (
               <span className="px-2 py-0.5 bg-surface-700 text-xs rounded">
                 {selectedProvider}
@@ -552,7 +579,7 @@ export function GenerationPage() {
             <div className="grid grid-cols-2 gap-4">
               {/* Provider Selection */}
               <div>
-                <label className="block text-sm text-surface-400 mb-2">Video Provider</label>
+                <label className="block text-sm text-surface-400 mb-2">{t('generation.videoProvider', 'Video Provider')}</label>
                 <select
                   value={selectedProvider || ''}
                   onChange={(e) => {
@@ -561,19 +588,19 @@ export function GenerationPage() {
                   }}
                   className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 >
-                  <option value="">Select provider...</option>
+                  <option value="">{t('generation.selectProvider', 'Select provider...')}</option>
                   {useGenerationStore.getState().providersHealth.length > 0 ? (
                     useGenerationStore.getState().providersHealth.map((p) => (
                       <option key={p.provider} value={p.provider}>
-                        {p.name} {p.available ? '✓' : '(unavailable)'}
+                        {p.name} {p.available ? '✓' : t('generation.unavailable', '(unavailable)')}
                       </option>
                     ))
                   ) : (
                     <>
-                      <option value="local">Mock (Testing)</option>
+                      <option value="local">{t('generation.mockTesting', 'Mock (Testing)')}</option>
                       <option value="replicate">Replicate</option>
                       <option value="fal">Fal.ai</option>
-                      <option value="comfyui">ComfyUI (Local)</option>
+                      <option value="comfyui">{t('generation.comfyuiLocal', 'ComfyUI (Local)')}</option>
                       <option value="runpod">RunPod</option>
                       <option value="actcore">ActCore</option>
                     </>
@@ -584,7 +611,7 @@ export function GenerationPage() {
               {/* Model Selection */}
               {selectedProvider && (
                 <div>
-                  <label className="block text-sm text-surface-400 mb-2">Model</label>
+                  <label className="block text-sm text-surface-400 mb-2">{t('generation.model', 'Model')}</label>
                   <ModelSelector
                     providerId={selectedProvider}
                     selectedModel={selectedModel}
@@ -634,7 +661,10 @@ export function GenerationPage() {
                     : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
                 )}
               >
-                {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+                {t(
+                  `generation.filter${filterType.charAt(0).toUpperCase() + filterType.slice(1)}`,
+                  filterType.charAt(0).toUpperCase() + filterType.slice(1)
+                )}
                 {filterType !== 'all' && (
                   <span className="ml-1 text-surface-500">
                     ({stats[filterType as keyof typeof stats]})
@@ -659,7 +689,9 @@ export function GenerationPage() {
               )}
             >
               <GitCompare className="w-4 h-4" />
-              {compareMode ? 'Cancel Compare' : 'Compare'}
+              {compareMode
+                ? t('generation.cancelCompare', 'Cancel Compare')
+                : t('generation.compare', 'Compare')}
             </button>
           )}
 
@@ -669,7 +701,7 @@ export function GenerationPage() {
               onClick={handleCompare}
               className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm transition-colors"
             >
-              Compare Selected ({selectedForCompare.size})
+              {t('generation.compareSelected', 'Compare Selected')} ({selectedForCompare.size})
             </button>
           )}
 
@@ -727,7 +759,7 @@ export function GenerationPage() {
                       checked={isSelected}
                       onChange={() => toggleShotSelection(shot.id)}
                       className="w-5 h-5 rounded border-2 border-white bg-black/50 checked:bg-brand-500 checked:border-brand-500 cursor-pointer"
-                      aria-label={`Select ${shot.shotNumber} for comparison`}
+                      aria-label={`${t('generation.select', 'Select')} ${shot.shotNumber} ${t('generation.forComparison', 'for comparison')}`}
                     />
                   </div>
                 )}
@@ -759,11 +791,11 @@ export function GenerationPage() {
       ) : (
         <div className="text-center py-16">
           <Play className="w-16 h-16 mx-auto text-surface-600 mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Shots Found</h3>
+          <h3 className="text-lg font-medium mb-2">{t('generation.noShotsFound', 'No Shots Found')}</h3>
           <p className="text-surface-400">
             {filter !== 'all'
-              ? 'No shots match the current filter.'
-              : 'Shots will appear here once scenes are planned.'}
+              ? t('generation.noShotsMatchTheCurrentFilter', 'No shots match the current filter.')
+              : t('generation.shotsWillAppearHereOnceScenesArePlanned', 'Shots will appear here once scenes are planned.')}
           </p>
         </div>
       )}
@@ -776,7 +808,7 @@ export function GenerationPage() {
             className="btn-primary shadow-lg"
           >
             <Check className="w-4 h-4 mr-2" />
-            Continue to Export
+            {t('generation.continueToExport', 'Continue to Export')}
           </button>
         </div>
       )}
@@ -791,7 +823,7 @@ export function GenerationPage() {
               return {
                 id: shot.id,
                 src: shot.outputVideoPath,
-                label: `Shot ${shot.shotNumber}`,
+                label: `${t('generation.shot', 'Shot')} ${shot.shotNumber}`,
                 poster: shot.outputThumbnailPath,
               };
             })

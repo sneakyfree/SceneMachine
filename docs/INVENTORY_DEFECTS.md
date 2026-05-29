@@ -262,12 +262,25 @@ the `NaN:NaN` displays on `/export` and `/admin` flagged 2026-05-24 are gone.
   in Spanish (Proyectos/Configuración/Ayuda), the English strings disappear, and
   the locale persists across reload.
 
-- **P2 — page-body strings not yet migrated** (REMAINING) — only the global nav +
-  common keys are in the catalog so far. Page-body copy (project list empty-state
-  "No projects yet", page headings/descriptions, modal/form labels, toast
-  messages) is still hardcoded English and renders English even when the locale is
-  ES. **Migration path**: replace each hardcoded string with `t('<page>.<key>')`,
-  add the key to both `en` and `es` catalogs in `i18n/index.ts`; adding a locale =
-  adding one catalog object. This is mechanical, incremental, and non-blocking for
-  the foundation — but the platform is **not fully localized** until it is done.
-  No silent overclaim: switching to ES today localizes the chrome, not the content.
+- **P2 — page-body strings migrated** (CLOSED, 2026-05-29) — all 16 renderer
+  pages (`home`, `project`, `analytics`, `archive`, `help`, `admin`, `settings`,
+  `explainability`, `generation`, `export`, `timeline`, `character-lab`,
+  `scene-planning`, `actforge`, `dna-strand-demo`, `not-found`) now route their
+  user-facing copy through `t('<page>.<key>', '<English>')`: headings,
+  descriptions, empty-states, form/field labels, buttons, placeholders,
+  `title`/`aria-label`, tab labels, and user-visible toast/error messages.
+  **871 page-body keys** added (plus 16 nav/common = **887 total**), each with a
+  natural Spanish translation, generated into `i18n/catalog.generated.ts` and
+  merged by `i18n/index.ts`. Dynamic data (project names, counts, timecodes,
+  brand identifiers, API keys) is intentionally NOT translated. Switching to ES
+  now localizes **content, not just chrome** — verified by screenshot (home page
+  fully Spanish: Proyectos / "Crea y gestiona tus proyectos…" / "Aún no hay
+  proyectos" / "Crear proyecto").
+  **Guards**: `qa_i18n_tour.spec.ts` pre-seeds `locale=es` and asserts Spanish
+  body content on home/analytics/archive/help/settings/admin with zero crashes;
+  `i18n.test.ts` asserts every locale covers all 887 keys (no silent EN
+  fallback). Full QA suite (52 tests: screenshot ×17 + tabs + every-button ×15 +
+  populated ×11 + i18n ×7) green — none of the 16 edited pages regressed.
+  **Remaining (P3, minor)**: shared components outside `pages/` (modals, cards,
+  toasts in `components/`) and a few intentionally-skipped interpolated/technical
+  strings still render English; the same `t()` pattern applies when needed.

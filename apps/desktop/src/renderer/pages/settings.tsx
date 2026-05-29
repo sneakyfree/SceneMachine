@@ -54,6 +54,7 @@ import { CircuitBreakerPanel } from '../components/circuit-breaker-status';
 import { ExperienceModeSelector } from '../components/experience-mode-selector';
 import { useToast } from '../components/toast';
 import { announce } from '../lib/accessibility';
+import { useTranslation } from '../i18n/use-translation';
 
 // Format bytes to human readable
 function formatBytes(bytes: number): string {
@@ -84,6 +85,7 @@ function ApiKeyInput({
   onValidate: (key: string) => Promise<ProviderStatus>;
   isSaving: boolean;
 }) {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [keyValue, setKeyValue] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -121,7 +123,7 @@ function ApiKeyInput({
           <span className="font-medium">{providerName}</span>
           {configured && (
             <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">
-              Configured
+              {t('settings.configured', 'Configured')}
             </span>
           )}
         </div>
@@ -132,14 +134,14 @@ function ApiKeyInput({
               onClick={() => setIsEditing(true)}
               className="text-sm text-brand-400 hover:text-brand-300"
             >
-              Change
+              {t('settings.change', 'Change')}
             </button>
             <button
               onClick={handleRemove}
               className="text-sm text-red-400 hover:text-red-300"
               disabled={isSaving}
             >
-              Remove
+              {t('settings.remove', 'Remove')}
             </button>
           </div>
         )}
@@ -153,7 +155,7 @@ function ApiKeyInput({
                 type={showKey ? 'text' : 'password'}
                 value={keyValue}
                 onChange={(e) => setKeyValue(e.target.value)}
-                placeholder={`Enter ${providerName} API key`}
+                placeholder={`${t('settings.enter', 'Enter')} ${providerName} ${t('settings.apiKeyLower', 'API key')}`}
                 className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2 pr-10"
               />
               <button
@@ -169,14 +171,14 @@ function ApiKeyInput({
               disabled={!keyValue.trim() || isValidating}
               className="px-3 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm disabled:opacity-50"
             >
-              {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test'}
+              {isValidating ? <Loader2 className="w-4 h-4 animate-spin" /> : t('settings.test', 'Test')}
             </button>
             <button
               onClick={handleSave}
               disabled={!keyValue.trim() || isSaving}
               className="px-3 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-sm disabled:opacity-50"
             >
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('settings.save', 'Save')}
             </button>
             {isEditing && (
               <button
@@ -187,7 +189,7 @@ function ApiKeyInput({
                 }}
                 className="px-3 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm"
               >
-                Cancel
+                {t('settings.cancel', 'Cancel')}
               </button>
             )}
           </div>
@@ -258,6 +260,7 @@ function ProviderStatusCard({ status }: { status: ProviderStatus }) {
 
 // TTS Settings Section
 function TTSSettingsSection() {
+  const { t } = useTranslation();
   const {
     providers,
     voices,
@@ -272,7 +275,9 @@ function TTSSettingsSection() {
     setSelectedProvider,
   } = useAudioStore();
 
-  const [previewText, setPreviewText] = useState('Hello, this is a preview of my voice.');
+  const [previewText, setPreviewText] = useState(
+    t('settings.voicePreviewDefaultText', 'Hello, this is a preview of my voice.')
+  );
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = React.useRef<HTMLAudioElement>(null);
@@ -329,7 +334,7 @@ function TTSSettingsSection() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium flex items-center gap-2">
           <Volume2 className="w-5 h-5 text-brand-400" />
-          Voice & TTS Settings
+          {t('settings.voiceTtsSettings', 'Voice & TTS Settings')}
         </h2>
         <button
           onClick={() => {
@@ -344,7 +349,7 @@ function TTSSettingsSection() {
           ) : (
             <RefreshCw className="w-4 h-4" />
           )}
-          Refresh
+          {t('settings.refresh', 'Refresh')}
         </button>
       </div>
 
@@ -352,7 +357,7 @@ function TTSSettingsSection() {
         {/* TTS Provider Selection */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-surface-400 mb-2">Default TTS Provider</label>
+            <label className="block text-sm text-surface-400 mb-2">{t('settings.defaultTtsProvider', 'Default TTS Provider')}</label>
             <select
               value={selectedProvider}
               onChange={(e) => handleProviderChange(e.target.value)}
@@ -360,7 +365,7 @@ function TTSSettingsSection() {
               className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2"
             >
               {availableProviders.length === 0 ? (
-                <option>No providers available</option>
+                <option>{t('settings.noProvidersAvailable', 'No providers available')}</option>
               ) : (
                 availableProviders.map((provider) => (
                   <option key={provider.id} value={provider.id}>
@@ -375,13 +380,13 @@ function TTSSettingsSection() {
           </div>
 
           <div>
-            <label className="block text-sm text-surface-400 mb-2">Available Voices</label>
+            <label className="block text-sm text-surface-400 mb-2">{t('settings.availableVoices', 'Available Voices')}</label>
             <div className="bg-surface-800/50 rounded-lg px-3 py-2 text-sm">
               {isLoadingVoices ? (
-                <span className="text-surface-400">Loading...</span>
+                <span className="text-surface-400">{t('settings.loading', 'Loading...')}</span>
               ) : (
                 <span>
-                  {voices.length} voice{voices.length !== 1 ? 's' : ''} available
+                  {voices.length} voice{voices.length !== 1 ? 's' : ''} {t('settings.available', 'available')}
                 </span>
               )}
             </div>
@@ -390,7 +395,7 @@ function TTSSettingsSection() {
 
         {/* Provider Status Grid */}
         <div>
-          <label className="block text-sm text-surface-400 mb-2">Provider Status</label>
+          <label className="block text-sm text-surface-400 mb-2">{t('settings.providerStatus', 'Provider Status')}</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {providers.map((provider) => (
               <div
@@ -411,7 +416,7 @@ function TTSSettingsSection() {
                   />
                   <span className="font-medium truncate">{provider.name}</span>
                 </div>
-                <div className="text-xs text-surface-400 mt-1">{provider.voices_count} voices</div>
+                <div className="text-xs text-surface-400 mt-1">{provider.voices_count} {t('settings.voicesUnit', 'voices')}</div>
               </div>
             ))}
           </div>
@@ -419,7 +424,7 @@ function TTSSettingsSection() {
 
         {/* Voice Preview */}
         <div className="pt-4 border-t border-surface-700">
-          <label className="block text-sm text-surface-400 mb-2">Voice Preview</label>
+          <label className="block text-sm text-surface-400 mb-2">{t('settings.voicePreview', 'Voice Preview')}</label>
           <div className="space-y-3">
             {/* Voice Selection */}
             <div className="flex gap-2">
@@ -432,7 +437,7 @@ function TTSSettingsSection() {
                 disabled={isLoadingVoices || voices.length === 0}
                 className="flex-1 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2"
               >
-                <option value="">Select a voice to preview...</option>
+                <option value="">{t('settings.selectVoiceToPreview', 'Select a voice to preview...')}</option>
                 {voices.map((voice) => (
                   <option key={voice.id} value={voice.id}>
                     {voice.name}
@@ -447,7 +452,7 @@ function TTSSettingsSection() {
             <textarea
               value={previewText}
               onChange={(e) => setPreviewText(e.target.value)}
-              placeholder="Enter text to preview..."
+              placeholder={t('settings.enterTextToPreview', 'Enter text to preview...')}
               rows={2}
               className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 resize-none"
             />
@@ -466,12 +471,16 @@ function TTSSettingsSection() {
                 ) : (
                   <Play className="w-4 h-4" />
                 )}
-                {isGenerating ? 'Generating...' : isPlaying ? 'Playing' : 'Preview Voice'}
+                {isGenerating
+                  ? t('settings.generating', 'Generating...')
+                  : isPlaying
+                    ? t('settings.playing', 'Playing')
+                    : t('settings.previewVoice', 'Preview Voice')}
               </button>
 
               {selectedVoice && (
                 <div className="text-sm text-surface-400">
-                  Selected: <span className="text-surface-200">{selectedVoice.name}</span>
+                  {t('settings.selected', 'Selected:')} <span className="text-surface-200">{selectedVoice.name}</span>
                 </div>
               )}
             </div>
@@ -500,6 +509,7 @@ function TTSSettingsSection() {
 
 // Accessibility Settings Section
 function AccessibilitySettingsSection() {
+  const { t } = useTranslation();
   const { settings, saveSettings, isSaving } = useSettingsStore();
 
   const [localFontSize, setLocalFontSize] = useState<FontSizeScale>(
@@ -547,10 +557,10 @@ function AccessibilitySettingsSection() {
   };
 
   const FONT_SIZE_OPTIONS: { value: FontSizeScale; label: string; preview: string }[] = [
-    { value: 'small', label: 'Small', preview: 'Aa' },
-    { value: 'medium', label: 'Medium', preview: 'Aa' },
-    { value: 'large', label: 'Large', preview: 'Aa' },
-    { value: 'extra-large', label: 'Extra Large', preview: 'Aa' },
+    { value: 'small', label: t('settings.fontSizeSmall', 'Small'), preview: 'Aa' },
+    { value: 'medium', label: t('settings.fontSizeMedium', 'Medium'), preview: 'Aa' },
+    { value: 'large', label: t('settings.fontSizeLarge', 'Large'), preview: 'Aa' },
+    { value: 'extra-large', label: t('settings.fontSizeExtraLarge', 'Extra Large'), preview: 'Aa' },
   ];
 
   const fontSizePreviewClasses: Record<FontSizeScale, string> = {
@@ -565,7 +575,7 @@ function AccessibilitySettingsSection() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium flex items-center gap-2">
           <Accessibility className="w-5 h-5 text-brand-400" />
-          Accessibility
+          {t('settings.accessibility', 'Accessibility')}
         </h2>
         {hasChanges && (
           <button
@@ -574,21 +584,23 @@ function AccessibilitySettingsSection() {
             className="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-sm flex items-center gap-2"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save Changes
+            {t('settings.saveChanges', 'Save Changes')}
           </button>
         )}
       </div>
 
       <p className="text-sm text-surface-400 mb-6">
-        Customize the interface to make it easier to use. These settings help with visibility and
-        navigation.
+        {t(
+          'settings.accessibilityIntro',
+          'Customize the interface to make it easier to use. These settings help with visibility and navigation.'
+        )}
       </p>
 
       {/* Font Size Selection */}
       <div className="mb-6">
         <label className="flex items-center gap-2 text-sm text-surface-400 mb-3">
           <Type className="w-4 h-4" />
-          Text Size
+          {t('settings.textSize', 'Text Size')}
         </label>
         <div className="grid grid-cols-4 gap-3">
           {FONT_SIZE_OPTIONS.map((option) => {
@@ -615,9 +627,12 @@ function AccessibilitySettingsSection() {
 
         {/* Live Preview */}
         <div className="mt-4 p-4 bg-surface-800/30 rounded-lg border border-surface-700">
-          <div className="text-xs text-surface-500 mb-2">Preview:</div>
+          <div className="text-xs text-surface-500 mb-2">{t('settings.previewLabel', 'Preview:')}</div>
           <p className={cn('text-surface-200', fontSizePreviewClasses[localFontSize])}>
-            This is how text will appear with the selected size. Larger text is easier to read.
+            {t(
+              'settings.fontSizePreviewText',
+              'This is how text will appear with the selected size. Larger text is easier to read.'
+            )}
           </p>
         </div>
       </div>
@@ -631,9 +646,9 @@ function AccessibilitySettingsSection() {
               <Contrast className="w-5 h-5 text-surface-300" />
             </div>
             <div>
-              <h3 className="font-medium">High Contrast</h3>
+              <h3 className="font-medium">{t('settings.highContrast', 'High Contrast')}</h3>
               <p className="text-sm text-surface-400">
-                Increases contrast between elements for better visibility
+                {t('settings.highContrastDesc', 'Increases contrast between elements for better visibility')}
               </p>
             </div>
           </div>
@@ -658,9 +673,9 @@ function AccessibilitySettingsSection() {
               <Minimize2 className="w-5 h-5 text-surface-300" />
             </div>
             <div>
-              <h3 className="font-medium">Reduce Motion</h3>
+              <h3 className="font-medium">{t('settings.reduceMotion', 'Reduce Motion')}</h3>
               <p className="text-sm text-surface-400">
-                Minimizes animations and transitions throughout the app
+                {t('settings.reduceMotionDesc', 'Minimizes animations and transitions throughout the app')}
               </p>
             </div>
           </div>
@@ -685,9 +700,9 @@ function AccessibilitySettingsSection() {
               <MousePointer className="w-5 h-5 text-surface-300" />
             </div>
             <div>
-              <h3 className="font-medium">Large Click Targets</h3>
+              <h3 className="font-medium">{t('settings.largeClickTargets', 'Large Click Targets')}</h3>
               <p className="text-sm text-surface-400">
-                Makes buttons and interactive elements larger and easier to click
+                {t('settings.largeClickTargetsDesc', 'Makes buttons and interactive elements larger and easier to click')}
               </p>
             </div>
           </div>
@@ -710,8 +725,10 @@ function AccessibilitySettingsSection() {
       <div className="mt-6 p-3 bg-surface-800/30 rounded-lg border border-surface-700">
         <p className="text-xs text-surface-400">
           <Info className="w-3 h-3 inline mr-1" />
-          SceneMachine also respects your system accessibility preferences for reduced motion and
-          high contrast.
+          {t(
+            'settings.systemPrefsNote',
+            'SceneMachine also respects your system accessibility preferences for reduced motion and high contrast.'
+          )}
         </p>
       </div>
     </div>
@@ -720,6 +737,7 @@ function AccessibilitySettingsSection() {
 
 // Experience Mode Settings Section
 function ExperienceModeSettingsSection() {
+  const { t } = useTranslation();
   const {
     globalMode,
     featureOverrides,
@@ -731,32 +749,62 @@ function ExperienceModeSettingsSection() {
   } = useExperienceStore();
 
   const FEATURE_LABELS: Record<string, { label: string; description: string }> = {
-    screenplay: { label: 'Screenplay', description: 'Script upload and parsing' },
-    characters: { label: 'Characters', description: 'Character management' },
-    scenes: { label: 'Scenes', description: 'Scene planning and breakdown' },
-    generation: { label: 'Generation', description: 'Video generation queue' },
-    timeline: { label: 'Timeline', description: 'Timeline editing' },
-    export: { label: 'Export', description: 'Export settings' },
-    settings: { label: 'Settings', description: 'App configuration' },
+    screenplay: {
+      label: t('settings.featureScreenplay', 'Screenplay'),
+      description: t('settings.featureScreenplayDesc', 'Script upload and parsing'),
+    },
+    characters: {
+      label: t('settings.featureCharacters', 'Characters'),
+      description: t('settings.featureCharactersDesc', 'Character management'),
+    },
+    scenes: {
+      label: t('settings.featureScenes', 'Scenes'),
+      description: t('settings.featureScenesDesc', 'Scene planning and breakdown'),
+    },
+    generation: {
+      label: t('settings.featureGeneration', 'Generation'),
+      description: t('settings.featureGenerationDesc', 'Video generation queue'),
+    },
+    timeline: {
+      label: t('settings.featureTimeline', 'Timeline'),
+      description: t('settings.featureTimelineDesc', 'Timeline editing'),
+    },
+    export: {
+      label: t('settings.featureExport', 'Export'),
+      description: t('settings.featureExportDesc', 'Export settings'),
+    },
+    settings: {
+      label: t('settings.featureSettings', 'Settings'),
+      description: t('settings.featureSettingsDesc', 'App configuration'),
+    },
   };
 
   const MODE_INFO = {
     story: {
-      label: 'Story Mode',
+      label: t('settings.storyMode', 'Story Mode'),
       icon: '📖',
-      description: 'Simplified interface with friendly language. Perfect for beginners.',
+      description: t(
+        'settings.storyModeDesc',
+        'Simplified interface with friendly language. Perfect for beginners.'
+      ),
       color: 'bg-green-500/20 text-green-400 border-green-500/30',
     },
     creator: {
-      label: 'Creator Mode',
+      label: t('settings.creatorMode', 'Creator Mode'),
       icon: '🎬',
-      description: 'Balanced interface with helpful guidance. Great for most users.',
+      description: t(
+        'settings.creatorModeDesc',
+        'Balanced interface with helpful guidance. Great for most users.'
+      ),
       color: 'bg-brand-500/20 text-brand-400 border-brand-500/30',
     },
     pro: {
-      label: 'Pro Mode',
+      label: t('settings.proMode', 'Pro Mode'),
       icon: '🎥',
-      description: 'Full interface with technical details. For experienced filmmakers.',
+      description: t(
+        'settings.proModeDesc',
+        'Full interface with technical details. For experienced filmmakers.'
+      ),
       color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     },
   };
@@ -768,25 +816,28 @@ function ExperienceModeSettingsSection() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-brand-400" />
-          Experience Mode
+          {t('settings.experienceMode', 'Experience Mode')}
         </h2>
         {hasOverrides && (
           <button
             onClick={resetFeatureOverrides}
             className="text-sm text-surface-400 hover:text-surface-300"
           >
-            Reset to Defaults
+            {t('settings.resetToDefaults', 'Reset to Defaults')}
           </button>
         )}
       </div>
 
       <p className="text-sm text-surface-400 mb-6">
-        Choose how much detail you want to see. You can customize each feature individually.
+        {t(
+          'settings.experienceModeIntro',
+          'Choose how much detail you want to see. You can customize each feature individually.'
+        )}
       </p>
 
       {/* Global Mode Selection */}
       <div className="mb-6">
-        <label className="block text-sm text-surface-400 mb-3">Global Experience Level</label>
+        <label className="block text-sm text-surface-400 mb-3">{t('settings.globalExperienceLevel', 'Global Experience Level')}</label>
         <div className="grid grid-cols-3 gap-3">
           {(['story', 'creator', 'pro'] as const).map((mode) => {
             const info = MODE_INFO[mode];
@@ -821,8 +872,8 @@ function ExperienceModeSettingsSection() {
               <MessageCircle className="w-5 h-5 text-brand-400" />
             </div>
             <div>
-              <h3 className="font-medium">Steven AI Assistant</h3>
-              <p className="text-sm text-surface-400">Your personal movie-making guide</p>
+              <h3 className="font-medium">{t('settings.stevenAiAssistant', 'Steven AI Assistant')}</h3>
+              <p className="text-sm text-surface-400">{t('settings.stevenAiTagline', 'Your personal movie-making guide')}</p>
             </div>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
@@ -837,8 +888,10 @@ function ExperienceModeSettingsSection() {
         </div>
         {stevenEnabled && (
           <p className="text-xs text-surface-400 mt-3">
-            Steven will appear in the corner to help you through each step. Click on him anytime for
-            tips!
+            {t(
+              'settings.stevenAiHelp',
+              'Steven will appear in the corner to help you through each step. Click on him anytime for tips!'
+            )}
           </p>
         )}
       </div>
@@ -846,9 +899,9 @@ function ExperienceModeSettingsSection() {
       {/* Per-Feature Overrides */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <label className="block text-sm text-surface-400">Per-Feature Customization</label>
+          <label className="block text-sm text-surface-400">{t('settings.perFeatureCustomization', 'Per-Feature Customization')}</label>
           <span className="text-xs text-surface-500">
-            Override global mode for specific features
+            {t('settings.perFeatureOverrideHint', 'Override global mode for specific features')}
           </span>
         </div>
         <div className="space-y-2">
@@ -885,10 +938,10 @@ function ExperienceModeSettingsSection() {
                       : 'border-surface-700 text-surface-400'
                   )}
                 >
-                  <option value="">Use Global ({globalMode})</option>
-                  <option value="story">Story Mode</option>
-                  <option value="creator">Creator Mode</option>
-                  <option value="pro">Pro Mode</option>
+                  <option value="">{t('settings.useGlobal', 'Use Global')} ({globalMode})</option>
+                  <option value="story">{t('settings.storyMode', 'Story Mode')}</option>
+                  <option value="creator">{t('settings.creatorMode', 'Creator Mode')}</option>
+                  <option value="pro">{t('settings.proMode', 'Pro Mode')}</option>
                 </select>
               </div>
             );
@@ -900,6 +953,7 @@ function ExperienceModeSettingsSection() {
 }
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const {
@@ -978,18 +1032,18 @@ export function SettingsPage() {
       setHasChanges(false);
       addToast({
         type: 'success',
-        title: 'Settings Saved',
-        message: 'Your preferences have been saved successfully.',
+        title: t('settings.toastSettingsSavedTitle', 'Settings Saved'),
+        message: t('settings.toastSettingsSavedMessage', 'Your preferences have been saved successfully.'),
       });
-      announce('Settings saved successfully');
+      announce(t('settings.announceSettingsSaved', 'Settings saved successfully'));
     } catch (err) {
       console.error('Failed to save settings:', err);
       addToast({
         type: 'error',
-        title: 'Save Failed',
-        message: 'Failed to save settings. Please try again.',
+        title: t('settings.toastSaveFailedTitle', 'Save Failed'),
+        message: t('settings.toastSaveFailedMessage', 'Failed to save settings. Please try again.'),
       });
-      announce('Failed to save settings');
+      announce(t('settings.announceSaveFailed', 'Failed to save settings'));
     }
   };
 
@@ -999,10 +1053,10 @@ export function SettingsPage() {
     setHasChanges(false);
     addToast({
       type: 'info',
-      title: 'Changes Discarded',
-      message: 'Your changes have been discarded.',
+      title: t('settings.toastChangesDiscardedTitle', 'Changes Discarded'),
+      message: t('settings.toastChangesDiscardedMessage', 'Your changes have been discarded.'),
     });
-    announce('Changes discarded');
+    announce(t('settings.announceChangesDiscarded', 'Changes discarded'));
   };
 
   // Keyboard shortcuts
@@ -1018,14 +1072,14 @@ export function SettingsPage() {
         ) {
           e.preventDefault();
           setShowShortcuts(true);
-          announce('Keyboard shortcuts opened');
+          announce(t('settings.announceShortcutsOpened', 'Keyboard shortcuts opened'));
         }
       }
       // Escape - Close shortcuts or discard changes
       if (e.key === 'Escape') {
         if (showShortcuts) {
           setShowShortcuts(false);
-          announce('Keyboard shortcuts closed');
+          announce(t('settings.announceShortcutsClosed', 'Keyboard shortcuts closed'));
         } else if (hasChanges) {
           handleDiscard();
         }
@@ -1050,18 +1104,18 @@ export function SettingsPage() {
       fetchStorageStats();
       addToast({
         type: 'success',
-        title: 'Cache Cleared',
-        message: `${cacheType.charAt(0).toUpperCase() + cacheType.slice(1)} cache has been cleared.`,
+        title: t('settings.toastCacheClearedTitle', 'Cache Cleared'),
+        message: `${cacheType.charAt(0).toUpperCase() + cacheType.slice(1)} ${t('settings.toastCacheClearedMessage', 'cache has been cleared.')}`,
       });
-      announce(`${cacheType} cache cleared`);
+      announce(`${cacheType} ${t('settings.announceCacheCleared', 'cache cleared')}`);
     },
     onError: (_error, cacheType) => {
       addToast({
         type: 'error',
-        title: 'Clear Failed',
-        message: `Failed to clear ${cacheType} cache.`,
+        title: t('settings.toastClearFailedTitle', 'Clear Failed'),
+        message: `${t('settings.toastClearFailedMessagePrefix', 'Failed to clear')} ${cacheType} ${t('settings.toastClearFailedMessageSuffix', 'cache.')}`,
       });
-      announce(`Failed to clear ${cacheType} cache`);
+      announce(`${t('settings.announceClearFailedPrefix', 'Failed to clear')} ${cacheType} ${t('settings.announceClearFailedSuffix', 'cache')}`);
     },
   });
 
@@ -1087,17 +1141,17 @@ export function SettingsPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Settings className="w-6 h-6 text-brand-400" />
-              Settings
+              {t('settings.title', 'Settings')}
             </h1>
-            <p className="text-surface-400 mt-1">Configure application preferences and API keys</p>
+            <p className="text-surface-400 mt-1">{t('settings.subtitle', 'Configure application preferences and API keys')}</p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowShortcuts(true)}
               className="p-2 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded-lg"
-              title="Keyboard shortcuts (?)"
-              aria-label="Show keyboard shortcuts"
+              title={t('settings.keyboardShortcutsTitle', 'Keyboard shortcuts (?)')}
+              aria-label={t('settings.showKeyboardShortcutsAria', 'Show keyboard shortcuts')}
             >
               <Keyboard className="w-5 h-5" />
             </button>
@@ -1106,22 +1160,22 @@ export function SettingsPage() {
                 <button
                   onClick={handleDiscard}
                   className="px-4 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm"
-                  title="Discard changes (Escape)"
+                  title={t('settings.discardChangesTitle', 'Discard changes (Escape)')}
                 >
-                  Discard
+                  {t('settings.discard', 'Discard')}
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
                   className="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg text-sm flex items-center gap-2"
-                  title="Save changes (Ctrl+S)"
+                  title={t('settings.saveChangesTitle', 'Save changes (Ctrl+S)')}
                 >
                   {isSaving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  Save Changes
+                  {t('settings.saveChanges', 'Save Changes')}
                 </button>
               </>
             )}
@@ -1140,7 +1194,7 @@ export function SettingsPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium flex items-center gap-2">
               <Key className="w-5 h-5 text-brand-400" />
-              API Keys
+              {t('settings.apiKeys', 'API Keys')}
             </h2>
             <button
               onClick={() => checkAllProviders()}
@@ -1152,14 +1206,14 @@ export function SettingsPage() {
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              Check All
+              {t('settings.checkAll', 'Check All')}
             </button>
           </div>
 
           <div className="space-y-4">
             {/* LLM Providers */}
             <div>
-              <h3 className="text-sm font-medium text-surface-400 mb-3">LLM Providers</h3>
+              <h3 className="text-sm font-medium text-surface-400 mb-3">{t('settings.llmProviders', 'LLM Providers')}</h3>
               <div className="space-y-3">
                 <ApiKeyInput
                   provider="anthropic"
@@ -1187,7 +1241,7 @@ export function SettingsPage() {
             {/* Video Providers */}
             <div>
               <h3 className="text-sm font-medium text-surface-400 mb-3">
-                Video Generation Providers
+                {t('settings.videoGenerationProviders', 'Video Generation Providers')}
               </h3>
               <div className="space-y-3">
                 <ApiKeyInput
@@ -1225,7 +1279,7 @@ export function SettingsPage() {
 
             {/* Voice/TTS Providers */}
             <div>
-              <h3 className="text-sm font-medium text-surface-400 mb-3">Voice & TTS Providers</h3>
+              <h3 className="text-sm font-medium text-surface-400 mb-3">{t('settings.voiceTtsProviders', 'Voice & TTS Providers')}</h3>
               <div className="space-y-3">
                 <ApiKeyInput
                   provider="elevenlabs"
@@ -1243,13 +1297,13 @@ export function SettingsPage() {
                       <span className="font-medium">OpenAI TTS</span>
                       {settings?.apiKeys?.openai?.configured && (
                         <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">
-                          Uses OpenAI Key
+                          {t('settings.usesOpenaiKey', 'Uses OpenAI Key')}
                         </span>
                       )}
                     </div>
                   </div>
                   <p className="text-sm text-surface-400 mt-2">
-                    OpenAI TTS uses your OpenAI API key configured above.
+                    {t('settings.openaiTtsNote', 'OpenAI TTS uses your OpenAI API key configured above.')}
                   </p>
                 </div>
               </div>
@@ -1265,7 +1319,7 @@ export function SettingsPage() {
           <div className="card mb-6">
             <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
               <Cpu className="w-5 h-5 text-brand-400" />
-              Provider Status
+              {t('settings.providerStatus', 'Provider Status')}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {providerStatuses.map((status) => (
@@ -1284,12 +1338,12 @@ export function SettingsPage() {
         <div className="card mb-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <Video className="w-5 h-5 text-brand-400" />
-            Generation Settings
+            {t('settings.generationSettings', 'Generation Settings')}
           </h2>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Default LLM Provider</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('settings.defaultLlmProvider', 'Default LLM Provider')}</label>
               <select
                 value={getValue('llmProvider') || 'anthropic'}
                 onChange={(e) => handleLocalChange('llmProvider', e.target.value)}
@@ -1304,7 +1358,7 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Default Video Provider</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('settings.defaultVideoProvider', 'Default Video Provider')}</label>
               <select
                 value={getValue('videoProvider') || 'local'}
                 onChange={(e) => handleLocalChange('videoProvider', e.target.value)}
@@ -1319,7 +1373,7 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Default Resolution</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('settings.defaultResolution', 'Default Resolution')}</label>
               <select
                 value={getValue('defaultVideoResolution') || '1920x1080'}
                 onChange={(e) => handleLocalChange('defaultVideoResolution', e.target.value)}
@@ -1333,22 +1387,22 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Default Frame Rate</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('settings.defaultFrameRate', 'Default Frame Rate')}</label>
               <select
                 value={getValue('defaultVideoFps') || 24}
                 onChange={(e) => handleLocalChange('defaultVideoFps', parseInt(e.target.value))}
                 className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2"
               >
-                <option value={24}>24 fps (Cinema)</option>
+                <option value={24}>24 fps ({t('settings.fpsCinema', 'Cinema')})</option>
                 <option value={25}>25 fps (PAL)</option>
                 <option value={30}>30 fps (NTSC)</option>
-                <option value={60}>60 fps (Smooth)</option>
+                <option value={60}>60 fps ({t('settings.fpsSmooth', 'Smooth')})</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm text-surface-400 mb-2">
-                Max Concurrent Generations
+                {t('settings.maxConcurrentGenerations', 'Max Concurrent Generations')}
               </label>
               <input
                 type="number"
@@ -1364,7 +1418,7 @@ export function SettingsPage() {
 
             <div>
               <label className="block text-sm text-surface-400 mb-2">
-                Generation Timeout (seconds)
+                {t('settings.generationTimeoutSeconds', 'Generation Timeout (seconds)')}
               </label>
               <input
                 type="number"
@@ -1384,10 +1438,13 @@ export function SettingsPage() {
         <div className="card mb-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-brand-400" />
-            Budget & Cost Alerts
+            {t('settings.budgetCostAlerts', 'Budget & Cost Alerts')}
           </h2>
           <p className="text-sm text-surface-400 mb-4">
-            Set a spending limit to receive alerts when approaching or exceeding your budget.
+            {t(
+              'settings.budgetIntro',
+              'Set a spending limit to receive alerts when approaching or exceeding your budget.'
+            )}
           </p>
           <BudgetSettings
             currentBudgetLimit={settings?.budgetLimitUsd ?? null}
@@ -1405,12 +1462,12 @@ export function SettingsPage() {
         <div className="card mb-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <Palette className="w-5 h-5 text-brand-400" />
-            Appearance
+            {t('settings.appearance', 'Appearance')}
           </h2>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Theme</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('settings.theme', 'Theme')}</label>
               <select
                 value={getValue('themeMode') || 'dark'}
                 onChange={(e) => handleLocalChange('themeMode', e.target.value)}
@@ -1433,7 +1490,7 @@ export function SettingsPage() {
                 onChange={(e) => handleLocalChange('autoSaveEnabled', e.target.checked)}
                 className="w-4 h-4 rounded border-surface-600 bg-surface-800"
               />
-              <span className="text-sm">Auto-save projects</span>
+              <span className="text-sm">{t('settings.autoSaveProjects', 'Auto-save projects')}</span>
             </label>
 
             <label className="flex items-center gap-3 cursor-pointer">
@@ -1443,7 +1500,7 @@ export function SettingsPage() {
                 onChange={(e) => handleLocalChange('showAdvancedOptions', e.target.checked)}
                 className="w-4 h-4 rounded border-surface-600 bg-surface-800"
               />
-              <span className="text-sm">Show advanced options</span>
+              <span className="text-sm">{t('settings.showAdvancedOptions', 'Show advanced options')}</span>
             </label>
           </div>
         </div>
@@ -1456,14 +1513,14 @@ export function SettingsPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium flex items-center gap-2">
               <HardDrive className="w-5 h-5 text-brand-400" />
-              Storage
+              {t('settings.storage', 'Storage')}
             </h2>
             <button
               onClick={() => fetchStorageStats()}
               className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1"
             >
               <RefreshCw className="w-4 h-4" />
-              Refresh
+              {t('settings.refresh', 'Refresh')}
             </button>
           </div>
 
@@ -1472,25 +1529,25 @@ export function SettingsPage() {
               {/* Storage Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-surface-800/50 rounded-lg p-3">
-                  <div className="text-xs text-surface-400 mb-1">Total Data</div>
+                  <div className="text-xs text-surface-400 mb-1">{t('settings.totalData', 'Total Data')}</div>
                   <div className="text-lg font-bold">
                     {formatBytes(storageStats.totalSizeBytes)}
                   </div>
                 </div>
                 <div className="bg-surface-800/50 rounded-lg p-3">
-                  <div className="text-xs text-surface-400 mb-1">Uploads</div>
+                  <div className="text-xs text-surface-400 mb-1">{t('settings.uploads', 'Uploads')}</div>
                   <div className="text-lg font-bold">
                     {formatBytes(storageStats.uploadSizeBytes)}
                   </div>
                 </div>
                 <div className="bg-surface-800/50 rounded-lg p-3">
-                  <div className="text-xs text-surface-400 mb-1">Outputs</div>
+                  <div className="text-xs text-surface-400 mb-1">{t('settings.outputs', 'Outputs')}</div>
                   <div className="text-lg font-bold">
                     {formatBytes(storageStats.outputSizeBytes)}
                   </div>
                 </div>
                 <div className="bg-surface-800/50 rounded-lg p-3">
-                  <div className="text-xs text-surface-400 mb-1">Cache</div>
+                  <div className="text-xs text-surface-400 mb-1">{t('settings.cache', 'Cache')}</div>
                   <div className="text-lg font-bold">
                     {formatBytes(storageStats.cacheSizeBytes)}
                   </div>
@@ -1500,17 +1557,17 @@ export function SettingsPage() {
               {/* Paths */}
               <div className="text-sm space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-surface-400">Data Directory</span>
+                  <span className="text-surface-400">{t('settings.dataDirectory', 'Data Directory')}</span>
                   <span className="font-mono text-surface-300">{storageStats.dataDir}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-surface-400">Cache Directory</span>
+                  <span className="text-surface-400">{t('settings.cacheDirectory', 'Cache Directory')}</span>
                   <span className="font-mono text-surface-300">{storageStats.cacheDir}</span>
                 </div>
                 {storageStats.tempFilesCount > 0 && (
                   <div className="flex justify-between text-yellow-400">
-                    <span>Temporary Files</span>
-                    <span>{storageStats.tempFilesCount} files</span>
+                    <span>{t('settings.temporaryFiles', 'Temporary Files')}</span>
+                    <span>{storageStats.tempFilesCount} {t('settings.filesUnit', 'files')}</span>
                   </div>
                 )}
               </div>
@@ -1527,7 +1584,7 @@ export function SettingsPage() {
                   ) : (
                     <Trash2 className="w-4 h-4" />
                   )}
-                  Clear Temp Files
+                  {t('settings.clearTempFiles', 'Clear Temp Files')}
                 </button>
                 <button
                   onClick={() => clearCacheMutation.mutate('model')}
@@ -1539,7 +1596,7 @@ export function SettingsPage() {
                   ) : (
                     <Trash2 className="w-4 h-4" />
                   )}
-                  Clear Model Cache
+                  {t('settings.clearModelCache', 'Clear Model Cache')}
                 </button>
               </div>
 
@@ -1548,7 +1605,7 @@ export function SettingsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-surface-400 mb-2">
-                      Max Cache Size (GB)
+                      {t('settings.maxCacheSizeGb', 'Max Cache Size (GB)')}
                     </label>
                     <input
                       type="number"
@@ -1570,7 +1627,7 @@ export function SettingsPage() {
                     onChange={(e) => handleLocalChange('autoCleanupTempFiles', e.target.checked)}
                     className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                   />
-                  <span className="text-sm">Automatically cleanup temporary files</span>
+                  <span className="text-sm">{t('settings.autoCleanupTempFiles', 'Automatically cleanup temporary files')}</span>
                 </label>
               </div>
             </div>
@@ -1581,12 +1638,12 @@ export function SettingsPage() {
         <div className="card mb-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <Download className="w-5 h-5 text-brand-400" />
-            Export Defaults
+            {t('settings.exportDefaults', 'Export Defaults')}
           </h2>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Default Export Format</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('settings.defaultExportFormat', 'Default Export Format')}</label>
               <select
                 value={getValue('defaultExportFormat') || 'mp4_h264'}
                 onChange={(e) => handleLocalChange('defaultExportFormat', e.target.value)}
@@ -1601,16 +1658,16 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Default Export Quality</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('settings.defaultExportQuality', 'Default Export Quality')}</label>
               <select
                 value={getValue('defaultExportQuality') || 'high'}
                 onChange={(e) => handleLocalChange('defaultExportQuality', e.target.value)}
                 className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2"
               >
-                <option value="draft">Draft (Fast)</option>
-                <option value="standard">Standard</option>
-                <option value="high">High</option>
-                <option value="master">Master (Slow)</option>
+                <option value="draft">{t('settings.exportQualityDraft', 'Draft (Fast)')}</option>
+                <option value="standard">{t('settings.exportQualityStandard', 'Standard')}</option>
+                <option value="high">{t('settings.exportQualityHigh', 'High')}</option>
+                <option value="master">{t('settings.exportQualityMaster', 'Master (Slow)')}</option>
               </select>
             </div>
           </div>
@@ -1620,28 +1677,30 @@ export function SettingsPage() {
         <div className="card">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <Info className="w-5 h-5 text-brand-400" />
-            About
+            {t('settings.about', 'About')}
           </h2>
 
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-surface-400">Version</span>
-              <span>{versionInfo?.version || 'Unknown'}</span>
+              <span className="text-surface-400">{t('settings.version', 'Version')}</span>
+              <span>{versionInfo?.version || t('settings.unknown', 'Unknown')}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-surface-400">Environment</span>
-              <span>{versionInfo?.environment || 'Unknown'}</span>
+              <span className="text-surface-400">{t('settings.environment', 'Environment')}</span>
+              <span>{versionInfo?.environment || t('settings.unknown', 'Unknown')}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-surface-400">Platform</span>
-              <span>{window.electronAPI?.platform || 'Unknown'}</span>
+              <span className="text-surface-400">{t('settings.platform', 'Platform')}</span>
+              <span>{window.electronAPI?.platform || t('settings.unknown', 'Unknown')}</span>
             </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-surface-800">
             <p className="text-sm text-surface-400 mb-4">
-              SceneMachine.ai is a screenplay-to-movie platform that enables users to transform
-              written screenplays into generated video content.
+              {t(
+                'settings.aboutDescription',
+                'SceneMachine.ai is a screenplay-to-movie platform that enables users to transform written screenplays into generated video content.'
+              )}
             </p>
             <a
               href="https://scenemachine.ai"
@@ -1649,7 +1708,7 @@ export function SettingsPage() {
               rel="noopener noreferrer"
               className="text-brand-400 hover:text-brand-300 text-sm flex items-center gap-1"
             >
-              Visit Website
+              {t('settings.visitWebsite', 'Visit Website')}
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>
@@ -1672,39 +1731,39 @@ export function SettingsPage() {
             <div className="p-4 border-b border-surface-700 flex items-center justify-between">
               <h2 id="shortcuts-title" className="text-lg font-medium flex items-center gap-2">
                 <Keyboard className="w-5 h-5 text-brand-400" />
-                Keyboard Shortcuts
+                {t('settings.keyboardShortcuts', 'Keyboard Shortcuts')}
               </h2>
               <button
                 onClick={() => setShowShortcuts(false)}
                 className="p-1 hover:bg-surface-700 rounded"
-                aria-label="Close shortcuts"
+                aria-label={t('settings.closeShortcutsAria', 'Close shortcuts')}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between py-2 border-b border-surface-800">
-                <span className="text-surface-300">Save changes</span>
+                <span className="text-surface-300">{t('settings.shortcutSaveChanges', 'Save changes')}</span>
                 <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">Ctrl+S</kbd>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-surface-800">
-                <span className="text-surface-300">Discard changes</span>
+                <span className="text-surface-300">{t('settings.shortcutDiscardChanges', 'Discard changes')}</span>
                 <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">Escape</kbd>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-surface-800">
-                <span className="text-surface-300">Show shortcuts</span>
+                <span className="text-surface-300">{t('settings.shortcutShowShortcuts', 'Show shortcuts')}</span>
                 <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">?</kbd>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="text-surface-300">Close modal</span>
+                <span className="text-surface-300">{t('settings.shortcutCloseModal', 'Close modal')}</span>
                 <kbd className="px-2 py-1 bg-surface-800 rounded text-sm font-mono">Escape</kbd>
               </div>
             </div>
             <div className="p-4 bg-surface-800/50 text-center">
               <p className="text-sm text-surface-400">
-                Press{' '}
+                {t('settings.press', 'Press')}{' '}
                 <kbd className="px-1.5 py-0.5 bg-surface-700 rounded text-xs font-mono">?</kbd>{' '}
-                anytime to see shortcuts
+                {t('settings.anytimeToSeeShortcuts', 'anytime to see shortcuts')}
               </p>
             </div>
           </div>

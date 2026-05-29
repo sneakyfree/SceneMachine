@@ -27,19 +27,24 @@ import { ScreenplayUpload, MoviePlanViewer, ShareDialog, CommentsPanel } from '.
 import { DataLoadError } from '../components/error-display';
 import { useSharingStore } from '../stores/sharing-store';
 import { useToast } from '../stores/toast-store';
+import { useTranslation } from '../i18n/use-translation';
 
 // Workflow steps
 const workflowSteps = [
   {
     id: 'screenplay',
+    titleKey: 'project.stepScreenplayTitle',
     title: 'Upload Screenplay',
+    descriptionKey: 'project.stepScreenplayDescription',
     description: 'Import your screenplay file',
     icon: FileText,
     states: [ProjectState.EMPTY],
   },
   {
     id: 'plan',
+    titleKey: 'project.stepPlanTitle',
     title: 'Movie Plan',
+    descriptionKey: 'project.stepPlanDescription',
     description: 'Review AI-generated movie plan',
     icon: Film,
     states: [
@@ -50,21 +55,27 @@ const workflowSteps = [
   },
   {
     id: 'characters',
+    titleKey: 'project.stepCharactersTitle',
     title: 'Character Lab',
+    descriptionKey: 'project.stepCharactersDescription',
     description: 'Define and lock character looks',
     icon: Users,
     states: [ProjectState.PLAN_APPROVED, ProjectState.CHARACTERS_IN_PROGRESS],
   },
   {
     id: 'scenes',
+    titleKey: 'project.stepScenesTitle',
     title: 'Scene Planning',
+    descriptionKey: 'project.stepScenesDescription',
     description: 'Review and approve shot breakdowns',
     icon: Clapperboard,
     states: [ProjectState.CHARACTERS_LOCKED, ProjectState.SCENES_PLANNING],
   },
   {
     id: 'generate',
+    titleKey: 'project.stepGenerateTitle',
     title: 'Generate',
+    descriptionKey: 'project.stepGenerateDescription',
     description: 'Generate video content',
     icon: Play,
     states: [
@@ -75,7 +86,9 @@ const workflowSteps = [
   },
   {
     id: 'export',
+    titleKey: 'project.stepExportTitle',
     title: 'Export',
+    descriptionKey: 'project.stepExportDescription',
     description: 'Assemble and export final movie',
     icon: Download,
     states: [ProjectState.ASSEMBLY_IN_PROGRESS, ProjectState.COMPLETE, ProjectState.EXPORTED],
@@ -106,6 +119,7 @@ export function ProjectPage() {
   // Duplicate state
   const [isDuplicating, setIsDuplicating] = useState(false);
   const toast = useToast();
+  const { t } = useTranslation();
 
   // Fetch project details
   const {
@@ -211,15 +225,20 @@ export function ProjectPage() {
     setIsDuplicating(true);
     try {
       const result = await api.duplicateProject(projectId);
-      toast.success('Project Duplicated', `Created "${result.name}"`);
+      toast.success(
+        t('project.toastDuplicatedTitle', 'Project Duplicated'),
+        `${t('project.toastDuplicatedCreated', 'Created')} "${result.name}"`
+      );
       // Invalidate projects list to show the new project
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       // Navigate to the new project
       navigate(`/project/${result.id}`);
     } catch (error) {
       toast.error(
-        'Duplication Failed',
-        error instanceof Error ? error.message : 'Failed to duplicate project'
+        t('project.toastDuplicationFailedTitle', 'Duplication Failed'),
+        error instanceof Error
+          ? error.message
+          : t('project.toastDuplicationFailedMessage', 'Failed to duplicate project')
       );
     } finally {
       setIsDuplicating(false);
@@ -229,7 +248,7 @@ export function ProjectPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-surface-400">Loading project...</div>
+        <div className="text-surface-400">{t('project.loading', 'Loading project...')}</div>
       </div>
     );
   }
@@ -239,7 +258,7 @@ export function ProjectPage() {
       <div className="flex items-center justify-center h-full p-8">
         <DataLoadError
           entity="project"
-          error={error || new Error('Project not found')}
+          error={error || new Error(t('project.notFound', 'Project not found'))}
           onRetry={() => queryClient.invalidateQueries({ queryKey: ['project', projectId] })}
         />
       </div>
@@ -259,14 +278,18 @@ export function ProjectPage() {
             onClick={handleDuplicateProject}
             disabled={isDuplicating}
             className="flex items-center gap-2 px-3 py-2 bg-surface-800 text-surface-300 hover:bg-surface-700 rounded-lg transition-colors disabled:opacity-50"
-            title="Duplicate Project"
+            title={t('project.duplicateProject', 'Duplicate Project')}
           >
             {isDuplicating ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Copy className="w-4 h-4" />
             )}
-            <span className="text-sm">{isDuplicating ? 'Duplicating...' : 'Duplicate'}</span>
+            <span className="text-sm">
+              {isDuplicating
+                ? t('project.duplicating', 'Duplicating...')
+                : t('project.duplicate', 'Duplicate')}
+            </span>
           </button>
           <button
             onClick={() => setCommentsPanelOpen(!isCommentsPanelOpen)}
@@ -278,14 +301,14 @@ export function ProjectPage() {
             )}
           >
             <MessageSquare className="w-4 h-4" />
-            <span className="text-sm">Comments</span>
+            <span className="text-sm">{t('project.comments', 'Comments')}</span>
           </button>
           <button
             onClick={() => setIsShareDialogOpen(true)}
             className="flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg transition-colors"
           >
             <Share2 className="w-4 h-4" />
-            <span className="text-sm">Share</span>
+            <span className="text-sm">{t('project.share', 'Share')}</span>
             {shares.length > 0 && (
               <span className="px-1.5 py-0.5 bg-white/20 text-xs rounded">{shares.length}</span>
             )}
@@ -295,7 +318,9 @@ export function ProjectPage() {
 
       {/* Workflow Steps */}
       <div className="card mb-8">
-        <h2 className="text-lg font-medium mb-6">Workflow Progress</h2>
+        <h2 className="text-lg font-medium mb-6">
+          {t('project.workflowProgress', 'Workflow Progress')}
+        </h2>
         <div className="flex items-center justify-between">
           {workflowSteps.map((step, index) => {
             const status = getStepStatus(step.states, project.state as ProjectState);
@@ -321,10 +346,10 @@ export function ProjectPage() {
                       status === 'pending' && 'text-surface-500'
                     )}
                   >
-                    {step.title}
+                    {t(step.titleKey, step.title)}
                   </span>
                   <span className="text-xs text-surface-500 text-center max-w-[100px]">
-                    {step.description}
+                    {t(step.descriptionKey, step.description)}
                   </span>
                 </div>
                 {index < workflowSteps.length - 1 && (
@@ -339,9 +364,14 @@ export function ProjectPage() {
       {/* Current Step Content */}
       {project.state === ProjectState.EMPTY && (
         <div className="card">
-          <h3 className="text-lg font-medium mb-4">Upload Your Screenplay</h3>
+          <h3 className="text-lg font-medium mb-4">
+            {t('project.uploadYourScreenplay', 'Upload Your Screenplay')}
+          </h3>
           <p className="text-surface-400 mb-6">
-            Start by uploading your screenplay file to begin the movie generation process.
+            {t(
+              'project.uploadYourScreenplayDescription',
+              'Start by uploading your screenplay file to begin the movie generation process.'
+            )}
           </p>
           <ScreenplayUpload
             projectId={projectId!}
@@ -359,10 +389,14 @@ export function ProjectPage() {
           {(isLoadingPlan || generatePlanMutation.isPending) && !moviePlan ? (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 className="w-12 h-12 text-brand-400 animate-spin mb-4" />
-              <h3 className="text-lg font-medium mb-2">Generating Movie Plan</h3>
+              <h3 className="text-lg font-medium mb-2">
+                {t('project.generatingMoviePlan', 'Generating Movie Plan')}
+              </h3>
               <p className="text-surface-400 text-center max-w-md">
-                Analyzing your screenplay to create a comprehensive movie plan. This includes
-                character analysis, scene breakdowns, and visual style recommendations.
+                {t(
+                  'project.generatingMoviePlanDescription',
+                  'Analyzing your screenplay to create a comprehensive movie plan. This includes character analysis, scene breakdowns, and visual style recommendations.'
+                )}
               </p>
             </div>
           ) : moviePlan ? (
@@ -376,12 +410,14 @@ export function ProjectPage() {
           ) : (
             <div className="flex flex-col items-center justify-center py-16">
               <Film className="w-12 h-12 text-surface-600 mb-4" />
-              <h3 className="text-lg font-medium mb-2">No Movie Plan Yet</h3>
+              <h3 className="text-lg font-medium mb-2">
+                {t('project.noMoviePlanYet', 'No Movie Plan Yet')}
+              </h3>
               <p className="text-surface-400 mb-4">
-                Generate a movie plan to analyze your screenplay.
+                {t('project.noMoviePlanYetDescription', 'Generate a movie plan to analyze your screenplay.')}
               </p>
               <button onClick={() => generatePlanMutation.mutate(false)} className="btn-primary">
-                Generate Movie Plan
+                {t('project.generateMoviePlan', 'Generate Movie Plan')}
               </button>
             </div>
           )}
@@ -396,17 +432,20 @@ export function ProjectPage() {
             <div>
               <h3 className="text-lg font-medium flex items-center gap-2">
                 <Users className="w-5 h-5 text-brand-400" />
-                Character Lab
+                {t('project.characterLab', 'Character Lab')}
               </h3>
               <p className="text-surface-400 text-sm mt-1">
-                Define and lock character appearances before generating scenes.
+                {t(
+                  'project.characterLabDescription',
+                  'Define and lock character appearances before generating scenes.'
+                )}
               </p>
             </div>
             <button
               onClick={() => navigate(`/project/${projectId}/characters`)}
               className="btn-primary"
             >
-              Open Character Lab
+              {t('project.openCharacterLab', 'Open Character Lab')}
             </button>
           </div>
 
@@ -414,7 +453,9 @@ export function ProjectPage() {
           {project.characters && project.characters.length > 0 && (
             <div className="bg-surface-800/50 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-surface-400">Characters Locked</span>
+                <span className="text-sm text-surface-400">
+                  {t('project.charactersLocked', 'Characters Locked')}
+                </span>
                 <span className="text-sm font-medium">
                   {project.characters.filter((c) => c.isLocked).length}/{project.characters.length}
                 </span>
@@ -444,17 +485,20 @@ export function ProjectPage() {
             <div>
               <h3 className="text-lg font-medium flex items-center gap-2">
                 <Clapperboard className="w-5 h-5 text-brand-400" />
-                Scene Planning
+                {t('project.scenePlanning', 'Scene Planning')}
               </h3>
               <p className="text-surface-400 text-sm mt-1">
-                Review and approve shot breakdowns for each scene.
+                {t(
+                  'project.scenePlanningDescription',
+                  'Review and approve shot breakdowns for each scene.'
+                )}
               </p>
             </div>
             <button
               onClick={() => navigate(`/project/${projectId}/scenes`)}
               className="btn-primary"
             >
-              Open Scene Planning
+              {t('project.openScenePlanning', 'Open Scene Planning')}
             </button>
           </div>
 
@@ -462,7 +506,9 @@ export function ProjectPage() {
           {project.scenes && project.scenes.length > 0 && (
             <div className="bg-surface-800/50 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-surface-400">Scenes Approved</span>
+                <span className="text-sm text-surface-400">
+                  {t('project.scenesApproved', 'Scenes Approved')}
+                </span>
                 <span className="text-sm font-medium">
                   {project.scenes.filter((s) => s.shotBreakdownApproved).length}/
                   {project.scenes.length}
@@ -494,17 +540,20 @@ export function ProjectPage() {
             <div>
               <h3 className="text-lg font-medium flex items-center gap-2">
                 <Play className="w-5 h-5 text-brand-400" />
-                Generation
+                {t('project.generation', 'Generation')}
               </h3>
               <p className="text-surface-400 text-sm mt-1">
-                Generate and review video content for each shot.
+                {t(
+                  'project.generationDescription',
+                  'Generate and review video content for each shot.'
+                )}
               </p>
             </div>
             <button
               onClick={() => navigate(`/project/${projectId}/generate`)}
               className="btn-primary"
             >
-              Open Generation
+              {t('project.openGeneration', 'Open Generation')}
             </button>
           </div>
 
@@ -513,7 +562,9 @@ export function ProjectPage() {
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-5 h-5 text-yellow-400 animate-spin" />
-                <span className="text-yellow-300">Generation in progress...</span>
+                <span className="text-yellow-300">
+                  {t('project.generationInProgress', 'Generation in progress...')}
+                </span>
               </div>
             </div>
           )}
@@ -522,7 +573,9 @@ export function ProjectPage() {
             <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <Play className="w-5 h-5 text-green-400" />
-                <span className="text-green-300">All shots generated. Ready for export.</span>
+                <span className="text-green-300">
+                  {t('project.allShotsGenerated', 'All shots generated. Ready for export.')}
+                </span>
               </div>
             </div>
           )}
@@ -538,15 +591,17 @@ export function ProjectPage() {
             <div>
               <h3 className="text-lg font-medium flex items-center gap-2">
                 <Download className="w-5 h-5 text-brand-400" />
-                Export
+                {t('project.export', 'Export')}
               </h3>
-              <p className="text-surface-400 text-sm mt-1">Assemble and export your final movie.</p>
+              <p className="text-surface-400 text-sm mt-1">
+                {t('project.exportDescription', 'Assemble and export your final movie.')}
+              </p>
             </div>
             <button
               onClick={() => navigate(`/project/${projectId}/export`)}
               className="btn-primary"
             >
-              Open Export
+              {t('project.openExport', 'Open Export')}
             </button>
           </div>
 
@@ -555,7 +610,9 @@ export function ProjectPage() {
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-5 h-5 text-yellow-400 animate-spin" />
-                <span className="text-yellow-300">Assembly in progress...</span>
+                <span className="text-yellow-300">
+                  {t('project.assemblyInProgress', 'Assembly in progress...')}
+                </span>
               </div>
             </div>
           )}
@@ -564,7 +621,9 @@ export function ProjectPage() {
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <Download className="w-5 h-5 text-blue-400" />
-                <span className="text-blue-300">Movie assembled. Ready for export.</span>
+                <span className="text-blue-300">
+                  {t('project.movieAssembled', 'Movie assembled. Ready for export.')}
+                </span>
               </div>
             </div>
           )}
@@ -573,7 +632,9 @@ export function ProjectPage() {
             <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
               <div className="flex items-center gap-2">
                 <Download className="w-5 h-5 text-green-400" />
-                <span className="text-green-300">Movie exported successfully!</span>
+                <span className="text-green-300">
+                  {t('project.movieExported', 'Movie exported successfully!')}
+                </span>
               </div>
             </div>
           )}
@@ -583,30 +644,31 @@ export function ProjectPage() {
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4 mt-8">
         <div className="card">
-          <div className="text-surface-400 text-sm mb-1">Characters</div>
+          <div className="text-surface-400 text-sm mb-1">{t('project.characters', 'Characters')}</div>
           <div className="text-2xl font-bold">{project.characterCount || 0}</div>
           {project.characters && project.characters.length > 0 && (
             <div className="text-sm text-surface-500 mt-1">
-              {project.characters.filter((c) => c.isLocked).length} locked
+              {project.characters.filter((c) => c.isLocked).length} {t('project.locked', 'locked')}
             </div>
           )}
         </div>
         <div className="card">
-          <div className="text-surface-400 text-sm mb-1">Scenes</div>
+          <div className="text-surface-400 text-sm mb-1">{t('project.scenes', 'Scenes')}</div>
           <div className="text-2xl font-bold">{project.sceneCount || 0}</div>
           {project.scenes && project.scenes.length > 0 && (
             <div className="text-sm text-surface-500 mt-1">
-              {project.scenes.filter((s) => s.shotBreakdownApproved).length} approved
+              {project.scenes.filter((s) => s.shotBreakdownApproved).length}{' '}
+              {t('project.approved', 'approved')}
             </div>
           )}
         </div>
         <div className="card">
-          <div className="text-surface-400 text-sm mb-1">Screenplay</div>
+          <div className="text-surface-400 text-sm mb-1">{t('project.screenplay', 'Screenplay')}</div>
           <div className="text-2xl font-bold">
             {project.screenplay ? (
-              <span className="text-green-400">Uploaded</span>
+              <span className="text-green-400">{t('project.uploaded', 'Uploaded')}</span>
             ) : (
-              <span className="text-surface-500">None</span>
+              <span className="text-surface-500">{t('project.none', 'None')}</span>
             )}
           </div>
           {project.screenplay?.title && (
