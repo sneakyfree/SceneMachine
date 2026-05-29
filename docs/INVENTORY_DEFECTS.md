@@ -285,20 +285,21 @@ the `NaN:NaN` displays on `/export` and `/admin` flagged 2026-05-24 are gone.
   toasts in `components/`) and a few intentionally-skipped interpolated/technical
   strings still render English; the same `t()` pattern applies when needed.
 
-- **P3 — shared components: first 7 migrated** (PARTIAL, 2026-05-29) — the
-  highest-visibility shared components now localize via `t()`:
-  `command-palette` (41 keys), `steven-assistant` (43), `share-dialog` (35),
-  `queue-manager` (34), `comments-panel` (24), `offline-banner` (24),
-  `shot-card` (20) — **221 keys** added (catalog now **1108 total**). Verified:
-  command-palette renders fully Spanish (placeholder "Buscar comandos…",
-  "NAVEGACIÓN", "Ir a Proyectos", footer "para navegar/seleccionar") by
-  screenshot + a new `qa_i18n_tour` assertion; tsc zero net errors; full QA
-  suite 52 green. **Still English** (the long tail, ~50 components): text-overlay,
-  timeline-transitions, watermark-picker, progress-dashboard, movie-plan-viewer,
-  screenplay-upload, onboarding, color-grading, circuit-breaker-status,
-  template-selector, story-mode-wizard, voice-selector, shot-preview,
-  production-dashboard, physical-description-form, blockers-panel, music-library,
-  feedback-widget, character-card, error-boundary, dialogue-panel,
-  batch-operations, shortcuts-overlay, cache-status, budget-settings,
-  sound-effects, cost-estimate, audio-waveform, video-player, etc. Same
-  mechanical `t()` + namespaced-catalog pattern; migrate in batches as above.
+- **P3 — shared components: COMPLETE** (CLOSED, 2026-05-29) — the entire
+  shared-component long tail is now localized via `t()`, shipped in 4 batches
+  (PRs #140/#141/#142/#143 + a final 2-file cleanup): all ~46 string-bearing
+  components under `components/` route user-facing copy through the catalog.
+  **Completeness scan confirms ZERO string-bearing components remain unwired**
+  (`pipeline-control` + `skip-link` had only an array label set / a default-prop
+  string, now also localized; only genuinely string-free files like
+  `optimized-image` are untouched). Total catalog: **~2319 keys** (nav + 16 pages
+  + ~46 components), each with a Spanish translation; `i18n.test.ts` proves every
+  locale covers every key (no silent EN fallback).
+  Notable engineering: `error-boundary` (React CLASS, hooks illegal) uses
+  `translate(useExperienceStore.getState().locale, …)`; `physical-description-form`
+  resolves 50 preset options via a render-time slug helper (all 50 slugs verified
+  to match catalog keys). Across all batches: **tsc zero net errors** (245→245,
+  proven by stash/pop per-file count diffs), vite build green, full QA suite 53
+  green. **What's NOT translated (by design)**: dynamic user data (project/
+  character names, dialogue, timecodes, counts, currency), brand identifiers,
+  API keys, hex colors. Adding a 3rd locale = one catalog object.
