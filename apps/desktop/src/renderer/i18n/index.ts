@@ -12,15 +12,17 @@
  * "i18n migration"). Adding a locale = adding one catalog object below.
  */
 
-import { genEn, genEs, genFr, genDe } from './catalog.generated';
+import { genEn, genEs, genFr, genDe, genJa, genZh } from './catalog.generated';
 
-export type Locale = 'en' | 'es' | 'fr' | 'de';
+export type Locale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
 
 export const LOCALES: { code: Locale; label: string; flag: string }[] = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'es', label: 'Español', flag: '🇪🇸' },
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
   { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'ja', label: '日本語', flag: '🇯🇵' },
+  { code: 'zh', label: '中文 (简体)', flag: '🇨🇳' },
 ];
 
 export const DEFAULT_LOCALE: Locale = 'en';
@@ -114,7 +116,49 @@ const de: Catalog = {
   'common.language': 'Sprache',
 };
 
-const catalogs: Record<Locale, Catalog> = { en, es, fr, de };
+// Japanese — full locale: nav/common (hand-authored) + generated page-body keys.
+const ja: Catalog = {
+  ...genJa,
+  'nav.projects': 'プロジェクト',
+  'nav.analytics': '分析',
+  'nav.explainability': '説明可能性',
+  'nav.archive': 'アーカイブ',
+  'nav.settings': '設定',
+  'nav.systemHealth': 'システム状態',
+  'nav.help': 'ヘルプ',
+  'nav.search': '検索',
+  'nav.shortcuts': 'ショートカット',
+  'common.save': '保存',
+  'common.cancel': 'キャンセル',
+  'common.export': 'エクスポート',
+  'common.delete': '削除',
+  'common.newProject': '新規プロジェクト',
+  'common.refresh': '更新',
+  'common.language': '言語',
+};
+
+// Simplified Chinese — full locale: nav/common (hand-authored) + generated keys.
+const zh: Catalog = {
+  ...genZh,
+  'nav.projects': '项目',
+  'nav.analytics': '分析',
+  'nav.explainability': '可解释性',
+  'nav.archive': '归档',
+  'nav.settings': '设置',
+  'nav.systemHealth': '系统状态',
+  'nav.help': '帮助',
+  'nav.search': '搜索',
+  'nav.shortcuts': '快捷键',
+  'common.save': '保存',
+  'common.cancel': '取消',
+  'common.export': '导出',
+  'common.delete': '删除',
+  'common.newProject': '新建项目',
+  'common.refresh': '刷新',
+  'common.language': '语言',
+};
+
+const catalogs: Record<Locale, Catalog> = { en, es, fr, de, ja, zh };
 
 /** Resolve a translation key for a locale, falling back to English then the key. */
 export function translate(locale: Locale, key: string, fallback?: string): string {

@@ -232,7 +232,7 @@ export function MainLayout() {
 
           {/* Language selector (international launch) */}
           {!sidebarCollapsed && (
-            <div className="px-4 py-3 flex items-center gap-2" aria-label={t('common.language')}>
+            <div className="px-4 py-3 flex flex-wrap items-center gap-2" aria-label={t('common.language')}>
               {LOCALES.map((l) => (
                 <button
                   key={l.code}
