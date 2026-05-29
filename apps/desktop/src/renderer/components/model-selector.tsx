@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { api, type ProviderModel } from '../api/client';
+import { useTranslation } from '../i18n/use-translation';
 
 interface ModelSelectorProps {
   providerId: string;
@@ -38,6 +39,7 @@ export function ModelSelector({
   compact = false,
   showCost = true,
 }: ModelSelectorProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   // Fetch models for the provider
@@ -80,7 +82,7 @@ export function ModelSelector({
         )}
       >
         <Loader2 className="w-4 h-4 animate-spin text-surface-500" />
-        <span className="text-surface-500">Loading models...</span>
+        <span className="text-surface-500">{t('modelSel.loadingModels', 'Loading models...')}</span>
       </div>
     );
   }
@@ -94,7 +96,7 @@ export function ModelSelector({
         )}
       >
         <AlertCircle className="w-4 h-4" />
-        <span>Failed to load models</span>
+        <span>{t('modelSel.failedToLoad', 'Failed to load models')}</span>
       </div>
     );
   }
@@ -108,7 +110,7 @@ export function ModelSelector({
         )}
       >
         <Info className="w-4 h-4" />
-        <span>No models available</span>
+        <span>{t('modelSel.noModels', 'No models available')}</span>
       </div>
     );
   }
@@ -136,7 +138,7 @@ export function ModelSelector({
           />
           <div className="text-left min-w-0">
             <div className={cn('font-medium truncate', compact ? 'text-sm' : 'text-base')}>
-              {currentModel?.name || 'Select model'}
+              {currentModel?.name || t('modelSel.selectModel', 'Select model')}
             </div>
             {showCost && currentModel && !compact && (
               <div className="text-xs text-surface-500">
@@ -184,6 +186,7 @@ interface ModelOptionProps {
 }
 
 function ModelOption({ model, isSelected, onClick, showCost }: ModelOptionProps) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -208,18 +211,18 @@ function ModelOption({ model, isSelected, onClick, showCost }: ModelOptionProps)
           )}
           <span className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            Max {model.max_duration}s
+            {t('modelSel.max', 'Max')} {model.max_duration}s
           </span>
           {model.supports_text_to_video && (
             <span className="flex items-center gap-1 text-green-400">
               <Film className="w-3 h-3" />
-              Text→Video
+              {t('modelSel.textToVideo', 'Text→Video')}
             </span>
           )}
           {model.supports_image_to_video && (
             <span className="flex items-center gap-1 text-blue-400">
               <Image className="w-3 h-3" />
-              Img→Video
+              {t('modelSel.imgToVideo', 'Img→Video')}
             </span>
           )}
         </div>

@@ -8,6 +8,7 @@
 import { memo, useState, useEffect, useRef } from 'react';
 import { cn } from '../lib/utils';
 import { Skeleton } from './skeleton';
+import { useTranslation } from '../i18n/use-translation';
 
 // =============================================================================
 // Types
@@ -114,6 +115,7 @@ export const OptimizedImage = memo(function OptimizedImage({
   className,
   containerClassName,
 }: OptimizedImageProps) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(!lazy);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -258,7 +260,7 @@ export const OptimizedImage = memo(function OptimizedImage({
                 />
               </svg>
             </div>
-            <p className="text-xs text-surface-500">Failed to load</p>
+            <p className="text-xs text-surface-500">{t('optImage.failedToLoad', 'Failed to load')}</p>
           </div>
         </div>
       )}

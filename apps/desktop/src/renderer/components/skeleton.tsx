@@ -7,6 +7,7 @@
 import { memo, ReactNode } from 'react';
 import { Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface SkeletonProps {
   className?: string;
@@ -160,8 +161,9 @@ export function SkeletonList({
   children: (index: number) => React.ReactNode;
   className?: string;
 }) {
+  const { t } = useTranslation();
   return (
-    <div className={cn('space-y-3', className)} aria-label="Loading content">
+    <div className={cn('space-y-3', className)} aria-label={t('skeleton.loadingContent', 'Loading content')}>
       {Array.from({ length: count }, (_, i) => children(i))}
     </div>
   );
@@ -250,7 +252,7 @@ export const LoadingContainer = memo(function LoadingContainer({
   skeletonCount = 3,
   error,
   onRetry,
-  emptyMessage = 'No items found',
+  emptyMessage,
   emptyIcon,
   emptyAction,
   onEmptyAction,
@@ -258,11 +260,13 @@ export const LoadingContainer = memo(function LoadingContainer({
   className,
   minHeight = 'min-h-[200px]',
 }: LoadingContainerProps) {
+  const { t } = useTranslation();
+  const resolvedEmptyMessage = emptyMessage ?? t('skeleton.noItemsFound', 'No items found');
   // Loading state
   if (state === 'loading') {
     if (skeleton) {
       return (
-        <div className={cn('space-y-3', className)} aria-label="Loading content">
+        <div className={cn('space-y-3', className)} aria-label={t('skeleton.loadingContent', 'Loading content')}>
           {Array.from({ length: skeletonCount }, (_, i) => (
             <div key={i}>{skeleton}</div>
           ))}
@@ -273,7 +277,7 @@ export const LoadingContainer = memo(function LoadingContainer({
     return (
       <div
         className={cn('flex flex-col items-center justify-center', minHeight, className)}
-        aria-label="Loading"
+        aria-label={t('skeleton.loading', 'Loading')}
       >
         <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
         {loadingMessage && <p className="mt-3 text-sm text-surface-400">{loadingMessage}</p>}
@@ -295,9 +299,11 @@ export const LoadingContainer = memo(function LoadingContainer({
         <div className="p-4 bg-red-500/10 rounded-full mb-4">
           <AlertCircle className="w-8 h-8 text-red-400" />
         </div>
-        <h3 className="text-lg font-medium text-surface-100 mb-2">Something went wrong</h3>
+        <h3 className="text-lg font-medium text-surface-100 mb-2">
+          {t('skeleton.somethingWentWrong', 'Something went wrong')}
+        </h3>
         <p className="text-sm text-surface-400 max-w-md mb-4">
-          {error || 'An unexpected error occurred. Please try again.'}
+          {error || t('skeleton.unexpectedError', 'An unexpected error occurred. Please try again.')}
         </p>
         {onRetry && (
           <button
@@ -309,7 +315,7 @@ export const LoadingContainer = memo(function LoadingContainer({
             )}
           >
             <RefreshCw className="w-4 h-4" />
-            Try again
+            {t('skeleton.tryAgain', 'Try again')}
           </button>
         )}
       </div>
@@ -333,7 +339,7 @@ export const LoadingContainer = memo(function LoadingContainer({
             <div className="w-8 h-8 border-2 border-dashed border-surface-600 rounded-lg" />
           </div>
         )}
-        <p className="text-surface-400 mb-4">{emptyMessage}</p>
+        <p className="text-surface-400 mb-4">{resolvedEmptyMessage}</p>
         {emptyAction && onEmptyAction && (
           <button
             onClick={onEmptyAction}
@@ -385,12 +391,14 @@ export const InlineLoader = memo(function InlineLoader({
  * Page-level loading overlay
  */
 export const PageLoader = memo(function PageLoader({
-  message = 'Loading...',
+  message,
   className,
 }: {
   message?: string;
   className?: string;
 }) {
+  const { t } = useTranslation();
+  const resolvedMessage = message ?? t('skeleton.loadingEllipsis', 'Loading...');
   return (
     <div
       className={cn(
@@ -400,7 +408,7 @@ export const PageLoader = memo(function PageLoader({
       )}
     >
       <Loader2 className="w-12 h-12 text-primary-400 animate-spin" />
-      <p className="mt-4 text-surface-300 font-medium">{message}</p>
+      <p className="mt-4 text-surface-300 font-medium">{resolvedMessage}</p>
     </div>
   );
 });
@@ -415,8 +423,9 @@ export const ContentPlaceholder = memo(function ContentPlaceholder({
   lines?: number;
   className?: string;
 }) {
+  const { t } = useTranslation();
   return (
-    <div className={cn('space-y-3', className)} aria-label="Loading content">
+    <div className={cn('space-y-3', className)} aria-label={t('skeleton.loadingContent', 'Loading content')}>
       {Array.from({ length: lines }, (_, i) => (
         <Skeleton key={i} className={cn('h-4', i === lines - 1 ? 'w-2/3' : 'w-full')} />
       ))}

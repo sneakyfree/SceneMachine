@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useFocusTrap, announce, ariaDialog, usePrefersReducedMotion } from '../lib/accessibility';
+import { useTranslation } from '../i18n/use-translation';
 
 // ============================================================================
 // Types
@@ -105,6 +106,7 @@ export function Modal({
   initialFocus,
   role = 'dialog',
 }: ModalProps) {
+  const { t } = useTranslation();
   // Generate unique IDs for ARIA
   const titleId = useId();
   const descriptionId = useId();
@@ -135,9 +137,9 @@ export function Modal({
   // Announce modal to screen readers
   useEffect(() => {
     if (isOpen) {
-      announce(`${title} dialog opened`, 'polite');
+      announce(`${title} ${t('a11yModal.dialogOpened', 'dialog opened')}`, 'polite');
     }
-  }, [isOpen, title]);
+  }, [isOpen, title, t]);
 
   // Handle backdrop click
   const handleBackdropClick = useCallback(
@@ -151,9 +153,9 @@ export function Modal({
 
   // Handle close button click
   const handleCloseClick = useCallback(() => {
-    announce(`${title} dialog closed`, 'polite');
+    announce(`${title} ${t('a11yModal.dialogClosed', 'dialog closed')}`, 'polite');
     onClose();
-  }, [onClose, title]);
+  }, [onClose, title, t]);
 
   // Don't render if not open
   if (!isOpen) return null;
@@ -217,7 +219,7 @@ export function Modal({
                 'transition-colors',
                 'focus:outline-none focus:ring-2 focus:ring-brand-500'
               )}
-              aria-label="Close dialog"
+              aria-label={t('a11yModal.closeDialog', 'Close dialog')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -261,11 +263,14 @@ export function ConfirmDialog({
   onCancel,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   variant = 'default',
   isLoading = false,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
+  const resolvedConfirmText = confirmText ?? t('a11yModal.confirm', 'Confirm');
+  const resolvedCancelText = cancelText ?? t('a11yModal.cancel', 'Cancel');
   return (
     <Modal
       isOpen={isOpen}
@@ -290,7 +295,7 @@ export function ConfirmDialog({
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
-            {cancelText}
+            {resolvedCancelText}
           </button>
           <button
             type="button"
@@ -306,7 +311,7 @@ export function ConfirmDialog({
                 : 'bg-brand-500 text-white hover:bg-brand-600 focus:ring-brand-400'
             )}
           >
-            {isLoading ? 'Processing...' : confirmText}
+            {isLoading ? t('a11yModal.processing', 'Processing...') : resolvedConfirmText}
           </button>
         </div>
       }
@@ -336,9 +341,11 @@ export function AlertDialog({
   onClose,
   title,
   message,
-  buttonText = 'OK',
+  buttonText,
   variant = 'info',
 }: AlertDialogProps) {
+  const { t } = useTranslation();
+  const resolvedButtonText = buttonText ?? t('a11yModal.ok', 'OK');
   const variantClasses = {
     info: 'bg-blue-500',
     success: 'bg-green-500',
@@ -366,7 +373,7 @@ export function AlertDialog({
               'hover:opacity-90'
             )}
           >
-            {buttonText}
+            {resolvedButtonText}
           </button>
         </div>
       }

@@ -22,6 +22,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface BreadcrumbItem {
   label: string;
@@ -34,6 +35,7 @@ interface BreadcrumbsProps {
 }
 
 export function Breadcrumbs({ className }: BreadcrumbsProps) {
+  const { t } = useTranslation();
   const location = useLocation();
   const { projectId } = useParams<{ projectId?: string }>();
 
@@ -57,7 +59,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
 
     // Always start with Projects/Home
     crumbs.push({
-      label: 'Projects',
+      label: t('breadcrumbs.projects', 'Projects'),
       href: '/',
       icon: <Home className="w-4 h-4" />,
     });
@@ -65,7 +67,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     // Settings page
     if (path === '/settings') {
       crumbs.push({
-        label: 'Settings',
+        label: t('breadcrumbs.settings', 'Settings'),
         icon: <Settings className="w-4 h-4" />,
       });
       return crumbs;
@@ -74,7 +76,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     // Analytics page
     if (path === '/analytics') {
       crumbs.push({
-        label: 'Analytics',
+        label: t('breadcrumbs.analytics', 'Analytics'),
         icon: <BarChart3 className="w-4 h-4" />,
       });
       return crumbs;
@@ -83,7 +85,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     // Help page
     if (path === '/help') {
       crumbs.push({
-        label: 'Help',
+        label: t('breadcrumbs.help', 'Help'),
         icon: <HelpCircle className="w-4 h-4" />,
       });
       return crumbs;
@@ -92,7 +94,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     // If on a project page
     if (projectId) {
       crumbs.push({
-        label: project?.name || 'Loading...',
+        label: project?.name || t('breadcrumbs.loading', 'Loading...'),
         href: `/project/${projectId}`,
         icon: <Film className="w-4 h-4" />,
       });
@@ -100,29 +102,29 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
       // Sub-page detection
       if (path.includes('/characters')) {
         crumbs.push({
-          label: 'Character Lab',
+          label: t('breadcrumbs.characterLab', 'Character Lab'),
           icon: <Users className="w-4 h-4" />,
         });
       } else if (path.includes('/scenes')) {
         crumbs.push({
-          label: 'Scene Planning',
+          label: t('breadcrumbs.scenePlanning', 'Scene Planning'),
           icon: <Clapperboard className="w-4 h-4" />,
         });
       } else if (path.includes('/generate')) {
         crumbs.push({
-          label: 'Generation',
+          label: t('breadcrumbs.generation', 'Generation'),
           icon: <Wand2 className="w-4 h-4" />,
         });
       } else if (path.includes('/export')) {
         crumbs.push({
-          label: 'Export',
+          label: t('breadcrumbs.export', 'Export'),
           icon: <Download className="w-4 h-4" />,
         });
       }
     }
 
     return crumbs;
-  }, [location.pathname, projectId, project?.name]);
+  }, [location.pathname, projectId, project?.name, t]);
 
   // Don't show breadcrumbs on home page
   if (items.length <= 1) {
@@ -131,7 +133,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
 
   return (
     <nav
-      aria-label="Breadcrumb navigation"
+      aria-label={t('breadcrumbs.breadcrumbNavigation', 'Breadcrumb navigation')}
       className={cn('flex items-center gap-1 text-sm', className)}
     >
       <ol className="flex items-center gap-1" role="list">

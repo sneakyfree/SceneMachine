@@ -10,6 +10,7 @@
 
 import {} from 'react';
 import { useCrewStore, AGENT_COLORS, AGENT_ICONS, type ApprovalItem } from '../stores/crew-store';
+import { useTranslation } from '../i18n/use-translation';
 
 function ApprovalCard({
   item,
@@ -20,6 +21,7 @@ function ApprovalCard({
   onApprove: () => void;
   onReject: () => void;
 }) {
+  const { t } = useTranslation();
   const agentColor = AGENT_COLORS[item.agent_type] ?? '#6b7280';
   const agentIcon = AGENT_ICONS[item.agent_type] ?? '🤖';
   const isPending = item.status === 'pending';
@@ -124,7 +126,7 @@ function ApprovalCard({
               transition: 'all 0.15s',
             }}
           >
-            ✗ Reject
+            ✗ {t('approvalQueue.reject', 'Reject')}
           </button>
           <button
             onClick={onApprove}
@@ -140,7 +142,7 @@ function ApprovalCard({
               transition: 'all 0.15s',
             }}
           >
-            ✓ Approve
+            ✓ {t('approvalQueue.approve', 'Approve')}
           </button>
         </div>
       )}
@@ -154,7 +156,8 @@ function ApprovalCard({
             textAlign: 'right',
           }}
         >
-          Resolved {new Date(item.resolved_at).toLocaleTimeString()}
+          {t('approvalQueue.resolvedPrefix', 'Resolved')}{' '}
+          {new Date(item.resolved_at).toLocaleTimeString()}
         </div>
       )}
     </div>
@@ -162,6 +165,7 @@ function ApprovalCard({
 }
 
 export function ApprovalQueue() {
+  const { t } = useTranslation();
   const { approvals, pendingApprovalCount, approveItem, rejectItem } = useCrewStore();
 
   const pendingItems = approvals.filter((a) => a.status === 'pending');
@@ -194,7 +198,7 @@ export function ApprovalQueue() {
             color: 'var(--text-primary, #fafafa)',
           }}
         >
-          🔔 Approval Queue
+          🔔 {t('approvalQueue.title', 'Approval Queue')}
         </h3>
         {pendingApprovalCount > 0 && (
           <span
@@ -230,9 +234,9 @@ export function ApprovalQueue() {
             }}
           >
             <span style={{ fontSize: 24, display: 'block', marginBottom: 8 }}>✅</span>
-            No pending approvals.
+            {t('approvalQueue.emptyTitle', 'No pending approvals.')}
             <br />
-            The crew is operating autonomously.
+            {t('approvalQueue.emptySubtitle', 'The crew is operating autonomously.')}
           </div>
         )}
 
@@ -258,7 +262,7 @@ export function ApprovalQueue() {
               marginTop: 4,
             }}
           >
-            Previously resolved
+            {t('approvalQueue.previouslyResolved', 'Previously resolved')}
           </div>
         )}
         {resolvedItems.slice(0, 10).map((item) => (

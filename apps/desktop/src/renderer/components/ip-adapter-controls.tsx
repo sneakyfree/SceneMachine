@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sliders, Shield, User, Zap, Save, RotateCcw, Loader2, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface IPAdapterSettings {
   mode: 'balanced' | 'strong' | 'face_only';
@@ -16,23 +17,32 @@ interface IPAdapterSettings {
   available_modes: string[];
 }
 
-const MODE_INFO: Record<string, { icon: typeof Shield; label: string; description: string }> = {
+const MODE_INFO: Record<
+  string,
+  { icon: typeof Shield; labelKey: string; labelEn: string; descKey: string; descEn: string }
+> = {
   balanced: {
     icon: Shield,
-    label: 'Balanced',
-    description:
+    labelKey: 'ipAdapter.modeBalanced',
+    labelEn: 'Balanced',
+    descKey: 'ipAdapter.modeBalancedDesc',
+    descEn:
       'Moderate character consistency with creative freedom for the AI to interpret scenes naturally.',
   },
   strong: {
     icon: Zap,
-    label: 'Strong',
-    description:
+    labelKey: 'ipAdapter.modeStrong',
+    labelEn: 'Strong',
+    descKey: 'ipAdapter.modeStrongDesc',
+    descEn:
       'High character consistency. Best for close-ups and dialogue scenes where face accuracy is critical.',
   },
   face_only: {
     icon: User,
-    label: 'Face Only',
-    description:
+    labelKey: 'ipAdapter.modeFaceOnly',
+    labelEn: 'Face Only',
+    descKey: 'ipAdapter.modeFaceOnlyDesc',
+    descEn:
       'Preserves facial features while allowing body/clothing variation. Ideal for costume changes.',
   },
 };
@@ -42,6 +52,7 @@ interface IPAdapterControlsProps {
 }
 
 export function IPAdapterControls({ className }: IPAdapterControlsProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [localMode, setLocalMode] = useState<string>('balanced');
   const [localStrength, setLocalStrength] = useState<number>(0.6);
@@ -122,7 +133,9 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
         }}
       >
         <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-        <span style={{ fontSize: '13px' }}>Loading IP-Adapter settings…</span>
+        <span style={{ fontSize: '13px' }}>
+          {t('ipAdapter.loading', 'Loading IP-Adapter settings…')}
+        </span>
       </div>
     );
   }
@@ -157,7 +170,7 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
               color: 'var(--text-primary, #e0e0e0)',
             }}
           >
-            Character Consistency (IP-Adapter)
+            {t('ipAdapter.title', 'Character Consistency (IP-Adapter)')}
           </span>
         </div>
       </div>
@@ -195,7 +208,7 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
               }}
             >
               <Icon size={20} />
-              <span style={{ fontSize: '11px', fontWeight: 600 }}>{info.label}</span>
+              <span style={{ fontSize: '11px', fontWeight: 600 }}>{t(info.labelKey, info.labelEn)}</span>
             </button>
           );
         })}
@@ -213,7 +226,7 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
           borderRadius: '8px',
         }}
       >
-        {currentModeInfo.description}
+        {t(currentModeInfo.descKey, currentModeInfo.descEn)}
       </div>
 
       {/* Strength slider */}
@@ -226,7 +239,9 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
             marginBottom: '8px',
           }}
         >
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary, #999)' }}>Strength</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary, #999)' }}>
+            {t('ipAdapter.strength', 'Strength')}
+          </span>
           <span
             style={{
               fontSize: '14px',
@@ -264,8 +279,8 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
             marginTop: '4px',
           }}
         >
-          <span>Creative</span>
-          <span>Consistent</span>
+          <span>{t('ipAdapter.creative', 'Creative')}</span>
+          <span>{t('ipAdapter.consistent', 'Consistent')}</span>
         </div>
       </div>
 
@@ -304,7 +319,7 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
             ) : (
               <Save size={14} />
             )}
-            Save
+            {t('ipAdapter.save', 'Save')}
           </button>
           <button
             onClick={handleReset}
@@ -324,7 +339,7 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
             }}
           >
             <RotateCcw size={14} />
-            Reset
+            {t('ipAdapter.reset', 'Reset')}
           </button>
         </div>
       )}
@@ -346,7 +361,7 @@ export function IPAdapterControls({ className }: IPAdapterControlsProps) {
           }}
         >
           <Check size={14} />
-          Settings saved
+          {t('ipAdapter.settingsSaved', 'Settings saved')}
         </div>
       )}
     </div>

@@ -7,6 +7,7 @@
 
 import { memo } from 'react';
 import { useSkipLinks, SkipLink } from '../lib/accessibility';
+import { useTranslation } from '../i18n/use-translation';
 
 // =============================================================================
 // Types
@@ -36,10 +37,11 @@ export const SkipLinks = memo(function SkipLinks({
   links: customLinks,
   className,
 }: SkipLinksProps) {
+  const { t } = useTranslation();
   const { links, handleSkipClick } = useSkipLinks(customLinks);
 
   return (
-    <nav className={`skip-links ${className || ''}`} aria-label="Skip navigation">
+    <nav className={`skip-links ${className || ''}`} aria-label={t('skipLinks.skipNavigation', 'Skip navigation')}>
       {links.map((link, index) => (
         <a
           key={link.id}

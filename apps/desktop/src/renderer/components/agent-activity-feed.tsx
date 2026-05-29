@@ -10,16 +10,18 @@
 
 import { useEffect, useMemo } from 'react';
 import { useCrewStore, AGENT_COLORS, AGENT_ICONS, type ActionLog } from '../stores/crew-store';
+import { useTranslation } from '../i18n/use-translation';
 
 // ---- Status badge ----
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation();
   const colors: Record<string, { bg: string; text: string; label: string }> = {
-    running: { bg: '#dbeafe', text: '#1d4ed8', label: 'Running' },
-    completed: { bg: '#dcfce7', text: '#15803d', label: 'Done' },
-    failed: { bg: '#fee2e2', text: '#b91c1c', label: 'Failed' },
-    escalated: { bg: '#fef3c7', text: '#92400e', label: 'Escalated' },
-    pending: { bg: '#f3f4f6', text: '#6b7280', label: 'Pending' },
-    cancelled: { bg: '#f3f4f6', text: '#9ca3af', label: 'Cancelled' },
+    running: { bg: '#dbeafe', text: '#1d4ed8', label: t('agentFeed.statusRunning', 'Running') },
+    completed: { bg: '#dcfce7', text: '#15803d', label: t('agentFeed.statusDone', 'Done') },
+    failed: { bg: '#fee2e2', text: '#b91c1c', label: t('agentFeed.statusFailed', 'Failed') },
+    escalated: { bg: '#fef3c7', text: '#92400e', label: t('agentFeed.statusEscalated', 'Escalated') },
+    pending: { bg: '#f3f4f6', text: '#6b7280', label: t('agentFeed.statusPending', 'Pending') },
+    cancelled: { bg: '#f3f4f6', text: '#9ca3af', label: t('agentFeed.statusCancelled', 'Cancelled') },
   };
   const c = colors[status] ?? colors.pending;
   return (
@@ -55,14 +57,15 @@ function StatusBadge({ status }: { status: string }) {
 
 // ---- Single action card ----
 function ActionCard({ log }: { log: ActionLog }) {
+  const { t } = useTranslation();
   const agentColor = AGENT_COLORS[log.agent_type] ?? '#6b7280';
   const agentIcon = AGENT_ICONS[log.agent_type] ?? '🤖';
   const timeAgo = useMemo(() => {
     const ms = Date.now() - new Date(log.started_at).getTime();
-    if (ms < 60_000) return `${Math.round(ms / 1000)}s ago`;
-    if (ms < 3600_000) return `${Math.round(ms / 60_000)}m ago`;
-    return `${Math.round(ms / 3600_000)}h ago`;
-  }, [log.started_at]);
+    if (ms < 60_000) return `${Math.round(ms / 1000)}${t('agentFeed.secondsAgoSuffix', 's ago')}`;
+    if (ms < 3600_000) return `${Math.round(ms / 60_000)}${t('agentFeed.minutesAgoSuffix', 'm ago')}`;
+    return `${Math.round(ms / 3600_000)}${t('agentFeed.hoursAgoSuffix', 'h ago')}`;
+  }, [log.started_at, t]);
 
   return (
     <div
@@ -117,7 +120,11 @@ function ActionCard({ log }: { log: ActionLog }) {
           }}
         >
           <span>{timeAgo}</span>
-          {log.confidence < 1 && <span>Confidence: {Math.round(log.confidence * 100)}%</span>}
+          {log.confidence < 1 && (
+            <span>
+              {t('agentFeed.confidenceLabel', 'Confidence:')} {Math.round(log.confidence * 100)}%
+            </span>
+          )}
           {log.cost_usd > 0 && <span>${log.cost_usd.toFixed(4)}</span>}
         </div>
       </div>
@@ -127,6 +134,7 @@ function ActionCard({ log }: { log: ActionLog }) {
 
 // ---- Agent filter pills ----
 function AgentFilterPills() {
+  const { t } = useTranslation();
   const { agents, logFilter, setLogFilter } = useCrewStore();
 
   return (
@@ -151,7 +159,7 @@ function AgentFilterPills() {
           fontWeight: 500,
         }}
       >
-        All
+        {t('agentFeed.filterAll', 'All')}
       </button>
       {agents.map((agent) => (
         <button
@@ -181,6 +189,7 @@ function AgentFilterPills() {
 
 // ---- Main component ----
 export function AgentActivityFeed() {
+  const { t } = useTranslation();
   const {
     actionLogs,
     isLoadingLogs,
@@ -235,7 +244,7 @@ export function AgentActivityFeed() {
               color: 'var(--text-primary, #fafafa)',
             }}
           >
-            🎬 Agent Crew
+            🎬 {t('agentFeed.title', 'Agent Crew')}
           </h3>
           {totalCost > 0 && (
             <span
@@ -289,7 +298,7 @@ export function AgentActivityFeed() {
               fontSize: 13,
             }}
           >
-            Loading agent actions...
+            {t('agentFeed.loadingActions', 'Loading agent actions...')}
           </div>
         )}
 
@@ -303,9 +312,9 @@ export function AgentActivityFeed() {
             }}
           >
             <span style={{ fontSize: 24, display: 'block', marginBottom: 8 }}>🤖</span>
-            No agent activity yet.
+            {t('agentFeed.emptyTitle', 'No agent activity yet.')}
             <br />
-            Start a pipeline to see the crew in action.
+            {t('agentFeed.emptySubtitle', 'Start a pipeline to see the crew in action.')}
           </div>
         )}
 
