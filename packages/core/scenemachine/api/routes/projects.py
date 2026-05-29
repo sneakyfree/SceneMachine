@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from scenemachine.api.dependencies import get_db
+from scenemachine.auth.dependencies import OptionalUser
 from scenemachine.models import Project
 from scenemachine.schemas import (
     ProjectCreate,
@@ -19,6 +20,38 @@ from scenemachine.schemas import (
 from scenemachine.services.project_duplicator import duplicate_project
 
 router = APIRouter()
+
+
+def _owner_id_of(current_user):
+    """The UUID to record as a row's owner, or None for an anonymous caller."""
+    return current_user.id if current_user is not None else None
+
+
+async def _get_owned_project_or_403(db, project_id, current_user):
+    """Load a project and enforce ownership.
+
+    - 404 if it doesn't exist.
+    - 403 if it HAS an owner and the caller is a *different* authenticated user.
+    - Allowed if unowned (legacy/desktop), the caller is unauthenticated
+      (desktop/IPC back-compat), or the caller is the owner.
+    """
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+    if (
+        project.owner_id is not None
+        and current_user is not None
+        and project.owner_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to modify this project",
+        )
+    return project
 
 
 @router.get("", response_model=list[ProjectSummary])
@@ -67,15 +100,19 @@ async def list_projects(
 async def create_project(
     project_in: ProjectCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: OptionalUser = None,
 ) -> ProjectDetail:
     """Create a new project.
 
     Creates a new project in the EMPTY state, ready for screenplay upload.
+    When the request is authenticated, the project is owned by that user so
+    other authenticated users can't later delete it (see delete_project).
     """
     project = Project(
         name=project_in.name,
         description=project_in.description,
         settings=project_in.settings or {},
+        owner_id=_owner_id_of(current_user),
     )
 
     db.add(project)
@@ -227,21 +264,16 @@ async def update_project(
 async def delete_project(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: OptionalUser = None,
 ) -> SuccessResponse:
     """Delete a project.
 
     Permanently deletes the project and all associated data.
-    This action cannot be undone.
+    This action cannot be undone. A project owned by one authenticated user
+    cannot be deleted by a *different* authenticated user (403); unowned and
+    unauthenticated (desktop/IPC) calls stay allowed for back-compat.
     """
-    stmt = select(Project).where(Project.id == project_id)
-    result = await db.execute(stmt)
-    project = result.scalar_one_or_none()
-
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project {project_id} not found",
-        )
+    project = await _get_owned_project_or_403(db, project_id, current_user)
 
     await db.delete(project)
     await db.commit()
