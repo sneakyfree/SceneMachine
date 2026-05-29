@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useSettingsStore } from '../stores/settings-store';
+import { useTranslation } from '../i18n/use-translation';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -72,42 +73,61 @@ function StepIndicator({
 
 // Welcome step
 function WelcomeStep({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="text-center max-w-lg mx-auto">
       <div className="w-20 h-20 bg-brand-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
         <Film className="w-10 h-10 text-brand-400" />
       </div>
 
-      <h2 className="text-2xl font-bold mb-4">Welcome to SceneMachine</h2>
+      <h2 className="text-2xl font-bold mb-4">
+        {t('onboarding.welcomeTitle', 'Welcome to SceneMachine')}
+      </h2>
 
       <p className="text-surface-300 mb-8">
-        Transform your screenplays into stunning video content using AI-powered generation. Let's
-        get you set up in just a few steps.
+        {t(
+          'onboarding.welcomeDescription',
+          "Transform your screenplays into stunning video content using AI-powered generation. Let's get you set up in just a few steps."
+        )}
       </p>
 
       {/* Feature highlights */}
       <div className="grid grid-cols-2 gap-4 mb-8 text-left">
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <Upload className="w-6 h-6 text-brand-400 mb-2" />
-          <h4 className="font-medium mb-1">Upload Screenplays</h4>
-          <p className="text-sm text-surface-400">Import Fountain or Final Draft files directly</p>
+          <h4 className="font-medium mb-1">
+            {t('onboarding.featureUploadTitle', 'Upload Screenplays')}
+          </h4>
+          <p className="text-sm text-surface-400">
+            {t('onboarding.featureUploadDescription', 'Import Fountain or Final Draft files directly')}
+          </p>
         </div>
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <Users className="w-6 h-6 text-brand-400 mb-2" />
-          <h4 className="font-medium mb-1">Manage Characters</h4>
+          <h4 className="font-medium mb-1">
+            {t('onboarding.featureCharactersTitle', 'Manage Characters')}
+          </h4>
           <p className="text-sm text-surface-400">
-            Define appearances, assign voices, lock designs
+            {t('onboarding.featureCharactersDescription', 'Define appearances, assign voices, lock designs')}
           </p>
         </div>
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <Clapperboard className="w-6 h-6 text-brand-400 mb-2" />
-          <h4 className="font-medium mb-1">Plan Shots</h4>
-          <p className="text-sm text-surface-400">AI-assisted shot breakdown and composition</p>
+          <h4 className="font-medium mb-1">
+            {t('onboarding.featureShotsTitle', 'Plan Shots')}
+          </h4>
+          <p className="text-sm text-surface-400">
+            {t('onboarding.featureShotsDescription', 'AI-assisted shot breakdown and composition')}
+          </p>
         </div>
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <Video className="w-6 h-6 text-brand-400 mb-2" />
-          <h4 className="font-medium mb-1">Generate Video</h4>
-          <p className="text-sm text-surface-400">Create and export professional video content</p>
+          <h4 className="font-medium mb-1">
+            {t('onboarding.featureVideoTitle', 'Generate Video')}
+          </h4>
+          <p className="text-sm text-surface-400">
+            {t('onboarding.featureVideoDescription', 'Create and export professional video content')}
+          </p>
         </div>
       </div>
 
@@ -115,7 +135,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         onClick={onNext}
         className="px-6 py-3 bg-brand-500 hover:bg-brand-600 rounded-lg font-medium flex items-center gap-2 mx-auto"
       >
-        Get Started
+        {t('onboarding.getStarted', 'Get Started')}
         <ArrowRight className="w-5 h-5" />
       </button>
     </div>
@@ -124,6 +144,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 
 // API Keys step
 function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+  const { t } = useTranslation();
   const { settings, setApiKey, validateApiKey, isSaving, fetchSettings } = useSettingsStore();
 
   const [anthropicKey, setAnthropicKey] = useState('');
@@ -152,7 +173,7 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       }
     } catch (error) {
       setValidationStatus('invalid');
-      setValidationMessage('Failed to validate API key');
+      setValidationMessage(t('onboarding.validateFailed', 'Failed to validate API key'));
     }
   };
 
@@ -178,9 +199,14 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
         <div className="w-16 h-16 bg-brand-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
           <Key className="w-8 h-8 text-brand-400" />
         </div>
-        <h2 className="text-2xl font-bold mb-2">Configure API Keys</h2>
+        <h2 className="text-2xl font-bold mb-2">
+          {t('onboarding.apiKeysTitle', 'Configure API Keys')}
+        </h2>
         <p className="text-surface-400">
-          SceneMachine uses AI services to analyze screenplays and generate content.
+          {t(
+            'onboarding.apiKeysDescription',
+            'SceneMachine uses AI services to analyze screenplays and generate content.'
+          )}
         </p>
       </div>
 
@@ -188,17 +214,21 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       <div className="space-y-4 mb-8">
         <div>
           <label className="block text-sm font-medium mb-2">
-            Anthropic API Key{' '}
-            <span className="text-surface-400 font-normal">(Required for screenplay analysis)</span>
+            {t('onboarding.anthropicKeyLabel', 'Anthropic API Key')}{' '}
+            <span className="text-surface-400 font-normal">
+              {t('onboarding.anthropicKeyRequired', '(Required for screenplay analysis)')}
+            </span>
           </label>
 
           {isAnthropicConfigured ? (
             <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-3">
               <Check className="w-5 h-5 text-green-400" />
               <div>
-                <p className="font-medium text-green-400">API Key Configured</p>
+                <p className="font-medium text-green-400">
+                  {t('onboarding.apiKeyConfigured', 'API Key Configured')}
+                </p>
                 <p className="text-sm text-surface-400">
-                  Masked: {settings?.apiKeys?.anthropic?.masked}
+                  {t('onboarding.apiKeyMasked', 'Masked:')} {settings?.apiKeys?.anthropic?.masked}
                 </p>
               </div>
             </div>
@@ -231,7 +261,7 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                   {validationStatus === 'validating' ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    'Test'
+                    t('onboarding.test', 'Test')
                   )}
                 </button>
               </div>
@@ -255,7 +285,7 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
               )}
 
               <p className="text-xs text-surface-400">
-                Get your API key from{' '}
+                {t('onboarding.getApiKeyFrom', 'Get your API key from')}{' '}
                 <a
                   href="https://console.anthropic.com/settings/keys"
                   target="_blank"
@@ -271,8 +301,11 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
 
         <div className="p-4 bg-surface-800/50 rounded-lg">
           <p className="text-sm text-surface-400">
-            <strong className="text-surface-200">Note:</strong> You can configure additional
-            providers (OpenAI, ElevenLabs, etc.) later in Settings.
+            <strong className="text-surface-200">{t('onboarding.noteLabel', 'Note:')}</strong>{' '}
+            {t(
+              'onboarding.noteText',
+              'You can configure additional providers (OpenAI, ElevenLabs, etc.) later in Settings.'
+            )}
           </p>
         </div>
       </div>
@@ -284,7 +317,7 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
           className="px-4 py-2 text-surface-400 hover:text-surface-200 flex items-center gap-2"
         >
           <ArrowLeft className="w-5 h-5" />
-          Back
+          {t('onboarding.back', 'Back')}
         </button>
         <button
           onClick={handleSave}
@@ -292,7 +325,9 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
           className="px-6 py-3 bg-brand-500 hover:bg-brand-600 rounded-lg font-medium flex items-center gap-2 disabled:opacity-50"
         >
           {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-          {anthropicKey.trim() ? 'Save & Continue' : 'Skip for Now'}
+          {anthropicKey.trim()
+            ? t('onboarding.saveContinue', 'Save & Continue')
+            : t('onboarding.skipForNow', 'Skip for Now')}
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
@@ -302,36 +337,55 @@ function ApiKeysStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
 
 // Workflow overview step
 function WorkflowStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+  const { t } = useTranslation();
   const steps = [
     {
       icon: Upload,
-      title: '1. Upload Screenplay',
-      description: 'Import your Fountain (.fountain) or Final Draft (.fdx) screenplay file.',
+      title: t('onboarding.workflowUploadTitle', '1. Upload Screenplay'),
+      description: t(
+        'onboarding.workflowUploadDescription',
+        'Import your Fountain (.fountain) or Final Draft (.fdx) screenplay file.'
+      ),
     },
     {
       icon: Sparkles,
-      title: '2. AI Analysis',
-      description: 'Our AI extracts characters, scenes, and dialogue from your screenplay.',
+      title: t('onboarding.workflowAnalysisTitle', '2. AI Analysis'),
+      description: t(
+        'onboarding.workflowAnalysisDescription',
+        'Our AI extracts characters, scenes, and dialogue from your screenplay.'
+      ),
     },
     {
       icon: Users,
-      title: '3. Define Characters',
-      description: 'Describe appearances, upload references, and assign voices to characters.',
+      title: t('onboarding.workflowCharactersTitle', '3. Define Characters'),
+      description: t(
+        'onboarding.workflowCharactersDescription',
+        'Describe appearances, upload references, and assign voices to characters.'
+      ),
     },
     {
       icon: Clapperboard,
-      title: '4. Plan Shots',
-      description: 'Review AI-generated shot breakdowns and customize camera compositions.',
+      title: t('onboarding.workflowShotsTitle', '4. Plan Shots'),
+      description: t(
+        'onboarding.workflowShotsDescription',
+        'Review AI-generated shot breakdowns and customize camera compositions.'
+      ),
     },
     {
       icon: Video,
-      title: '5. Generate',
-      description: 'Generate video clips for each shot using state-of-the-art AI models.',
+      title: t('onboarding.workflowGenerateTitle', '5. Generate'),
+      description: t(
+        'onboarding.workflowGenerateDescription',
+        'Generate video clips for each shot using state-of-the-art AI models.'
+      ),
     },
     {
       icon: Film,
-      title: '6. Export',
-      description: 'Assemble your final video and export in your preferred format.',
+      title: t('onboarding.workflowExportTitle', '6. Export'),
+      description: t(
+        'onboarding.workflowExportDescription',
+        'Assemble your final video and export in your preferred format.'
+      ),
     },
   ];
 
@@ -341,9 +395,14 @@ function WorkflowStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
         <div className="w-16 h-16 bg-brand-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
           <Sparkles className="w-8 h-8 text-brand-400" />
         </div>
-        <h2 className="text-2xl font-bold mb-2">How SceneMachine Works</h2>
+        <h2 className="text-2xl font-bold mb-2">
+          {t('onboarding.workflowTitle', 'How SceneMachine Works')}
+        </h2>
         <p className="text-surface-400">
-          Follow this workflow to transform your screenplay into video.
+          {t(
+            'onboarding.workflowDescription',
+            'Follow this workflow to transform your screenplay into video.'
+          )}
         </p>
       </div>
 
@@ -374,13 +433,13 @@ function WorkflowStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
           className="px-4 py-2 text-surface-400 hover:text-surface-200 flex items-center gap-2"
         >
           <ArrowLeft className="w-5 h-5" />
-          Back
+          {t('onboarding.back', 'Back')}
         </button>
         <button
           onClick={onNext}
           className="px-6 py-3 bg-brand-500 hover:bg-brand-600 rounded-lg font-medium flex items-center gap-2"
         >
-          Continue
+          {t('onboarding.continue', 'Continue')}
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
@@ -390,6 +449,7 @@ function WorkflowStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
 
 // Ready step
 function ReadyStep({ onComplete, onBack }: { onComplete: () => void; onBack: () => void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const handleCreateProject = () => {
@@ -409,11 +469,13 @@ function ReadyStep({ onComplete, onBack }: { onComplete: () => void; onBack: () 
         <Check className="w-10 h-10 text-green-400" />
       </div>
 
-      <h2 className="text-2xl font-bold mb-4">You're All Set!</h2>
+      <h2 className="text-2xl font-bold mb-4">{t('onboarding.readyTitle', "You're All Set!")}</h2>
 
       <p className="text-surface-300 mb-8">
-        SceneMachine is ready to use. Start by creating your first project or explore the
-        application.
+        {t(
+          'onboarding.readyDescription',
+          'SceneMachine is ready to use. Start by creating your first project or explore the application.'
+        )}
       </p>
 
       <div className="space-y-3">
@@ -422,28 +484,34 @@ function ReadyStep({ onComplete, onBack }: { onComplete: () => void; onBack: () 
           className="w-full px-6 py-4 bg-brand-500 hover:bg-brand-600 rounded-lg font-medium flex items-center justify-center gap-2"
         >
           <Film className="w-5 h-5" />
-          Create First Project
+          {t('onboarding.createFirstProject', 'Create First Project')}
         </button>
 
         <button
           onClick={handleExplore}
           className="w-full px-6 py-4 bg-surface-700 hover:bg-surface-600 rounded-lg font-medium"
         >
-          Explore Application
+          {t('onboarding.exploreApplication', 'Explore Application')}
         </button>
       </div>
 
       <button onClick={onBack} className="mt-6 text-sm text-surface-400 hover:text-surface-200">
-        Go back
+        {t('onboarding.goBack', 'Go back')}
       </button>
     </div>
   );
 }
 
 export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = 4;
-  const stepTitles = ['Welcome', 'API Keys', 'Workflow', 'Ready'];
+  const stepTitles = [
+    t('onboarding.stepWelcome', 'Welcome'),
+    t('onboarding.stepApiKeys', 'API Keys'),
+    t('onboarding.stepWorkflow', 'Workflow'),
+    t('onboarding.stepReady', 'Ready'),
+  ];
 
   const handleNext = () => {
     if (currentStep < totalSteps - 1) {
@@ -470,7 +538,7 @@ export function Onboarding({ onComplete, onSkip }: OnboardingProps) {
             onClick={onSkip}
             className="text-sm text-surface-400 hover:text-surface-200 flex items-center gap-1"
           >
-            Skip setup
+            {t('onboarding.skipSetup', 'Skip setup')}
             <X className="w-4 h-4" />
           </button>
         )}

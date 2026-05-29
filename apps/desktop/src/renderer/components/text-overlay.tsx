@@ -26,6 +26,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 export type TextOverlayType = 'title' | 'subtitle' | 'lower_third' | 'caption' | 'custom';
 
@@ -121,36 +122,37 @@ const FONTS = [
   { value: 'Impact', label: 'Impact' },
 ];
 
-const ANIMATIONS: { value: TextAnimation; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'fade_in', label: 'Fade In' },
-  { value: 'fade_out', label: 'Fade Out' },
-  { value: 'fade_in_out', label: 'Fade In/Out' },
-  { value: 'slide_up', label: 'Slide Up' },
-  { value: 'slide_down', label: 'Slide Down' },
-  { value: 'slide_left', label: 'Slide Left' },
-  { value: 'slide_right', label: 'Slide Right' },
-  { value: 'typewriter', label: 'Typewriter' },
-  { value: 'scale_in', label: 'Scale In' },
-  { value: 'blur_in', label: 'Blur In' },
+const ANIMATIONS: { value: TextAnimation; labelKey: string; label: string }[] = [
+  { value: 'none', labelKey: 'textOverlay.animNone', label: 'None' },
+  { value: 'fade_in', labelKey: 'textOverlay.animFadeIn', label: 'Fade In' },
+  { value: 'fade_out', labelKey: 'textOverlay.animFadeOut', label: 'Fade Out' },
+  { value: 'fade_in_out', labelKey: 'textOverlay.animFadeInOut', label: 'Fade In/Out' },
+  { value: 'slide_up', labelKey: 'textOverlay.animSlideUp', label: 'Slide Up' },
+  { value: 'slide_down', labelKey: 'textOverlay.animSlideDown', label: 'Slide Down' },
+  { value: 'slide_left', labelKey: 'textOverlay.animSlideLeft', label: 'Slide Left' },
+  { value: 'slide_right', labelKey: 'textOverlay.animSlideRight', label: 'Slide Right' },
+  { value: 'typewriter', labelKey: 'textOverlay.animTypewriter', label: 'Typewriter' },
+  { value: 'scale_in', labelKey: 'textOverlay.animScaleIn', label: 'Scale In' },
+  { value: 'blur_in', labelKey: 'textOverlay.animBlurIn', label: 'Blur In' },
 ];
 
-const POSITIONS: { value: TextPosition; label: string }[] = [
-  { value: 'top_left', label: 'Top Left' },
-  { value: 'top_center', label: 'Top Center' },
-  { value: 'top_right', label: 'Top Right' },
-  { value: 'center_left', label: 'Center Left' },
-  { value: 'center', label: 'Center' },
-  { value: 'center_right', label: 'Center Right' },
-  { value: 'bottom_left', label: 'Bottom Left' },
-  { value: 'bottom_center', label: 'Bottom Center' },
-  { value: 'bottom_right', label: 'Bottom Right' },
-  { value: 'custom', label: 'Custom' },
+const POSITIONS: { value: TextPosition; labelKey: string; label: string }[] = [
+  { value: 'top_left', labelKey: 'textOverlay.posTopLeft', label: 'Top Left' },
+  { value: 'top_center', labelKey: 'textOverlay.posTopCenter', label: 'Top Center' },
+  { value: 'top_right', labelKey: 'textOverlay.posTopRight', label: 'Top Right' },
+  { value: 'center_left', labelKey: 'textOverlay.posCenterLeft', label: 'Center Left' },
+  { value: 'center', labelKey: 'textOverlay.posCenter', label: 'Center' },
+  { value: 'center_right', labelKey: 'textOverlay.posCenterRight', label: 'Center Right' },
+  { value: 'bottom_left', labelKey: 'textOverlay.posBottomLeft', label: 'Bottom Left' },
+  { value: 'bottom_center', labelKey: 'textOverlay.posBottomCenter', label: 'Bottom Center' },
+  { value: 'bottom_right', labelKey: 'textOverlay.posBottomRight', label: 'Bottom Right' },
+  { value: 'custom', labelKey: 'textOverlay.posCustom', label: 'Custom' },
 ];
 
-const PRESETS: { type: TextOverlayType; label: string; style: Partial<TextStyle> }[] = [
+const PRESETS: { type: TextOverlayType; labelKey: string; label: string; style: Partial<TextStyle> }[] = [
   {
     type: 'title',
+    labelKey: 'textOverlay.presetTitle',
     label: 'Title',
     style: {
       fontSize: 72,
@@ -160,6 +162,7 @@ const PRESETS: { type: TextOverlayType; label: string; style: Partial<TextStyle>
   },
   {
     type: 'subtitle',
+    labelKey: 'textOverlay.presetSubtitle',
     label: 'Subtitle',
     style: {
       fontSize: 36,
@@ -169,6 +172,7 @@ const PRESETS: { type: TextOverlayType; label: string; style: Partial<TextStyle>
   },
   {
     type: 'lower_third',
+    labelKey: 'textOverlay.presetLowerThird',
     label: 'Lower Third',
     style: {
       fontSize: 24,
@@ -180,6 +184,7 @@ const PRESETS: { type: TextOverlayType; label: string; style: Partial<TextStyle>
   },
   {
     type: 'caption',
+    labelKey: 'textOverlay.presetCaption',
     label: 'Caption',
     style: {
       fontSize: 20,
@@ -199,6 +204,7 @@ interface TextOverlayEditorProps {
 }
 
 function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOverlayEditorProps) {
+  const { t } = useTranslation();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['text', 'style']));
 
   const toggleSection = (section: string) => {
@@ -241,7 +247,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
         <div className="flex items-center gap-2">
           <Type className="w-4 h-4 text-brand-400" />
           <span className="text-sm font-medium truncate max-w-[120px]">
-            {overlay.text || 'Untitled'}
+            {overlay.text || t('textOverlay.untitled', 'Untitled')}
           </span>
           <span className="text-xs text-surface-500 capitalize">
             {overlay.type.replace('_', ' ')}
@@ -260,14 +266,14 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
           <button
             onClick={onDuplicate}
             className="icon-btn p-2 text-surface-400 hover:text-surface-200 rounded transition-colors"
-            aria-label="Duplicate overlay"
+            aria-label={t('textOverlay.duplicateOverlay', 'Duplicate overlay')}
           >
             <Copy className="w-4 h-4" />
           </button>
           <button
             onClick={onDelete}
             className="icon-btn p-2 text-surface-400 hover:text-red-400 rounded transition-colors"
-            aria-label="Delete overlay"
+            aria-label={t('textOverlay.deleteOverlay', 'Delete overlay')}
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -281,7 +287,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             onClick={() => toggleSection('text')}
             className="w-full flex items-center justify-between text-sm text-surface-300 mb-2"
           >
-            <span>Text Content</span>
+            <span>{t('textOverlay.textContent', 'Text Content')}</span>
             {expandedSections.has('text') ? (
               <ChevronUp className="w-4 h-4" />
             ) : (
@@ -292,7 +298,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             <textarea
               value={overlay.text}
               onChange={(e) => onChange({ ...overlay, text: e.target.value })}
-              placeholder="Enter text..."
+              placeholder={t('textOverlay.enterTextPlaceholder', 'Enter text...')}
               rows={2}
               className="w-full px-3 py-2 bg-surface-900 border border-surface-700 rounded-lg text-sm resize-none"
             />
@@ -305,7 +311,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             onClick={() => toggleSection('style')}
             className="w-full flex items-center justify-between text-sm text-surface-300 mb-2"
           >
-            <span>Style</span>
+            <span>{t('textOverlay.style', 'Style')}</span>
             {expandedSections.has('style') ? (
               <ChevronUp className="w-4 h-4" />
             ) : (
@@ -316,7 +322,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             <div className="space-y-3">
               {/* Font family */}
               <div>
-                <label className="text-xs text-surface-500 mb-1 block">Font</label>
+                <label className="text-xs text-surface-500 mb-1 block">{t('textOverlay.font', 'Font')}</label>
                 <select
                   value={overlay.style.fontFamily}
                   onChange={(e) => updateStyle({ fontFamily: e.target.value })}
@@ -333,7 +339,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
               {/* Font size */}
               <div>
                 <label className="text-xs text-surface-500 mb-1 block">
-                  Size: {overlay.style.fontSize}px
+                  {t('textOverlay.size', 'Size')}: {overlay.style.fontSize}px
                 </label>
                 <input
                   type="range"
@@ -432,7 +438,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
               {/* Colors */}
               <div className="flex items-center gap-3">
                 <div>
-                  <label className="text-xs text-surface-500 mb-1 block">Text</label>
+                  <label className="text-xs text-surface-500 mb-1 block">{t('textOverlay.text', 'Text')}</label>
                   <input
                     type="color"
                     value={overlay.style.color}
@@ -441,7 +447,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-surface-500 mb-1 block">Background</label>
+                  <label className="text-xs text-surface-500 mb-1 block">{t('textOverlay.background', 'Background')}</label>
                   <input
                     type="color"
                     value={overlay.style.backgroundColor}
@@ -451,7 +457,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
                 </div>
                 <div className="flex-1">
                   <label className="text-xs text-surface-500 mb-1 block">
-                    Opacity: {Math.round(overlay.style.backgroundOpacity * 100)}%
+                    {t('textOverlay.opacity', 'Opacity')}: {Math.round(overlay.style.backgroundOpacity * 100)}%
                   </label>
                   <input
                     type="range"
@@ -474,7 +480,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
                     onChange={(e) => updateStyle({ textShadow: e.target.checked })}
                     className="accent-brand-500"
                   />
-                  Shadow
+                  {t('textOverlay.shadow', 'Shadow')}
                 </label>
                 {overlay.style.textShadow && (
                   <>
@@ -505,7 +511,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             onClick={() => toggleSection('position')}
             className="w-full flex items-center justify-between text-sm text-surface-300 mb-2"
           >
-            <span>Position</span>
+            <span>{t('textOverlay.position', 'Position')}</span>
             {expandedSections.has('position') ? (
               <ChevronUp className="w-4 h-4" />
             ) : (
@@ -521,7 +527,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
               >
                 {POSITIONS.map((pos) => (
                   <option key={pos.value} value={pos.value}>
-                    {pos.label}
+                    {t(pos.labelKey, pos.label)}
                   </option>
                 ))}
               </select>
@@ -566,7 +572,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             onClick={() => toggleSection('animation')}
             className="w-full flex items-center justify-between text-sm text-surface-300 mb-2"
           >
-            <span>Animation</span>
+            <span>{t('textOverlay.animation', 'Animation')}</span>
             {expandedSections.has('animation') ? (
               <ChevronUp className="w-4 h-4" />
             ) : (
@@ -577,7 +583,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-surface-500 mb-1 block">In</label>
+                  <label className="text-xs text-surface-500 mb-1 block">{t('textOverlay.animIn', 'In')}</label>
                   <select
                     value={overlay.animation.in}
                     onChange={(e) => updateAnimation({ in: e.target.value as TextAnimation })}
@@ -585,13 +591,13 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
                   >
                     {ANIMATIONS.map((anim) => (
                       <option key={anim.value} value={anim.value}>
-                        {anim.label}
+                        {t(anim.labelKey, anim.label)}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-surface-500 mb-1 block">Out</label>
+                  <label className="text-xs text-surface-500 mb-1 block">{t('textOverlay.animOut', 'Out')}</label>
                   <select
                     value={overlay.animation.out}
                     onChange={(e) => updateAnimation({ out: e.target.value as TextAnimation })}
@@ -599,7 +605,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
                   >
                     {ANIMATIONS.map((anim) => (
                       <option key={anim.value} value={anim.value}>
-                        {anim.label}
+                        {t(anim.labelKey, anim.label)}
                       </option>
                     ))}
                   </select>
@@ -608,7 +614,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-surface-500 mb-1 block">
-                    In Duration: {overlay.animation.inDuration}ms
+                    {t('textOverlay.inDuration', 'In Duration')}: {overlay.animation.inDuration}ms
                   </label>
                   <input
                     type="range"
@@ -622,7 +628,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
                 </div>
                 <div>
                   <label className="text-xs text-surface-500 mb-1 block">
-                    Out Duration: {overlay.animation.outDuration}ms
+                    {t('textOverlay.outDuration', 'Out Duration')}: {overlay.animation.outDuration}ms
                   </label>
                   <input
                     type="range"
@@ -645,7 +651,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             onClick={() => toggleSection('timing')}
             className="w-full flex items-center justify-between text-sm text-surface-300 mb-2"
           >
-            <span>Timing</span>
+            <span>{t('textOverlay.timing', 'Timing')}</span>
             {expandedSections.has('timing') ? (
               <ChevronUp className="w-4 h-4" />
             ) : (
@@ -656,7 +662,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-surface-500 mb-1 block">
-                  Start: {(overlay.timing.startTime / 1000).toFixed(1)}s
+                  {t('textOverlay.start', 'Start')}: {(overlay.timing.startTime / 1000).toFixed(1)}s
                 </label>
                 <input
                   type="range"
@@ -670,7 +676,7 @@ function TextOverlayEditor({ overlay, onChange, onDelete, onDuplicate }: TextOve
               </div>
               <div>
                 <label className="text-xs text-surface-500 mb-1 block">
-                  Duration: {(overlay.timing.duration / 1000).toFixed(1)}s
+                  {t('textOverlay.duration', 'Duration')}: {(overlay.timing.duration / 1000).toFixed(1)}s
                 </label>
                 <input
                   type="range"
@@ -703,6 +709,7 @@ export function TextOverlayPanel({
   selectedId,
   onSelectOverlay,
 }: TextOverlayPanelProps) {
+  const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(true);
 
   const createOverlay = useCallback(
@@ -711,7 +718,10 @@ export function TextOverlayPanel({
       const newOverlay: TextOverlay = {
         id: `text_${Date.now()}`,
         type,
-        text: type === 'lower_third' ? 'Name Here\nTitle' : 'Enter text',
+        text:
+          type === 'lower_third'
+            ? t('textOverlay.lowerThirdDefault', 'Name Here\nTitle')
+            : t('textOverlay.enterText', 'Enter text'),
         position: type === 'lower_third' ? 'bottom_left' : 'center',
         style: {
           ...DEFAULT_STYLE,
@@ -733,7 +743,7 @@ export function TextOverlayPanel({
       onChange([...overlays, newOverlay]);
       onSelectOverlay?.(newOverlay.id);
     },
-    [overlays, onChange, onSelectOverlay]
+    [overlays, onChange, onSelectOverlay, t]
   );
 
   const updateOverlay = useCallback(
@@ -761,13 +771,13 @@ export function TextOverlayPanel({
       const duplicate: TextOverlay = {
         ...overlay,
         id: `text_${Date.now()}`,
-        text: overlay.text + ' (copy)',
+        text: overlay.text + t('textOverlay.copySuffix', ' (copy)'),
         zIndex: overlays.length + 1,
       };
       onChange([...overlays, duplicate]);
       onSelectOverlay?.(duplicate.id);
     },
-    [overlays, onChange, onSelectOverlay]
+    [overlays, onChange, onSelectOverlay, t]
   );
 
   return (
@@ -779,7 +789,7 @@ export function TextOverlayPanel({
       >
         <div className="flex items-center gap-3">
           <Type className="w-5 h-5 text-brand-400" />
-          <span className="font-medium">Text Overlays</span>
+          <span className="font-medium">{t('textOverlay.textOverlays', 'Text Overlays')}</span>
           <span className="text-sm text-surface-400">{overlays.length}</span>
         </div>
         {isExpanded ? (
@@ -800,7 +810,7 @@ export function TextOverlayPanel({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-800 hover:bg-surface-700 border border-surface-700 rounded-lg text-sm transition-colors"
               >
                 <Plus className="w-3 h-3" />
-                {preset.label}
+                {t(preset.labelKey, preset.label)}
               </button>
             ))}
           </div>
@@ -829,8 +839,10 @@ export function TextOverlayPanel({
           ) : (
             <div className="text-center py-8 text-surface-400">
               <Type className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>No text overlays</p>
-              <p className="text-sm text-surface-500 mt-1">Click a preset above to add text</p>
+              <p>{t('textOverlay.noTextOverlays', 'No text overlays')}</p>
+              <p className="text-sm text-surface-500 mt-1">
+                {t('textOverlay.clickPresetHint', 'Click a preset above to add text')}
+              </p>
             </div>
           )}
         </div>
@@ -934,6 +946,7 @@ export function TextOverlayButton({
   onClick: () => void;
   hasOverlays?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -945,7 +958,7 @@ export function TextOverlayButton({
       )}
     >
       <Type className="w-4 h-4" />
-      <span className="text-sm">Text</span>
+      <span className="text-sm">{t('textOverlay.textButton', 'Text')}</span>
       {hasOverlays && (
         <span className="w-5 h-5 bg-brand-500 rounded-full text-xs text-white flex items-center justify-center">
           !

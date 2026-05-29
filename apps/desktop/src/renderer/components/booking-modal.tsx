@@ -20,6 +20,7 @@ import {
 import type { Performer, BookingMode, BookingRequest } from '../api/client';
 import { api } from '../api/client';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -50,6 +51,8 @@ export function BookingModal({
   projectId,
   onSuccess,
 }: BookingModalProps): JSX.Element | null {
+  const { t } = useTranslation();
+
   // Form state
   const [duration, setDuration] = useState(mode === 'BLINK' ? 10 : 30);
   const [promptText, setPromptText] = useState('');
@@ -129,14 +132,18 @@ export function BookingModal({
             )}
             <div>
               <h2 className="text-lg font-semibold text-white">
-                {isBlink ? 'Quick Blink Booking' : 'Full Booking Request'}
+                {isBlink
+                  ? t('booking.titleBlink', 'Quick Blink Booking')
+                  : t('booking.titleFull', 'Full Booking Request')}
               </h2>
               <p className="text-sm text-gray-400">
-                {isBlink ? '10-second auto-matched clip' : 'Custom performance request'}
+                {isBlink
+                  ? t('booking.subtitleBlink', '10-second auto-matched clip')
+                  : t('booking.subtitleFull', 'Custom performance request')}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+          <button onClick={onClose} aria-label={t('booking.close', 'Close')} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
@@ -162,12 +169,12 @@ export function BookingModal({
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-white truncate">{performer.stage_name}</div>
                 <div className="text-sm text-gray-400">
-                  ACI Score: {performer.aci_score.toFixed(0)} | Rating:{' '}
-                  {performer.rating.toFixed(1)}
+                  {t('booking.aciScore', 'ACI Score')}: {performer.aci_score.toFixed(0)} |{' '}
+                  {t('booking.rating', 'Rating')}: {performer.rating.toFixed(1)}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-sm text-gray-400">Base Price</div>
+                <div className="text-sm text-gray-400">{t('booking.basePrice', 'Base Price')}</div>
                 <div className="font-bold text-white">
                   {formatCurrency(performer.base_price_usd)}/10s
                 </div>
@@ -180,7 +187,7 @@ export function BookingModal({
             <div>
               <label className="block text-sm text-gray-400 mb-2">
                 <Video className="w-4 h-4 inline mr-1" />
-                Duration (seconds)
+                {t('booking.durationLabel', 'Duration (seconds)')}
               </label>
               <div className="flex gap-2">
                 {[10, 30, 60, 120].map((d) => (
@@ -214,15 +221,20 @@ export function BookingModal({
           <div>
             <label className="block text-sm text-gray-400 mb-2">
               <FileText className="w-4 h-4 inline mr-1" />
-              {isBlink ? 'Quick prompt (optional)' : 'Performance prompt'}
+              {isBlink
+                ? t('booking.promptLabelBlink', 'Quick prompt (optional)')
+                : t('booking.promptLabelFull', 'Performance prompt')}
             </label>
             <textarea
               value={promptText}
               onChange={(e) => setPromptText(e.target.value)}
               placeholder={
                 isBlink
-                  ? 'Brief description of desired action...'
-                  : 'Describe the performance in detail: setting, emotion, actions...'
+                  ? t('booking.promptPlaceholderBlink', 'Brief description of desired action...')
+                  : t(
+                      'booking.promptPlaceholderFull',
+                      'Describe the performance in detail: setting, emotion, actions...'
+                    )
               }
               rows={isBlink ? 2 : 4}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none"
@@ -232,12 +244,17 @@ export function BookingModal({
           {/* Reference Style (only for full booking) */}
           {!isBlink && (
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Reference style (optional)</label>
+              <label className="block text-sm text-gray-400 mb-2">
+                {t('booking.referenceStyleLabel', 'Reference style (optional)')}
+              </label>
               <input
                 type="text"
                 value={referenceStyle}
                 onChange={(e) => setReferenceStyle(e.target.value)}
-                placeholder="e.g., Film noir, cyberpunk, documentary..."
+                placeholder={t(
+                  'booking.referenceStylePlaceholder',
+                  'e.g., Film noir, cyberpunk, documentary...'
+                )}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
               />
             </div>
@@ -248,13 +265,13 @@ export function BookingModal({
             <div>
               <label className="block text-sm text-gray-400 mb-2">
                 <Clock className="w-4 h-4 inline mr-1" />
-                Delivery urgency
+                {t('booking.urgencyLabel', 'Delivery urgency')}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { value: 'STANDARD', label: 'Standard', time: '24-48h', multiplier: '1x' },
-                  { value: 'RUSH', label: 'Rush', time: '12-24h', multiplier: '1.5x' },
-                  { value: 'PRIORITY', label: 'Priority', time: '< 12h', multiplier: '2x' },
+                  { value: 'STANDARD', label: t('booking.urgencyStandard', 'Standard'), time: '24-48h', multiplier: '1x' },
+                  { value: 'RUSH', label: t('booking.urgencyRush', 'Rush'), time: '12-24h', multiplier: '1.5x' },
+                  { value: 'PRIORITY', label: t('booking.urgencyPriority', 'Priority'), time: '< 12h', multiplier: '2x' },
                 ].map((option) => (
                   <button
                     key={option.value}
@@ -279,12 +296,15 @@ export function BookingModal({
           {!isBlink && (
             <div>
               <label className="block text-sm text-gray-400 mb-2">
-                Additional notes (optional)
+                {t('booking.notesLabel', 'Additional notes (optional)')}
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any special requirements or instructions..."
+                placeholder={t(
+                  'booking.notesPlaceholder',
+                  'Any special requirements or instructions...'
+                )}
                 rows={2}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none"
               />
@@ -294,22 +314,28 @@ export function BookingModal({
           {/* Cost Summary */}
           <div className="p-4 bg-gray-800 rounded-lg">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Duration</span>
-              <span className="text-white">{duration} seconds</span>
+              <span className="text-gray-400">{t('booking.summaryDuration', 'Duration')}</span>
+              <span className="text-white">
+                {duration} {t('booking.seconds', 'seconds')}
+              </span>
             </div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Base rate</span>
+              <span className="text-gray-400">{t('booking.summaryBaseRate', 'Base rate')}</span>
               <span className="text-white">{formatCurrency(baseCost)}/10s</span>
             </div>
             {!isBlink && urgency !== 'STANDARD' && (
               <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-400">Urgency multiplier</span>
+                <span className="text-gray-400">
+                  {t('booking.summaryUrgencyMultiplier', 'Urgency multiplier')}
+                </span>
                 <span className="text-yellow-400">{urgency === 'RUSH' ? '1.5x' : '2x'}</span>
               </div>
             )}
             <div className="border-t border-gray-700 pt-2 mt-2">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-white">Estimated Total</span>
+                <span className="font-medium text-white">
+                  {t('booking.summaryEstimatedTotal', 'Estimated Total')}
+                </span>
                 <span className="text-xl font-bold text-green-400">
                   {formatCurrency(estimatedCost)}
                 </span>
@@ -326,11 +352,14 @@ export function BookingModal({
               className="mt-1 w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500"
             />
             <span className="text-sm text-gray-400">
-              I agree to the{' '}
+              {t('booking.termsPrefix', 'I agree to the')}{' '}
               <a href="#" className="text-blue-400 hover:underline">
-                booking terms
+                {t('booking.termsLink', 'booking terms')}
               </a>{' '}
-              and understand that final delivery may vary from the estimated timeline.
+              {t(
+                'booking.termsSuffix',
+                'and understand that final delivery may vary from the estimated timeline.'
+              )}
             </span>
           </label>
 
@@ -341,7 +370,7 @@ export function BookingModal({
               <span className="text-sm">
                 {bookingMutation.error instanceof Error
                   ? bookingMutation.error.message
-                  : 'Failed to create booking'}
+                  : t('booking.errorGeneric', 'Failed to create booking')}
               </span>
             </div>
           )}
@@ -350,7 +379,9 @@ export function BookingModal({
           {bookingMutation.isSuccess && (
             <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400">
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm">Booking created successfully!</span>
+              <span className="text-sm">
+                {t('booking.successMessage', 'Booking created successfully!')}
+              </span>
             </div>
           )}
         </div>
@@ -361,7 +392,7 @@ export function BookingModal({
             onClick={onClose}
             className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
           >
-            Cancel
+            {t('booking.cancel', 'Cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -376,12 +407,14 @@ export function BookingModal({
             {bookingMutation.isPending ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Processing...
+                {t('booking.processing', 'Processing...')}
               </>
             ) : (
               <>
                 {isBlink ? <Zap className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
-                {isBlink ? 'Book Blink' : 'Submit Booking'}
+                {isBlink
+                  ? t('booking.submitBlink', 'Book Blink')
+                  : t('booking.submitFull', 'Submit Booking')}
               </>
             )}
           </button>
