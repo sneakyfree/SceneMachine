@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect } from 'react';
 import { useCrewStore, AGENT_COLORS } from '../stores/crew-store';
+import { useTranslation } from '../i18n/use-translation';
 
 const PHASES = [
   { key: 'parsing', label: 'Parsing', icon: '📝' },
@@ -23,6 +24,7 @@ const PHASES = [
 ];
 
 export function PipelineControl({ projectId }: { projectId: string }) {
+  const { t } = useTranslation();
   const {
     pipelineStatus,
     isPipelineRunning,
@@ -93,7 +95,7 @@ export function PipelineControl({ projectId }: { projectId: string }) {
             gap: 8,
           }}
         >
-          🎬 Generate Movie
+          🎬 {t('pipeline.generateMovie', 'Generate Movie')}
         </h2>
 
         {/* Agent crew dots */}
@@ -136,7 +138,7 @@ export function PipelineControl({ projectId }: { projectId: string }) {
               return (
                 <div
                   key={phase.key}
-                  title={phase.label}
+                  title={t(`pipeline.phase.${phase.key}`, phase.label)}
                   style={{
                     flex: 1,
                     height: 4,
@@ -249,7 +251,7 @@ export function PipelineControl({ projectId }: { projectId: string }) {
                 boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)',
               }}
             >
-              🎬 Generate Movie
+              🎬 {t('pipeline.generateMovie', 'Generate Movie')}
             </button>
           </>
         ) : (
@@ -269,7 +271,7 @@ export function PipelineControl({ projectId }: { projectId: string }) {
                   cursor: 'pointer',
                 }}
               >
-                ▶ Resume
+                ▶ {t('pipeline.resume', 'Resume')}
               </button>
             ) : (
               <button
@@ -286,7 +288,7 @@ export function PipelineControl({ projectId }: { projectId: string }) {
                   cursor: 'pointer',
                 }}
               >
-                ⏸ Pause
+                ⏸ {t('pipeline.pause', 'Pause')}
               </button>
             )}
             <button
@@ -302,7 +304,7 @@ export function PipelineControl({ projectId }: { projectId: string }) {
                 cursor: 'pointer',
               }}
             >
-              ✕ Cancel
+              ✕ {t('pipeline.cancel', 'Cancel')}
             </button>
           </>
         )}

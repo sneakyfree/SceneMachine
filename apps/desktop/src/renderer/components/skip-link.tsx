@@ -3,15 +3,15 @@
  * Allows users to skip directly to main content.
  */
 
+import { useTranslation } from '../i18n/use-translation';
+
 interface SkipLinkProps {
   targetId?: string;
   children?: React.ReactNode;
 }
 
-export function SkipLink({
-  targetId = 'main-content',
-  children = 'Skip to main content',
-}: SkipLinkProps) {
+export function SkipLink({ targetId = 'main-content', children }: SkipLinkProps) {
+  const { t } = useTranslation();
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     const target = document.getElementById(targetId);
@@ -36,7 +36,7 @@ export function SkipLink({
         transition-transform transform -translate-y-full focus:translate-y-0
       "
     >
-      {children}
+      {children ?? t('skipLink.text', 'Skip to main content')}
     </a>
   );
 }
