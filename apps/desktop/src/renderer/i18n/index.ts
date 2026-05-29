@@ -12,9 +12,9 @@
  * "i18n migration"). Adding a locale = adding one catalog object below.
  */
 
-import { genEn, genEs, genFr, genDe, genJa, genZh } from './catalog.generated';
+import { genEn, genEs, genFr, genDe, genJa, genZh, genKo, genAr } from './catalog.generated';
 
-export type Locale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
+export type Locale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh' | 'ko' | 'ar';
 
 export const LOCALES: { code: Locale; label: string; flag: string }[] = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
@@ -23,7 +23,19 @@ export const LOCALES: { code: Locale; label: string; flag: string }[] = [
   { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
   { code: 'ja', label: '日本語', flag: '🇯🇵' },
   { code: 'zh', label: '中文 (简体)', flag: '🇨🇳' },
+  { code: 'ko', label: '한국어', flag: '🇰🇷' },
+  { code: 'ar', label: 'العربية', flag: '🇸🇦' },
 ];
+
+/** Right-to-left locales — drive the document `dir` attribute. */
+export const RTL_LOCALES: readonly Locale[] = ['ar'];
+export function isRTL(locale: Locale): boolean {
+  return RTL_LOCALES.includes(locale);
+}
+/** Writing direction for a locale, for `document.documentElement.dir`. */
+export function dirFor(locale: Locale): 'rtl' | 'ltr' {
+  return isRTL(locale) ? 'rtl' : 'ltr';
+}
 
 export const DEFAULT_LOCALE: Locale = 'en';
 
@@ -158,7 +170,49 @@ const zh: Catalog = {
   'common.language': '语言',
 };
 
-const catalogs: Record<Locale, Catalog> = { en, es, fr, de, ja, zh };
+// Korean — full locale: nav/common (hand-authored) + generated page-body keys.
+const ko: Catalog = {
+  ...genKo,
+  'nav.projects': '프로젝트',
+  'nav.analytics': '분석',
+  'nav.explainability': '설명 가능성',
+  'nav.archive': '보관함',
+  'nav.settings': '설정',
+  'nav.systemHealth': '시스템 상태',
+  'nav.help': '도움말',
+  'nav.search': '검색',
+  'nav.shortcuts': '단축키',
+  'common.save': '저장',
+  'common.cancel': '취소',
+  'common.export': '내보내기',
+  'common.delete': '삭제',
+  'common.newProject': '새 프로젝트',
+  'common.refresh': '새로고침',
+  'common.language': '언어',
+};
+
+// Arabic (RTL) — full locale: nav/common (hand-authored) + generated keys.
+const ar: Catalog = {
+  ...genAr,
+  'nav.projects': 'المشاريع',
+  'nav.analytics': 'التحليلات',
+  'nav.explainability': 'قابلية التفسير',
+  'nav.archive': 'الأرشيف',
+  'nav.settings': 'الإعدادات',
+  'nav.systemHealth': 'حالة النظام',
+  'nav.help': 'المساعدة',
+  'nav.search': 'بحث',
+  'nav.shortcuts': 'الاختصارات',
+  'common.save': 'حفظ',
+  'common.cancel': 'إلغاء',
+  'common.export': 'تصدير',
+  'common.delete': 'حذف',
+  'common.newProject': 'مشروع جديد',
+  'common.refresh': 'تحديث',
+  'common.language': 'اللغة',
+};
+
+const catalogs: Record<Locale, Catalog> = { en, es, fr, de, ja, zh, ko, ar };
 
 /** Resolve a translation key for a locale, falling back to English then the key. */
 export function translate(locale: Locale, key: string, fallback?: string): string {

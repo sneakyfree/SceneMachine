@@ -156,6 +156,8 @@ const EXTRA_LOCALES: { code: string; nav: string[]; gone: string }[] = [
   { code: 'DE', nav: ['Projekte', 'Einstellungen', 'Hilfe'], gone: 'Projects' },
   { code: 'JA', nav: ['プロジェクト', '設定', 'ヘルプ'], gone: 'Projects' },
   { code: 'ZH', nav: ['项目', '设置', '帮助'], gone: 'Projects' },
+  { code: 'KO', nav: ['프로젝트', '설정', '도움말'], gone: 'Projects' },
+  { code: 'AR', nav: ['المشاريع', 'الإعدادات', 'المساعدة'], gone: 'Projects' },
 ];
 
 for (const loc of EXTRA_LOCALES) {
@@ -182,6 +184,33 @@ for (const loc of EXTRA_LOCALES) {
     await expect(nav.getByText(loc.nav[0], { exact: true })).toBeVisible();
   });
 }
+
+// Arabic is RTL: switching to it must flip the document to dir="rtl", and
+// switching back to a LTR locale must restore dir="ltr". This is the core
+// correctness requirement for the RTL locale (text flow, bidi, layout mirror).
+test('i18n Arabic sets document dir=rtl and reverts on switch-back', async ({ page }) => {
+  await installMock(page);
+  await page.goto('/', { waitUntil: 'networkidle', timeout: 15000 });
+  await page.waitForTimeout(700);
+
+  // Default LTR.
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+
+  // Switch to Arabic → rtl.
+  await page.getByRole('button', { name: 'AR', exact: true }).click();
+  await page.waitForTimeout(400);
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
+  const nav = page.getByRole('navigation', { name: 'Main navigation' });
+  await expect(nav.getByText('المشاريع', { exact: true })).toBeVisible();
+  await page.screenshot({ path: path.join(SHOT_DIR, 'nav_ar_rtl.png'), fullPage: true });
+
+  // Switch back to English → ltr restored.
+  await page.getByRole('button', { name: 'EN', exact: true }).click();
+  await page.waitForTimeout(400);
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  await expect(nav.getByText('Projects', { exact: true })).toBeVisible();
+});
 
 // First-launch auto-detection: a browser whose language is Japanese, with NO
 // previously-persisted locale, must boot directly into Japanese (detectLocale()

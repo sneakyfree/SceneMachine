@@ -2,7 +2,7 @@
  * Main application layout with sidebar navigation.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   Film,
@@ -30,7 +30,7 @@ import { Breadcrumbs } from '../components/breadcrumbs';
 import { StevenAssistant } from '../components/steven-assistant';
 import { useExperienceStore } from '../stores/experience-store';
 import { useTranslation } from '../i18n/use-translation';
-import { LOCALES } from '../i18n';
+import { LOCALES, dirFor } from '../i18n';
 
 // Keyboard shortcuts modal
 function ShortcutsModal({ onClose }: { onClose: () => void }) {
@@ -87,6 +87,12 @@ export function MainLayout() {
   const location = useLocation();
   const { currentProject, sidebarCollapsed, toggleSidebar } = useProjectStore();
   const { t, locale, setLocale } = useTranslation();
+  // Apply writing direction + lang to the document so RTL locales (Arabic)
+  // render right-to-left and the bidi algorithm + flex layout mirror correctly.
+  useEffect(() => {
+    document.documentElement.dir = dirFor(locale);
+    document.documentElement.lang = locale;
+  }, [locale]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const commandPalette = useCommandPalette();
   const { stevenEnabled } = useExperienceStore();

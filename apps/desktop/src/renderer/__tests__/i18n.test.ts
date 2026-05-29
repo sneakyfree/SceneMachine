@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { translate, LOCALES, CATALOG_KEYS, DEFAULT_LOCALE, matchLocale } from '../i18n';
+import { translate, LOCALES, CATALOG_KEYS, DEFAULT_LOCALE, matchLocale, isRTL, dirFor } from '../i18n';
 
 describe('i18n catalog', () => {
   it('every locale translates every English key (no silent EN fallback)', () => {
@@ -34,9 +34,23 @@ describe('i18n catalog', () => {
     expect(matchLocale('fr-CA')).toBe('fr');
     expect(matchLocale('es-419')).toBe('es');
     expect(matchLocale('en-GB')).toBe('en');
+    expect(matchLocale('ko-KR')).toBe('ko');
+    expect(matchLocale('ar-EG')).toBe('ar');
+    expect(matchLocale('ar')).toBe('ar');
     expect(matchLocale('pt-BR')).toBeNull(); // unsupported → caller falls back to en
     expect(matchLocale('it')).toBeNull();
     expect(matchLocale(undefined)).toBeNull();
     expect(matchLocale('')).toBeNull();
+  });
+
+  it('only Arabic is RTL', () => {
+    expect(isRTL('ar')).toBe(true);
+    expect(dirFor('ar')).toBe('rtl');
+    for (const { code } of LOCALES) {
+      if (code !== 'ar') {
+        expect(isRTL(code), `${code} should be LTR`).toBe(false);
+        expect(dirFor(code)).toBe('ltr');
+      }
+    }
   });
 });
