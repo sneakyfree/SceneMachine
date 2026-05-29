@@ -7,6 +7,7 @@ import React from 'react';
 import { Star, Verified, PlayCircle, Calendar, TrendingUp, Clock, User } from 'lucide-react';
 import type { Performer, BookingMode } from '../api/client';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface PerformerCardProps {
   performer: Performer;
@@ -47,6 +48,7 @@ function getACIBadgeColor(score: number): string {
 }
 
 export function PerformerCard({ performer, onSelect, onBook }: PerformerCardProps): JSX.Element {
+  const { t } = useTranslation();
   const isHuman = performer.performer_type === 'HUMAN';
   const hasProfileImage = !!performer.profile_image_url;
 
@@ -91,7 +93,7 @@ export function PerformerCard({ performer, onSelect, onBook }: PerformerCardProp
               : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
           )}
         >
-          {isHuman ? 'Human' : 'Synthetic'}
+          {isHuman ? t('performerCard.human', 'Human') : t('performerCard.synthetic', 'Synthetic')}
         </div>
 
         {/* Demo Reel Indicator */}
@@ -105,7 +107,7 @@ export function PerformerCard({ performer, onSelect, onBook }: PerformerCardProp
               className="flex items-center gap-1 px-2 py-1 bg-black/60 hover:bg-black/80 rounded-lg text-xs text-white transition-colors"
             >
               <PlayCircle className="w-3 h-3" />
-              Demo Reel
+              {t('performerCard.demoReel', 'Demo Reel')}
             </button>
           </div>
         )}
@@ -145,14 +147,14 @@ export function PerformerCard({ performer, onSelect, onBook }: PerformerCardProp
               <Star className="w-3 h-3" />
               <span className="text-sm font-bold">{performer.rating.toFixed(1)}</span>
             </div>
-            <span className="text-xs text-gray-500">Rating</span>
+            <span className="text-xs text-gray-500">{t('performerCard.rating', 'Rating')}</span>
           </div>
           <div className="bg-gray-800 rounded-lg py-2">
             <div className="flex items-center justify-center gap-1 text-blue-400 mb-0.5">
               <Calendar className="w-3 h-3" />
               <span className="text-sm font-bold">{performer.total_bookings}</span>
             </div>
-            <span className="text-xs text-gray-500">Bookings</span>
+            <span className="text-xs text-gray-500">{t('performerCard.bookings', 'Bookings')}</span>
           </div>
           <div className="bg-gray-800 rounded-lg py-2">
             <div className="flex items-center justify-center gap-1 text-green-400 mb-0.5">
@@ -161,21 +163,21 @@ export function PerformerCard({ performer, onSelect, onBook }: PerformerCardProp
                 {(performer.completion_rate * 100).toFixed(0)}%
               </span>
             </div>
-            <span className="text-xs text-gray-500">Complete</span>
+            <span className="text-xs text-gray-500">{t('performerCard.complete', 'Complete')}</span>
           </div>
         </div>
 
         {/* Pricing */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <span className="text-xs text-gray-500 block">Starting at</span>
+            <span className="text-xs text-gray-500 block">{t('performerCard.startingAt', 'Starting at')}</span>
             <span className="text-lg font-bold text-white">
               {formatCurrency(performer.base_price_usd)}
             </span>
             <span className="text-xs text-gray-500">/10s</span>
           </div>
           <div className="text-right">
-            <span className="text-xs text-gray-500 block">Avg. Delivery</span>
+            <span className="text-xs text-gray-500 block">{t('performerCard.avgDelivery', 'Avg. Delivery')}</span>
             <span className="flex items-center gap-1 text-sm text-gray-300">
               <Clock className="w-3 h-3" />
               {performer.avg_delivery_hours || 24}h
@@ -192,7 +194,7 @@ export function PerformerCard({ performer, onSelect, onBook }: PerformerCardProp
             }}
             className="flex-1 px-3 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-medium rounded-lg transition-colors text-sm"
           >
-            Blink (10s)
+            {t('performerCard.blink10s', 'Blink (10s)')}
           </button>
           <button
             onClick={(e) => {
@@ -201,7 +203,7 @@ export function PerformerCard({ performer, onSelect, onBook }: PerformerCardProp
             }}
             className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-400 text-white font-medium rounded-lg transition-colors text-sm"
           >
-            Full Booking
+            {t('performerCard.fullBooking', 'Full Booking')}
           </button>
         </div>
       </div>

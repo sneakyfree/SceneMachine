@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useToast } from './toast';
+import { useTranslation } from '../i18n/use-translation';
 
 interface SoundEffect {
   id: string;
@@ -39,8 +40,11 @@ interface SoundEffect {
 interface SoundCategory {
   id: string;
   name: string;
+  nameKey: string;
   icon: string;
   subcategories: string[];
+  /** i18n key per subcategory, aligned by index with `subcategories` */
+  subKeys: string[];
   count: number;
 }
 
@@ -54,71 +58,91 @@ const DEFAULT_CATEGORIES: SoundCategory[] = [
   {
     id: 'ambience',
     name: 'Ambience',
+    nameKey: 'soundFx.catAmbience',
     icon: '🌿',
     subcategories: ['Nature', 'Urban', 'Indoor', 'Weather'],
+    subKeys: ['soundFx.subNature', 'soundFx.subUrban', 'soundFx.subIndoor', 'soundFx.subWeather'],
     count: 0,
   },
   {
     id: 'foley',
     name: 'Foley',
+    nameKey: 'soundFx.catFoley',
     icon: '👣',
     subcategories: ['Footsteps', 'Clothing', 'Doors', 'Props'],
+    subKeys: ['soundFx.subFootsteps', 'soundFx.subClothing', 'soundFx.subDoors', 'soundFx.subProps'],
     count: 0,
   },
   {
     id: 'impacts',
     name: 'Impacts',
+    nameKey: 'soundFx.catImpacts',
     icon: '💥',
     subcategories: ['Hits', 'Crashes', 'Explosions', 'Glass'],
+    subKeys: ['soundFx.subHits', 'soundFx.subCrashes', 'soundFx.subExplosions', 'soundFx.subGlass'],
     count: 0,
   },
   {
     id: 'whooshes',
     name: 'Whooshes',
+    nameKey: 'soundFx.catWhooshes',
     icon: '💨',
     subcategories: ['Swishes', 'Swooshes', 'Transitions'],
+    subKeys: ['soundFx.subSwishes', 'soundFx.subSwooshes', 'soundFx.subTransitions'],
     count: 0,
   },
   {
     id: 'risers',
     name: 'Risers & Stingers',
+    nameKey: 'soundFx.catRisers',
     icon: '📈',
     subcategories: ['Tension', 'Horror', 'Action'],
+    subKeys: ['soundFx.subTension', 'soundFx.subHorror', 'soundFx.subAction'],
     count: 0,
   },
   {
     id: 'ui',
     name: 'UI Sounds',
+    nameKey: 'soundFx.catUiSounds',
     icon: '🔔',
     subcategories: ['Clicks', 'Notifications', 'Error'],
+    subKeys: ['soundFx.subClicks', 'soundFx.subNotifications', 'soundFx.subError'],
     count: 0,
   },
   {
     id: 'vehicles',
     name: 'Vehicles',
+    nameKey: 'soundFx.catVehicles',
     icon: '🚗',
     subcategories: ['Cars', 'Motorcycles', 'Aircraft'],
+    subKeys: ['soundFx.subCars', 'soundFx.subMotorcycles', 'soundFx.subAircraft'],
     count: 0,
   },
   {
     id: 'weapons',
     name: 'Weapons',
+    nameKey: 'soundFx.catWeapons',
     icon: '⚔️',
     subcategories: ['Guns', 'Swords', 'Punches'],
+    subKeys: ['soundFx.subGuns', 'soundFx.subSwords', 'soundFx.subPunches'],
     count: 0,
   },
   {
     id: 'animals',
     name: 'Animals',
+    nameKey: 'soundFx.catAnimals',
     icon: '🐕',
     subcategories: ['Dogs', 'Cats', 'Birds', 'Wildlife'],
+    subKeys: ['soundFx.subDogs', 'soundFx.subCats', 'soundFx.subBirds', 'soundFx.subWildlife'],
     count: 0,
   },
   {
     id: 'voice',
     name: 'Voice FX',
+    nameKey: 'soundFx.catVoiceFx',
     icon: '🗣️',
     subcategories: ['Crowds', 'Reactions', 'Vocalizations'],
+    subKeys: ['soundFx.subCrowds', 'soundFx.subReactions', 'soundFx.subVocalizations'],
     count: 0,
   },
 ];
@@ -141,6 +165,7 @@ function EffectItem({
   onAdd: () => void;
   onToggleFavorite: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2 p-2 rounded-lg bg-surface-800/50 hover:bg-surface-800 transition-colors group">
       {/* Play button */}
@@ -183,8 +208,8 @@ function EffectItem({
         <button
           onClick={onAdd}
           className="icon-btn p-2 text-brand-400 hover:text-brand-300 hover:bg-brand-500/20 rounded transition-colors"
-          title="Add to timeline"
-          aria-label={`Add ${effect.name} to timeline`}
+          title={t('soundFx.addToTimeline', 'Add to timeline')}
+          aria-label={`${t('soundFx.add', 'Add')} ${effect.name} ${t('soundFx.toTimeline', 'to timeline')}`}
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -204,6 +229,8 @@ function CategoryItem({
   onToggle: () => void;
   onSelect: (subcategory?: string) => void;
 }) {
+  const { t } = useTranslation();
+  const categoryName = t(category.nameKey, category.name);
   return (
     <div>
       <button
@@ -211,7 +238,7 @@ function CategoryItem({
         className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-surface-800 transition-colors"
       >
         <span className="text-lg">{category.icon}</span>
-        <span className="font-medium flex-1 text-left">{category.name}</span>
+        <span className="font-medium flex-1 text-left">{categoryName}</span>
         <span className="text-xs text-surface-500">{category.count}</span>
         {isExpanded ? (
           <ChevronDown className="w-4 h-4 text-surface-400" />
@@ -226,15 +253,15 @@ function CategoryItem({
             onClick={() => onSelect()}
             className="w-full text-left px-2 py-1 text-sm text-surface-300 hover:text-surface-100 hover:bg-surface-800 rounded transition-colors"
           >
-            All {category.name}
+            {t('soundFx.allPrefix', 'All')} {categoryName}
           </button>
-          {category.subcategories.map((sub) => (
+          {category.subcategories.map((sub, i) => (
             <button
               key={sub}
               onClick={() => onSelect(sub)}
               className="w-full text-left px-2 py-1 text-sm text-surface-400 hover:text-surface-200 hover:bg-surface-800 rounded transition-colors"
             >
-              {sub}
+              {t(category.subKeys[i], sub)}
             </button>
           ))}
         </div>
@@ -250,6 +277,7 @@ export function SoundEffectsLibrary({
 }: SoundEffectsProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -350,6 +378,15 @@ export function SoundEffectsLibrary({
     setSelectedSubcategory(subcategory ?? null);
   };
 
+  // Resolve a raw English subcategory string to its translated label.
+  const translateSubcategory = (sub: string): string => {
+    for (const cat of DEFAULT_CATEGORIES) {
+      const idx = cat.subcategories.indexOf(sub);
+      if (idx !== -1) return t(cat.subKeys[idx], sub);
+    }
+    return sub;
+  };
+
   return (
     <div className="flex h-full">
       {/* Categories sidebar */}
@@ -366,7 +403,7 @@ export function SoundEffectsLibrary({
             )}
           >
             <Folder className="w-4 h-4" />
-            <span className="font-medium">All Effects</span>
+            <span className="font-medium">{t('soundFx.allEffects', 'All Effects')}</span>
           </button>
           <button
             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
@@ -378,7 +415,7 @@ export function SoundEffectsLibrary({
             )}
           >
             <Star className={cn('w-4 h-4', showFavoritesOnly && 'fill-current')} />
-            <span>Favorites</span>
+            <span>{t('soundFx.favorites', 'Favorites')}</span>
           </button>
         </div>
 
@@ -406,7 +443,7 @@ export function SoundEffectsLibrary({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search effects..."
+                placeholder={t('soundFx.searchPlaceholder', 'Search effects...')}
                 className="w-full pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm"
               />
             </div>
@@ -431,15 +468,19 @@ export function SoundEffectsLibrary({
           {/* Active filters */}
           {(selectedCategory || selectedSubcategory) && (
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs text-surface-500">Showing:</span>
-              {selectedCategory && (
-                <span className="px-2 py-0.5 bg-surface-700 rounded text-xs">
-                  {categories.find((c) => c.id === selectedCategory)?.name}
-                </span>
-              )}
+              <span className="text-xs text-surface-500">{t('soundFx.showing', 'Showing:')}</span>
+              {selectedCategory &&
+                (() => {
+                  const cat = categories.find((c) => c.id === selectedCategory);
+                  return cat ? (
+                    <span className="px-2 py-0.5 bg-surface-700 rounded text-xs">
+                      {t(cat.nameKey, cat.name)}
+                    </span>
+                  ) : null;
+                })()}
               {selectedSubcategory && (
                 <span className="px-2 py-0.5 bg-surface-700 rounded text-xs">
-                  {selectedSubcategory}
+                  {translateSubcategory(selectedSubcategory)}
                 </span>
               )}
               <button
@@ -449,7 +490,7 @@ export function SoundEffectsLibrary({
                 }}
                 className="text-xs text-surface-400 hover:text-surface-200"
               >
-                Clear
+                {t('soundFx.clear', 'Clear')}
               </button>
             </div>
           )}
@@ -471,7 +512,10 @@ export function SoundEffectsLibrary({
                   onPlay={() => handlePlay(effect)}
                   onAdd={() => {
                     onEffectAdd?.(effect, currentTime);
-                    showToast(`Added "${effect.name}" to timeline`, 'success');
+                    showToast(
+                      `${t('soundFx.added', 'Added')} "${effect.name}" ${t('soundFx.toTimeline', 'to timeline')}`,
+                      'success'
+                    );
                   }}
                   onToggleFavorite={() => toggleFavoriteMutation.mutate(effect.id)}
                 />
@@ -480,8 +524,10 @@ export function SoundEffectsLibrary({
           ) : (
             <div className="text-center py-12 text-surface-400">
               <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>No effects found</p>
-              <p className="text-sm text-surface-500 mt-1">Try adjusting your search or category</p>
+              <p>{t('soundFx.noEffectsFound', 'No effects found')}</p>
+              <p className="text-sm text-surface-500 mt-1">
+                {t('soundFx.adjustSearchHint', 'Try adjusting your search or category')}
+              </p>
             </div>
           )}
         </div>
@@ -497,13 +543,14 @@ export function SoundEffectsLibrary({
  * Compact SFX button for quick access.
  */
 export function SFXButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
       className="flex items-center gap-2 px-3 py-2 bg-surface-800 hover:bg-surface-700 border border-surface-700 rounded-lg transition-colors"
     >
       <Zap className="w-4 h-4 text-brand-400" />
-      <span className="text-sm">Add Sound Effect</span>
+      <span className="text-sm">{t('soundFx.addSoundEffect', 'Add Sound Effect')}</span>
     </button>
   );
 }

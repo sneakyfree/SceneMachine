@@ -5,6 +5,7 @@
 
 import { useMemo } from 'react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 // Common interfaces
 interface DataPoint {
@@ -44,6 +45,7 @@ export function LineChart({
   formatLabel = (t) => t,
   className,
 }: LineChartProps) {
+  const { t } = useTranslation();
   const chartData = useMemo(() => {
     if (data.length === 0) return { path: '', areaPath: '', points: [], yLabels: [], xLabels: [] };
 
@@ -105,7 +107,7 @@ export function LineChart({
         className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)}
         style={{ height }}
       >
-        <p className="text-surface-500">No data available</p>
+        <p className="text-surface-500">{t('charts.noData', 'No data available')}</p>
       </div>
     );
   }
@@ -202,6 +204,7 @@ export function BarChart({
   horizontal = false,
   className,
 }: BarChartProps) {
+  const { t } = useTranslation();
   const chartData = useMemo(() => {
     if (data.length === 0) return { bars: [], maxValue: 0 };
 
@@ -221,7 +224,7 @@ export function BarChart({
         className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)}
         style={{ height }}
       >
-        <p className="text-surface-500">No data available</p>
+        <p className="text-surface-500">{t('charts.noData', 'No data available')}</p>
       </div>
     );
   }
@@ -317,6 +320,7 @@ export function DonutChart({
   centerValue,
   className,
 }: DonutChartProps) {
+  const { t } = useTranslation();
   const chartData = useMemo(() => {
     const total = data.reduce((sum, d) => sum + d.value, 0);
     if (total === 0) return { segments: [], total: 0 };
@@ -358,7 +362,7 @@ export function DonutChart({
         className={cn('flex items-center justify-center bg-surface-800/50 rounded-lg', className)}
         style={{ height: size }}
       >
-        <p className="text-surface-500">No data available</p>
+        <p className="text-surface-500">{t('charts.noData', 'No data available')}</p>
       </div>
     );
   }

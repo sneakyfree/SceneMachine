@@ -5,6 +5,7 @@
 import { useMemo } from 'react';
 import { Film, Play, Image, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface TimelineShot {
   shotId: string;
@@ -52,6 +53,7 @@ export function TimelinePreview({
   onShotClick,
   className,
 }: TimelinePreviewProps) {
+  const { t } = useTranslation();
   // Calculate progress. `scenes` and `scene.shots` may be undefined when
   // the backend returns partial state (new project, mid-load, etc.) —
   // guarding both prevents a render-time `.forEach` crash that took down
@@ -88,12 +90,14 @@ export function TimelinePreview({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Film className="w-4 h-4 text-surface-400" />
-            <span className="text-sm text-surface-400">{(scenes ?? []).length} scenes</span>
+            <span className="text-sm text-surface-400">
+              {(scenes ?? []).length} {t('tlPreview.scenes', 'scenes')}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Image className="w-4 h-4 text-surface-400" />
             <span className="text-sm text-surface-400">
-              {stats.completedShots}/{stats.totalShots} shots
+              {stats.completedShots}/{stats.totalShots} {t('tlPreview.shots', 'shots')}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -104,10 +108,12 @@ export function TimelinePreview({
 
         {/* Progress indicator */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-surface-400">{stats.progress.toFixed(0)}% ready</span>
+          <span className="text-sm text-surface-400">
+            {stats.progress.toFixed(0)}% {t('tlPreview.ready', 'ready')}
+          </span>
           {stats.isComplete && (
             <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">
-              Ready to export
+              {t('tlPreview.readyToExport', 'Ready to export')}
             </span>
           )}
         </div>
@@ -214,7 +220,7 @@ export function TimelinePreview({
               <div key={scene.sceneId}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium">
-                    Scene {scene.sceneNumber}
+                    {t('tlPreview.scene', 'Scene')} {scene.sceneNumber}
                     {scene.title && ` - ${scene.title}`}
                   </span>
                   <span className="text-sm text-surface-400">{formatDuration(scene.duration)}</span>
@@ -232,7 +238,7 @@ export function TimelinePreview({
                       )}
                       onClick={() => onShotClick?.(scene.sceneId, shot.shotId)}
                     >
-                      Shot {shot.shotNumber}
+                      {t('tlPreview.shot', 'Shot')} {shot.shotNumber}
                     </div>
                   ))}
                 </div>

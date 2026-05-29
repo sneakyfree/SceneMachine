@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Pause, Volume2, VolumeX, Loader2, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface AudioWaveformProps {
   src: string;
@@ -74,6 +75,7 @@ export function AudioWaveform({
   onSnapToCut,
   snapThreshold = 0.5,
 }: AudioWaveformProps) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -284,7 +286,7 @@ export function AudioWaveform({
       ctx.fillRect(snapX - 2, 0, 4, height);
       ctx.fillStyle = '#22c55e';
       ctx.font = 'bold 10px sans-serif';
-      ctx.fillText('SNAP', snapX + 5, 15);
+      ctx.fillText(t('audioWave.snap', 'SNAP'), snapX + 5, 15);
     }
 
     // Draw playhead
@@ -314,6 +316,7 @@ export function AudioWaveform({
     cutPoints,
     showSnapIndicator,
     snapTime,
+    t,
   ]);
 
   const togglePlayPause = useCallback(() => {
@@ -458,7 +461,7 @@ export function AudioWaveform({
       <div
         className={cn('flex items-center justify-center bg-surface-800 rounded-lg p-4', className)}
       >
-        <p className="text-red-400 text-sm">{error}</p>
+        <p className="text-red-400 text-sm">{t('audioWave.loadError', error)}</p>
       </div>
     );
   }
@@ -504,7 +507,7 @@ export function AudioWaveform({
             onClick={togglePlayPause}
             disabled={isLoading}
             className="icon-btn p-2 text-surface-300 hover:text-white transition-colors disabled:opacity-50 rounded"
-            aria-label={isPlaying ? 'Pause' : 'Play'}
+            aria-label={isPlaying ? t('audioWave.pause', 'Pause') : t('audioWave.play', 'Play')}
           >
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </button>
@@ -522,8 +525,8 @@ export function AudioWaveform({
                 onClick={handleZoomOut}
                 disabled={zoom <= 1}
                 className="icon-btn p-1.5 text-surface-400 hover:text-white transition-colors disabled:opacity-30 rounded"
-                aria-label="Zoom out"
-                title="Zoom out"
+                aria-label={t('audioWave.zoomOut', 'Zoom out')}
+                title={t('audioWave.zoomOut', 'Zoom out')}
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
@@ -531,8 +534,8 @@ export function AudioWaveform({
                 onClick={handleZoomReset}
                 disabled={zoom === 1}
                 className="icon-btn p-1.5 text-surface-400 hover:text-white transition-colors disabled:opacity-30 rounded"
-                aria-label="Reset zoom"
-                title="Reset zoom"
+                aria-label={t('audioWave.resetZoom', 'Reset zoom')}
+                title={t('audioWave.resetZoom', 'Reset zoom')}
               >
                 <Maximize2 className="w-3.5 h-3.5" />
               </button>
@@ -540,8 +543,8 @@ export function AudioWaveform({
                 onClick={handleZoomIn}
                 disabled={zoom >= 10}
                 className="icon-btn p-1.5 text-surface-400 hover:text-white transition-colors disabled:opacity-30 rounded"
-                aria-label="Zoom in"
-                title="Zoom in"
+                aria-label={t('audioWave.zoomIn', 'Zoom in')}
+                title={t('audioWave.zoomIn', 'Zoom in')}
               >
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
@@ -552,7 +555,9 @@ export function AudioWaveform({
             <button
               onClick={toggleMute}
               className="icon-btn p-2 text-surface-400 hover:text-white transition-colors rounded"
-              aria-label={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
+              aria-label={
+                isMuted || volume === 0 ? t('audioWave.unmute', 'Unmute') : t('audioWave.mute', 'Mute')
+              }
             >
               {isMuted || volume === 0 ? (
                 <VolumeX className="w-4 h-4" />

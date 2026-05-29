@@ -15,6 +15,7 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 // ============================================================================
 // Types
@@ -454,6 +455,7 @@ export function InfiniteScrollList<T>({
   endComponent,
   ...listProps
 }: InfiniteScrollProps<T>): React.ReactElement {
+  const { t } = useTranslation();
   const listRef = useRef<VirtualListHandle>(null);
 
   const handleScroll = useCallback(
@@ -498,7 +500,7 @@ export function InfiniteScrollList<T>({
           {loadingComponent || (
             <div className="flex items-center gap-2 text-gray-400">
               <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-              Loading more...
+              {t('virtualList.loadingMore', 'Loading more...')}
             </div>
           )}
         </div>

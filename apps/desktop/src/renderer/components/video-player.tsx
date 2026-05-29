@@ -16,6 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface VideoPlayerProps {
   src: string;
@@ -53,6 +54,7 @@ export function VideoPlayer({
   showControls = true,
   initialTime = 0,
 }: VideoPlayerProps) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -102,7 +104,7 @@ export function VideoPlayer({
     };
 
     const handleError = () => {
-      const errorMessage = video.error?.message || 'Failed to load video';
+      const errorMessage = video.error?.message || t('videoPlayer.failedToLoad', 'Failed to load video');
       setError(errorMessage);
       setIsLoading(false);
       onError?.(errorMessage);
@@ -134,7 +136,7 @@ export function VideoPlayer({
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('canplay', handleCanPlay);
     };
-  }, [src, initialTime, onTimeUpdate, onEnded, onError]);
+  }, [src, initialTime, onTimeUpdate, onEnded, onError, t]);
 
   // Auto-hide controls
   useEffect(() => {
@@ -346,7 +348,7 @@ export function VideoPlayer({
     return (
       <div className={cn('relative bg-surface-900 flex items-center justify-center', className)}>
         <div className="text-center text-red-400">
-          <p className="mb-2">Failed to load video</p>
+          <p className="mb-2">{t('videoPlayer.failedToLoad', 'Failed to load video')}</p>
           <p className="text-sm text-surface-500">{error}</p>
         </div>
       </div>
@@ -428,7 +430,7 @@ export function VideoPlayer({
             <button
               onClick={togglePlayPause}
               className="p-2 text-white hover:text-brand-400 transition-colors"
-              title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+              title={isPlaying ? t('videoPlayer.pause', 'Pause (Space)') : t('videoPlayer.play', 'Play (Space)')}
             >
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
             </button>
@@ -437,7 +439,7 @@ export function VideoPlayer({
             <button
               onClick={() => skip(-10)}
               className="p-2 text-white hover:text-brand-400 transition-colors"
-              title="Skip back 10s (J)"
+              title={t('videoPlayer.skipBack', 'Skip back 10s (J)')}
             >
               <SkipBack className="w-4 h-4" />
             </button>
@@ -446,7 +448,7 @@ export function VideoPlayer({
             <button
               onClick={() => skip(10)}
               className="p-2 text-white hover:text-brand-400 transition-colors"
-              title="Skip forward 10s (L)"
+              title={t('videoPlayer.skipForward', 'Skip forward 10s (L)')}
             >
               <SkipForward className="w-4 h-4" />
             </button>
@@ -456,7 +458,7 @@ export function VideoPlayer({
               <button
                 onClick={toggleMute}
                 className="p-2 text-white hover:text-brand-400 transition-colors"
-                title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
+                title={isMuted ? t('videoPlayer.unmute', 'Unmute (M)') : t('videoPlayer.mute', 'Mute (M)')}
               >
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-5 h-5" />
@@ -488,7 +490,7 @@ export function VideoPlayer({
               <button
                 onClick={() => setShowSpeedMenu(!showSpeedMenu)}
                 className="p-2 text-white hover:text-brand-400 transition-colors text-sm font-mono"
-                title="Playback speed"
+                title={t('videoPlayer.playbackSpeed', 'Playback speed')}
               >
                 {playbackRate}x
               </button>
@@ -514,7 +516,7 @@ export function VideoPlayer({
             <button
               onClick={toggleFullscreen}
               className="p-2 text-white hover:text-brand-400 transition-colors"
-              title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
+              title={isFullscreen ? t('videoPlayer.exitFullscreen', 'Exit fullscreen (F)') : t('videoPlayer.fullscreen', 'Fullscreen (F)')}
             >
               {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
             </button>

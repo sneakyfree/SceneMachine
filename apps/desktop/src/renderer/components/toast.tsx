@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Toast as ToastType, useToastStore } from '../stores/toast-store';
+import { useTranslation } from '../i18n/use-translation';
 
 export function useToast() {
   const store = useToastStore();
@@ -36,6 +37,7 @@ export function useToast() {
 
 // Individual toast item
 function ToastItem({ toast, onDismiss }: { toast: ToastType; onDismiss: () => void }) {
+  const { t } = useTranslation();
   const [isExiting, setIsExiting] = useState(false);
 
   const handleDismiss = () => {
@@ -111,7 +113,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastType; onDismiss: () => vo
         <button
           onClick={handleDismiss}
           className="icon-btn flex-shrink-0 p-2 text-surface-400 hover:text-surface-300 transition-colors rounded"
-          aria-label="Dismiss notification"
+          aria-label={t('toastCmp.dismissNotification', 'Dismiss notification')}
         >
           <X className="w-5 h-5" />
         </button>
@@ -122,6 +124,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastType; onDismiss: () => vo
 
 // Toast container that renders all toasts
 export function ToastContainer() {
+  const { t } = useTranslation();
   const { toasts, removeToast } = useToastStore();
 
   if (toasts.length === 0) return null;
@@ -130,7 +133,7 @@ export function ToastContainer() {
     <div
       className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"
       aria-live="polite"
-      aria-label="Notifications"
+      aria-label={t('toastCmp.notifications', 'Notifications')}
     >
       {toasts.map((toast) => (
         <div key={toast.id} className="pointer-events-auto">
@@ -153,6 +156,7 @@ export function ProgressToast({
   message?: string;
   onCancel?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-2 p-4 rounded-lg border bg-surface-800/90 border-surface-700 shadow-lg backdrop-blur-sm">
       <div className="flex items-center justify-between">
@@ -174,7 +178,7 @@ export function ProgressToast({
           onClick={onCancel}
           className="self-end text-sm text-surface-400 hover:text-surface-300"
         >
-          Cancel
+          {t('toastCmp.cancel', 'Cancel')}
         </button>
       )}
     </div>

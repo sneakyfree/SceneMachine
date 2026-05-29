@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { AudioLevelMeter } from './audio-waveform';
+import { useTranslation } from '../i18n/use-translation';
 
 export interface AudioTrack {
   id: string;
@@ -50,6 +51,13 @@ const TRACK_COLORS: Record<AudioTrack['type'], string> = {
   voiceover: '#f59e0b',
 };
 
+const TRACK_TYPE_LABELS: Record<AudioTrack['type'], { key: string; en: string }> = {
+  dialogue: { key: 'audioMixer.trackDialogue', en: 'Dialogue' },
+  music: { key: 'audioMixer.trackMusic', en: 'Music' },
+  sfx: { key: 'audioMixer.trackSfx', en: 'Sfx' },
+  voiceover: { key: 'audioMixer.trackVoiceover', en: 'Voiceover' },
+};
+
 const TRACK_ICONS: Record<AudioTrack['type'], React.ReactNode> = {
   dialogue: <Mic className="w-4 h-4" />,
   music: <Music className="w-4 h-4" />,
@@ -68,6 +76,7 @@ function TrackChannel({
   onRemove?: () => void;
   hasSoloedTrack: boolean;
 }) {
+  const { t } = useTranslation();
   const [level, setLevel] = useState(0);
   const [peakLevel, setPeakLevel] = useState(0);
 
@@ -112,7 +121,10 @@ function TrackChannel({
           <button
             onClick={onRemove}
             className="icon-btn p-2 text-surface-500 hover:text-red-400 transition-colors rounded"
-            aria-label={`Remove ${track.name} track`}
+            aria-label={t('audioMixer.removeTrack', 'Remove {name} track').replace(
+              '{name}',
+              track.name
+            )}
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -154,7 +166,7 @@ function TrackChannel({
 
       {/* Pan knob (simplified as slider) */}
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[10px] text-surface-500">PAN</span>
+        <span className="text-[10px] text-surface-500">{t('audioMixer.pan', 'PAN')}</span>
         <input
           type="range"
           min="-1"
@@ -213,6 +225,7 @@ function MasterChannel({
   isPlaying?: boolean;
   onPlayPause?: () => void;
 }) {
+  const { t } = useTranslation();
   const [level, setLevel] = useState(0);
   const [peakLevel, setPeakLevel] = useState(0);
 
@@ -235,7 +248,7 @@ function MasterChannel({
       {/* Header */}
       <div className="flex items-center gap-2 justify-center">
         <Volume2 className="w-4 h-4 text-brand-400" />
-        <span className="text-xs font-bold text-brand-400">MASTER</span>
+        <span className="text-xs font-bold text-brand-400">{t('audioMixer.master', 'MASTER')}</span>
       </div>
 
       {/* Stereo level meters */}
@@ -293,6 +306,7 @@ export function AudioMixer({
   onPlayPause,
   className,
 }: AudioMixerProps) {
+  const { t } = useTranslation();
   const [isLinked, setIsLinked] = useState(false);
   const hasSoloedTrack = tracks.some((t) => t.solo);
 
@@ -318,7 +332,9 @@ export function AudioMixer({
     <div className={cn('bg-surface-950 rounded-xl p-4', className)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-surface-300">Audio Mixer</h3>
+        <h3 className="text-sm font-semibold text-surface-300">
+          {t('audioMixer.title', 'Audio Mixer')}
+        </h3>
         <div className="flex items-center gap-2">
           {/* Link toggle */}
           <button
@@ -329,7 +345,11 @@ export function AudioMixer({
                 ? 'bg-brand-500 text-white'
                 : 'bg-surface-800 text-surface-400 hover:text-white'
             )}
-            title={isLinked ? 'Unlink tracks' : 'Link tracks'}
+            title={
+              isLinked
+                ? t('audioMixer.unlinkTracks', 'Unlink tracks')
+                : t('audioMixer.linkTracks', 'Link tracks')
+            }
           >
             {isLinked ? <Link className="w-4 h-4" /> : <Unlink className="w-4 h-4" />}
           </button>
@@ -339,7 +359,7 @@ export function AudioMixer({
             <div className="relative group">
               <button
                 className="icon-btn p-2 bg-surface-800 text-surface-400 hover:text-white rounded transition-colors"
-                aria-label="Add audio track"
+                aria-label={t('audioMixer.addTrack', 'Add audio track')}
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -356,7 +376,7 @@ export function AudioMixer({
                     >
                       {TRACK_ICONS[type]}
                     </div>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                    {t(TRACK_TYPE_LABELS[type].key, TRACK_TYPE_LABELS[type].en)}
                   </button>
                 ))}
               </div>
@@ -391,8 +411,11 @@ export function AudioMixer({
       {/* Quick tips */}
       <div className="mt-3 pt-3 border-t border-surface-800">
         <p className="text-xs text-surface-500">
-          <span className="font-medium">Tips:</span> S = Solo (hear only this track), M = Mute
-          (silence this track)
+          <span className="font-medium">{t('audioMixer.tips', 'Tips:')}</span>{' '}
+          {t(
+            'audioMixer.tipsBody',
+            'S = Solo (hear only this track), M = Mute (silence this track)'
+          )}
         </p>
       </div>
     </div>

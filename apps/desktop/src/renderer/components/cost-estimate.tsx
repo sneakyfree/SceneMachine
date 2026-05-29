@@ -12,6 +12,7 @@ import { cn } from '../lib/utils';
 import { api } from '../api/client';
 import { useGenerationStore } from '../stores/generation-store';
 import { useExperienceStore } from '../stores/experience-store';
+import { useTranslation } from '../i18n/use-translation';
 
 interface CostEstimateProps {
   /** Duration in seconds for a single shot */
@@ -44,6 +45,7 @@ export function CostEstimate({
 }: CostEstimateProps) {
   const { selectedProvider, selectedModel } = useGenerationStore();
   const { getTerm } = useExperienceStore();
+  const { t } = useTranslation();
 
   const provider = providerOverride ?? selectedProvider;
   const modelId = modelIdOverride ?? selectedModel;
@@ -78,7 +80,7 @@ export function CostEstimate({
         className={cn('flex items-center gap-2 text-surface-500', compact ? 'text-xs' : 'text-sm')}
       >
         <Loader2 className="w-3 h-3 animate-spin" />
-        <span>Estimating cost...</span>
+        <span>{t('costEst.estimatingCost', 'Estimating cost...')}</span>
       </div>
     );
   }
@@ -89,7 +91,7 @@ export function CostEstimate({
         className={cn('flex items-center gap-2 text-surface-500', compact ? 'text-xs' : 'text-sm')}
       >
         <Info className="w-3 h-3" />
-        <span>Cost unavailable</span>
+        <span>{t('costEst.costUnavailable', 'Cost unavailable')}</span>
       </div>
     );
   }
@@ -158,24 +160,24 @@ export function CostEstimate({
       {showBreakdown && (
         <div className="px-3 py-2 bg-surface-800/50 rounded-lg text-sm space-y-1">
           <div className="flex justify-between text-surface-400">
-            <span>Provider</span>
+            <span>{t('costEst.provider', 'Provider')}</span>
             <span className="text-surface-200">{getTerm(estimate.provider, 'generation')}</span>
           </div>
           <div className="flex justify-between text-surface-400">
-            <span>Model</span>
+            <span>{t('costEst.model', 'Model')}</span>
             <span className="text-surface-200">{estimate.model_name}</span>
           </div>
           <div className="flex justify-between text-surface-400">
-            <span>Duration</span>
+            <span>{t('costEst.duration', 'Duration')}</span>
             <span className="text-surface-200">{estimate.duration_seconds}s</span>
           </div>
           <div className="flex justify-between text-surface-400">
-            <span>Cost per shot</span>
+            <span>{t('costEst.costPerShot', 'Cost per shot')}</span>
             <span className="text-surface-200">${estimate.cost_per_shot.toFixed(4)}</span>
           </div>
           {shotCount > 1 && (
             <div className="flex justify-between text-surface-400 pt-1 border-t border-surface-700">
-              <span>Shots</span>
+              <span>{t('costEst.shots', 'Shots')}</span>
               <span className="text-surface-200">×{shotCount}</span>
             </div>
           )}
@@ -186,7 +188,12 @@ export function CostEstimate({
       {costLevel === 'danger' && (
         <div className="flex items-start gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>This is a high-cost operation. Consider reducing shot count or duration.</span>
+          <span>
+            {t(
+              'costEst.highCostWarning',
+              'This is a high-cost operation. Consider reducing shot count or duration.'
+            )}
+          </span>
         </div>
       )}
     </div>
@@ -235,6 +242,7 @@ export function CostTooltip({
 }) {
   const { selectedProvider, selectedModel } = useGenerationStore();
   const { getTerm } = useExperienceStore();
+  const { t } = useTranslation();
 
   const effectiveProvider = provider ?? selectedProvider;
   const effectiveModel = modelId ?? selectedModel;
@@ -253,17 +261,25 @@ export function CostTooltip({
   });
 
   if (isLoading) {
-    return <div className="p-2 text-xs text-surface-400">Calculating cost...</div>;
+    return (
+      <div className="p-2 text-xs text-surface-400">
+        {t('costEst.calculatingCost', 'Calculating cost...')}
+      </div>
+    );
   }
 
   if (!estimate) {
-    return <div className="p-2 text-xs text-surface-400">Cost unavailable</div>;
+    return (
+      <div className="p-2 text-xs text-surface-400">
+        {t('costEst.costUnavailable', 'Cost unavailable')}
+      </div>
+    );
   }
 
   return (
     <div className="p-2 text-xs space-y-1">
       <div className="font-medium text-surface-200">
-        Estimated Cost: ${estimate.cost_per_shot.toFixed(4)}
+        {t('costEst.estimatedCostLabel', 'Estimated Cost:')} ${estimate.cost_per_shot.toFixed(4)}
       </div>
       <div className="text-surface-400">
         {estimate.model_name} ({getTerm(estimate.provider, 'generation')})
@@ -286,6 +302,7 @@ export function BatchCostSummary({
   showPerShot?: boolean;
 }) {
   const { selectedProvider, selectedModel } = useGenerationStore();
+  const { t } = useTranslation();
 
   const totalDuration = useMemo(() => {
     return shots.reduce((sum, shot) => sum + (shot.duration ?? 3.0), 0);
@@ -310,7 +327,7 @@ export function BatchCostSummary({
     return (
       <div className="flex items-center gap-2 text-sm text-surface-500">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Calculating total cost...</span>
+        <span>{t('costEst.calculatingTotalCost', 'Calculating total cost...')}</span>
       </div>
     );
   }
@@ -323,11 +340,14 @@ export function BatchCostSummary({
     <div className="flex items-center justify-between px-4 py-3 bg-surface-800 rounded-lg">
       <div>
         <div className="text-sm text-surface-400">
-          {shots.length} shot{shots.length !== 1 ? 's' : ''} to generate
+          {shots.length}{' '}
+          {shots.length !== 1
+            ? t('costEst.shotsToGenerate', 'shots to generate')
+            : t('costEst.shotToGenerate', 'shot to generate')}
         </div>
         {showPerShot && (
           <div className="text-xs text-surface-500 mt-0.5">
-            ~${estimate.cost_per_shot.toFixed(3)} per shot
+            ~${estimate.cost_per_shot.toFixed(3)} {t('costEst.perShot', 'per shot')}
           </div>
         )}
       </div>
@@ -338,7 +358,7 @@ export function BatchCostSummary({
             ${estimate.total_cost.toFixed(2)}
           </span>
         </div>
-        <div className="text-xs text-surface-500">Estimated total</div>
+        <div className="text-xs text-surface-500">{t('costEst.estimatedTotal', 'Estimated total')}</div>
       </div>
     </div>
   );

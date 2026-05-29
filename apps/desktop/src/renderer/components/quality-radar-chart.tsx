@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { Shield, CheckCircle, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from '../i18n/use-translation';
 
 // Quality dimension score from API
 interface QualityDimensionScore {
@@ -29,16 +30,16 @@ interface QualityReviewResult {
   reviewed_at?: string;
 }
 
-// Human-readable labels for quality dimensions
-const DIMENSION_LABELS: Record<string, string> = {
-  visual_fidelity: 'Visual Fidelity',
-  motion_coherence: 'Motion',
-  character_consistency: 'Character',
-  prompt_adherence: 'Prompt Match',
-  temporal_stability: 'Stability',
-  physics_plausibility: 'Physics',
-  lighting_consistency: 'Lighting',
-  audio_sync: 'Audio Sync',
+// Human-readable labels for quality dimensions (i18n key + English fallback)
+const DIMENSION_LABELS: Record<string, { key: string; en: string }> = {
+  visual_fidelity: { key: 'qualityRadar.dimVisualFidelity', en: 'Visual Fidelity' },
+  motion_coherence: { key: 'qualityRadar.dimMotion', en: 'Motion' },
+  character_consistency: { key: 'qualityRadar.dimCharacter', en: 'Character' },
+  prompt_adherence: { key: 'qualityRadar.dimPromptMatch', en: 'Prompt Match' },
+  temporal_stability: { key: 'qualityRadar.dimStability', en: 'Stability' },
+  physics_plausibility: { key: 'qualityRadar.dimPhysics', en: 'Physics' },
+  lighting_consistency: { key: 'qualityRadar.dimLighting', en: 'Lighting' },
+  audio_sync: { key: 'qualityRadar.dimAudioSync', en: 'Audio Sync' },
 };
 
 interface QualityRadarChartProps {
@@ -64,7 +65,14 @@ export function QualityRadarChart({
   loading = false,
   compact = false,
 }: QualityRadarChartProps) {
+  const { t } = useTranslation();
   const [hoveredDim, setHoveredDim] = useState<string | null>(null);
+
+  // Resolve a dimension key to its translated label (falls back to raw key).
+  const dimLabel = (dimension: string): string => {
+    const entry = DIMENSION_LABELS[dimension];
+    return entry ? t(entry.key, entry.en) : dimension;
+  };
 
   if (loading) {
     return (
@@ -80,7 +88,7 @@ export function QualityRadarChart({
         }}
       >
         <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-        <span style={{ fontSize: '13px' }}>Analyzing quality…</span>
+        <span style={{ fontSize: '13px' }}>{t('qualityRadar.analyzingQuality', 'Analyzing quality…')}</span>
       </div>
     );
   }
@@ -161,7 +169,7 @@ export function QualityRadarChart({
               color: 'var(--text-primary, #e0e0e0)',
             }}
           >
-            Quality Score
+            {t('qualityRadar.qualityScore', 'Quality Score')}
           </span>
         </div>
         <div
@@ -238,7 +246,7 @@ export function QualityRadarChart({
             const dotPos = polarToCartesian(cx, cy, d.score * maxRadius, angle);
             const labelPos = polarToCartesian(cx, cy, maxRadius + (compact ? 18 : 24), angle);
             const isHovered = hoveredDim === d.dimension;
-            const label = DIMENSION_LABELS[d.dimension] || d.dimension;
+            const label = dimLabel(d.dimension);
 
             return (
               <g
@@ -285,11 +293,11 @@ export function QualityRadarChart({
           }}
         >
           <div style={{ fontWeight: 600, color: 'var(--text-primary, #fff)', marginBottom: '4px' }}>
-            {DIMENSION_LABELS[hoveredData.dimension] || hoveredData.dimension} —{' '}
+            {dimLabel(hoveredData.dimension)} —{' '}
             {Math.round(hoveredData.score * 100)}%
           </div>
           {hoveredData.issues.length > 0 && (
-            <div style={{ color: '#f59e0b' }}>Issues: {hoveredData.issues.join(', ')}</div>
+            <div style={{ color: '#f59e0b' }}>{t('qualityRadar.issues', 'Issues:')} {hoveredData.issues.join(', ')}</div>
           )}
           {hoveredData.notes && (
             <div style={{ opacity: 0.7, marginTop: '2px' }}>{hoveredData.notes}</div>
@@ -310,7 +318,7 @@ export function QualityRadarChart({
               letterSpacing: '0.5px',
             }}
           >
-            Recommendations
+            {t('qualityRadar.recommendations', 'Recommendations')}
           </div>
           {review.recommendations.map((rec, i) => (
             <div

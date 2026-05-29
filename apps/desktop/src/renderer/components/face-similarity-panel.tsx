@@ -18,6 +18,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface FaceSimilarityComparison {
   shot_id: string;
@@ -46,11 +47,11 @@ function getScoreColor(score: number): string {
   return '#ef4444';
 }
 
-function getScoreLabel(score: number): string {
-  if (score >= 0.85) return 'Excellent';
-  if (score >= 0.7) return 'Good';
-  if (score >= 0.5) return 'Fair';
-  return 'Low';
+function getScoreLabel(score: number): { key: string; en: string } {
+  if (score >= 0.85) return { key: 'faceSim.scoreExcellent', en: 'Excellent' };
+  if (score >= 0.7) return { key: 'faceSim.scoreGood', en: 'Good' };
+  if (score >= 0.5) return { key: 'faceSim.scoreFair', en: 'Fair' };
+  return { key: 'faceSim.scoreLow', en: 'Low' };
 }
 
 function getScoreIcon(score: number) {
@@ -65,6 +66,7 @@ export function FaceSimilarityPanel({
   isLocked,
   className,
 }: FaceSimilarityPanelProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
   const {
@@ -108,7 +110,7 @@ export function FaceSimilarityPanel({
         }}
       >
         <ScanFace size={14} />
-        Lock character to enable face similarity analysis
+        {t('faceSim.lockToEnable', 'Lock character to enable face similarity analysis')}
       </div>
     );
   }
@@ -125,7 +127,7 @@ export function FaceSimilarityPanel({
         }}
       >
         <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-        <span style={{ fontSize: '12px' }}>Analyzing face similarity…</span>
+        <span style={{ fontSize: '12px' }}>{t('faceSim.analyzing', 'Analyzing face similarity…')}</span>
       </div>
     );
   }
@@ -146,7 +148,7 @@ export function FaceSimilarityPanel({
         }}
       >
         <ScanFace size={14} />
-        No generated shots to compare yet
+        {t('faceSim.noShots', 'No generated shots to compare yet')}
       </div>
     );
   }
@@ -184,7 +186,7 @@ export function FaceSimilarityPanel({
               color: 'var(--text-primary, #e0e0e0)',
             }}
           >
-            Face Consistency
+            {t('faceSim.faceConsistency', 'Face Consistency')}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -200,7 +202,7 @@ export function FaceSimilarityPanel({
               display: 'flex',
               alignItems: 'center',
             }}
-            title="Refresh similarity scores"
+            title={t('faceSim.refresh', 'Refresh similarity scores')}
           >
             <RefreshCw
               size={14}
@@ -234,8 +236,14 @@ export function FaceSimilarityPanel({
           marginBottom: '12px',
         }}
       >
-        {getScoreLabel(avgScore)} consistency across {result.comparisons.length} shot
-        {result.comparisons.length !== 1 ? 's' : ''}
+        {(() => {
+          const label = getScoreLabel(avgScore);
+          return t(label.key, label.en);
+        })()}{' '}
+        {t('faceSim.consistencyAcross', 'consistency across')} {result.comparisons.length}{' '}
+        {result.comparisons.length !== 1
+          ? t('faceSim.shotsPlural', 'shots')
+          : t('faceSim.shotSingular', 'shot')}
       </div>
 
       {/* Expandable bar chart */}
@@ -256,7 +264,8 @@ export function FaceSimilarityPanel({
         }}
       >
         <BarChart3 size={12} />
-        {expanded ? 'Hide' : 'Show'} per-shot breakdown ({sorted.length})
+        {expanded ? t('faceSim.hide', 'Hide') : t('faceSim.show', 'Show')}{' '}
+        {t('faceSim.perShotBreakdown', 'per-shot breakdown')} ({sorted.length})
       </button>
 
       {expanded && (
