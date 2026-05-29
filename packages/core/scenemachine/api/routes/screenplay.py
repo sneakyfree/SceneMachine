@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from scenemachine.auth.dependencies import OptionalUser
 from scenemachine.database import get_session
-from scenemachine.models import Character, Scene, Screenplay
+from scenemachine.models import Character, Project, Scene, Screenplay
 from scenemachine.schemas.screenplay import (
     ScreenplayDetail,
     ScreenplayResponse,
@@ -224,8 +225,36 @@ async def get_project_screenplay(
 async def delete_screenplay(
     screenplay_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: OptionalUser = None,
 ) -> None:
-    """Delete a screenplay and all associated data."""
+    """Delete a screenplay and all associated data.
+
+    A screenplay inherits its parent project's owner: a *different*
+    authenticated user can't delete it (403). Unowned projects and
+    unauthenticated (desktop/IPC) callers stay allowed for back-compat.
+    """
+    sp = (
+        await session.execute(select(Screenplay).where(Screenplay.id == screenplay_id))
+    ).scalar_one_or_none()
+    if sp is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Screenplay {screenplay_id} not found",
+        )
+    project = (
+        await session.execute(select(Project).where(Project.id == sp.project_id))
+    ).scalar_one_or_none()
+    if (
+        project is not None
+        and project.owner_id is not None
+        and current_user is not None
+        and project.owner_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete this screenplay",
+        )
+
     service = ScreenplayService(session)
     deleted = await service.delete_screenplay(screenplay_id)
 
