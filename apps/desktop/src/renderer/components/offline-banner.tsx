@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, memo } from 'react';
 import { WifiOff, Wifi, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useOnlineStatus, formatTimeSinceOnline } from '../hooks/use-online-status';
+import { useTranslation } from '../i18n/use-translation';
 
 interface OfflineBannerProps {
   /**
@@ -41,6 +42,7 @@ export const OfflineBanner = memo(function OfflineBanner({
   onStatusChange,
   autoDismissDelay = 3000,
 }: OfflineBannerProps) {
+  const { t } = useTranslation();
   const { isOnline, lastOnline, isChecking, checkConnection } = useOnlineStatus();
   const [bannerState, setBannerState] = useState<BannerState>(isOnline ? 'hidden' : 'offline');
   const [showDetails, setShowDetails] = useState(false);
@@ -101,8 +103,8 @@ export const OfflineBanner = memo(function OfflineBanner({
           textColor: 'text-yellow-950',
           icon: WifiOff,
           iconColor: 'text-yellow-900',
-          message: "You're offline",
-          subMessage: 'Some features may be unavailable',
+          message: t('offline.youreOffline', "You're offline"),
+          subMessage: t('offline.someFeaturesUnavailable', 'Some features may be unavailable'),
         };
       case 'reconnecting':
         return {
@@ -110,8 +112,8 @@ export const OfflineBanner = memo(function OfflineBanner({
           textColor: 'text-white',
           icon: RefreshCw,
           iconColor: 'text-blue-100',
-          message: 'Reconnecting...',
-          subMessage: 'Checking connection',
+          message: t('offline.reconnecting', 'Reconnecting...'),
+          subMessage: t('offline.checkingConnection', 'Checking connection'),
           iconSpin: true,
         };
       case 'online':
@@ -120,8 +122,8 @@ export const OfflineBanner = memo(function OfflineBanner({
           textColor: 'text-white',
           icon: CheckCircle,
           iconColor: 'text-green-100',
-          message: 'Back online!',
-          subMessage: 'All features restored',
+          message: t('offline.backOnline', 'Back online!'),
+          subMessage: t('offline.allFeaturesRestored', 'All features restored'),
         };
       default:
         return null;
@@ -181,9 +183,9 @@ export const OfflineBanner = memo(function OfflineBanner({
                 'text-sm opacity-70 hover:opacity-100 transition-opacity',
                 'focus:outline-none focus:ring-2 focus:ring-yellow-900/30 rounded px-2 py-1'
               )}
-              aria-label={showDetails ? 'Hide details' : 'Show details'}
+              aria-label={showDetails ? t('offline.hideDetails', 'Hide details') : t('offline.showDetails', 'Show details')}
             >
-              Last online: {formatTimeSinceOnline(lastOnline)}
+              {t('offline.lastOnline', 'Last online:')} {formatTimeSinceOnline(lastOnline)}
             </button>
           )}
 
@@ -197,10 +199,10 @@ export const OfflineBanner = memo(function OfflineBanner({
                 'transition-colors focus:outline-none',
                 'focus:ring-2 focus:ring-yellow-900/50'
               )}
-              aria-label="Retry connection"
+              aria-label={t('offline.retryConnection', 'Retry connection')}
             >
               <RefreshCw className="w-4 h-4" />
-              <span className="text-sm font-medium">Retry</span>
+              <span className="text-sm font-medium">{t('offline.retry', 'Retry')}</span>
             </button>
           )}
 
@@ -213,9 +215,9 @@ export const OfflineBanner = memo(function OfflineBanner({
                 'transition-colors focus:outline-none',
                 'focus:ring-2 focus:ring-green-400/50'
               )}
-              aria-label="Dismiss"
+              aria-label={t('offline.dismiss', 'Dismiss')}
             >
-              <span className="sr-only">Dismiss</span>
+              <span className="sr-only">{t('offline.dismiss', 'Dismiss')}</span>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -241,18 +243,18 @@ export const OfflineBanner = memo(function OfflineBanner({
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
             <div className="text-sm space-y-2">
-              <p className="font-medium">Available while offline:</p>
+              <p className="font-medium">{t('offline.availableWhileOffline', 'Available while offline:')}</p>
               <ul className="list-disc list-inside space-y-1 opacity-90">
-                <li>View cached projects and scenes</li>
-                <li>Review generated content</li>
-                <li>Edit character details (changes sync when online)</li>
+                <li>{t('offline.viewCachedProjects', 'View cached projects and scenes')}</li>
+                <li>{t('offline.reviewGeneratedContent', 'Review generated content')}</li>
+                <li>{t('offline.editCharacterDetails', 'Edit character details (changes sync when online)')}</li>
               </ul>
-              <p className="font-medium mt-3">Unavailable while offline:</p>
+              <p className="font-medium mt-3">{t('offline.unavailableWhileOffline', 'Unavailable while offline:')}</p>
               <ul className="list-disc list-inside space-y-1 opacity-90">
-                <li>Generate new video clips</li>
-                <li>Create TTS audio</li>
-                <li>Export final videos</li>
-                <li>Real-time collaboration</li>
+                <li>{t('offline.generateNewVideoClips', 'Generate new video clips')}</li>
+                <li>{t('offline.createTtsAudio', 'Create TTS audio')}</li>
+                <li>{t('offline.exportFinalVideos', 'Export final videos')}</li>
+                <li>{t('offline.realTimeCollaboration', 'Real-time collaboration')}</li>
               </ul>
             </div>
           </div>
@@ -270,6 +272,7 @@ export const OfflineIndicator = memo(function OfflineIndicator({
 }: {
   className?: string;
 }) {
+  const { t } = useTranslation();
   const { isOnline, isChecking } = useOnlineStatus();
 
   return (
@@ -280,7 +283,7 @@ export const OfflineIndicator = memo(function OfflineIndicator({
         className
       )}
       role="status"
-      aria-label={isOnline ? 'Online' : 'Offline'}
+      aria-label={isOnline ? t('offline.online', 'Online') : t('offline.offline', 'Offline')}
     >
       {isChecking ? (
         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -290,7 +293,7 @@ export const OfflineIndicator = memo(function OfflineIndicator({
         <WifiOff className="w-3.5 h-3.5" />
       )}
       <span className="hidden sm:inline">
-        {isChecking ? 'Checking...' : isOnline ? 'Online' : 'Offline'}
+        {isChecking ? t('offline.checking', 'Checking...') : isOnline ? t('offline.online', 'Online') : t('offline.offline', 'Offline')}
       </span>
     </div>
   );

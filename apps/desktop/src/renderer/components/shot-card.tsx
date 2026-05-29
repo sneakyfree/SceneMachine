@@ -19,6 +19,7 @@ import { cn } from '../lib/utils';
 import { useGenerationStore } from '../stores/generation-store';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { useTranslation } from '../i18n/use-translation';
 
 interface Shot {
   id: string;
@@ -106,6 +107,7 @@ export function ShotCard({
   isDragging = false,
   showCost = false,
 }: ShotCardProps) {
+  const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Shot>>({});
@@ -202,8 +204,8 @@ export function ShotCard({
             onClick={handleStartEdit}
             disabled={disabled || isEditing}
             className="icon-btn p-2 text-surface-400 hover:text-surface-300 hover:bg-surface-700 rounded transition-colors"
-            title="Edit shot"
-            aria-label="Edit shot"
+            title={t('shotCard.editShot', 'Edit shot')}
+            aria-label={t('shotCard.editShot', 'Edit shot')}
           >
             <Edit2 className="w-4 h-4" />
           </button>
@@ -211,15 +213,19 @@ export function ShotCard({
             onClick={() => onDelete(shot.id)}
             disabled={disabled}
             className="icon-btn p-2 text-surface-400 hover:text-red-400 hover:bg-surface-700 rounded transition-colors"
-            title="Delete shot"
-            aria-label="Delete shot"
+            title={t('shotCard.deleteShot', 'Delete shot')}
+            aria-label={t('shotCard.deleteShot', 'Delete shot')}
           >
             <Trash2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="icon-btn p-2 text-surface-400 hover:text-surface-300 hover:bg-surface-700 rounded transition-colors"
-            aria-label={isExpanded ? 'Collapse shot details' : 'Expand shot details'}
+            aria-label={
+              isExpanded
+                ? t('shotCard.collapseShotDetails', 'Collapse shot details')
+                : t('shotCard.expandShotDetails', 'Expand shot details')
+            }
           >
             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
@@ -235,7 +241,9 @@ export function ShotCard({
               {/* Shot Type & Camera Movement */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">Shot Type</label>
+                  <label className="block text-sm text-surface-400 mb-1">
+                    {t('shotCard.shotType', 'Shot Type')}
+                  </label>
                   <select
                     value={editData.shotType || shot.shotType}
                     onChange={(e) => setEditData({ ...editData, shotType: e.target.value })}
@@ -249,7 +257,9 @@ export function ShotCard({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">Camera Movement</label>
+                  <label className="block text-sm text-surface-400 mb-1">
+                    {t('shotCard.cameraMovement', 'Camera Movement')}
+                  </label>
                   <select
                     value={editData.cameraMovement || shot.cameraMovement}
                     onChange={(e) => setEditData({ ...editData, cameraMovement: e.target.value })}
@@ -266,7 +276,9 @@ export function ShotCard({
 
               {/* Description */}
               <div>
-                <label className="block text-sm text-surface-400 mb-1">Description</label>
+                <label className="block text-sm text-surface-400 mb-1">
+                  {t('shotCard.description', 'Description')}
+                </label>
                 <textarea
                   value={editData.description ?? shot.description}
                   onChange={(e) => setEditData({ ...editData, description: e.target.value })}
@@ -281,7 +293,7 @@ export function ShotCard({
                   htmlFor={`duration-${shot.id}`}
                   className="block text-sm text-surface-400 mb-1"
                 >
-                  Duration (seconds)
+                  {t('shotCard.durationSeconds', 'Duration (seconds)')}
                 </label>
                 <input
                   id={`duration-${shot.id}`}
@@ -303,22 +315,26 @@ export function ShotCard({
               {/* Notes */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">Composition Notes</label>
+                  <label className="block text-sm text-surface-400 mb-1">
+                    {t('shotCard.compositionNotes', 'Composition Notes')}
+                  </label>
                   <textarea
                     value={editData.compositionNotes ?? shot.compositionNotes ?? ''}
                     onChange={(e) => setEditData({ ...editData, compositionNotes: e.target.value })}
                     rows={2}
-                    placeholder="Framing, rule of thirds, etc."
+                    placeholder={t('shotCard.compositionPlaceholder', 'Framing, rule of thirds, etc.')}
                     className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500 resize-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-surface-400 mb-1">Lighting Notes</label>
+                  <label className="block text-sm text-surface-400 mb-1">
+                    {t('shotCard.lightingNotes', 'Lighting Notes')}
+                  </label>
                   <textarea
                     value={editData.lightingNotes ?? shot.lightingNotes ?? ''}
                     onChange={(e) => setEditData({ ...editData, lightingNotes: e.target.value })}
                     rows={2}
-                    placeholder="Key light, mood, etc."
+                    placeholder={t('shotCard.lightingPlaceholder', 'Key light, mood, etc.')}
                     className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500 resize-none"
                   />
                 </div>
@@ -330,13 +346,13 @@ export function ShotCard({
                   onClick={handleCancelEdit}
                   className="px-3 py-1.5 text-sm text-surface-400 hover:text-surface-300 hover:bg-surface-700 rounded-lg transition-colors"
                 >
-                  Cancel
+                  {t('shotCard.cancel', 'Cancel')}
                 </button>
                 <button
                   onClick={handleSaveEdit}
                   className="px-3 py-1.5 text-sm bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors"
                 >
-                  Save Changes
+                  {t('shotCard.saveChanges', 'Save Changes')}
                 </button>
               </div>
             </div>
@@ -348,7 +364,7 @@ export function ShotCard({
                 <div>
                   <div className="flex items-center gap-2 text-sm text-surface-400 mb-1">
                     <Video className="w-4 h-4" />
-                    <span>Shot Type</span>
+                    <span>{t('shotCard.shotType', 'Shot Type')}</span>
                   </div>
                   <p className="text-sm">{shotType?.label}</p>
                   <p className="text-xs text-surface-500 mt-0.5">{shotType?.description}</p>
@@ -356,7 +372,7 @@ export function ShotCard({
                 <div>
                   <div className="flex items-center gap-2 text-sm text-surface-400 mb-1">
                     <Camera className="w-4 h-4" />
-                    <span>Camera</span>
+                    <span>{t('shotCard.camera', 'Camera')}</span>
                   </div>
                   <p className="text-sm">{cameraMovement?.label}</p>
                   <p className="text-xs text-surface-500 mt-0.5">{cameraMovement?.description}</p>
@@ -365,14 +381,18 @@ export function ShotCard({
 
               {/* Full Description */}
               <div>
-                <h4 className="text-sm text-surface-400 mb-1">Description</h4>
+                <h4 className="text-sm text-surface-400 mb-1">
+                  {t('shotCard.description', 'Description')}
+                </h4>
                 <p className="text-sm">{shot.description}</p>
               </div>
 
               {/* Dialogue */}
               {shot.dialogue && (
                 <div>
-                  <h4 className="text-sm text-surface-400 mb-1">Dialogue</h4>
+                  <h4 className="text-sm text-surface-400 mb-1">
+                    {t('shotCard.dialogue', 'Dialogue')}
+                  </h4>
                   <p className="text-sm italic text-surface-300">"{shot.dialogue}"</p>
                 </div>
               )}
@@ -380,7 +400,9 @@ export function ShotCard({
               {/* Action */}
               {shot.action && (
                 <div>
-                  <h4 className="text-sm text-surface-400 mb-1">Action</h4>
+                  <h4 className="text-sm text-surface-400 mb-1">
+                    {t('shotCard.action', 'Action')}
+                  </h4>
                   <p className="text-sm text-surface-300">{shot.action}</p>
                 </div>
               )}
@@ -388,7 +410,9 @@ export function ShotCard({
               {/* Characters */}
               {shotCharacters.length > 0 && (
                 <div>
-                  <h4 className="text-sm text-surface-400 mb-1">Characters</h4>
+                  <h4 className="text-sm text-surface-400 mb-1">
+                    {t('shotCard.characters', 'Characters')}
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {shotCharacters.map((char) => (
                       <span key={char.id} className="px-2 py-1 bg-surface-700 rounded text-xs">
@@ -404,13 +428,17 @@ export function ShotCard({
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-surface-700">
                   {shot.compositionNotes && (
                     <div>
-                      <h4 className="text-xs text-surface-500 mb-1">Composition</h4>
+                      <h4 className="text-xs text-surface-500 mb-1">
+                        {t('shotCard.composition', 'Composition')}
+                      </h4>
                       <p className="text-xs text-surface-400">{shot.compositionNotes}</p>
                     </div>
                   )}
                   {shot.lightingNotes && (
                     <div>
-                      <h4 className="text-xs text-surface-500 mb-1">Lighting</h4>
+                      <h4 className="text-xs text-surface-500 mb-1">
+                        {t('shotCard.lighting', 'Lighting')}
+                      </h4>
                       <p className="text-xs text-surface-400">{shot.lightingNotes}</p>
                     </div>
                   )}

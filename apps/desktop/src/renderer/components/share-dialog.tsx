@@ -23,6 +23,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import { useSharingStore } from '../stores/sharing-store';
 import type { ShareInfo } from '../api/client';
 
@@ -34,6 +35,7 @@ interface ShareDialogProps {
 }
 
 export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDialogProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<'create' | 'manage'>('create');
   const [isCreating, setIsCreating] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -99,11 +101,11 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
 
   const handleRevoke = useCallback(
     async (shareId: string) => {
-      if (confirm('Are you sure you want to revoke this share?')) {
+      if (confirm(t('shareDlg.revokeConfirm', 'Are you sure you want to revoke this share?'))) {
         await revokeShare(shareId);
       }
     },
-    [revokeShare]
+    [revokeShare, t]
   );
 
   const resetForm = useCallback(() => {
@@ -127,7 +129,7 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
               <Share2 className="w-5 h-5 text-brand-400" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Share Project</h2>
+              <h2 className="text-lg font-semibold">{t('shareDlg.title', 'Share Project')}</h2>
               <p className="text-sm text-surface-400">{projectName}</p>
             </div>
           </div>
@@ -153,7 +155,7 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
                 : 'text-surface-400 hover:text-surface-200'
             )}
           >
-            Create Share
+            {t('shareDlg.tabCreate', 'Create Share')}
           </button>
           <button
             onClick={() => {
@@ -167,7 +169,7 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
                 : 'text-surface-400 hover:text-surface-200'
             )}
           >
-            Manage Shares ({shares.length})
+            {t('shareDlg.tabManage', 'Manage Shares')} ({shares.length})
           </button>
         </div>
 
@@ -178,7 +180,7 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
               {/* Permission Level */}
               <div>
                 <label className="block text-sm font-medium text-surface-400 mb-2">
-                  Permission Level
+                  {t('shareDlg.permissionLevel', 'Permission Level')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {(['view', 'comment', 'edit'] as const).map((perm) => (
@@ -195,7 +197,11 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
                       {perm === 'view' && <Eye className="w-5 h-5" />}
                       {perm === 'comment' && <MessageSquare className="w-5 h-5" />}
                       {perm === 'edit' && <Edit3 className="w-5 h-5" />}
-                      <span className="text-xs capitalize">{perm}</span>
+                      <span className="text-xs capitalize">
+                        {perm === 'view' && t('shareDlg.permView', 'view')}
+                        {perm === 'comment' && t('shareDlg.permComment', 'comment')}
+                        {perm === 'edit' && t('shareDlg.permEdit', 'edit')}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -204,7 +210,7 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
               {/* Recipient Email */}
               <div>
                 <label className="block text-sm font-medium text-surface-400 mb-2">
-                  Recipient Email (optional)
+                  {t('shareDlg.recipientEmail', 'Recipient Email (optional)')}
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" />
@@ -221,13 +227,13 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
               {/* Recipient Name */}
               <div>
                 <label className="block text-sm font-medium text-surface-400 mb-2">
-                  Recipient Name (optional)
+                  {t('shareDlg.recipientName', 'Recipient Name (optional)')}
                 </label>
                 <input
                   type="text"
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
-                  placeholder="John Doe"
+                  placeholder={t('shareDlg.recipientNamePlaceholder', 'John Doe')}
                   className="w-full px-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 />
               </div>
@@ -235,7 +241,7 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
               {/* Expiration */}
               <div>
                 <label className="block text-sm font-medium text-surface-400 mb-2">
-                  Link Expiration
+                  {t('shareDlg.linkExpiration', 'Link Expiration')}
                 </label>
                 <select
                   value={expiresInDays ?? 'never'}
@@ -244,11 +250,11 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
                   }
                   className="w-full px-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500"
                 >
-                  <option value="1">1 day</option>
-                  <option value="7">7 days</option>
-                  <option value="30">30 days</option>
-                  <option value="90">90 days</option>
-                  <option value="never">Never expires</option>
+                  <option value="1">{t('shareDlg.expire1Day', '1 day')}</option>
+                  <option value="7">{t('shareDlg.expire7Days', '7 days')}</option>
+                  <option value="30">{t('shareDlg.expire30Days', '30 days')}</option>
+                  <option value="90">{t('shareDlg.expire90Days', '90 days')}</option>
+                  <option value="never">{t('shareDlg.expireNever', 'Never expires')}</option>
                 </select>
               </div>
 
@@ -262,12 +268,14 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
                   )}
                   <div>
                     <div className="text-sm font-medium">
-                      {isPublic ? 'Public Link' : 'Private Link'}
+                      {isPublic
+                        ? t('shareDlg.publicLink', 'Public Link')
+                        : t('shareDlg.privateLink', 'Private Link')}
                     </div>
                     <div className="text-xs text-surface-500">
                       {isPublic
-                        ? 'Anyone with the link can access'
-                        : 'Only invited recipients can access'}
+                        ? t('shareDlg.publicLinkDesc', 'Anyone with the link can access')
+                        : t('shareDlg.privateLinkDesc', 'Only invited recipients can access')}
                     </div>
                   </div>
                 </div>
@@ -296,12 +304,12 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
                 {isCreating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating...
+                    {t('shareDlg.creating', 'Creating...')}
                   </>
                 ) : (
                   <>
                     <Share2 className="w-4 h-4" />
-                    Create Share Link
+                    {t('shareDlg.createShareLink', 'Create Share Link')}
                   </>
                 )}
               </button>
@@ -314,15 +322,17 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
                 <div className="w-16 h-16 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
                   <Check className="w-8 h-8 text-green-400" />
                 </div>
-                <h3 className="text-lg font-semibold mb-1">Share Link Created!</h3>
+                <h3 className="text-lg font-semibold mb-1">
+                  {t('shareDlg.shareLinkCreated', 'Share Link Created!')}
+                </h3>
                 <p className="text-sm text-surface-400">
-                  Copy the link below to share this project
+                  {t('shareDlg.copyLinkBelow', 'Copy the link below to share this project')}
                 </p>
               </div>
 
               {/* Share URL */}
               <div className="p-3 bg-surface-800 rounded-lg">
-                <div className="text-xs text-surface-500 mb-1">Share Link</div>
+                <div className="text-xs text-surface-500 mb-1">{t('shareDlg.shareLinkLabel', 'Share Link')}</div>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -341,7 +351,7 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
 
               {/* Share Code */}
               <div className="p-3 bg-surface-800 rounded-lg">
-                <div className="text-xs text-surface-500 mb-1">Share Code</div>
+                <div className="text-xs text-surface-500 mb-1">{t('shareDlg.shareCodeLabel', 'Share Code')}</div>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 px-3 py-2 bg-surface-700 border border-surface-600 rounded text-sm font-mono text-center">
                     {createdShare.shareCode}
@@ -359,7 +369,7 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
                 onClick={resetForm}
                 className="w-full px-4 py-2 text-sm text-surface-400 hover:text-surface-200 transition-colors"
               >
-                Create Another Share
+                {t('shareDlg.createAnother', 'Create Another Share')}
               </button>
             </div>
           )}
@@ -373,9 +383,11 @@ export function ShareDialog({ projectId, projectName, isOpen, onClose }: ShareDi
               ) : shares.length === 0 ? (
                 <div className="text-center py-8">
                   <Users className="w-12 h-12 mx-auto text-surface-600 mb-3" />
-                  <h3 className="text-lg font-medium mb-1">No Active Shares</h3>
+                  <h3 className="text-lg font-medium mb-1">
+                    {t('shareDlg.noActiveShares', 'No Active Shares')}
+                  </h3>
                   <p className="text-sm text-surface-400">
-                    Create a share link to collaborate with others
+                    {t('shareDlg.noSharesDesc', 'Create a share link to collaborate with others')}
                   </p>
                 </div>
               ) : (
@@ -403,6 +415,7 @@ interface ShareListItemProps {
 }
 
 function ShareListItem({ share, onRevoke }: ShareListItemProps) {
+  const { t } = useTranslation();
   const getPermissionIcon = (permission: string) => {
     switch (permission) {
       case 'view':
@@ -434,7 +447,7 @@ function ShareListItem({ share, onRevoke }: ShareListItemProps) {
               {share.recipientName || share.recipientEmail}
             </span>
           ) : (
-            <span className="text-sm text-surface-400 italic">Public link</span>
+            <span className="text-sm text-surface-400 italic">{t('shareDlg.publicLinkItem', 'Public link')}</span>
           )}
           <span
             className={cn(
@@ -447,21 +460,21 @@ function ShareListItem({ share, onRevoke }: ShareListItemProps) {
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs text-surface-500 mt-0.5">
-          <span>Code: {share.shareCode}</span>
+          <span>{t('shareDlg.codePrefix', 'Code:')} {share.shareCode}</span>
           {share.expiresAt && (
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              Expires {new Date(share.expiresAt).toLocaleDateString()}
+              {t('shareDlg.expiresPrefix', 'Expires')} {new Date(share.expiresAt).toLocaleDateString()}
             </span>
           )}
-          <span>{share.accessCount} views</span>
+          <span>{share.accessCount} {t('shareDlg.viewsSuffix', 'views')}</span>
         </div>
       </div>
 
       <button
         onClick={onRevoke}
         className="p-2 text-surface-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-        title="Revoke share"
+        title={t('shareDlg.revokeTitle', 'Revoke share')}
       >
         <Trash2 className="w-4 h-4" />
       </button>

@@ -20,6 +20,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import { useSharingStore } from '../stores/sharing-store';
 import type { Comment } from '../api/client';
 
@@ -38,6 +39,7 @@ export function CommentsPanel({
   currentShotId,
   onNavigateToShot,
 }: CommentsPanelProps) {
+  const { t } = useTranslation();
   const [newComment, setNewComment] = useState('');
   const [authorName, setAuthorName] = useState(
     () => localStorage.getItem('scenemachine-comment-author') || ''
@@ -107,7 +109,7 @@ export function CommentsPanel({
 
   const handleDelete = useCallback(
     async (commentId: string) => {
-      if (confirm('Are you sure you want to delete this comment?')) {
+      if (confirm(t('comments.deleteConfirm', 'Are you sure you want to delete this comment?'))) {
         try {
           await deleteComment(commentId);
         } catch (error) {
@@ -115,7 +117,7 @@ export function CommentsPanel({
         }
       }
     },
-    [deleteComment]
+    [deleteComment, t]
   );
 
   // Filter comments
@@ -147,7 +149,7 @@ export function CommentsPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-surface-800">
         <div className="flex items-center gap-2">
           <MessageSquare className="w-5 h-5 text-brand-400" />
-          <h2 className="font-semibold">Comments</h2>
+          <h2 className="font-semibold">{t('comments.title', 'Comments')}</h2>
           <span className="px-1.5 py-0.5 bg-surface-700 text-xs rounded">
             {filteredComments.length}
           </span>
@@ -155,7 +157,7 @@ export function CommentsPanel({
         <button
           onClick={onClose}
           className="icon-btn p-2 hover:bg-surface-800 rounded transition-colors"
-          aria-label="Close comments panel"
+          aria-label={t('comments.closePanel', 'Close comments panel')}
         >
           <X className="w-5 h-5" />
         </button>
@@ -168,11 +170,11 @@ export function CommentsPanel({
           onChange={(e) => setFilterShotId(e.target.value)}
           className="flex-1 px-2 py-1 bg-surface-800 border border-surface-700 rounded text-xs focus:outline-none focus:border-brand-500"
         >
-          <option value="all">All Comments</option>
-          <option value="general">General</option>
+          <option value="all">{t('comments.allComments', 'All Comments')}</option>
+          <option value="general">{t('comments.general', 'General')}</option>
           {shotIds.map((shotId) => (
             <option key={shotId} value={shotId}>
-              Shot: {shotId.slice(0, 8)}...
+              {t('comments.shotPrefix', 'Shot:')} {shotId.slice(0, 8)}...
             </option>
           ))}
         </select>
@@ -186,7 +188,7 @@ export function CommentsPanel({
           )}
         >
           <CheckCheck className="w-3 h-3" />
-          Resolved
+          {t('comments.resolved', 'Resolved')}
         </button>
       </div>
 
@@ -199,8 +201,10 @@ export function CommentsPanel({
         ) : filteredComments.length === 0 ? (
           <div className="text-center py-8">
             <MessageSquare className="w-12 h-12 mx-auto text-surface-600 mb-3" />
-            <h3 className="text-sm font-medium mb-1">No Comments Yet</h3>
-            <p className="text-xs text-surface-500">Be the first to leave a comment</p>
+            <h3 className="text-sm font-medium mb-1">{t('comments.emptyTitle', 'No Comments Yet')}</h3>
+            <p className="text-xs text-surface-500">
+              {t('comments.emptyBody', 'Be the first to leave a comment')}
+            </p>
           </div>
         ) : (
           Object.entries(groupedComments).map(([shotKey, shotComments]) => (
@@ -211,13 +215,13 @@ export function CommentsPanel({
                   className="flex items-center gap-1.5 text-xs text-surface-400 hover:text-brand-400 transition-colors"
                 >
                   <Film className="w-3 h-3" />
-                  Shot: {shotKey.slice(0, 8)}...
+                  {t('comments.shotPrefix', 'Shot:')} {shotKey.slice(0, 8)}...
                 </button>
               )}
               {shotKey === 'general' && shotComments.length > 0 && (
                 <div className="flex items-center gap-1.5 text-xs text-surface-400">
                   <MessageSquare className="w-3 h-3" />
-                  General Comments
+                  {t('comments.generalComments', 'General Comments')}
                 </div>
               )}
               {shotComments.map((comment) => (
@@ -238,12 +242,14 @@ export function CommentsPanel({
       <div className="border-t border-surface-800 p-4 space-y-3">
         {!authorName && (
           <div>
-            <label className="block text-xs text-surface-500 mb-1">Your Name</label>
+            <label className="block text-xs text-surface-500 mb-1">
+              {t('comments.yourName', 'Your Name')}
+            </label>
             <input
               type="text"
               value={authorName}
               onChange={(e) => setAuthorName(e.target.value)}
-              placeholder="Enter your name..."
+              placeholder={t('comments.enterYourName', 'Enter your name...')}
               className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded text-sm focus:outline-none focus:border-brand-500"
             />
           </div>
@@ -254,7 +260,11 @@ export function CommentsPanel({
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={currentShotId ? 'Comment on this shot...' : 'Add a general comment...'}
+            placeholder={
+              currentShotId
+                ? t('comments.commentOnShotPlaceholder', 'Comment on this shot...')
+                : t('comments.addGeneralPlaceholder', 'Add a general comment...')
+            }
             rows={3}
             className="w-full px-3 py-2 bg-surface-800 border border-surface-700 rounded text-sm resize-none focus:outline-none focus:border-brand-500"
           />
@@ -263,10 +273,10 @@ export function CommentsPanel({
               {currentShotId ? (
                 <span className="flex items-center gap-1">
                   <Film className="w-3 h-3" />
-                  Commenting on shot
+                  {t('comments.commentingOnShot', 'Commenting on shot')}
                 </span>
               ) : (
-                'General comment'
+                t('comments.generalComment', 'General comment')
               )}
             </span>
             <button
@@ -279,7 +289,7 @@ export function CommentsPanel({
               ) : (
                 <Send className="w-4 h-4" />
               )}
-              Send
+              {t('comments.send', 'Send')}
             </button>
           </div>
         </div>
@@ -296,6 +306,7 @@ interface CommentBubbleProps {
 }
 
 function CommentBubble({ comment, onResolve, onDelete, onNavigateToShot }: CommentBubbleProps) {
+  const { t } = useTranslation();
   const [showMenu, setShowMenu] = useState(false);
 
   const formatTime = (dateString: string) => {
@@ -306,10 +317,10 @@ function CommentBubble({ comment, onResolve, onDelete, onNavigateToShot }: Comme
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffMins < 1) return t('comments.justNow', 'Just now');
+    if (diffMins < 60) return `${diffMins}${t('comments.minutesAgoSuffix', 'm ago')}`;
+    if (diffHours < 24) return `${diffHours}${t('comments.hoursAgoSuffix', 'h ago')}`;
+    if (diffDays < 7) return `${diffDays}${t('comments.daysAgoSuffix', 'd ago')}`;
     return date.toLocaleDateString();
   };
 
@@ -352,7 +363,7 @@ function CommentBubble({ comment, onResolve, onDelete, onNavigateToShot }: Comme
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="icon-btn p-2 hover:bg-surface-700 rounded transition-colors"
-            aria-label="Comment actions"
+            aria-label={t('comments.commentActions', 'Comment actions')}
             aria-expanded={showMenu}
           >
             <MoreVertical className="w-4 h-4 text-surface-500" />
@@ -370,7 +381,7 @@ function CommentBubble({ comment, onResolve, onDelete, onNavigateToShot }: Comme
                     className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-surface-700 transition-colors"
                   >
                     <Check className="w-4 h-4 text-green-400" />
-                    Resolve
+                    {t('comments.resolve', 'Resolve')}
                   </button>
                 )}
                 <button
@@ -381,7 +392,7 @@ function CommentBubble({ comment, onResolve, onDelete, onNavigateToShot }: Comme
                   className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-red-400 hover:bg-surface-700 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Delete
+                  {t('comments.delete', 'Delete')}
                 </button>
               </div>
             </>
@@ -396,7 +407,7 @@ function CommentBubble({ comment, onResolve, onDelete, onNavigateToShot }: Comme
       {comment.isResolved && (
         <div className="flex items-center gap-1 mt-2 text-xs text-green-400">
           <CheckCheck className="w-3 h-3" />
-          Resolved
+          {t('comments.resolved', 'Resolved')}
         </div>
       )}
     </div>

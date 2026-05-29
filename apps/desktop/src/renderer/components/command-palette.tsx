@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useProjectStore } from '../stores/project-store';
+import { useTranslation } from '../i18n/use-translation';
 
 interface CommandItem {
   id: string;
@@ -48,6 +49,7 @@ interface CommandPaletteProps {
 }
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { currentProject } = useProjectStore();
   const [query, setQuery] = useState('');
@@ -68,8 +70,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       // Navigation
       {
         id: 'nav-home',
-        label: 'Go to Projects',
-        description: 'View all projects',
+        label: t('cmdPalette.goToProjects', 'Go to Projects'),
+        description: t('cmdPalette.viewAllProjects', 'View all projects'),
         icon: <Home className="w-4 h-4" />,
         shortcut: 'Ctrl+H',
         action: () => {
@@ -81,8 +83,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       },
       {
         id: 'nav-settings',
-        label: 'Open Settings',
-        description: 'Configure application settings',
+        label: t('cmdPalette.openSettings', 'Open Settings'),
+        description: t('cmdPalette.configureApplicationSettings', 'Configure application settings'),
         icon: <Settings className="w-4 h-4" />,
         shortcut: 'Ctrl+,',
         action: () => {
@@ -94,8 +96,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       },
       {
         id: 'nav-analytics',
-        label: 'View Analytics',
-        description: 'Usage statistics and metrics',
+        label: t('cmdPalette.viewAnalytics', 'View Analytics'),
+        description: t('cmdPalette.usageStatisticsAndMetrics', 'Usage statistics and metrics'),
         icon: <BarChart3 className="w-4 h-4" />,
         action: () => {
           navigate('/analytics');
@@ -106,8 +108,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       },
       {
         id: 'nav-archive',
-        label: 'Project Archive',
-        description: 'Import and export projects',
+        label: t('cmdPalette.projectArchive', 'Project Archive'),
+        description: t('cmdPalette.importAndExportProjects', 'Import and export projects'),
         icon: <Archive className="w-4 h-4" />,
         action: () => {
           navigate('/archive');
@@ -118,8 +120,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       },
       {
         id: 'nav-help',
-        label: 'Help & Documentation',
-        description: 'Get help using SceneMachine',
+        label: t('cmdPalette.helpAndDocumentation', 'Help & Documentation'),
+        description: t('cmdPalette.getHelpUsingSceneMachine', 'Get help using SceneMachine'),
         icon: <HelpCircle className="w-4 h-4" />,
         action: () => {
           navigate('/help');
@@ -132,8 +134,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       // Actions
       {
         id: 'action-new-project',
-        label: 'Create New Project',
-        description: 'Start a new screenplay project',
+        label: t('cmdPalette.createNewProject', 'Create New Project'),
+        description: t('cmdPalette.startANewScreenplayProject', 'Start a new screenplay project'),
         icon: <Plus className="w-4 h-4" />,
         action: () => {
           window.dispatchEvent(new CustomEvent('app:new-project'));
@@ -149,8 +151,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       items.push(
         {
           id: 'proj-overview',
-          label: `${currentProject.name}: Overview`,
-          description: 'Project dashboard',
+          label: `${currentProject.name}: ${t('cmdPalette.overview', 'Overview')}`,
+          description: t('cmdPalette.projectDashboard', 'Project dashboard'),
           icon: <Film className="w-4 h-4" />,
           shortcut: 'Ctrl+1',
           action: () => {
@@ -162,8 +164,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         },
         {
           id: 'proj-characters',
-          label: `${currentProject.name}: Characters`,
-          description: 'Character lab',
+          label: `${currentProject.name}: ${t('cmdPalette.characters', 'Characters')}`,
+          description: t('cmdPalette.characterLab', 'Character lab'),
           icon: <Users className="w-4 h-4" />,
           shortcut: 'Ctrl+2',
           action: () => {
@@ -175,8 +177,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         },
         {
           id: 'proj-scenes',
-          label: `${currentProject.name}: Scene Planning`,
-          description: 'Plan and edit scenes',
+          label: `${currentProject.name}: ${t('cmdPalette.scenePlanning', 'Scene Planning')}`,
+          description: t('cmdPalette.planAndEditScenes', 'Plan and edit scenes'),
           icon: <Clapperboard className="w-4 h-4" />,
           shortcut: 'Ctrl+3',
           action: () => {
@@ -188,8 +190,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         },
         {
           id: 'proj-generate',
-          label: `${currentProject.name}: Generation`,
-          description: 'Generate video shots',
+          label: `${currentProject.name}: ${t('cmdPalette.generation', 'Generation')}`,
+          description: t('cmdPalette.generateVideoShots', 'Generate video shots'),
           icon: <Sparkles className="w-4 h-4" />,
           shortcut: 'Ctrl+4',
           action: () => {
@@ -201,8 +203,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         },
         {
           id: 'proj-timeline',
-          label: `${currentProject.name}: Timeline`,
-          description: 'Video timeline editor',
+          label: `${currentProject.name}: ${t('cmdPalette.timeline', 'Timeline')}`,
+          description: t('cmdPalette.videoTimelineEditor', 'Video timeline editor'),
           icon: <Clock className="w-4 h-4" />,
           action: () => {
             navigate(`/project/${currentProject.id}/timeline`);
@@ -213,8 +215,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         },
         {
           id: 'proj-export',
-          label: `${currentProject.name}: Export`,
-          description: 'Export final video',
+          label: `${currentProject.name}: ${t('cmdPalette.export', 'Export')}`,
+          description: t('cmdPalette.exportFinalVideo', 'Export final video'),
           icon: <Download className="w-4 h-4" />,
           shortcut: 'Ctrl+5',
           action: () => {
@@ -235,7 +237,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           items.push({
             id: `recent-${project.id}`,
             label: project.name,
-            description: `${project.state} - ${project.sceneCount || 0} scenes`,
+            description: `${project.state} - ${project.sceneCount || 0} ${t('cmdPalette.scenes', 'scenes')}`,
             icon: <FolderOpen className="w-4 h-4" />,
             action: () => {
               navigate(`/project/${project.id}`);
@@ -249,7 +251,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     }
 
     return items;
-  }, [currentProject, projects, navigate, onClose]);
+  }, [currentProject, projects, navigate, onClose, t]);
 
   // Filter commands based on query
   const filteredCommands = useMemo(() => {
@@ -333,11 +335,11 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   if (!isOpen) return null;
 
   const categoryLabels: Record<string, string> = {
-    navigation: 'Navigation',
-    project: 'Current Project',
-    actions: 'Actions',
-    recent: 'Recent Projects',
-    settings: 'Settings',
+    navigation: t('cmdPalette.navigation', 'Navigation'),
+    project: t('cmdPalette.currentProject', 'Current Project'),
+    actions: t('cmdPalette.actions', 'Actions'),
+    recent: t('cmdPalette.recentProjects', 'Recent Projects'),
+    settings: t('cmdPalette.settings', 'Settings'),
   };
 
   let globalIndex = 0;
@@ -348,7 +350,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Command palette"
+      aria-label={t('cmdPalette.commandPalette', 'Command palette')}
     >
       <div
         className="w-full max-w-xl bg-surface-900 border border-surface-700 rounded-xl shadow-2xl overflow-hidden"
@@ -367,10 +369,10 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search commands..."
+            placeholder={t('cmdPalette.searchCommands', 'Search commands...')}
             className="flex-1 bg-transparent border-none outline-none text-white placeholder-surface-500"
             role="searchbox"
-            aria-label="Search commands"
+            aria-label={t('cmdPalette.searchCommandsAria', 'Search commands')}
             aria-autocomplete="list"
             aria-controls="command-list"
             aria-activedescendant={filteredCommands[selectedIndex]?.id}
@@ -388,14 +390,16 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           ref={listRef}
           id="command-list"
           role="listbox"
-          aria-label="Command results"
+          aria-label={t('cmdPalette.commandResults', 'Command results')}
           className="max-h-80 overflow-y-auto p-2"
         >
           {filteredCommands.length === 0 ? (
             <div className="py-8 text-center text-surface-400" role="status" aria-live="polite">
               <Search className="w-8 h-8 mx-auto mb-2 opacity-50" aria-hidden="true" />
-              <p>No commands found</p>
-              <p className="text-sm text-surface-500">Try a different search term</p>
+              <p>{t('cmdPalette.noCommandsFound', 'No commands found')}</p>
+              <p className="text-sm text-surface-500">
+                {t('cmdPalette.tryADifferentSearchTerm', 'Try a different search term')}
+              </p>
             </div>
           ) : (
             Object.entries(groupedCommands).map(([category, items]) => {
@@ -454,7 +458,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                         {cmd.shortcut && (
                           <kbd
                             className="px-2 py-1 bg-surface-800 rounded text-xs text-surface-400 font-mono"
-                            aria-label={`Keyboard shortcut: ${cmd.shortcut}`}
+                            aria-label={`${t('cmdPalette.keyboardShortcut', 'Keyboard shortcut')}: ${cmd.shortcut}`}
                           >
                             {cmd.shortcut.replace(
                               'Ctrl',
@@ -480,24 +484,24 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-surface-700 rounded">↑</kbd>
               <kbd className="px-1.5 py-0.5 bg-surface-700 rounded">↓</kbd>
-              to navigate
+              {t('cmdPalette.toNavigate', 'to navigate')}
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-surface-700 rounded">↵</kbd>
-              to select
+              {t('cmdPalette.toSelect', 'to select')}
             </span>
           </div>
           <div className="flex items-center gap-1 text-xs text-surface-500">
             <Command className="w-3 h-3" />
-            <span>K to open</span>
+            <span>{t('cmdPalette.kToOpen', 'K to open')}</span>
           </div>
         </div>
 
         {/* Screen reader announcements */}
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {filteredCommands.length === 0
-            ? 'No commands found'
-            : `${filteredCommands.length} commands available. Use arrow keys to navigate.`}
+            ? t('cmdPalette.noCommandsFound', 'No commands found')
+            : `${filteredCommands.length} ${t('cmdPalette.commandsAvailableUseArrowKeys', 'commands available. Use arrow keys to navigate.')}`}
         </div>
       </div>
     </div>
