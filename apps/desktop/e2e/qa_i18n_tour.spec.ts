@@ -154,6 +154,8 @@ test('i18n shared component (command palette) renders Spanish', async ({ page })
 const EXTRA_LOCALES: { code: string; nav: string[]; gone: string }[] = [
   { code: 'FR', nav: ['Projets', 'Paramètres', 'Aide'], gone: 'Projects' },
   { code: 'DE', nav: ['Projekte', 'Einstellungen', 'Hilfe'], gone: 'Projects' },
+  { code: 'JA', nav: ['プロジェクト', '設定', 'ヘルプ'], gone: 'Projects' },
+  { code: 'ZH', nav: ['项目', '设置', '帮助'], gone: 'Projects' },
 ];
 
 for (const loc of EXTRA_LOCALES) {
