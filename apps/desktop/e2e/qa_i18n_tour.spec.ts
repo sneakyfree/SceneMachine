@@ -182,3 +182,21 @@ for (const loc of EXTRA_LOCALES) {
     await expect(nav.getByText(loc.nav[0], { exact: true })).toBeVisible();
   });
 }
+
+// First-launch auto-detection: a browser whose language is Japanese, with NO
+// previously-persisted locale, must boot directly into Japanese (detectLocale()
+// reads navigator.language) — an international user shouldn't have to hunt for
+// the switcher. Playwright's per-describe locale sets navigator.language.
+test.describe('i18n auto-detect first launch (ja-JP browser)', () => {
+  test.use({ locale: 'ja-JP' });
+  test('boots into Japanese without any persisted choice', async ({ page }) => {
+    await installMock(page); // sets onboarding-completed only — NO locale seeded
+    await page.goto('/', { waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForTimeout(700);
+    const nav = page.getByRole('navigation', { name: 'Main navigation' });
+    await expect(nav.getByText('プロジェクト', { exact: true })).toBeVisible();
+    await expect(nav.getByText('設定', { exact: true })).toBeVisible();
+    await expect(nav.getByText('Projects', { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: path.join(SHOT_DIR, 'autodetect_ja.png') });
+  });
+});

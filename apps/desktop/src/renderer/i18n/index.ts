@@ -167,3 +167,39 @@ export function translate(locale: Locale, key: string, fallback?: string): strin
 
 /** Total translatable keys in the catalog (for coverage reporting/tests). */
 export const CATALOG_KEYS = Object.keys(en);
+
+const SUPPORTED = new Set<Locale>(LOCALES.map((l) => l.code));
+
+/**
+ * Map a BCP-47 language tag (e.g. 'ja-JP', 'zh-CN', 'pt-BR') to a supported
+ * Locale by its primary subtag, or null if unsupported. We ship one Chinese
+ * (Simplified), so any 'zh*' maps to 'zh'.
+ */
+export function matchLocale(tag: string | undefined | null): Locale | null {
+  if (!tag) return null;
+  const base = tag.toLowerCase().split('-')[0];
+  return SUPPORTED.has(base as Locale) ? (base as Locale) : null;
+}
+
+/**
+ * Detect the best supported locale from the browser/OS languages, for first
+ * launch (before the user has explicitly chosen). Falls back to DEFAULT_LOCALE.
+ * International-launch UX: a German/Japanese/… user sees their language by
+ * default instead of always English. An explicit choice (persisted) overrides.
+ */
+export function detectLocale(): Locale {
+  try {
+    const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+    const candidates: (string | undefined)[] = [
+      ...(nav?.languages ?? []),
+      nav?.language,
+    ];
+    for (const tag of candidates) {
+      const m = matchLocale(tag);
+      if (m) return m;
+    }
+  } catch {
+    /* non-browser env */
+  }
+  return DEFAULT_LOCALE;
+}
