@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useExperienceMode } from '../stores/experience-store';
+import { useTranslation } from '../i18n/use-translation';
 
 // Progress stage definition
 interface ProgressStage {
@@ -253,6 +254,7 @@ export function ProgressDashboard({
 }: ProgressDashboardProps) {
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
   const { isStory } = useExperienceMode();
+  const { t } = useTranslation();
 
   // Auto-expand active stage
   useEffect(() => {
@@ -291,8 +293,8 @@ export function ProgressDashboard({
             </h1>
             <p className="text-sm text-surface-400">
               {isStory
-                ? currentStage?.friendlyLabel || 'Preparing...'
-                : `Stage ${currentStageIndex + 1} of ${stages.length}: ${currentStage?.label}`}
+                ? currentStage?.friendlyLabel || t('progressDash.preparing', 'Preparing...')
+                : `${t('progressDash.stageLabel', 'Stage')} ${currentStageIndex + 1} ${t('progressDash.of', 'of')} ${stages.length}: ${currentStage?.label}`}
             </p>
           </div>
         </div>
@@ -311,12 +313,12 @@ export function ProgressDashboard({
             {isPaused ? (
               <>
                 <Play className="w-4 h-4" />
-                Resume
+                {t('progressDash.resume', 'Resume')}
               </>
             ) : (
               <>
                 <Pause className="w-4 h-4" />
-                Pause
+                {t('progressDash.pause', 'Pause')}
               </>
             )}
           </button>
@@ -329,14 +331,21 @@ export function ProgressDashboard({
           <div>
             <p className="text-3xl font-bold text-brand-400">{overallProgress}%</p>
             <p className="text-sm text-surface-400">
-              {isStory ? 'Your movie is' : 'Overall progress'}
-              {overallProgress < 100 ? ' being created' : ' ready!'}
+              {isStory
+                ? overallProgress < 100
+                  ? t('progressDash.movieBeingCreated', 'Your movie is being created')
+                  : t('progressDash.movieReady', 'Your movie is ready!')
+                : overallProgress < 100
+                  ? t('progressDash.overallProgressInProgress', 'Overall progress being created')
+                  : t('progressDash.overallProgressReady', 'Overall progress ready!')}
             </p>
           </div>
           {estimatedTimeRemaining && overallProgress < 100 && (
             <div className="text-right">
               <p className="text-sm text-surface-400">
-                {isStory ? 'About' : 'Estimated time remaining'}
+                {isStory
+                  ? t('progressDash.about', 'About')
+                  : t('progressDash.estimatedTimeRemaining', 'Estimated time remaining')}
               </p>
               <p className="text-lg font-medium">{estimatedTimeRemaining}</p>
             </div>
@@ -383,7 +392,9 @@ export function ProgressDashboard({
               {isStory ? currentStage.friendlyLabel : currentStage.label}
             </p>
             <p className="text-sm text-surface-400">
-              {isStory ? currentStage.friendlyDetails || 'Working on it...' : currentStage.details}
+              {isStory
+                ? currentStage.friendlyDetails || t('progressDash.workingOnIt', 'Working on it...')
+                : currentStage.details}
             </p>
           </div>
           {currentStage.progress !== undefined && (
@@ -398,10 +409,15 @@ export function ProgressDashboard({
           <Sparkles className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-medium text-sm">
-              {isStory ? 'Tip: You can preview completed shots' : 'Preview available'}
+              {isStory
+                ? t('progressDash.tipPreviewShots', 'Tip: You can preview completed shots')
+                : t('progressDash.previewAvailable', 'Preview available')}
             </p>
             <p className="text-sm text-surface-400">
-              Click on any completed shot below to watch it while the rest are being created.
+              {t(
+                'progressDash.previewHint',
+                'Click on any completed shot below to watch it while the rest are being created.'
+              )}
             </p>
           </div>
         </div>
@@ -429,15 +445,22 @@ export function ProgressDashboard({
             <Check className="w-8 h-8 text-green-400" />
           </div>
           <h2 className="text-2xl font-bold mb-2">
-            {isStory ? 'Your movie is ready!' : 'Generation Complete'}
+            {isStory
+              ? t('progressDash.movieReady', 'Your movie is ready!')
+              : t('progressDash.generationComplete', 'Generation Complete')}
           </h2>
           <p className="text-surface-400 mb-6">
             {isStory
-              ? 'All your scenes have been created. Time to export and share your masterpiece!'
-              : 'All stages completed successfully.'}
+              ? t(
+                  'progressDash.completionStoryDetail',
+                  'All your scenes have been created. Time to export and share your masterpiece!'
+                )
+              : t('progressDash.completionProDetail', 'All stages completed successfully.')}
           </p>
           <button className="px-6 py-3 bg-brand-500 hover:bg-brand-600 rounded-lg font-medium">
-            {isStory ? 'Export My Movie' : 'Continue to Export'}
+            {isStory
+              ? t('progressDash.exportMyMovie', 'Export My Movie')
+              : t('progressDash.continueToExport', 'Continue to Export')}
           </button>
         </div>
       )}

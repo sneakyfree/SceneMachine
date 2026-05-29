@@ -19,6 +19,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 // Template interface
 export interface ProjectTemplate {
@@ -95,6 +96,7 @@ function TemplateCard({
   isSelected: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onSelect}
@@ -145,7 +147,10 @@ function TemplateCard({
           <Camera className="w-3 h-3" />
           {template.defaultFps} fps
         </div>
-        <div className="flex items-center gap-1" title={`Pacing: ${template.pacing}`}>
+        <div
+          className="flex items-center gap-1"
+          title={`${t('templateSel.pacingLabel', 'Pacing')}: ${template.pacing}`}
+        >
           <Zap className="w-3 h-3" />
           <PacingIndicator pacing={template.pacing} />
         </div>
@@ -173,6 +178,7 @@ export function TemplateSelector({
   onSelectTemplate,
   onApplySettings,
 }: TemplateSelectorProps) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -244,10 +250,13 @@ export function TemplateSelector({
       <div>
         <h2 className="text-lg font-medium flex items-center gap-2">
           <Layout className="w-5 h-5 text-brand-400" />
-          Project Template
+          {t('templateSel.projectTemplate', 'Project Template')}
         </h2>
         <p className="text-sm text-surface-400 mt-1">
-          Choose a template to set up default visual styles and generation settings
+          {t(
+            'templateSel.projectTemplateDesc',
+            'Choose a template to set up default visual styles and generation settings'
+          )}
         </p>
       </div>
 
@@ -260,7 +269,7 @@ export function TemplateSelector({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search templates..."
+            placeholder={t('templateSel.searchPlaceholder', 'Search templates...')}
             className="w-full pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-lg"
           />
         </div>
@@ -271,7 +280,7 @@ export function TemplateSelector({
           onChange={(e) => setSelectedCategory(e.target.value || null)}
           className="px-3 py-2 bg-surface-800 border border-surface-700 rounded-lg"
         >
-          <option value="">All Categories</option>
+          <option value="">{t('templateSel.allCategories', 'All Categories')}</option>
           {categories?.map((cat) => (
             <option key={cat.id} value={cat.id}>
               {cat.name} ({cat.count})
@@ -295,14 +304,16 @@ export function TemplateSelector({
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="font-medium">Blank Project</h3>
+            <h3 className="font-medium">{t('templateSel.blankProject', 'Blank Project')}</h3>
             {!selectedTemplate && (
               <div className="w-5 h-5 rounded-full bg-brand-500 flex items-center justify-center">
                 <Check className="w-3 h-3 text-white" />
               </div>
             )}
           </div>
-          <p className="text-sm text-surface-400">Start from scratch with default settings</p>
+          <p className="text-sm text-surface-400">
+            {t('templateSel.blankProjectDesc', 'Start from scratch with default settings')}
+          </p>
         </div>
       </button>
 
@@ -311,7 +322,7 @@ export function TemplateSelector({
         <div>
           <h3 className="text-sm font-medium text-surface-400 flex items-center gap-2 mb-3">
             <Star className="w-4 h-4" />
-            Featured Templates
+            {t('templateSel.featuredTemplates', 'Featured Templates')}
           </h3>
           <div className="grid grid-cols-2 gap-3">
             {featuredTemplates.map((template) => (
@@ -331,10 +342,10 @@ export function TemplateSelector({
         <h3 className="text-sm font-medium text-surface-400 flex items-center gap-2 mb-3">
           <Tag className="w-4 h-4" />
           {searchQuery
-            ? 'Search Results'
+            ? t('templateSel.searchResults', 'Search Results')
             : selectedCategory
-              ? 'Filtered Templates'
-              : 'All Templates'}
+              ? t('templateSel.filteredTemplates', 'Filtered Templates')
+              : t('templateSel.allTemplates', 'All Templates')}
         </h3>
 
         {isLoading ? (
@@ -355,7 +366,7 @@ export function TemplateSelector({
         ) : (
           <div className="text-center py-8 text-surface-400">
             <Layout className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No templates found</p>
+            <p>{t('templateSel.noTemplatesFound', 'No templates found')}</p>
           </div>
         )}
       </div>
@@ -370,46 +381,47 @@ export function TemplateSelector({
 
 // Selected template details panel
 function SelectedTemplateDetails({ template }: { template?: ProjectTemplate }) {
+  const { t } = useTranslation();
   if (!template) return null;
 
   return (
     <div className="p-4 bg-surface-800/50 rounded-lg border border-brand-500/30">
       <h4 className="font-medium mb-3 flex items-center gap-2">
         <Check className="w-4 h-4 text-brand-400" />
-        Selected: {template.name}
+        {t('templateSel.selected', 'Selected')}: {template.name}
       </h4>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         <div>
-          <span className="text-surface-400">Resolution</span>
+          <span className="text-surface-400">{t('templateSel.resolution', 'Resolution')}</span>
           <p className="font-medium">{template.defaultResolution}</p>
         </div>
         <div>
-          <span className="text-surface-400">Frame Rate</span>
+          <span className="text-surface-400">{t('templateSel.frameRate', 'Frame Rate')}</span>
           <p className="font-medium">{template.defaultFps} fps</p>
         </div>
         <div>
-          <span className="text-surface-400">Shot Duration</span>
+          <span className="text-surface-400">{t('templateSel.shotDuration', 'Shot Duration')}</span>
           <p className="font-medium">{template.defaultShotDuration}s</p>
         </div>
         <div>
-          <span className="text-surface-400">Pacing</span>
+          <span className="text-surface-400">{t('templateSel.pacingLabel', 'Pacing')}</span>
           <p className="font-medium capitalize">{template.pacing}</p>
         </div>
         <div>
-          <span className="text-surface-400">Visual Style</span>
+          <span className="text-surface-400">{t('templateSel.visualStyle', 'Visual Style')}</span>
           <p className="font-medium capitalize">{template.visualStyle.replace('_', ' ')}</p>
         </div>
         <div>
-          <span className="text-surface-400">Lighting</span>
+          <span className="text-surface-400">{t('templateSel.lighting', 'Lighting')}</span>
           <p className="font-medium capitalize">{template.lightingStyle.replace('_', ' ')}</p>
         </div>
         <div>
-          <span className="text-surface-400">Shots/Scene</span>
+          <span className="text-surface-400">{t('templateSel.shotsPerScene', 'Shots/Scene')}</span>
           <p className="font-medium">~{template.avgShotsPerScene}</p>
         </div>
         <div>
-          <span className="text-surface-400">Color Palette</span>
+          <span className="text-surface-400">{t('templateSel.colorPalette', 'Color Palette')}</span>
           <ColorPalettePreview colors={template.colorPalette} />
         </div>
       </div>

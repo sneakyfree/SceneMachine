@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useExperienceMode } from '../stores/experience-store';
+import { useTranslation } from '../i18n/use-translation';
 
 // Wizard step definition
 interface WizardStep {
@@ -35,53 +36,67 @@ interface WizardStep {
   color: string;
 }
 
-const WIZARD_STEPS: WizardStep[] = [
-  {
-    id: 'upload',
-    title: 'Upload Your Script',
-    subtitle: 'Step 1 of 5',
-    description:
-      'Drag and drop your screenplay file here. I can read Fountain, Final Draft, PDF, or plain text.',
-    icon: Upload,
-    color: 'blue',
-  },
-  {
-    id: 'characters',
-    title: 'Meet Your Characters',
-    subtitle: 'Step 2 of 5',
-    description:
-      "I found the characters in your script. Let's describe how they look so they're consistent throughout your movie.",
-    icon: Users,
-    color: 'green',
-  },
-  {
-    id: 'scenes',
-    title: 'Plan Your Scenes',
-    subtitle: 'Step 3 of 5',
-    description:
-      "I've broken down each scene into camera shots. Review and approve them, or let me adjust anything.",
-    icon: Clapperboard,
-    color: 'yellow',
-  },
-  {
-    id: 'generate',
-    title: 'Create Your Movie',
-    subtitle: 'Step 4 of 5',
-    description:
-      "Now the magic happens! I'm generating video for each shot. You can preview them as they complete.",
-    icon: Video,
-    color: 'purple',
-  },
-  {
-    id: 'export',
-    title: 'Download & Share',
-    subtitle: 'Step 5 of 5',
-    description:
-      'Your movie is ready! Choose your format and quality, then download or share it with the world.',
-    icon: Download,
-    color: 'brand',
-  },
-];
+type TFunc = (key: string, fallback?: string) => string;
+
+function buildWizardSteps(t: TFunc): WizardStep[] {
+  return [
+    {
+      id: 'upload',
+      title: t('storyWizard.uploadTitle', 'Upload Your Script'),
+      subtitle: t('storyWizard.step1Of5', 'Step 1 of 5'),
+      description: t(
+        'storyWizard.uploadDescription',
+        'Drag and drop your screenplay file here. I can read Fountain, Final Draft, PDF, or plain text.'
+      ),
+      icon: Upload,
+      color: 'blue',
+    },
+    {
+      id: 'characters',
+      title: t('storyWizard.charactersTitle', 'Meet Your Characters'),
+      subtitle: t('storyWizard.step2Of5', 'Step 2 of 5'),
+      description: t(
+        'storyWizard.charactersDescription',
+        "I found the characters in your script. Let's describe how they look so they're consistent throughout your movie."
+      ),
+      icon: Users,
+      color: 'green',
+    },
+    {
+      id: 'scenes',
+      title: t('storyWizard.scenesTitle', 'Plan Your Scenes'),
+      subtitle: t('storyWizard.step3Of5', 'Step 3 of 5'),
+      description: t(
+        'storyWizard.scenesDescription',
+        "I've broken down each scene into camera shots. Review and approve them, or let me adjust anything."
+      ),
+      icon: Clapperboard,
+      color: 'yellow',
+    },
+    {
+      id: 'generate',
+      title: t('storyWizard.generateTitle', 'Create Your Movie'),
+      subtitle: t('storyWizard.step4Of5', 'Step 4 of 5'),
+      description: t(
+        'storyWizard.generateDescription',
+        "Now the magic happens! I'm generating video for each shot. You can preview them as they complete."
+      ),
+      icon: Video,
+      color: 'purple',
+    },
+    {
+      id: 'export',
+      title: t('storyWizard.exportTitle', 'Download & Share'),
+      subtitle: t('storyWizard.step5Of5', 'Step 5 of 5'),
+      description: t(
+        'storyWizard.exportDescription',
+        'Your movie is ready! Choose your format and quality, then download or share it with the world.'
+      ),
+      icon: Download,
+      color: 'brand',
+    },
+  ];
+}
 
 interface StoryModeWizardProps {
   projectId: string;
@@ -162,6 +177,7 @@ function WizardStepIndicator({
 
 // Individual step content components
 function UploadStep({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -199,7 +215,7 @@ function UploadStep({ onNext }: { onNext: () => void }) {
         {isUploading ? (
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-12 h-12 text-brand-400 animate-spin" />
-            <p className="text-lg">Reading your screenplay...</p>
+            <p className="text-lg">{t('storyWizard.readingScreenplay', 'Reading your screenplay...')}</p>
           </div>
         ) : (
           <>
@@ -210,10 +226,16 @@ function UploadStep({ onNext }: { onNext: () => void }) {
               )}
             />
             <p className="text-lg font-medium mb-2">
-              {isDragging ? 'Drop it here!' : 'Drag & Drop Your Screenplay'}
+              {isDragging
+                ? t('storyWizard.dropItHere', 'Drop it here!')
+                : t('storyWizard.dragDropScreenplay', 'Drag & Drop Your Screenplay')}
             </p>
-            <p className="text-sm text-surface-400">Or click to browse your files</p>
-            <p className="text-xs text-surface-500 mt-4">Supports: .fountain, .fdx, .pdf, .txt</p>
+            <p className="text-sm text-surface-400">
+              {t('storyWizard.clickToBrowse', 'Or click to browse your files')}
+            </p>
+            <p className="text-xs text-surface-500 mt-4">
+              {t('storyWizard.supportedFormats', 'Supports: .fountain, .fdx, .pdf, .txt')}
+            </p>
           </>
         )}
       </div>
@@ -221,11 +243,13 @@ function UploadStep({ onNext }: { onNext: () => void }) {
       <div className="mt-8 p-4 bg-surface-800/50 rounded-lg text-left">
         <h4 className="font-medium mb-2 flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-brand-400" />
-          What happens next?
+          {t('storyWizard.whatHappensNext', 'What happens next?')}
         </h4>
         <p className="text-sm text-surface-400">
-          Once you upload your script, I'll automatically find all your characters, identify each
-          scene, and extract the dialogue. It only takes a few seconds!
+          {t(
+            'storyWizard.uploadNextExplainer',
+            "Once you upload your script, I'll automatically find all your characters, identify each scene, and extract the dialogue. It only takes a few seconds!"
+          )}
         </p>
       </div>
     </div>
@@ -241,6 +265,7 @@ function CharactersStep({
   onNext: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleAutoDescribe = () => {
@@ -256,7 +281,8 @@ function CharactersStep({
       <div className="text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-full mb-4">
           <Check className="w-4 h-4" />
-          Found {characterCount} characters in your screenplay
+          {t('storyWizard.foundCharactersPrefix', 'Found')} {characterCount}{' '}
+          {t('storyWizard.foundCharactersSuffix', 'characters in your screenplay')}
         </div>
       </div>
 
@@ -265,8 +291,12 @@ function CharactersStep({
         {Array.from({ length: characterCount }, (_, i) => (
           <div key={i} className="p-4 bg-surface-800 rounded-lg border border-surface-700">
             <div className="w-12 h-12 bg-surface-700 rounded-full mx-auto mb-3" />
-            <p className="font-medium text-center text-sm">Character {i + 1}</p>
-            <p className="text-xs text-surface-500 text-center">Needs description</p>
+            <p className="font-medium text-center text-sm">
+              {t('storyWizard.characterLabel', 'Character')} {i + 1}
+            </p>
+            <p className="text-xs text-surface-500 text-center">
+              {t('storyWizard.needsDescription', 'Needs description')}
+            </p>
           </div>
         ))}
       </div>
@@ -280,18 +310,18 @@ function CharactersStep({
           {isProcessing ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              AI is describing characters...
+              {t('storyWizard.aiDescribingCharacters', 'AI is describing characters...')}
             </>
           ) : (
             <>
               <Sparkles className="w-5 h-5" />
-              Let AI Describe All Characters
+              {t('storyWizard.letAiDescribeAll', 'Let AI Describe All Characters')}
             </>
           )}
         </button>
 
         <p className="text-sm text-surface-400">
-          Or click each character to describe them manually
+          {t('storyWizard.describeManually', 'Or click each character to describe them manually')}
         </p>
       </div>
 
@@ -301,13 +331,13 @@ function CharactersStep({
           className="flex items-center gap-2 text-surface-400 hover:text-surface-200"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          {t('storyWizard.back', 'Back')}
         </button>
         <button
           onClick={onNext}
           className="px-6 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg flex items-center gap-2"
         >
-          Continue
+          {t('storyWizard.continue', 'Continue')}
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
@@ -324,6 +354,7 @@ function ScenesStep({
   onNext: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const [approvedCount, setApprovedCount] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -346,16 +377,16 @@ function ScenesStep({
       <div className="text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/20 text-blue-400 rounded-full mb-4">
           <Clapperboard className="w-4 h-4" />
-          {sceneCount} scenes ready to plan
+          {sceneCount} {t('storyWizard.scenesReadyToPlan', 'scenes ready to plan')}
         </div>
       </div>
 
       {/* Progress indicator */}
       <div className="p-6 bg-surface-800 rounded-xl">
         <div className="flex justify-between text-sm mb-2">
-          <span>Shot planning progress</span>
+          <span>{t('storyWizard.shotPlanningProgress', 'Shot planning progress')}</span>
           <span className="text-brand-400">
-            {approvedCount}/{sceneCount} scenes
+            {approvedCount}/{sceneCount} {t('storyWizard.scenesUnit', 'scenes')}
           </span>
         </div>
         <div className="h-3 bg-surface-700 rounded-full overflow-hidden">
@@ -375,17 +406,18 @@ function ScenesStep({
           {isAnalyzing ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              Planning shots for scene {approvedCount + 1}...
+              {t('storyWizard.planningShotsForScene', 'Planning shots for scene')} {approvedCount + 1}
+              ...
             </>
           ) : approvedCount === sceneCount ? (
             <>
               <Check className="w-5 h-5" />
-              All scenes planned!
+              {t('storyWizard.allScenesPlanned', 'All scenes planned!')}
             </>
           ) : (
             <>
               <Sparkles className="w-5 h-5" />
-              Auto-Plan All Scenes
+              {t('storyWizard.autoPlanAllScenes', 'Auto-Plan All Scenes')}
             </>
           )}
         </button>
@@ -397,14 +429,14 @@ function ScenesStep({
           className="flex items-center gap-2 text-surface-400 hover:text-surface-200"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          {t('storyWizard.back', 'Back')}
         </button>
         <button
           onClick={onNext}
           disabled={approvedCount < sceneCount}
           className="px-6 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg flex items-center gap-2 disabled:opacity-50"
         >
-          Continue
+          {t('storyWizard.continue', 'Continue')}
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
@@ -421,6 +453,7 @@ function GenerateStep({
   onNext: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(progress);
 
@@ -443,7 +476,9 @@ function GenerateStep({
       <div className="text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-400 rounded-full mb-4">
           <Video className="w-4 h-4" />
-          {currentProgress === 100 ? 'Generation complete!' : 'Ready to generate'}
+          {currentProgress === 100
+            ? t('storyWizard.generationComplete', 'Generation complete!')
+            : t('storyWizard.readyToGenerate', 'Ready to generate')}
         </div>
       </div>
 
@@ -458,7 +493,7 @@ function GenerateStep({
         </div>
         {isGenerating && (
           <p className="text-sm text-surface-400 mt-4">
-            Creating video clips... This might take a few minutes.
+            {t('storyWizard.creatingVideoClips', 'Creating video clips... This might take a few minutes.')}
           </p>
         )}
       </div>
@@ -487,12 +522,12 @@ function GenerateStep({
             {isGenerating ? (
               <>
                 <Loader2 className="w-6 h-6 animate-spin" />
-                Creating Your Movie...
+                {t('storyWizard.creatingYourMovie', 'Creating Your Movie...')}
               </>
             ) : (
               <>
                 <Sparkles className="w-6 h-6" />
-                Make My Movie
+                {t('storyWizard.makeMyMovie', 'Make My Movie')}
               </>
             )}
           </button>
@@ -502,7 +537,7 @@ function GenerateStep({
             className="px-8 py-4 bg-green-500 hover:bg-green-600 rounded-xl font-medium text-lg flex items-center gap-3"
           >
             <Check className="w-6 h-6" />
-            Continue to Export
+            {t('storyWizard.continueToExport', 'Continue to Export')}
             <ArrowRight className="w-5 h-5" />
           </button>
         )}
@@ -512,6 +547,7 @@ function GenerateStep({
 }
 
 function ExportStep({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
   const [exportComplete, setExportComplete] = useState(false);
 
@@ -529,12 +565,12 @@ function ExportStep({ onBack }: { onBack: () => void }) {
         {exportComplete ? (
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-full mb-4">
             <Check className="w-4 h-4" />
-            Your movie is ready!
+            {t('storyWizard.movieReady', 'Your movie is ready!')}
           </div>
         ) : (
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500/20 text-brand-400 rounded-full mb-4">
             <Download className="w-4 h-4" />
-            Choose your export settings
+            {t('storyWizard.chooseExportSettings', 'Choose your export settings')}
           </div>
         )}
       </div>
@@ -544,16 +580,20 @@ function ExportStep({ onBack }: { onBack: () => void }) {
           <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <Film className="w-10 h-10 text-green-400" />
           </div>
-          <h3 className="text-2xl font-bold mb-2">Congratulations!</h3>
-          <p className="text-surface-400 mb-6">Your movie has been exported successfully.</p>
+          <h3 className="text-2xl font-bold mb-2">
+            {t('storyWizard.congratulations', 'Congratulations!')}
+          </h3>
+          <p className="text-surface-400 mb-6">
+            {t('storyWizard.exportedSuccessfully', 'Your movie has been exported successfully.')}
+          </p>
           <div className="flex justify-center gap-4">
             <button className="px-6 py-3 bg-brand-500 hover:bg-brand-600 rounded-lg font-medium flex items-center gap-2">
               <Play className="w-5 h-5" />
-              Watch Movie
+              {t('storyWizard.watchMovie', 'Watch Movie')}
             </button>
             <button className="px-6 py-3 bg-surface-700 hover:bg-surface-600 rounded-lg flex items-center gap-2">
               <Download className="w-5 h-5" />
-              Open Folder
+              {t('storyWizard.openFolder', 'Open Folder')}
             </button>
           </div>
         </div>
@@ -562,12 +602,16 @@ function ExportStep({ onBack }: { onBack: () => void }) {
           {/* Quality options */}
           <div className="grid grid-cols-2 gap-4">
             <button className="p-4 bg-surface-800 hover:bg-surface-700 rounded-xl border-2 border-brand-500 text-left">
-              <p className="font-medium mb-1">Great Quality</p>
-              <p className="text-sm text-surface-400">1080p - Perfect for sharing online</p>
+              <p className="font-medium mb-1">{t('storyWizard.greatQuality', 'Great Quality')}</p>
+              <p className="text-sm text-surface-400">
+                {t('storyWizard.greatQualityDetail', '1080p - Perfect for sharing online')}
+              </p>
             </button>
             <button className="p-4 bg-surface-800 hover:bg-surface-700 rounded-xl border-2 border-surface-700 text-left">
-              <p className="font-medium mb-1">Best Quality</p>
-              <p className="text-sm text-surface-400">4K - For big screens</p>
+              <p className="font-medium mb-1">{t('storyWizard.bestQuality', 'Best Quality')}</p>
+              <p className="text-sm text-surface-400">
+                {t('storyWizard.bestQualityDetail', '4K - For big screens')}
+              </p>
             </button>
           </div>
 
@@ -580,12 +624,12 @@ function ExportStep({ onBack }: { onBack: () => void }) {
               {isExporting ? (
                 <>
                   <Loader2 className="w-6 h-6 animate-spin" />
-                  Exporting...
+                  {t('storyWizard.exporting', 'Exporting...')}
                 </>
               ) : (
                 <>
                   <Download className="w-6 h-6" />
-                  Export My Movie
+                  {t('storyWizard.exportMyMovie', 'Export My Movie')}
                 </>
               )}
             </button>
@@ -599,7 +643,7 @@ function ExportStep({ onBack }: { onBack: () => void }) {
           className="flex items-center gap-2 text-surface-400 hover:text-surface-200"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          {t('storyWizard.back', 'Back')}
         </button>
       </div>
     </div>
@@ -617,6 +661,7 @@ export function StoryModeWizard({
   generationProgress = 0,
   exportReady = false,
 }: StoryModeWizardProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(currentStep);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const { isStory } = useExperienceMode();
@@ -637,7 +682,8 @@ export function StoryModeWizard({
     onStepChange?.(prevStep);
   };
 
-  const currentStepData = WIZARD_STEPS[step];
+  const wizardSteps = buildWizardSteps(t);
+  const currentStepData = wizardSteps[step];
 
   return (
     <div className="min-h-screen bg-surface-950 p-8">
@@ -652,7 +698,7 @@ export function StoryModeWizard({
             onClick={onExit}
             className="flex items-center gap-2 text-surface-400 hover:text-surface-200"
           >
-            Exit Story Mode
+            {t('storyWizard.exitStoryMode', 'Exit Story Mode')}
             <X className="w-4 h-4" />
           </button>
         )}
@@ -660,7 +706,7 @@ export function StoryModeWizard({
 
       {/* Step indicator */}
       <WizardStepIndicator
-        steps={WIZARD_STEPS}
+        steps={wizardSteps}
         currentStep={step}
         completedSteps={completedSteps}
       />

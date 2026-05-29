@@ -23,6 +23,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 export interface ColorGrade {
   // Basic adjustments
@@ -64,6 +65,7 @@ export interface ColorGrade {
 export interface ColorPreset {
   id: string;
   name: string;
+  nameKey?: string;
   category: 'cinematic' | 'vintage' | 'modern' | 'dramatic' | 'natural' | 'custom';
   thumbnail?: string;
   grade: Partial<ColorGrade>;
@@ -107,6 +109,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'teal-orange',
     name: 'Teal & Orange',
+    nameKey: 'colorGrade.presetTealOrange',
     category: 'cinematic',
     grade: {
       temperature: 15,
@@ -124,6 +127,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'blockbuster',
     name: 'Blockbuster',
+    nameKey: 'colorGrade.presetBlockbuster',
     category: 'cinematic',
     grade: {
       contrast: 25,
@@ -139,6 +143,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'noir',
     name: 'Film Noir',
+    nameKey: 'colorGrade.presetFilmNoir',
     category: 'cinematic',
     grade: {
       saturation: -100,
@@ -156,6 +161,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'vintage-film',
     name: 'Vintage Film',
+    nameKey: 'colorGrade.presetVintageFilm',
     category: 'vintage',
     grade: {
       temperature: 20,
@@ -172,6 +178,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'faded-memory',
     name: 'Faded Memory',
+    nameKey: 'colorGrade.presetFadedMemory',
     category: 'vintage',
     grade: {
       exposure: 0.2,
@@ -187,6 +194,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'polaroid',
     name: 'Polaroid',
+    nameKey: 'colorGrade.presetPolaroid',
     category: 'vintage',
     grade: {
       temperature: 15,
@@ -204,6 +212,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'crisp-clean',
     name: 'Crisp & Clean',
+    nameKey: 'colorGrade.presetCrispClean',
     category: 'modern',
     grade: {
       contrast: 15,
@@ -218,6 +227,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'muted-tones',
     name: 'Muted Tones',
+    nameKey: 'colorGrade.presetMutedTones',
     category: 'modern',
     grade: {
       saturation: -25,
@@ -231,6 +241,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'high-fashion',
     name: 'High Fashion',
+    nameKey: 'colorGrade.presetHighFashion',
     category: 'modern',
     grade: {
       contrast: 30,
@@ -247,6 +258,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'dark-moody',
     name: 'Dark & Moody',
+    nameKey: 'colorGrade.presetDarkMoody',
     category: 'dramatic',
     grade: {
       exposure: -0.3,
@@ -263,6 +275,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'apocalyptic',
     name: 'Apocalyptic',
+    nameKey: 'colorGrade.presetApocalyptic',
     category: 'dramatic',
     grade: {
       temperature: -20,
@@ -278,6 +291,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'horror',
     name: 'Horror',
+    nameKey: 'colorGrade.presetHorror',
     category: 'dramatic',
     grade: {
       temperature: -30,
@@ -296,6 +310,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'golden-hour',
     name: 'Golden Hour',
+    nameKey: 'colorGrade.presetGoldenHour',
     category: 'natural',
     grade: {
       temperature: 35,
@@ -311,6 +326,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'overcast',
     name: 'Overcast Day',
+    nameKey: 'colorGrade.presetOvercastDay',
     category: 'natural',
     grade: {
       temperature: -10,
@@ -324,6 +340,7 @@ const BUILT_IN_PRESETS: ColorPreset[] = [
   {
     id: 'summer-vibes',
     name: 'Summer Vibes',
+    nameKey: 'colorGrade.presetSummerVibes',
     category: 'natural',
     grade: {
       temperature: 20,
@@ -344,6 +361,15 @@ const CATEGORY_NAMES: Record<string, string> = {
   dramatic: 'Dramatic',
   natural: 'Natural',
   custom: 'Custom',
+};
+
+const CATEGORY_KEYS: Record<string, string> = {
+  cinematic: 'colorGrade.categoryCinematic',
+  vintage: 'colorGrade.categoryVintage',
+  modern: 'colorGrade.categoryModern',
+  dramatic: 'colorGrade.categoryDramatic',
+  natural: 'colorGrade.categoryNatural',
+  custom: 'colorGrade.categoryCustom',
 };
 
 interface SliderControlProps {
@@ -386,6 +412,8 @@ interface PresetThumbnailProps {
 }
 
 function PresetThumbnail({ preset, isSelected, onSelect, onToggleFavorite }: PresetThumbnailProps) {
+  const { t } = useTranslation();
+  const presetName = preset.nameKey ? t(preset.nameKey, preset.name) : preset.name;
   // Generate a gradient preview based on the preset
   const previewStyle = useMemo(() => {
     const g = { ...DEFAULT_GRADE, ...preset.grade };
@@ -417,7 +445,7 @@ function PresetThumbnail({ preset, isSelected, onSelect, onToggleFavorite }: Pre
       <div className="absolute inset-0" style={previewStyle} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-2">
-        <span className="text-xs font-medium text-white">{preset.name}</span>
+        <span className="text-xs font-medium text-white">{presetName}</span>
       </div>
       {isSelected && (
         <div className="absolute top-1 right-1 w-5 h-5 bg-brand-500 rounded-full flex items-center justify-center">
@@ -461,6 +489,7 @@ export function ColorGradingPanel({
   isEnabled = true,
   onToggleEnabled,
 }: ColorGradingPanelProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'presets' | 'adjust' | 'effects'>('presets');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['basic', 'color'])
@@ -522,7 +551,7 @@ export function ColorGradingPanel({
   const saveAsPreset = () => {
     const newPreset: ColorPreset = {
       id: `custom_${Date.now()}`,
-      name: 'Custom Preset',
+      name: t('colorGrade.customPreset', 'Custom Preset'),
       category: 'custom',
       grade: { ...grade },
       isFavorite: false,
@@ -540,14 +569,14 @@ export function ColorGradingPanel({
       <div className="flex items-center justify-between px-4 py-3 border-b border-surface-800">
         <div className="flex items-center gap-3">
           <Palette className="w-5 h-5 text-brand-400" />
-          <span className="font-medium">Color Grading</span>
+          <span className="font-medium">{t('colorGrade.title', 'Color Grading')}</span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={resetGrade}
             className="icon-btn p-2 text-surface-400 hover:text-surface-200 transition-colors rounded"
-            title="Reset"
-            aria-label="Reset color grading"
+            title={t('colorGrade.reset', 'Reset')}
+            aria-label={t('colorGrade.resetColorGrading', 'Reset color grading')}
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -557,8 +586,12 @@ export function ColorGradingPanel({
               'icon-btn p-2 rounded transition-colors',
               isEnabled ? 'text-brand-400' : 'text-surface-500'
             )}
-            aria-label={isEnabled ? 'Disable color grading' : 'Enable color grading'}
-            title={isEnabled ? 'Disable' : 'Enable'}
+            aria-label={
+              isEnabled
+                ? t('colorGrade.disableColorGrading', 'Disable color grading')
+                : t('colorGrade.enableColorGrading', 'Enable color grading')
+            }
+            title={isEnabled ? t('colorGrade.disable', 'Disable') : t('colorGrade.enable', 'Enable')}
           >
             {isEnabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
           </button>
@@ -568,9 +601,9 @@ export function ColorGradingPanel({
       {/* Tabs */}
       <div className="flex border-b border-surface-800">
         {[
-          { id: 'presets', label: 'Presets' },
-          { id: 'adjust', label: 'Adjust' },
-          { id: 'effects', label: 'Effects' },
+          { id: 'presets', label: t('colorGrade.tabPresets', 'Presets') },
+          { id: 'adjust', label: t('colorGrade.tabAdjust', 'Adjust') },
+          { id: 'effects', label: t('colorGrade.tabEffects', 'Effects') },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -604,7 +637,11 @@ export function ColorGradingPanel({
                       : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
                   )}
                 >
-                  {cat === 'all' ? 'All' : cat === 'favorites' ? 'Favorites' : CATEGORY_NAMES[cat]}
+                  {cat === 'all'
+                    ? t('colorGrade.filterAll', 'All')
+                    : cat === 'favorites'
+                      ? t('colorGrade.filterFavorites', 'Favorites')
+                      : t(CATEGORY_KEYS[cat], CATEGORY_NAMES[cat])}
                 </button>
               ))}
             </div>
@@ -629,7 +666,7 @@ export function ColorGradingPanel({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-800 hover:bg-surface-700 rounded text-sm transition-colors"
               >
                 <Copy className="w-3 h-3" />
-                Save as Preset
+                {t('colorGrade.saveAsPreset', 'Save as Preset')}
               </button>
               {onImportLUT && (
                 <button
@@ -637,7 +674,7 @@ export function ColorGradingPanel({
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-800 hover:bg-surface-700 rounded text-sm transition-colors"
                 >
                   <Upload className="w-3 h-3" />
-                  Import LUT
+                  {t('colorGrade.importLut', 'Import LUT')}
                 </button>
               )}
             </div>
@@ -655,7 +692,7 @@ export function ColorGradingPanel({
               >
                 <div className="flex items-center gap-2">
                   <Sun className="w-4 h-4 text-surface-400" />
-                  Basic
+                  {t('colorGrade.sectionBasic', 'Basic')}
                 </div>
                 {expandedSections.has('basic') ? (
                   <ChevronUp className="w-4 h-4 text-surface-400" />
@@ -666,7 +703,7 @@ export function ColorGradingPanel({
               {expandedSections.has('basic') && (
                 <div className="space-y-3">
                   <SliderControl
-                    label="Exposure"
+                    label={t('colorGrade.exposure', 'Exposure')}
                     value={grade.exposure}
                     min={-2}
                     max={2}
@@ -675,35 +712,35 @@ export function ColorGradingPanel({
                     format={(v) => (v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1))}
                   />
                   <SliderControl
-                    label="Contrast"
+                    label={t('colorGrade.contrast', 'Contrast')}
                     value={grade.contrast}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ contrast: v })}
                   />
                   <SliderControl
-                    label="Highlights"
+                    label={t('colorGrade.highlights', 'Highlights')}
                     value={grade.highlights}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ highlights: v })}
                   />
                   <SliderControl
-                    label="Shadows"
+                    label={t('colorGrade.shadows', 'Shadows')}
                     value={grade.shadows}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ shadows: v })}
                   />
                   <SliderControl
-                    label="Whites"
+                    label={t('colorGrade.whites', 'Whites')}
                     value={grade.whites}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ whites: v })}
                   />
                   <SliderControl
-                    label="Blacks"
+                    label={t('colorGrade.blacks', 'Blacks')}
                     value={grade.blacks}
                     min={-100}
                     max={100}
@@ -721,7 +758,7 @@ export function ColorGradingPanel({
               >
                 <div className="flex items-center gap-2">
                   <Droplets className="w-4 h-4 text-surface-400" />
-                  Color
+                  {t('colorGrade.sectionColor', 'Color')}
                 </div>
                 {expandedSections.has('color') ? (
                   <ChevronUp className="w-4 h-4 text-surface-400" />
@@ -732,37 +769,49 @@ export function ColorGradingPanel({
               {expandedSections.has('color') && (
                 <div className="space-y-3">
                   <SliderControl
-                    label="Temperature"
+                    label={t('colorGrade.temperature', 'Temperature')}
                     value={grade.temperature}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ temperature: v })}
-                    format={(v) => (v < 0 ? 'Cool' : v > 0 ? 'Warm' : 'Neutral')}
+                    format={(v) =>
+                      v < 0
+                        ? t('colorGrade.valueCool', 'Cool')
+                        : v > 0
+                          ? t('colorGrade.valueWarm', 'Warm')
+                          : t('colorGrade.valueNeutral', 'Neutral')
+                    }
                   />
                   <SliderControl
-                    label="Tint"
+                    label={t('colorGrade.tint', 'Tint')}
                     value={grade.tint}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ tint: v })}
-                    format={(v) => (v < 0 ? 'Green' : v > 0 ? 'Magenta' : 'Neutral')}
+                    format={(v) =>
+                      v < 0
+                        ? t('colorGrade.valueGreen', 'Green')
+                        : v > 0
+                          ? t('colorGrade.valueMagenta', 'Magenta')
+                          : t('colorGrade.valueNeutral', 'Neutral')
+                    }
                   />
                   <SliderControl
-                    label="Saturation"
+                    label={t('colorGrade.saturation', 'Saturation')}
                     value={grade.saturation}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ saturation: v })}
                   />
                   <SliderControl
-                    label="Vibrance"
+                    label={t('colorGrade.vibrance', 'Vibrance')}
                     value={grade.vibrance}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ vibrance: v })}
                   />
                   <SliderControl
-                    label="Hue"
+                    label={t('colorGrade.hue', 'Hue')}
                     value={grade.hue}
                     min={-180}
                     max={180}
@@ -781,7 +830,7 @@ export function ColorGradingPanel({
               >
                 <div className="flex items-center gap-2">
                   <Contrast className="w-4 h-4 text-surface-400" />
-                  Split Toning
+                  {t('colorGrade.sectionSplitToning', 'Split Toning')}
                 </div>
                 {expandedSections.has('split') ? (
                   <ChevronUp className="w-4 h-4 text-surface-400" />
@@ -793,7 +842,9 @@ export function ColorGradingPanel({
                 <div className="space-y-3">
                   <div className="flex items-center gap-4">
                     <div>
-                      <label className="text-xs text-surface-400 mb-1 block">Highlights</label>
+                      <label className="text-xs text-surface-400 mb-1 block">
+                        {t('colorGrade.highlights', 'Highlights')}
+                      </label>
                       <input
                         type="color"
                         value={grade.highlightTint}
@@ -802,7 +853,9 @@ export function ColorGradingPanel({
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-surface-400 mb-1 block">Shadows</label>
+                      <label className="text-xs text-surface-400 mb-1 block">
+                        {t('colorGrade.shadows', 'Shadows')}
+                      </label>
                       <input
                         type="color"
                         value={grade.shadowTint}
@@ -812,12 +865,18 @@ export function ColorGradingPanel({
                     </div>
                   </div>
                   <SliderControl
-                    label="Balance"
+                    label={t('colorGrade.balance', 'Balance')}
                     value={grade.splitBalance}
                     min={-100}
                     max={100}
                     onChange={(v) => updateGrade({ splitBalance: v })}
-                    format={(v) => (v < 0 ? 'Shadows' : v > 0 ? 'Highlights' : 'Balanced')}
+                    format={(v) =>
+                      v < 0
+                        ? t('colorGrade.shadows', 'Shadows')
+                        : v > 0
+                          ? t('colorGrade.highlights', 'Highlights')
+                          : t('colorGrade.valueBalanced', 'Balanced')
+                    }
                   />
                 </div>
               )}
@@ -834,7 +893,7 @@ export function ColorGradingPanel({
                 onClick={() => toggleSection('vignette')}
                 className="w-full flex items-center justify-between text-sm font-medium mb-3"
               >
-                <span>Vignette</span>
+                <span>{t('colorGrade.sectionVignette', 'Vignette')}</span>
                 {expandedSections.has('vignette') ? (
                   <ChevronUp className="w-4 h-4 text-surface-400" />
                 ) : (
@@ -844,21 +903,21 @@ export function ColorGradingPanel({
               {expandedSections.has('vignette') && (
                 <div className="space-y-3">
                   <SliderControl
-                    label="Amount"
+                    label={t('colorGrade.amount', 'Amount')}
                     value={grade.vignetteAmount}
                     min={0}
                     max={100}
                     onChange={(v) => updateGrade({ vignetteAmount: v })}
                   />
                   <SliderControl
-                    label="Midpoint"
+                    label={t('colorGrade.midpoint', 'Midpoint')}
                     value={grade.vignetteMidpoint}
                     min={0}
                     max={100}
                     onChange={(v) => updateGrade({ vignetteMidpoint: v })}
                   />
                   <SliderControl
-                    label="Feather"
+                    label={t('colorGrade.feather', 'Feather')}
                     value={grade.vignetteFeather}
                     min={0}
                     max={100}
@@ -874,7 +933,7 @@ export function ColorGradingPanel({
                 onClick={() => toggleSection('grain')}
                 className="w-full flex items-center justify-between text-sm font-medium mb-3"
               >
-                <span>Film Grain</span>
+                <span>{t('colorGrade.sectionFilmGrain', 'Film Grain')}</span>
                 {expandedSections.has('grain') ? (
                   <ChevronUp className="w-4 h-4 text-surface-400" />
                 ) : (
@@ -884,14 +943,14 @@ export function ColorGradingPanel({
               {expandedSections.has('grain') && (
                 <div className="space-y-3">
                   <SliderControl
-                    label="Amount"
+                    label={t('colorGrade.amount', 'Amount')}
                     value={grade.grainAmount}
                     min={0}
                     max={100}
                     onChange={(v) => updateGrade({ grainAmount: v })}
                   />
                   <SliderControl
-                    label="Size"
+                    label={t('colorGrade.size', 'Size')}
                     value={grade.grainSize}
                     min={0}
                     max={100}
@@ -907,7 +966,7 @@ export function ColorGradingPanel({
                 onClick={() => toggleSection('lut')}
                 className="w-full flex items-center justify-between text-sm font-medium mb-3"
               >
-                <span>LUT</span>
+                <span>{t('colorGrade.sectionLut', 'LUT')}</span>
                 {expandedSections.has('lut') ? (
                   <ChevronUp className="w-4 h-4 text-surface-400" />
                 ) : (
@@ -924,11 +983,11 @@ export function ColorGradingPanel({
                           onClick={() => updateGrade({ lutId: undefined })}
                           className="text-xs text-surface-400 hover:text-surface-200"
                         >
-                          Remove
+                          {t('colorGrade.remove', 'Remove')}
                         </button>
                       </div>
                       <SliderControl
-                        label="Intensity"
+                        label={t('colorGrade.intensity', 'Intensity')}
                         value={grade.lutIntensity}
                         min={0}
                         max={100}
@@ -942,7 +1001,7 @@ export function ColorGradingPanel({
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-surface-800 hover:bg-surface-700 border border-dashed border-surface-600 rounded-lg text-sm transition-colors"
                     >
                       <Upload className="w-4 h-4" />
-                      Import LUT File
+                      {t('colorGrade.importLutFile', 'Import LUT File')}
                     </button>
                   )}
                 </div>
@@ -965,6 +1024,7 @@ export function ColorGradeIndicator({
   hasGrade: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -976,7 +1036,7 @@ export function ColorGradeIndicator({
       )}
     >
       <Palette className="w-3 h-3" />
-      <span>Color</span>
+      <span>{t('colorGrade.sectionColor', 'Color')}</span>
     </button>
   );
 }

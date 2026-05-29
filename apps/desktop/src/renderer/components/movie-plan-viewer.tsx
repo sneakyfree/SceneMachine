@@ -21,6 +21,7 @@ import {
   Clapperboard,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface MoviePlan {
   screenplayId: string;
@@ -121,6 +122,7 @@ export function MoviePlanViewer({
   isApproving = false,
   isRegenerating = false,
 }: MoviePlanViewerProps) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -136,7 +138,9 @@ export function MoviePlanViewer({
             className="btn-secondary"
           >
             <Sparkles className="w-4 h-4 mr-2" />
-            {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+            {isRegenerating
+              ? t('moviePlan.regenerating', 'Regenerating...')
+              : t('moviePlan.regenerate', 'Regenerate')}
           </button>
           <button
             onClick={onApprove}
@@ -144,7 +148,9 @@ export function MoviePlanViewer({
             className="btn-primary"
           >
             <Check className="w-4 h-4 mr-2" />
-            {isApproving ? 'Approving...' : 'Approve Plan'}
+            {isApproving
+              ? t('moviePlan.approving', 'Approving...')
+              : t('moviePlan.approvePlan', 'Approve Plan')}
           </button>
         </div>
       </div>
@@ -154,7 +160,7 @@ export function MoviePlanViewer({
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
           <div className="flex items-center gap-2 text-yellow-400 mb-2">
             <AlertTriangle className="w-5 h-5" />
-            <span className="font-medium">Production Warnings</span>
+            <span className="font-medium">{t('moviePlan.productionWarnings', 'Production Warnings')}</span>
           </div>
           <ul className="space-y-1 text-sm text-yellow-200">
             {plan.warnings.map((warning, i) => (
@@ -167,26 +173,26 @@ export function MoviePlanViewer({
       {/* Quick Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="card">
-          <div className="text-surface-400 text-sm">Genre</div>
+          <div className="text-surface-400 text-sm">{t('moviePlan.genre', 'Genre')}</div>
           <div className="text-lg font-semibold capitalize">{plan.genre}</div>
         </div>
         <div className="card">
-          <div className="text-surface-400 text-sm">Runtime</div>
-          <div className="text-lg font-semibold">~{plan.estimatedRuntimeMinutes} min</div>
+          <div className="text-surface-400 text-sm">{t('moviePlan.runtime', 'Runtime')}</div>
+          <div className="text-lg font-semibold">~{plan.estimatedRuntimeMinutes} {t('moviePlan.minAbbrev', 'min')}</div>
         </div>
         <div className="card">
-          <div className="text-surface-400 text-sm">Scenes</div>
+          <div className="text-surface-400 text-sm">{t('moviePlan.scenes', 'Scenes')}</div>
           <div className="text-lg font-semibold">{plan.scenes.length}</div>
         </div>
         <div className="card">
-          <div className="text-surface-400 text-sm">Characters</div>
+          <div className="text-surface-400 text-sm">{t('moviePlan.characters', 'Characters')}</div>
           <div className="text-lg font-semibold">{plan.characters.length}</div>
         </div>
       </div>
 
       {/* Themes & Tone */}
       <div className="card">
-        <h3 className="font-medium mb-3">Themes & Tone</h3>
+        <h3 className="font-medium mb-3">{t('moviePlan.themesAndTone', 'Themes & Tone')}</h3>
         <div className="flex flex-wrap gap-2 mb-3">
           {plan.themes.map((theme) => (
             <span
@@ -203,11 +209,11 @@ export function MoviePlanViewer({
       {/* Collapsible Sections */}
       <div className="space-y-3">
         {/* Visual Style */}
-        <CollapsibleSection title="Visual Style" icon={Palette} defaultOpen>
+        <CollapsibleSection title={t('moviePlan.visualStyle', 'Visual Style')} icon={Palette} defaultOpen>
           <div className="space-y-4">
             {/* Color Palette */}
             <div>
-              <h4 className="text-sm text-surface-400 mb-2">Color Palette</h4>
+              <h4 className="text-sm text-surface-400 mb-2">{t('moviePlan.colorPalette', 'Color Palette')}</h4>
               <div className="flex gap-2">
                 {plan.colorPalette.map((color) => (
                   <div key={color} className="flex flex-col items-center">
@@ -224,45 +230,45 @@ export function MoviePlanViewer({
             {/* Style Details */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h4 className="text-sm text-surface-400 mb-1">Overall Look</h4>
+                <h4 className="text-sm text-surface-400 mb-1">{t('moviePlan.overallLook', 'Overall Look')}</h4>
                 <p className="text-surface-200">{plan.visualStyle.overall_look}</p>
               </div>
               <div>
-                <h4 className="text-sm text-surface-400 mb-1">Lighting</h4>
+                <h4 className="text-sm text-surface-400 mb-1">{t('moviePlan.lighting', 'Lighting')}</h4>
                 <p className="text-surface-200">{plan.visualStyle.lighting_style}</p>
               </div>
               <div>
-                <h4 className="text-sm text-surface-400 mb-1">Camera Movement</h4>
+                <h4 className="text-sm text-surface-400 mb-1">{t('moviePlan.cameraMovement', 'Camera Movement')}</h4>
                 <p className="text-surface-200">{plan.visualStyle.camera_movement}</p>
               </div>
               <div>
-                <h4 className="text-sm text-surface-400 mb-1">Aspect Ratio</h4>
+                <h4 className="text-sm text-surface-400 mb-1">{t('moviePlan.aspectRatio', 'Aspect Ratio')}</h4>
                 <p className="text-surface-200">{plan.visualStyle.aspect_ratio}</p>
               </div>
             </div>
 
             {/* Cinematography Notes */}
             <div>
-              <h4 className="text-sm text-surface-400 mb-1">Cinematography Notes</h4>
+              <h4 className="text-sm text-surface-400 mb-1">{t('moviePlan.cinematographyNotes', 'Cinematography Notes')}</h4>
               <p className="text-surface-200 text-sm">{plan.cinematographyNotes}</p>
             </div>
           </div>
         </CollapsibleSection>
 
         {/* Characters */}
-        <CollapsibleSection title="Characters" icon={Users} defaultOpen>
+        <CollapsibleSection title={t('moviePlan.characters', 'Characters')} icon={Users} defaultOpen>
           <div className="space-y-4">
             {/* Protagonist & Antagonist */}
             <div className="flex gap-4">
               {plan.protagonist && (
                 <div className="flex-1 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                  <div className="text-sm text-green-400 mb-1">Protagonist</div>
+                  <div className="text-sm text-green-400 mb-1">{t('moviePlan.protagonist', 'Protagonist')}</div>
                   <div className="font-medium">{plan.protagonist}</div>
                 </div>
               )}
               {plan.antagonist && (
                 <div className="flex-1 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                  <div className="text-sm text-red-400 mb-1">Antagonist</div>
+                  <div className="text-sm text-red-400 mb-1">{t('moviePlan.antagonist', 'Antagonist')}</div>
                   <div className="font-medium">{plan.antagonist}</div>
                 </div>
               )}
@@ -282,7 +288,7 @@ export function MoviePlanViewer({
                     <div>
                       <div className="font-medium">{char.name}</div>
                       <div className="text-sm text-surface-400">
-                        {char.scene_count} scenes, {char.dialogue_count} lines
+                        {char.scene_count} {t('moviePlan.scenesLower', 'scenes')}, {char.dialogue_count} {t('moviePlan.lines', 'lines')}
                       </div>
                     </div>
                   </div>
@@ -290,7 +296,7 @@ export function MoviePlanViewer({
                     <div className="text-sm text-surface-300">
                       {char.estimated_screen_time_percent}%
                     </div>
-                    <div className="text-xs text-surface-500">screen time</div>
+                    <div className="text-xs text-surface-500">{t('moviePlan.screenTime', 'screen time')}</div>
                   </div>
                 </div>
               ))}
@@ -299,40 +305,40 @@ export function MoviePlanViewer({
         </CollapsibleSection>
 
         {/* Act Structure */}
-        <CollapsibleSection title="Act Structure" icon={Film}>
+        <CollapsibleSection title={t('moviePlan.actStructure', 'Act Structure')} icon={Film}>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <h4 className="text-sm text-surface-400 mb-2">Act 1 - Setup</h4>
+              <h4 className="text-sm text-surface-400 mb-2">{t('moviePlan.act1Setup', 'Act 1 - Setup')}</h4>
               <div className="text-surface-200">
-                Scenes: {plan.actStructure.act_1?.join(', ') || 'None'}
+                {t('moviePlan.scenesColon', 'Scenes:')} {plan.actStructure.act_1?.join(', ') || t('moviePlan.none', 'None')}
               </div>
               <div className="text-xs text-surface-500 mt-1">
-                {plan.actStructure.act_1?.length || 0} scenes
+                {plan.actStructure.act_1?.length || 0} {t('moviePlan.scenesLower', 'scenes')}
               </div>
             </div>
             <div>
-              <h4 className="text-sm text-surface-400 mb-2">Act 2 - Confrontation</h4>
+              <h4 className="text-sm text-surface-400 mb-2">{t('moviePlan.act2Confrontation', 'Act 2 - Confrontation')}</h4>
               <div className="text-surface-200">
-                Scenes: {plan.actStructure.act_2?.join(', ') || 'None'}
+                {t('moviePlan.scenesColon', 'Scenes:')} {plan.actStructure.act_2?.join(', ') || t('moviePlan.none', 'None')}
               </div>
               <div className="text-xs text-surface-500 mt-1">
-                {plan.actStructure.act_2?.length || 0} scenes
+                {plan.actStructure.act_2?.length || 0} {t('moviePlan.scenesLower', 'scenes')}
               </div>
             </div>
             <div>
-              <h4 className="text-sm text-surface-400 mb-2">Act 3 - Resolution</h4>
+              <h4 className="text-sm text-surface-400 mb-2">{t('moviePlan.act3Resolution', 'Act 3 - Resolution')}</h4>
               <div className="text-surface-200">
-                Scenes: {plan.actStructure.act_3?.join(', ') || 'None'}
+                {t('moviePlan.scenesColon', 'Scenes:')} {plan.actStructure.act_3?.join(', ') || t('moviePlan.none', 'None')}
               </div>
               <div className="text-xs text-surface-500 mt-1">
-                {plan.actStructure.act_3?.length || 0} scenes
+                {plan.actStructure.act_3?.length || 0} {t('moviePlan.scenesLower', 'scenes')}
               </div>
             </div>
           </div>
         </CollapsibleSection>
 
         {/* Scenes */}
-        <CollapsibleSection title="Scene Breakdown" icon={Clapperboard}>
+        <CollapsibleSection title={t('moviePlan.sceneBreakdown', 'Scene Breakdown')} icon={Clapperboard}>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {plan.scenes.map((scene) => (
               <div
@@ -340,16 +346,16 @@ export function MoviePlanViewer({
                 className="flex items-center justify-between p-3 bg-surface-800/50 rounded-lg"
               >
                 <div>
-                  <div className="font-medium">Scene {scene.scene_number}</div>
+                  <div className="font-medium">{t('moviePlan.scene', 'Scene')} {scene.scene_number}</div>
                   <div className="text-sm text-surface-400">
                     {scene.location} - {scene.time_of_day}
                   </div>
                 </div>
                 <div className="text-right text-sm">
                   <div className="text-surface-300">
-                    ~{Math.round(scene.estimated_duration_seconds / 60)} min
+                    ~{Math.round(scene.estimated_duration_seconds / 60)} {t('moviePlan.minAbbrev', 'min')}
                   </div>
-                  <div className="text-surface-500">{scene.suggested_shot_count} shots</div>
+                  <div className="text-surface-500">{scene.suggested_shot_count} {t('moviePlan.shots', 'shots')}</div>
                 </div>
               </div>
             ))}
@@ -357,13 +363,13 @@ export function MoviePlanViewer({
         </CollapsibleSection>
 
         {/* Locations */}
-        <CollapsibleSection title="Locations" icon={MapPin}>
+        <CollapsibleSection title={t('moviePlan.locations', 'Locations')} icon={MapPin}>
           <div className="grid grid-cols-2 gap-3">
             {plan.locationRequirements.map((loc) => (
               <div key={loc.name} className="p-3 bg-surface-800/50 rounded-lg">
                 <div className="font-medium">{loc.name}</div>
                 <div className="text-sm text-surface-400">
-                  {loc.scene_type} - {loc.scene_count} scenes
+                  {loc.scene_type} - {loc.scene_count} {t('moviePlan.scenesLower', 'scenes')}
                 </div>
               </div>
             ))}
@@ -371,12 +377,12 @@ export function MoviePlanViewer({
         </CollapsibleSection>
 
         {/* Production Notes */}
-        <CollapsibleSection title="Production Notes" icon={Camera}>
+        <CollapsibleSection title={t('moviePlan.productionNotes', 'Production Notes')} icon={Camera}>
           <div className="space-y-4">
             {/* Props */}
             {plan.propRequirements.length > 0 && (
               <div>
-                <h4 className="text-sm text-surface-400 mb-2">Props Required</h4>
+                <h4 className="text-sm text-surface-400 mb-2">{t('moviePlan.propsRequired', 'Props Required')}</h4>
                 <div className="flex flex-wrap gap-2">
                   {plan.propRequirements.map((prop) => (
                     <span
@@ -393,7 +399,7 @@ export function MoviePlanViewer({
             {/* Special Effects */}
             {plan.specialEffectsNotes.length > 0 && (
               <div>
-                <h4 className="text-sm text-surface-400 mb-2">Special Effects</h4>
+                <h4 className="text-sm text-surface-400 mb-2">{t('moviePlan.specialEffects', 'Special Effects')}</h4>
                 <ul className="space-y-1">
                   {plan.specialEffectsNotes.map((note, i) => (
                     <li key={i} className="text-surface-200 text-sm">
@@ -410,7 +416,7 @@ export function MoviePlanViewer({
       {/* Footer */}
       <div className="flex items-center justify-between pt-4 border-t border-surface-800">
         <div className="text-sm text-surface-500">
-          Generated by {plan.aiModel} on {new Date(plan.generatedAt).toLocaleDateString()}
+          {t('moviePlan.generatedBy', 'Generated by')} {plan.aiModel} {t('moviePlan.on', 'on')} {new Date(plan.generatedAt).toLocaleDateString()}
         </div>
         <div className="flex gap-2">
           <button
@@ -418,7 +424,9 @@ export function MoviePlanViewer({
             disabled={isRegenerating || isApproving}
             className="btn-secondary"
           >
-            {isRegenerating ? 'Regenerating...' : 'Regenerate Plan'}
+            {isRegenerating
+              ? t('moviePlan.regenerating', 'Regenerating...')
+              : t('moviePlan.regeneratePlan', 'Regenerate Plan')}
           </button>
           <button
             onClick={onApprove}
@@ -426,7 +434,9 @@ export function MoviePlanViewer({
             className="btn-primary"
           >
             <Check className="w-4 h-4 mr-2" />
-            {isApproving ? 'Approving...' : 'Approve & Continue'}
+            {isApproving
+              ? t('moviePlan.approving', 'Approving...')
+              : t('moviePlan.approveAndContinue', 'Approve & Continue')}
           </button>
         </div>
       </div>

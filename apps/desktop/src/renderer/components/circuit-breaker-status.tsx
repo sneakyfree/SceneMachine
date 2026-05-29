@@ -23,69 +23,84 @@ import {
 import { api, type CircuitBreakerStatus as CBStatus } from '../api/client';
 import { cn } from '../lib/utils';
 import { useToast } from '../stores/toast-store';
+import { useTranslation } from '../i18n/use-translation';
 
-// State colors and icons
+// State colors and icons. User-facing label/description strings are stored as
+// i18n key + English fallback pairs and resolved with `t` inside components.
 const stateConfig = {
   closed: {
     color: 'bg-green-500/20 text-green-400 border-green-500/30',
     icon: ShieldCheck,
-    label: 'Healthy',
-    description: 'Normal operation, requests flowing through',
+    labelKey: 'circuitBreaker.stateHealthy',
+    labelEn: 'Healthy',
+    descriptionKey: 'circuitBreaker.descClosed',
+    descriptionEn: 'Normal operation, requests flowing through',
   },
   open: {
     color: 'bg-red-500/20 text-red-400 border-red-500/30',
     icon: ShieldAlert,
-    label: 'Open',
-    description: 'Failing, requests are being rejected',
+    labelKey: 'circuitBreaker.stateOpen',
+    labelEn: 'Open',
+    descriptionKey: 'circuitBreaker.descOpen',
+    descriptionEn: 'Failing, requests are being rejected',
   },
   half_open: {
     color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     icon: Shield,
-    label: 'Testing',
-    description: 'Testing if service has recovered',
+    labelKey: 'circuitBreaker.stateTesting',
+    labelEn: 'Testing',
+    descriptionKey: 'circuitBreaker.descHalfOpen',
+    descriptionEn: 'Testing if service has recovered',
   },
 };
 
 /**
  * Format a timestamp to relative time.
  */
-function formatRelativeTime(timestamp: number | null): string {
-  if (!timestamp) return 'Never';
+function formatRelativeTime(
+  timestamp: number | null,
+  t: (key: string, fallback?: string) => string
+): string {
+  if (!timestamp) return t('circuitBreaker.timeNever', 'Never');
 
   const now = Date.now() / 1000;
   const diff = now - timestamp;
 
-  if (diff < 60) return 'Just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return t('circuitBreaker.timeJustNow', 'Just now');
+  if (diff < 3600) return `${Math.floor(diff / 60)}${t('circuitBreaker.timeMinutesAgo', 'm ago')}`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}${t('circuitBreaker.timeHoursAgo', 'h ago')}`;
+  return `${Math.floor(diff / 86400)}${t('circuitBreaker.timeDaysAgo', 'd ago')}`;
 }
 
 /**
  * Extract provider name from circuit name.
  */
-function getProviderDisplayName(name: string): { category: string; provider: string } {
+function getProviderDisplayName(
+  name: string,
+  t: (key: string, fallback?: string) => string
+): { category: string; provider: string } {
   if (name.startsWith('provider:')) {
     const provider = name.replace('provider:', '');
     return {
-      category: 'Video Provider',
+      category: t('circuitBreaker.categoryVideoProvider', 'Video Provider'),
       provider: provider.charAt(0).toUpperCase() + provider.slice(1),
     };
   }
   if (name.startsWith('llm:')) {
     const provider = name.replace('llm:', '');
     return {
-      category: 'LLM Provider',
+      category: t('circuitBreaker.categoryLlmProvider', 'LLM Provider'),
       provider: provider.charAt(0).toUpperCase() + provider.slice(1),
     };
   }
-  return { category: 'Service', provider: name };
+  return { category: t('circuitBreaker.categoryService', 'Service'), provider: name };
 }
 
 /**
  * Single circuit breaker status badge.
  */
 export function CircuitBreakerBadge({ circuit }: { circuit: CBStatus }) {
+  const { t } = useTranslation();
   const config = stateConfig[circuit.state];
   const Icon = config.icon;
 
@@ -95,10 +110,10 @@ export function CircuitBreakerBadge({ circuit }: { circuit: CBStatus }) {
         'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border',
         config.color
       )}
-      title={config.description}
+      title={t(config.descriptionKey, config.descriptionEn)}
     >
       <Icon className="w-3 h-3" />
-      {config.label}
+      {t(config.labelKey, config.labelEn)}
     </span>
   );
 }
@@ -115,9 +130,10 @@ export function CircuitBreakerCard({
   onReset?: () => void;
   isResetting?: boolean;
 }) {
+  const { t } = useTranslation();
   const config = stateConfig[circuit.state];
   const Icon = config.icon;
-  const { category, provider } = getProviderDisplayName(circuit.name);
+  const { category, provider } = getProviderDisplayName(circuit.name, t);
 
   return (
     <div
@@ -141,14 +157,14 @@ export function CircuitBreakerCard({
         <div className="bg-surface-900/50 rounded-lg p-2">
           <div className="flex items-center gap-1.5 text-xs text-surface-400 mb-1">
             <Activity className="w-3 h-3" />
-            Total Calls
+            {t('circuitBreaker.totalCalls', 'Total Calls')}
           </div>
           <div className="text-lg font-semibold">{circuit.totalCalls.toLocaleString()}</div>
         </div>
         <div className="bg-surface-900/50 rounded-lg p-2">
           <div className="flex items-center gap-1.5 text-xs text-surface-400 mb-1">
             <TrendingUp className="w-3 h-3" />
-            Success Rate
+            {t('circuitBreaker.successRate', 'Success Rate')}
           </div>
           <div
             className={cn(
@@ -169,16 +185,16 @@ export function CircuitBreakerCard({
       <div className="flex items-center gap-4 text-xs text-surface-400 mb-3">
         <span className="flex items-center gap-1">
           <CheckCircle2 className="w-3 h-3 text-green-400" />
-          {circuit.successfulCalls} success
+          {circuit.successfulCalls} {t('circuitBreaker.success', 'success')}
         </span>
         <span className="flex items-center gap-1">
           <XCircle className="w-3 h-3 text-red-400" />
-          {circuit.failedCalls} failed
+          {circuit.failedCalls} {t('circuitBreaker.failed', 'failed')}
         </span>
         {circuit.rejectedCalls > 0 && (
           <span className="flex items-center gap-1">
             <AlertTriangle className="w-3 h-3 text-yellow-400" />
-            {circuit.rejectedCalls} rejected
+            {circuit.rejectedCalls} {t('circuitBreaker.rejected', 'rejected')}
           </span>
         )}
       </div>
@@ -187,7 +203,9 @@ export function CircuitBreakerCard({
       {circuit.state !== 'closed' && (
         <div className="space-y-2 pt-3 border-t border-surface-700">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-surface-400">Consecutive Failures</span>
+            <span className="text-surface-400">
+              {t('circuitBreaker.consecutiveFailures', 'Consecutive Failures')}
+            </span>
             <span className="text-red-400 font-medium">
               {circuit.consecutiveFailures} / {circuit.failureThreshold}
             </span>
@@ -197,7 +215,7 @@ export function CircuitBreakerCard({
             <div className="flex items-center justify-between text-xs">
               <span className="text-surface-400 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                Recovery in
+                {t('circuitBreaker.recoveryIn', 'Recovery in')}
               </span>
               <span className="text-yellow-400 font-medium">
                 {Math.ceil(circuit.remainingTimeout)}s
@@ -207,10 +225,12 @@ export function CircuitBreakerCard({
 
           {circuit.state === 'half_open' && (
             <div className="flex items-center justify-between text-xs">
-              <span className="text-surface-400">Recovery Progress</span>
+              <span className="text-surface-400">
+                {t('circuitBreaker.recoveryProgress', 'Recovery Progress')}
+              </span>
               <span className="text-yellow-400 font-medium">
                 {circuit.consecutiveSuccesses} / {Math.max(2, circuit.failureThreshold - 2)}{' '}
-                successes needed
+                {t('circuitBreaker.successesNeeded', 'successes needed')}
               </span>
             </div>
           )}
@@ -219,8 +239,14 @@ export function CircuitBreakerCard({
 
       {/* Last Activity */}
       <div className="flex items-center justify-between text-xs text-surface-500 mt-3 pt-3 border-t border-surface-700">
-        <span>Last success: {formatRelativeTime(circuit.lastSuccessTime)}</span>
-        <span>Last failure: {formatRelativeTime(circuit.lastFailureTime)}</span>
+        <span>
+          {t('circuitBreaker.lastSuccess', 'Last success:')}{' '}
+          {formatRelativeTime(circuit.lastSuccessTime, t)}
+        </span>
+        <span>
+          {t('circuitBreaker.lastFailure', 'Last failure:')}{' '}
+          {formatRelativeTime(circuit.lastFailureTime, t)}
+        </span>
       </div>
 
       {/* Reset Button (only for open circuits) */}
@@ -235,7 +261,7 @@ export function CircuitBreakerCard({
           ) : (
             <RotateCcw className="w-4 h-4" />
           )}
-          Force Reset
+          {t('circuitBreaker.forceReset', 'Force Reset')}
         </button>
       )}
     </div>
@@ -246,6 +272,7 @@ export function CircuitBreakerCard({
  * Summary badge showing overall circuit breaker health.
  */
 export function CircuitBreakerSummary() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ['circuit-breakers'],
     queryFn: () => api.getCircuitBreakers(),
@@ -256,7 +283,7 @@ export function CircuitBreakerSummary() {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-surface-700 text-surface-400">
         <Loader2 className="w-3 h-3 animate-spin" />
-        Loading...
+        {t('circuitBreaker.loading', 'Loading...')}
       </span>
     );
   }
@@ -269,7 +296,11 @@ export function CircuitBreakerSummary() {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
         <ShieldAlert className="w-3 h-3" />
-        {data.openCount} Circuit{data.openCount > 1 ? 's' : ''} Open
+        {data.openCount}{' '}
+        {data.openCount > 1
+          ? t('circuitBreaker.circuitsPlural', 'Circuits')
+          : t('circuitBreaker.circuitSingular', 'Circuit')}{' '}
+        {t('circuitBreaker.stateOpen', 'Open')}
       </span>
     );
   }
@@ -278,7 +309,7 @@ export function CircuitBreakerSummary() {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
         <Shield className="w-3 h-3" />
-        {data.halfOpenCount} Recovering
+        {data.halfOpenCount} {t('circuitBreaker.recovering', 'Recovering')}
       </span>
     );
   }
@@ -286,7 +317,7 @@ export function CircuitBreakerSummary() {
   return (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
       <ShieldCheck className="w-3 h-3" />
-      All Circuits Healthy
+      {t('circuitBreaker.allCircuitsHealthy', 'All Circuits Healthy')}
     </span>
   );
 }
@@ -295,6 +326,7 @@ export function CircuitBreakerSummary() {
  * Full circuit breaker panel for settings/admin page.
  */
 export function CircuitBreakerPanel() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -308,14 +340,20 @@ export function CircuitBreakerPanel() {
     mutationFn: (name: string) => api.resetCircuitBreaker(name),
     onSuccess: (result, name) => {
       if (result.success) {
-        toast.success('Circuit Reset', `Circuit "${name}" has been reset to closed state`);
+        toast.success(
+          t('circuitBreaker.toastResetTitle', 'Circuit Reset'),
+          `${t('circuitBreaker.toastResetMessagePrefix', 'Circuit')} "${name}" ${t('circuitBreaker.toastResetMessageSuffix', 'has been reset to closed state')}`
+        );
         queryClient.invalidateQueries({ queryKey: ['circuit-breakers'] });
       } else {
-        toast.error('Reset Failed', result.error || 'Unknown error');
+        toast.error(
+          t('circuitBreaker.toastResetFailedTitle', 'Reset Failed'),
+          result.error || t('circuitBreaker.unknownError', 'Unknown error')
+        );
       }
     },
     onError: (error) => {
-      toast.error('Reset Failed', String(error));
+      toast.error(t('circuitBreaker.toastResetFailedTitle', 'Reset Failed'), String(error));
     },
   });
 
@@ -331,12 +369,14 @@ export function CircuitBreakerPanel() {
     return (
       <div className="text-center py-8">
         <AlertTriangle className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-        <p className="text-surface-400">Failed to load circuit breaker status</p>
+        <p className="text-surface-400">
+          {t('circuitBreaker.loadError', 'Failed to load circuit breaker status')}
+        </p>
         <button
           onClick={() => refetch()}
           className="mt-2 text-sm text-brand-400 hover:text-brand-300"
         >
-          Retry
+          {t('circuitBreaker.retry', 'Retry')}
         </button>
       </div>
     );
@@ -350,8 +390,13 @@ export function CircuitBreakerPanel() {
     return (
       <div className="text-center py-8 text-surface-400">
         <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p>No circuit breakers registered yet.</p>
-        <p className="text-sm mt-1">Circuit breakers will appear after providers are used.</p>
+        <p>{t('circuitBreaker.noneRegistered', 'No circuit breakers registered yet.')}</p>
+        <p className="text-sm mt-1">
+          {t(
+            'circuitBreaker.noneRegisteredHint',
+            'Circuit breakers will appear after providers are used.'
+          )}
+        </p>
       </div>
     );
   }
@@ -370,7 +415,7 @@ export function CircuitBreakerPanel() {
         <div className="flex items-center gap-3">
           <h3 className="text-lg font-medium flex items-center gap-2">
             <Zap className="w-5 h-5 text-brand-400" />
-            Circuit Breakers
+            {t('circuitBreaker.heading', 'Circuit Breakers')}
           </h3>
           <CircuitBreakerSummary />
         </div>
@@ -380,7 +425,7 @@ export function CircuitBreakerPanel() {
           className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1"
         >
           <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
-          Refresh
+          {t('circuitBreaker.refresh', 'Refresh')}
         </button>
       </div>
 
@@ -388,28 +433,36 @@ export function CircuitBreakerPanel() {
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-surface-800/50 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold">{data.totalCount}</div>
-          <div className="text-xs text-surface-400">Total Circuits</div>
+          <div className="text-xs text-surface-400">
+            {t('circuitBreaker.totalCircuits', 'Total Circuits')}
+          </div>
         </div>
         <div className="bg-green-500/10 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-green-400">
             {data.totalCount - data.openCount - data.halfOpenCount}
           </div>
-          <div className="text-xs text-surface-400">Healthy</div>
+          <div className="text-xs text-surface-400">
+            {t('circuitBreaker.stateHealthy', 'Healthy')}
+          </div>
         </div>
         <div className="bg-yellow-500/10 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-yellow-400">{data.halfOpenCount}</div>
-          <div className="text-xs text-surface-400">Recovering</div>
+          <div className="text-xs text-surface-400">
+            {t('circuitBreaker.recovering', 'Recovering')}
+          </div>
         </div>
         <div className="bg-red-500/10 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-red-400">{data.openCount}</div>
-          <div className="text-xs text-surface-400">Open</div>
+          <div className="text-xs text-surface-400">{t('circuitBreaker.stateOpen', 'Open')}</div>
         </div>
       </div>
 
       {/* Video Providers */}
       {providerCircuits.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-surface-400 mb-3">Video Providers</h4>
+          <h4 className="text-sm font-medium text-surface-400 mb-3">
+            {t('circuitBreaker.sectionVideoProviders', 'Video Providers')}
+          </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {providerCircuits.map((circuit) => (
               <CircuitBreakerCard
@@ -426,7 +479,9 @@ export function CircuitBreakerPanel() {
       {/* LLM Providers */}
       {llmCircuits.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-surface-400 mb-3">LLM Providers</h4>
+          <h4 className="text-sm font-medium text-surface-400 mb-3">
+            {t('circuitBreaker.sectionLlmProviders', 'LLM Providers')}
+          </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {llmCircuits.map((circuit) => (
               <CircuitBreakerCard
@@ -443,7 +498,9 @@ export function CircuitBreakerPanel() {
       {/* Other Services */}
       {otherCircuits.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-surface-400 mb-3">Other Services</h4>
+          <h4 className="text-sm font-medium text-surface-400 mb-3">
+            {t('circuitBreaker.sectionOtherServices', 'Other Services')}
+          </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {otherCircuits.map((circuit) => (
               <CircuitBreakerCard

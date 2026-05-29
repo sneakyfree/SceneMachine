@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useToast } from '../components/toast';
+import { useTranslation } from '../i18n/use-translation';
 
 interface ScreenplayUploadProps {
   projectId: string;
@@ -53,7 +54,9 @@ type UploadState =
 
 interface ProgressPhase {
   id: UploadState;
+  labelKey: string;
   label: string;
+  descriptionKey: string;
   description: string;
   estimatedSeconds: number;
 }
@@ -61,19 +64,25 @@ interface ProgressPhase {
 const PROGRESS_PHASES: ProgressPhase[] = [
   {
     id: 'uploading',
+    labelKey: 'scrUpload.phaseUploadingLabel',
     label: 'Uploading',
+    descriptionKey: 'scrUpload.phaseUploadingDesc',
     description: 'Sending file to server...',
     estimatedSeconds: 5,
   },
   {
     id: 'parsing',
+    labelKey: 'scrUpload.phaseParsingLabel',
     label: 'Parsing',
+    descriptionKey: 'scrUpload.phaseParsingDesc',
     description: 'Extracting screenplay structure...',
     estimatedSeconds: 10,
   },
   {
     id: 'analyzing',
+    labelKey: 'scrUpload.phaseAnalyzingLabel',
     label: 'AI Analysis',
+    descriptionKey: 'scrUpload.phaseAnalyzingDesc',
     description: 'Analyzing with AI...',
     estimatedSeconds: 30,
   },
@@ -82,18 +91,22 @@ const PROGRESS_PHASES: ProgressPhase[] = [
 const SUPPORTED_EXTENSIONS = ['.fountain', '.spmd', '.pdf', '.fdx', '.txt'];
 const FILE_FILTERS = [
   {
+    nameKey: 'scrUpload.filterScreenplayFiles',
     name: 'Screenplay Files',
     extensions: ['fountain', 'spmd', 'pdf', 'fdx', 'txt'],
   },
   {
+    nameKey: 'scrUpload.filterFountain',
     name: 'Fountain',
     extensions: ['fountain', 'spmd'],
   },
   {
+    nameKey: 'scrUpload.filterPdf',
     name: 'PDF',
     extensions: ['pdf'],
   },
   {
+    nameKey: 'scrUpload.filterFinalDraft',
     name: 'Final Draft',
     extensions: ['fdx'],
   },
@@ -115,6 +128,7 @@ function UploadProgressBar({
   elapsedSeconds: number;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const currentPhaseIndex = phases.findIndex((p) => p.id === phase);
   const currentPhase = phases[currentPhaseIndex];
 
@@ -198,7 +212,7 @@ function UploadProgressBar({
                 isCompleted ? 'text-green-400' : isActive ? 'text-primary-400' : 'text-surface-500'
               )}
             >
-              {p.label}
+              {t(p.labelKey, p.label)}
             </span>
           );
         })}
@@ -214,9 +228,17 @@ function UploadProgressBar({
 
       {/* Progress details */}
       <div className="flex justify-between items-center mt-2 text-xs">
-        <span className="text-surface-400">{currentPhase?.description || 'Processing...'}</span>
+        <span className="text-surface-400">
+          {currentPhase
+            ? t(currentPhase.descriptionKey, currentPhase.description)
+            : t('scrUpload.processing', 'Processing...')}
+        </span>
         <div className="flex items-center gap-2">
-          {eta !== null && <span className="text-surface-500">~{eta}s remaining</span>}
+          {eta !== null && (
+            <span className="text-surface-500">
+              {t('scrUpload.etaRemaining', '~{s}s remaining').replace('{s}', String(eta))}
+            </span>
+          )}
           <span className="text-surface-300 font-medium">{percentage.toFixed(0)}%</span>
         </div>
       </div>
@@ -251,6 +273,7 @@ export function ScreenplayUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const { showToast } = useToast();
+  const { t } = useTranslation();
 
   // Update elapsed time during active phases
   useEffect(() => {
@@ -291,7 +314,7 @@ export function ScreenplayUpload({
 
         // Phase 1: Uploading
         startPhase('uploading');
-        setProgress('Uploading screenplay...');
+        setProgress(t('scrUpload.progressUploading', 'Uploading screenplay...'));
 
         // Simulate upload progress (in real implementation, use XHR with progress events)
         const uploadProgressInterval = setInterval(() => {
@@ -314,7 +337,7 @@ export function ScreenplayUpload({
 
         // Phase 2: Parsing
         startPhase('parsing');
-        setProgress('Parsing screenplay structure...');
+        setProgress(t('scrUpload.progressParsing', 'Parsing screenplay structure...'));
 
         // Simulate parsing progress
         const parseProgressInterval = setInterval(() => {
@@ -357,7 +380,7 @@ export function ScreenplayUpload({
             blockers.push({
               severity: 'critical',
               message: err,
-              fix: 'Fix in screenplay file and re-upload',
+              fix: t('scrUpload.fixCriticalReupload', 'Fix in screenplay file and re-upload'),
             });
           });
         }
@@ -371,8 +394,11 @@ export function ScreenplayUpload({
         if (parseResult.metadata.missing_sluglines && parseResult.metadata.missing_sluglines > 0) {
           blockers.push({
             severity: 'warning',
-            message: `${parseResult.metadata.missing_sluglines} scene(s) missing INT/EXT sluglines`,
-            fix: 'Add scene headings (e.g., INT. OFFICE - DAY)',
+            message: t(
+              'scrUpload.issueMissingSluglines',
+              '{n} scene(s) missing INT/EXT sluglines'
+            ).replace('{n}', String(parseResult.metadata.missing_sluglines)),
+            fix: t('scrUpload.fixMissingSluglines', 'Add scene headings (e.g., INT. OFFICE - DAY)'),
             fixType: 'auto',
           });
         }
@@ -383,8 +409,14 @@ export function ScreenplayUpload({
         ) {
           blockers.push({
             severity: 'warning',
-            message: `${parseResult.metadata.unnamed_characters} unnamed character(s) detected`,
-            fix: 'Replace with named characters for better generation',
+            message: t(
+              'scrUpload.issueUnnamedCharacters',
+              '{n} unnamed character(s) detected'
+            ).replace('{n}', String(parseResult.metadata.unnamed_characters)),
+            fix: t(
+              'scrUpload.fixUnnamedCharacters',
+              'Replace with named characters for better generation'
+            ),
             fixType: 'auto',
           });
         }
@@ -392,8 +424,11 @@ export function ScreenplayUpload({
         if (parseResult.metadata.empty_scenes && parseResult.metadata.empty_scenes > 0) {
           blockers.push({
             severity: 'warning',
-            message: `${parseResult.metadata.empty_scenes} empty scene(s) with no action or dialogue`,
-            fix: 'Add content to empty scenes or remove them',
+            message: t(
+              'scrUpload.issueEmptyScenes',
+              '{n} empty scene(s) with no action or dialogue'
+            ).replace('{n}', String(parseResult.metadata.empty_scenes)),
+            fix: t('scrUpload.fixEmptyScenes', 'Add content to empty scenes or remove them'),
             fixType: 'auto',
           });
         }
@@ -404,14 +439,16 @@ export function ScreenplayUpload({
         const hasCritical = blockers.some((b) => b.severity === 'critical');
         if (hasCritical) {
           setState('error');
-          setErrorMessage('Critical issues found — fix before proceeding');
+          setErrorMessage(
+            t('scrUpload.criticalIssuesFound', 'Critical issues found — fix before proceeding')
+          );
           return;
         }
 
         // Phase 3: AI Analysis (optional)
         if (enableAiAnalysis) {
           startPhase('analyzing');
-          setProgress('Analyzing with AI...');
+          setProgress(t('scrUpload.progressAnalyzing', 'Analyzing with AI...'));
 
           // Simulate AI analysis progress
           const analyzeProgressInterval = setInterval(() => {
@@ -443,8 +480,9 @@ export function ScreenplayUpload({
         setState('success');
         setPercentage(100);
         setProgress(
-          `Parsed ${parseResult.metadata.scene_count || 0} scenes, ` +
-            `${parseResult.metadata.character_count || 0} characters`
+          t('scrUpload.parsedSummary', 'Parsed {scenes} scenes, {characters} characters')
+            .replace('{scenes}', String(parseResult.metadata.scene_count || 0))
+            .replace('{characters}', String(parseResult.metadata.character_count || 0))
         );
 
         // Get full screenplay data
@@ -463,7 +501,8 @@ export function ScreenplayUpload({
           setParseBlockers([]);
         }, 3000);
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Upload failed';
+        const message =
+          error instanceof Error ? error.message : t('scrUpload.uploadFailed', 'Upload failed');
         setState('error');
         setErrorMessage(message);
         setPercentage(0);
@@ -478,7 +517,7 @@ export function ScreenplayUpload({
         }, 5000);
       }
     },
-    [projectId, onUploadComplete, onError, enableAiAnalysis]
+    [projectId, onUploadComplete, onError, enableAiAnalysis, t]
   );
 
   const handleFileSelect = useCallback(async () => {
@@ -486,8 +525,11 @@ export function ScreenplayUpload({
 
     try {
       const result = await window.electronAPI.openFile({
-        title: 'Select Screenplay',
-        filters: FILE_FILTERS,
+        title: t('scrUpload.selectScreenplayTitle', 'Select Screenplay'),
+        filters: FILE_FILTERS.map((f) => ({
+          name: t(f.nameKey, f.name),
+          extensions: f.extensions,
+        })),
         properties: ['openFile'],
       });
 
@@ -500,17 +542,25 @@ export function ScreenplayUpload({
 
       if (!validateFile(filename)) {
         setState('error');
-        setErrorMessage(`Unsupported file format. Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`);
+        setErrorMessage(
+          t(
+            'scrUpload.unsupportedFormat',
+            'Unsupported file format. Supported: {exts}'
+          ).replace('{exts}', SUPPORTED_EXTENSIONS.join(', '))
+        );
         return;
       }
 
       await uploadAndParse(filePath, filename);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to select file';
+      const message =
+        error instanceof Error
+          ? error.message
+          : t('scrUpload.failedSelectFile', 'Failed to select file');
       setState('error');
       setErrorMessage(message);
     }
-  }, [disabled, state, uploadAndParse]);
+  }, [disabled, state, uploadAndParse, t]);
 
   const handleDragOver = useCallback(
     (e: DragEvent) => {
@@ -558,7 +608,12 @@ export function ScreenplayUpload({
 
       if (!validateFile(filename)) {
         setState('error');
-        setErrorMessage(`Unsupported file format. Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`);
+        setErrorMessage(
+          t(
+            'scrUpload.unsupportedFormat',
+            'Unsupported file format. Supported: {exts}'
+          ).replace('{exts}', SUPPORTED_EXTENSIONS.join(', '))
+        );
         setTimeout(() => {
           setState('idle');
           setErrorMessage('');
@@ -573,7 +628,12 @@ export function ScreenplayUpload({
       if (!filePath) {
         // Fallback: ask user to use file dialog
         setState('error');
-        setErrorMessage('Drag and drop not fully supported. Please use the file browser.');
+        setErrorMessage(
+          t(
+            'scrUpload.dragDropUnsupported',
+            'Drag and drop not fully supported. Please use the file browser.'
+          )
+        );
         setTimeout(() => {
           setState('idle');
           setErrorMessage('');
@@ -583,7 +643,7 @@ export function ScreenplayUpload({
 
       await uploadAndParse(filePath, filename);
     },
-    [disabled, uploadAndParse]
+    [disabled, uploadAndParse, t]
   );
 
   const getStateStyles = () => {
@@ -677,16 +737,21 @@ export function ScreenplayUpload({
             {state === 'idle' && (
               <>
                 <p className="text-surface-200 font-medium">
-                  Drop screenplay here or click to browse
+                  {t('scrUpload.dropzoneHint', 'Drop screenplay here or click to browse')}
                 </p>
                 <p className="text-surface-500 text-sm mt-1">
-                  Supports Fountain, PDF, Final Draft, and plain text
+                  {t(
+                    'scrUpload.dropzoneSubhint',
+                    'Supports Fountain, PDF, Final Draft, and plain text'
+                  )}
                 </p>
               </>
             )}
 
             {state === 'dragging' && (
-              <p className="text-primary-400 font-medium">Drop screenplay to upload</p>
+              <p className="text-primary-400 font-medium">
+                {t('scrUpload.dropToUpload', 'Drop screenplay to upload')}
+              </p>
             )}
 
             {state === 'success' && (
@@ -709,7 +774,10 @@ export function ScreenplayUpload({
             <div className="w-full max-w-md space-y-2 mt-2">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium text-surface-300">
-                  {parseBlockers.filter((b) => !b.isFixed).length} issue(s) found
+                  {t('scrUpload.issuesFound', '{n} issue(s) found').replace(
+                    '{n}',
+                    String(parseBlockers.filter((b) => !b.isFixed).length)
+                  )}
                 </span>
                 {parseBlockers.some((b) => b.fixType === 'auto' && !b.isFixed) && (
                   <button
@@ -730,13 +798,21 @@ export function ScreenplayUpload({
                             b.fixType === 'auto' ? { ...b, isFixing: false, isFixed: true } : b
                           )
                         );
-                        showToast('Auto-fixable issues resolved', 'success');
+                        showToast(
+                          t('scrUpload.toastAutoFixAllResolved', 'Auto-fixable issues resolved'),
+                          'success'
+                        );
                       } catch (err) {
                         // No-silent-fallbacks: surface the failure instead of
                         // just reverting the spinner with no feedback.
                         setParseBlockers((prev) => prev.map((b) => ({ ...b, isFixing: false })));
                         showToast(
-                          err instanceof Error ? `Auto-fix failed: ${err.message}` : 'Auto-fix failed',
+                          err instanceof Error
+                            ? t('scrUpload.toastAutoFixFailedDetail', 'Auto-fix failed: {msg}').replace(
+                                '{msg}',
+                                err.message
+                              )
+                            : t('scrUpload.toastAutoFixFailed', 'Auto-fix failed'),
                           'error'
                         );
                       }
@@ -744,7 +820,7 @@ export function ScreenplayUpload({
                     className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
                   >
                     <Wrench className="w-3 h-3" />
-                    Fix All
+                    {t('scrUpload.fixAll', 'Fix All')}
                   </button>
                 )}
               </div>
@@ -785,10 +861,14 @@ export function ScreenplayUpload({
                       {blocker.message}
                     </span>
                     {blocker.fix && !blocker.isFixed && (
-                      <p className="text-surface-500 mt-0.5">Fix: {blocker.fix}</p>
+                      <p className="text-surface-500 mt-0.5">
+                        {t('scrUpload.fixPrefix', 'Fix:')} {blocker.fix}
+                      </p>
                     )}
                     {blocker.isFixed && (
-                      <p className="text-green-500 mt-0.5">✓ Fixed automatically</p>
+                      <p className="text-green-500 mt-0.5">
+                        {t('scrUpload.fixedAutomatically', '✓ Fixed automatically')}
+                      </p>
                     )}
                   </div>
                   {/* Action buttons */}
@@ -812,20 +892,25 @@ export function ScreenplayUpload({
                                   i === idx ? { ...b, isFixing: false, isFixed: true } : b
                                 )
                               );
-                              showToast('Issue fixed', 'success');
+                              showToast(t('scrUpload.toastIssueFixed', 'Issue fixed'), 'success');
                             } catch (err) {
                               // No-silent-fallbacks: tell the user it failed.
                               setParseBlockers((prev) =>
                                 prev.map((b, i) => (i === idx ? { ...b, isFixing: false } : b))
                               );
                               showToast(
-                                err instanceof Error ? `Auto-fix failed: ${err.message}` : 'Auto-fix failed',
+                                err instanceof Error
+                                  ? t(
+                                      'scrUpload.toastAutoFixFailedDetail',
+                                      'Auto-fix failed: {msg}'
+                                    ).replace('{msg}', err.message)
+                                  : t('scrUpload.toastAutoFixFailed', 'Auto-fix failed'),
                                 'error'
                               );
                             }
                           }}
                           className="p-1 rounded hover:bg-blue-500/20 text-blue-400 transition-colors"
-                          title="Auto-fix this issue"
+                          title={t('scrUpload.autoFixThisIssue', 'Auto-fix this issue')}
                         >
                           <Wrench className="w-3 h-3" />
                         </button>
@@ -837,7 +922,7 @@ export function ScreenplayUpload({
                             setParseBlockers((prev) => prev.filter((_, i) => i !== idx));
                           }}
                           className="p-1 rounded hover:bg-surface-700 text-surface-500 transition-colors"
-                          title="Dismiss this warning"
+                          title={t('scrUpload.dismissWarning', 'Dismiss this warning')}
                         >
                           <XCircle className="w-3 h-3" />
                         </button>
@@ -867,7 +952,7 @@ export function ScreenplayUpload({
           {state === 'idle' && enableAiAnalysis && (
             <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-500/10 rounded-full text-xs text-purple-400">
               <Sparkles className="w-3 h-3" />
-              <span>AI analysis enabled</span>
+              <span>{t('scrUpload.aiAnalysisEnabled', 'AI analysis enabled')}</span>
             </div>
           )}
         </div>

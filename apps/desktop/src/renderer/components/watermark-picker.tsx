@@ -8,18 +8,19 @@ import { Check, Image, Loader2, Plus, Trash2, Upload, X, AlertTriangle } from 'l
 import { api, type WatermarkInfo } from '../api/client';
 import { cn } from '../lib/utils';
 import { useToast } from '../stores/toast-store';
+import { useTranslation } from '../i18n/use-translation';
 
 // Position options for watermark placement
 const POSITION_OPTIONS = [
-  { value: 'top_left', label: 'Top Left' },
-  { value: 'top_center', label: 'Top Center' },
-  { value: 'top_right', label: 'Top Right' },
-  { value: 'center_left', label: 'Center Left' },
-  { value: 'center', label: 'Center' },
-  { value: 'center_right', label: 'Center Right' },
-  { value: 'bottom_left', label: 'Bottom Left' },
-  { value: 'bottom_center', label: 'Bottom Center' },
-  { value: 'bottom_right', label: 'Bottom Right' },
+  { value: 'top_left', labelKey: 'watermark.positionTopLeft', labelEn: 'Top Left' },
+  { value: 'top_center', labelKey: 'watermark.positionTopCenter', labelEn: 'Top Center' },
+  { value: 'top_right', labelKey: 'watermark.positionTopRight', labelEn: 'Top Right' },
+  { value: 'center_left', labelKey: 'watermark.positionCenterLeft', labelEn: 'Center Left' },
+  { value: 'center', labelKey: 'watermark.positionCenter', labelEn: 'Center' },
+  { value: 'center_right', labelKey: 'watermark.positionCenterRight', labelEn: 'Center Right' },
+  { value: 'bottom_left', labelKey: 'watermark.positionBottomLeft', labelEn: 'Bottom Left' },
+  { value: 'bottom_center', labelKey: 'watermark.positionBottomCenter', labelEn: 'Bottom Center' },
+  { value: 'bottom_right', labelKey: 'watermark.positionBottomRight', labelEn: 'Bottom Right' },
 ];
 
 interface WatermarkPickerProps {
@@ -66,6 +67,7 @@ function WatermarkThumbnail({
   onDelete?: () => void;
   isDeleting?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -95,7 +97,7 @@ function WatermarkThumbnail({
       </div>
       <div className="text-xs text-surface-500">
         {formatFileSize(watermark.sizeBytes)}
-        {watermark.isDefault && <span className="ml-1 text-brand-400">(Built-in)</span>}
+        {watermark.isDefault && <span className="ml-1 text-brand-400">{t('watermark.builtIn', '(Built-in)')}</span>}
       </div>
 
       {/* Selected indicator */}
@@ -114,7 +116,7 @@ function WatermarkThumbnail({
           }}
           disabled={isDeleting}
           className="absolute top-1 left-1 w-6 h-6 bg-red-500/80 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          title="Delete watermark"
+          title={t('watermark.deleteWatermark', 'Delete watermark')}
         >
           {isDeleting ? (
             <Loader2 className="w-3 h-3 animate-spin text-white" />
@@ -137,6 +139,7 @@ function UploadDropzone({
   onUpload: (file: File) => void;
   isUploading: boolean;
 }) {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -193,9 +196,9 @@ function UploadDropzone({
         <Upload className="w-8 h-8 mx-auto text-surface-400" />
       )}
       <p className="mt-2 text-sm text-surface-400">
-        {isUploading ? 'Uploading...' : 'Drop image or click to upload'}
+        {isUploading ? t('watermark.uploading', 'Uploading...') : t('watermark.dropOrClick', 'Drop image or click to upload')}
       </p>
-      <p className="text-xs text-surface-500 mt-1">PNG, JPG, WebP, GIF (max 5MB)</p>
+      <p className="text-xs text-surface-500 mt-1">{t('watermark.fileTypeHint', 'PNG, JPG, WebP, GIF (max 5MB)')}</p>
     </div>
   );
 }
@@ -213,6 +216,7 @@ export function WatermarkPicker({
   onOpacityChange,
   onEnabledChange,
 }: WatermarkPickerProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -243,7 +247,7 @@ export function WatermarkPicker({
     },
     onSuccess: (result) => {
       if (result.success && result.watermark) {
-        toast.success('Watermark Uploaded', result.watermark.filename);
+        toast.success(t('watermark.watermarkUploaded', 'Watermark Uploaded'), result.watermark.filename);
         queryClient.invalidateQueries({ queryKey: ['watermarks'] });
         // Auto-select the new watermark
         onSelect(result.watermark.path);
@@ -251,11 +255,11 @@ export function WatermarkPicker({
           onEnabledChange(true);
         }
       } else {
-        toast.error('Upload Failed', result.error || 'Unknown error');
+        toast.error(t('watermark.uploadFailed', 'Upload Failed'), result.error || t('watermark.unknownError', 'Unknown error'));
       }
     },
     onError: (error) => {
-      toast.error('Upload Failed', String(error));
+      toast.error(t('watermark.uploadFailed', 'Upload Failed'), String(error));
     },
   });
 
@@ -264,7 +268,7 @@ export function WatermarkPicker({
     mutationFn: (id: string) => api.deleteWatermark(id),
     onSuccess: (result, id) => {
       if (result.success) {
-        toast.success('Watermark Deleted');
+        toast.success(t('watermark.watermarkDeleted', 'Watermark Deleted'));
         queryClient.invalidateQueries({ queryKey: ['watermarks'] });
         // Clear selection if deleted watermark was selected
         const deletedWatermark = data?.watermarks.find((w) => w.id === id);
@@ -272,12 +276,12 @@ export function WatermarkPicker({
           onSelect(null);
         }
       } else {
-        toast.error('Delete Failed', result.error || 'Unknown error');
+        toast.error(t('watermark.deleteFailed', 'Delete Failed'), result.error || t('watermark.unknownError', 'Unknown error'));
       }
       setDeletingId(null);
     },
     onError: (error) => {
-      toast.error('Delete Failed', String(error));
+      toast.error(t('watermark.deleteFailed', 'Delete Failed'), String(error));
       setDeletingId(null);
     },
   });
@@ -297,14 +301,14 @@ export function WatermarkPicker({
           onChange={(e) => onEnabledChange(e.target.checked)}
           className="w-4 h-4 rounded border-surface-600 bg-surface-800"
         />
-        <span className="text-sm font-medium">Add Watermark</span>
+        <span className="text-sm font-medium">{t('watermark.addWatermark', 'Add Watermark')}</span>
       </label>
 
       {enabled && (
         <>
           {/* Watermark gallery */}
           <div>
-            <label className="block text-sm text-surface-400 mb-2">Select Watermark</label>
+            <label className="block text-sm text-surface-400 mb-2">{t('watermark.selectWatermark', 'Select Watermark')}</label>
 
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -313,12 +317,12 @@ export function WatermarkPicker({
             ) : error ? (
               <div className="text-center py-4">
                 <AlertTriangle className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
-                <p className="text-sm text-surface-400">Failed to load watermarks</p>
+                <p className="text-sm text-surface-400">{t('watermark.failedToLoad', 'Failed to load watermarks')}</p>
                 <button
                   onClick={() => refetch()}
                   className="text-sm text-brand-400 hover:text-brand-300 mt-1"
                 >
-                  Retry
+                  {t('watermark.retry', 'Retry')}
                 </button>
               </div>
             ) : (
@@ -340,7 +344,7 @@ export function WatermarkPicker({
                   onClick={() => onSelect(null)}
                 >
                   <X className="w-8 h-8 text-surface-400" />
-                  <span className="text-sm text-surface-400 mt-2">None</span>
+                  <span className="text-sm text-surface-400 mt-2">{t('watermark.none', 'None')}</span>
                 </div>
 
                 {/* Watermark thumbnails */}
@@ -361,7 +365,7 @@ export function WatermarkPicker({
           {/* Position selector */}
           {selectedPath && (
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Position</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('watermark.position', 'Position')}</label>
               <div className="grid grid-cols-3 gap-2">
                 {POSITION_OPTIONS.map((opt) => (
                   <button
@@ -374,7 +378,7 @@ export function WatermarkPicker({
                         : 'border-surface-700 hover:border-surface-500 text-surface-400'
                     )}
                   >
-                    {opt.label}
+                    {t(opt.labelKey, opt.labelEn)}
                   </button>
                 ))}
               </div>
@@ -385,7 +389,7 @@ export function WatermarkPicker({
           {selectedPath && (
             <div>
               <label className="block text-sm text-surface-400 mb-2">
-                Opacity: {Math.round(opacity * 100)}%
+                {t('watermark.opacity', 'Opacity')}: {Math.round(opacity * 100)}%
               </label>
               <input
                 type="range"
@@ -417,6 +421,7 @@ export function WatermarkToggle({
   onEnabledChange: (enabled: boolean) => void;
   onOpenPicker: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3">
       <label className="flex items-center gap-3 cursor-pointer flex-1">
@@ -426,7 +431,7 @@ export function WatermarkToggle({
           onChange={(e) => onEnabledChange(e.target.checked)}
           className="w-4 h-4 rounded border-surface-600 bg-surface-800"
         />
-        <span className="text-sm">Add Watermark</span>
+        <span className="text-sm">{t('watermark.addWatermark', 'Add Watermark')}</span>
       </label>
 
       {enabled && (
@@ -435,7 +440,7 @@ export function WatermarkToggle({
           className="px-2 py-1 text-xs bg-surface-700 hover:bg-surface-600 rounded flex items-center gap-1"
         >
           <Image className="w-3 h-3" />
-          {selectedPath ? 'Change' : 'Select'}
+          {selectedPath ? t('watermark.change', 'Change') : t('watermark.select', 'Select')}
         </button>
       )}
     </div>
