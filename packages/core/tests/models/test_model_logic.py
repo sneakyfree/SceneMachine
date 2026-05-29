@@ -9,10 +9,12 @@ we cover the state-machine + percentage + empty-collection paths.
 """
 
 import datetime
+import os
 import uuid
 
 from scenemachine.models.asset import Asset, AssetStatus, AssetType
 from scenemachine.models.audio_asset import AudioAsset, AudioAssetType
+from scenemachine.models.base import ArrayType, UUIDType
 from scenemachine.models.booking import Booking, BookingStatus
 from scenemachine.models.character import Character, CharacterLockState
 from scenemachine.models.export_history import ExportHistory
@@ -584,3 +586,60 @@ def test_asset_duration_seconds():
     assert vid.duration_seconds == 5.0
     img = _asset(asset_type=AssetType.CHARACTER_REFERENCE, asset_metadata={"duration_seconds": 5.0})
     assert img.duration_seconds is None  # non-video
+
+
+# ==========================================================================
+# Base type decorators + to_dict
+# ==========================================================================
+
+class _Dialect:
+    name = "sqlite"
+
+
+def test_arraytype_bind_and_result():
+    at = ArrayType()
+    d = _Dialect()
+    assert at.process_bind_param(["a", "b"], d) == ["a", "b"]
+    assert at.process_bind_param(None, d) is None
+    assert at.process_result_value('["a"]', d) == ["a"]
+    assert at.process_result_value(None, d) is None
+
+
+def test_uuidtype_bind_and_result():
+    ut = UUIDType()
+    d = _Dialect()
+    u = uuid.uuid4()
+    assert ut.process_bind_param(u, d) == str(u)
+    assert ut.process_bind_param(None, d) is None
+    assert ut.process_result_value(str(u), d) == u
+    assert ut.process_result_value(None, d) is None
+
+
+def test_base_to_dict_returns_column_dict():
+    p = Project(name="P", state=ProjectState.EMPTY)
+    d = p.to_dict()
+    assert isinstance(d, dict)
+    assert d["name"] == "P"
+
+
+# ==========================================================================
+# Secrets helpers
+# ==========================================================================
+
+def test_mask_secret():
+    from scenemachine.security.secrets import mask_secret
+
+    assert mask_secret("supersecretkey") == "supe...tkey"
+    assert mask_secret("ab") == "**"  # too short to reveal
+
+
+def test_environment_secret_provider_get():
+    from scenemachine.security.secrets import EnvironmentSecretProvider
+
+    os.environ["SMTEST_API_KEY"] = "val-123"
+    p = EnvironmentSecretProvider(prefix="SMTEST_")
+    try:
+        assert p.get("API_KEY") == "val-123"
+        assert p.get("MISSING_ONE") is None
+    finally:
+        del os.environ["SMTEST_API_KEY"]
