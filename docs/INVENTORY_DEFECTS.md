@@ -208,3 +208,40 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 - **374 E501 line-too-long sites**: format-only, defer migration.
 - **96 UP042 str-enum sites**: needs care for serialization compat, defer.
 - **125 B904 raise-from**: bulk script + manual review, defer.
+
+## Visual QA pass + 404 gap (2026-05-28, iter 20)
+
+Re-ran the Playwright screenshot tour (`apps/desktop/e2e/qa_screenshot_tour.spec.ts`)
+against a fresh Vite dev server (port 5273) over all 17 routes. Prior crash fixes
+(PRs #107–#126) hold: **every real route renders with zero console/page errors**;
+the `NaN:NaN` displays on `/export` and `/admin` flagged 2026-05-24 are gone.
+
+### Closed this iter
+
+- **Error boundaries (P1)** — `routes.tsx` now wraps **every** route element in
+  `<PageErrorBoundary>` via a centralized `guarded()` helper. A crash on one page
+  shows a "Page Error" card with a Reload button while sidebar nav / Steven / toasts
+  keep working, instead of taking down the whole renderer. Closes the 2026-05-21
+  desktop-battery finding (`export.tsx`/`scene-planning.tsx`/`actforge.tsx`/`timeline.tsx`
+  unguarded).
+
+- **P2 — no catch-all 404 route** (NEW, found by this tour) — any unmatched URL
+  (mistyped link, stale bookmark, programmatic mis-navigation) rendered React
+  Router's raw developer screen: _"Unexpected Application Error! 404 Not Found /
+  Hey developer 👋 You can provide a way better UX..."_ — developer copy leaking to
+  end users. The per-route `PageErrorBoundary` cannot catch this because an
+  unmatched route never mounts an element. **Closed**: new `pages/not-found.tsx`
+  (`NotFoundPage`) + catch-all `{ path: '*' }` route inside `MainLayout`, so the
+  sidebar stays usable and the user gets "This page took a wrong turn" with
+  Go-Back / Back-to-Projects actions. Regression-guarded by a `not-found-404`
+  case in the QA tour that asserts the raw error strings are absent.
+
+### Verified NOT broken (skeptical link audit)
+
+- All sidebar `<Link>` targets (`/`, `/project/:id`, `/analytics`, `/explainability`,
+  `/archive`, `/settings`, `/admin`, `/help`) resolve to real routes.
+- Breadcrumb "Projects" crumb → `/` (home), valid.
+- Command-palette `navigate()` targets — all 12 resolve to real routes.
+- The tour's old `/#/projects` and `/#/dna-strand` "errors" were **tour-spec typos**
+  (no such routes), not platform bugs — corrected to `/#/dna-strand-demo` + a
+  deliberate 404 probe.

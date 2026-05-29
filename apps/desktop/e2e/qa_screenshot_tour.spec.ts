@@ -115,14 +115,19 @@ async function installElectronAPIMock(page: Page): Promise<void> {
 const ROUTES: { name: string; path: string }[] = [
   { name: 'home', path: '/' },
   { name: 'home-projects', path: '/#/' },
-  { name: 'project-list', path: '/#/projects' },
   { name: 'settings', path: '/#/settings' },
   { name: 'help', path: '/#/help' },
   { name: 'archive', path: '/#/archive' },
   { name: 'admin', path: '/#/admin' },
   { name: 'analytics', path: '/#/analytics' },
   { name: 'actforge', path: '/#/actforge' },
-  { name: 'dna-strand', path: '/#/dna-strand' },
+  // Real route is `dna-strand-demo`, not `dna-strand` (the latter 404'd in
+  // prior tours — a tour-spec typo, not a platform bug).
+  { name: 'dna-strand', path: '/#/dna-strand-demo' },
+  // Deliberate unmatched URL — must render the friendly NotFoundPage (catch-all
+  // `path: '*'` route), NOT React Router's raw "Hey developer 👋 404" screen.
+  // Regression guard for the 404 gap fixed 2026-05-28.
+  { name: 'not-found-404', path: '/#/this-route-definitely-does-not-exist' },
   // The project-scoped routes need a project ID. Use a fixture UUID;
   // the renderer will hit our mocked backend.
   { name: 'project-detail', path: '/#/project/00000000-0000-0000-0000-000000000001' },
@@ -203,6 +208,14 @@ for (const route of ROUTES) {
     // Soft assertions — we want the test to PASS so all pages get captured.
     // Real failures get surfaced in the final report.
     expect(title).toBeTruthy();
+
+    // Hard assertion for the catch-all route: an unmatched URL must render the
+    // friendly NotFoundPage, never React Router's raw developer error screen.
+    if (route.name === 'not-found-404') {
+      expect(visibleText).not.toContain('Unexpected Application Error');
+      expect(visibleText).not.toContain('Hey developer');
+      expect(visibleText.toLowerCase()).toContain('wrong turn');
+    }
   });
 }
 
