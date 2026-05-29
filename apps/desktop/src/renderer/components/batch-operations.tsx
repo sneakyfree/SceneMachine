@@ -21,6 +21,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 export interface Shot {
   id: string;
@@ -45,14 +46,14 @@ interface BatchOperationsProps {
 
 // Shot type options
 const SHOT_TYPES = [
-  { value: 'WIDE', label: 'Wide' },
-  { value: 'MEDIUM', label: 'Medium' },
-  { value: 'CLOSE', label: 'Close Up' },
-  { value: 'EXTREME_CLOSE', label: 'Extreme Close' },
-  { value: 'OVER_SHOULDER', label: 'Over Shoulder' },
-  { value: 'POV', label: 'POV' },
-  { value: 'INSERT', label: 'Insert' },
-  { value: 'TWO_SHOT', label: 'Two Shot' },
+  { value: 'WIDE', labelKey: 'batchOps.shotTypeWide', label: 'Wide' },
+  { value: 'MEDIUM', labelKey: 'batchOps.shotTypeMedium', label: 'Medium' },
+  { value: 'CLOSE', labelKey: 'batchOps.shotTypeCloseUp', label: 'Close Up' },
+  { value: 'EXTREME_CLOSE', labelKey: 'batchOps.shotTypeExtremeClose', label: 'Extreme Close' },
+  { value: 'OVER_SHOULDER', labelKey: 'batchOps.shotTypeOverShoulder', label: 'Over Shoulder' },
+  { value: 'POV', labelKey: 'batchOps.shotTypePov', label: 'POV' },
+  { value: 'INSERT', labelKey: 'batchOps.shotTypeInsert', label: 'Insert' },
+  { value: 'TWO_SHOT', labelKey: 'batchOps.shotTypeTwoShot', label: 'Two Shot' },
 ];
 
 // Duration presets
@@ -76,6 +77,7 @@ export function BatchOperations({
   onBatchDuplicate,
   isProcessing = false,
 }: BatchOperationsProps) {
+  const { t } = useTranslation();
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkShotType, setBulkShotType] = useState<string>('');
   const [bulkDuration, setBulkDuration] = useState<number | ''>('');
@@ -169,13 +171,16 @@ export function BatchOperations({
           ) : (
             <Square className="w-5 h-5" />
           )}
-          {allSelected ? 'Deselect All' : 'Select All'}
+          {allSelected
+            ? t('batchOps.deselectAll', 'Deselect All')
+            : t('batchOps.selectAll', 'Select All')}
         </button>
 
         {/* Selection count */}
         {selectedCount > 0 && (
           <span className="text-sm text-surface-400">
-            {selectedCount} of {shots.length} selected
+            {selectedCount} {t('batchOps.of', 'of')} {shots.length}{' '}
+            {t('batchOps.selected', 'selected')}
           </span>
         )}
 
@@ -194,7 +199,7 @@ export function BatchOperations({
               )}
             >
               <Edit3 className="w-4 h-4" />
-              Edit
+              {t('batchOps.edit', 'Edit')}
             </button>
 
             {/* Queue selected */}
@@ -205,7 +210,7 @@ export function BatchOperations({
                 className="px-3 py-1.5 text-sm bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded flex items-center gap-1.5 disabled:opacity-50"
               >
                 <Play className="w-4 h-4" />
-                Queue ({pendingCount})
+                {t('batchOps.queue', 'Queue')} ({pendingCount})
               </button>
             )}
 
@@ -217,7 +222,7 @@ export function BatchOperations({
                 className="px-3 py-1.5 text-sm bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded flex items-center gap-1.5 disabled:opacity-50"
               >
                 <Pause className="w-4 h-4" />
-                Cancel ({processingCount})
+                {t('batchOps.cancel', 'Cancel')} ({processingCount})
               </button>
             )}
 
@@ -229,7 +234,7 @@ export function BatchOperations({
                 className="px-3 py-1.5 text-sm bg-surface-700 hover:bg-surface-600 rounded flex items-center gap-1.5 disabled:opacity-50"
               >
                 <Copy className="w-4 h-4" />
-                Duplicate
+                {t('batchOps.duplicate', 'Duplicate')}
               </button>
             )}
 
@@ -247,12 +252,12 @@ export function BatchOperations({
               {confirmDelete ? (
                 <>
                   <AlertTriangle className="w-4 h-4" />
-                  Confirm Delete
+                  {t('batchOps.confirmDelete', 'Confirm Delete')}
                 </>
               ) : (
                 <>
                   <Trash2 className="w-4 h-4" />
-                  Delete
+                  {t('batchOps.delete', 'Delete')}
                 </>
               )}
             </button>
@@ -261,8 +266,8 @@ export function BatchOperations({
             <button
               onClick={() => onSelectionChange(new Set())}
               className="icon-btn p-2 text-surface-400 hover:text-surface-200 transition-colors rounded"
-              title="Clear selection"
-              aria-label="Clear selection"
+              title={t('batchOps.clearSelection', 'Clear selection')}
+              aria-label={t('batchOps.clearSelection', 'Clear selection')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -274,7 +279,10 @@ export function BatchOperations({
       {showBulkEdit && selectedCount > 0 && (
         <div className="p-4 bg-surface-800 rounded-lg space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium">Bulk Edit {selectedCount} Shots</h4>
+            <h4 className="font-medium">
+              {t('batchOps.bulkEdit', 'Bulk Edit')} {selectedCount}{' '}
+              {t('batchOps.shots', 'Shots')}
+            </h4>
             <button
               onClick={() => setShowBulkEdit(false)}
               className="text-surface-400 hover:text-surface-200"
@@ -288,17 +296,17 @@ export function BatchOperations({
             <div>
               <label className="block text-sm text-surface-400 mb-2">
                 <Camera className="w-4 h-4 inline mr-1" />
-                Shot Type
+                {t('batchOps.shotType', 'Shot Type')}
               </label>
               <select
                 value={bulkShotType}
                 onChange={(e) => setBulkShotType(e.target.value)}
                 className="w-full bg-surface-900 border border-surface-700 rounded-lg px-3 py-2"
               >
-                <option value="">Keep current</option>
+                <option value="">{t('batchOps.keepCurrent', 'Keep current')}</option>
                 {SHOT_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
-                    {type.label}
+                    {t(type.labelKey, type.label)}
                   </option>
                 ))}
               </select>
@@ -308,7 +316,7 @@ export function BatchOperations({
             <div>
               <label className="block text-sm text-surface-400 mb-2">
                 <Clock className="w-4 h-4 inline mr-1" />
-                Duration
+                {t('batchOps.duration', 'Duration')}
               </label>
               <div className="flex gap-2">
                 <input
@@ -317,7 +325,7 @@ export function BatchOperations({
                   onChange={(e) =>
                     setBulkDuration(e.target.value ? parseFloat(e.target.value) : '')
                   }
-                  placeholder="Keep current"
+                  placeholder={t('batchOps.keepCurrent', 'Keep current')}
                   min={0.5}
                   max={60}
                   step={0.5}
@@ -349,7 +357,7 @@ export function BatchOperations({
               onClick={() => setShowBulkEdit(false)}
               className="px-4 py-2 text-sm bg-surface-700 hover:bg-surface-600 rounded-lg"
             >
-              Cancel
+              {t('batchOps.cancel', 'Cancel')}
             </button>
             <button
               onClick={handleBulkEdit}
@@ -361,7 +369,8 @@ export function BatchOperations({
               ) : (
                 <Check className="w-4 h-4" />
               )}
-              Apply to {selectedCount} shots
+              {t('batchOps.applyTo', 'Apply to')} {selectedCount}{' '}
+              {t('batchOps.shotsLower', 'shots')}
             </button>
           </div>
         </div>

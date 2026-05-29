@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, AlertTriangle, Check, Info, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface BudgetSettingsProps {
   currentBudgetLimit: number | null;
@@ -16,12 +17,7 @@ interface BudgetSettingsProps {
 }
 
 // Period options
-const periodOptions = [
-  { value: 7, label: '7 days' },
-  { value: 14, label: '14 days' },
-  { value: 30, label: '30 days' },
-  { value: 90, label: '90 days' },
-];
+const periodOptions = [{ value: 7 }, { value: 14 }, { value: 30 }, { value: 90 }];
 
 export function BudgetSettings({
   currentBudgetLimit,
@@ -30,6 +26,7 @@ export function BudgetSettings({
   onSave,
   isSaving = false,
 }: BudgetSettingsProps) {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [budgetLimit, setBudgetLimit] = useState<string>(currentBudgetLimit?.toString() || '');
   const [periodDays, setPeriodDays] = useState<number>(currentPeriodDays);
@@ -109,25 +106,25 @@ export function BudgetSettings({
                       : 'text-green-400'
                 )}
               />
-              <span className="font-medium">Budget Status</span>
+              <span className="font-medium">{t('budgetSet.budgetStatus', 'Budget Status')}</span>
             </div>
             <div className="flex items-center gap-2">
               {isOverBudget && (
                 <span className="flex items-center gap-1 text-xs text-red-400">
                   <AlertTriangle className="w-3 h-3" />
-                  Over Budget
+                  {t('budgetSet.overBudget', 'Over Budget')}
                 </span>
               )}
               {isNearBudget && !isOverBudget && (
                 <span className="flex items-center gap-1 text-xs text-yellow-400">
                   <AlertTriangle className="w-3 h-3" />
-                  Near Limit
+                  {t('budgetSet.nearLimit', 'Near Limit')}
                 </span>
               )}
               {!isNearBudget && (
                 <span className="flex items-center gap-1 text-xs text-green-400">
                   <Check className="w-3 h-3" />
-                  On Track
+                  {t('budgetSet.onTrack', 'On Track')}
                 </span>
               )}
             </div>
@@ -160,13 +157,13 @@ export function BudgetSettings({
             </span>
           </div>
 
-          <div className="text-xs text-surface-500 mt-2">Period: {currentPeriodDays} days</div>
+          <div className="text-xs text-surface-500 mt-2">{t('budgetSet.period', 'Period')}: {currentPeriodDays} {t('budgetSet.days', 'days')}</div>
         </div>
       ) : (
         <div className="p-4 bg-surface-800/50 rounded-lg border border-surface-700">
           <div className="flex items-center gap-2 text-surface-400">
             <Info className="w-5 h-5" />
-            <span>No budget limit set. Set one below to receive alerts.</span>
+            <span>{t('budgetSet.noBudgetLimitSet', 'No budget limit set. Set one below to receive alerts.')}</span>
           </div>
         </div>
       )}
@@ -176,22 +173,22 @@ export function BudgetSettings({
         <div className="space-y-4 p-4 bg-surface-800/50 rounded-lg">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Budget Limit (USD)</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('budgetSet.budgetLimitUsd', 'Budget Limit (USD)')}</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400">$</span>
                 <input
                   type="text"
                   value={budgetLimit}
                   onChange={(e) => handleLimitChange(e.target.value)}
-                  placeholder="e.g., 50.00"
+                  placeholder={t('budgetSet.budgetLimitPlaceholder', 'e.g., 50.00')}
                   className="w-full bg-surface-800 border border-surface-700 rounded-lg pl-7 pr-3 py-2 focus:outline-none focus:border-brand-500"
                 />
               </div>
-              <p className="text-xs text-surface-500 mt-1">Leave empty for no limit</p>
+              <p className="text-xs text-surface-500 mt-1">{t('budgetSet.leaveEmptyForNoLimit', 'Leave empty for no limit')}</p>
             </div>
 
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Budget Period</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('budgetSet.budgetPeriod', 'Budget Period')}</label>
               <select
                 value={periodDays}
                 onChange={(e) => handlePeriodChange(parseInt(e.target.value))}
@@ -199,7 +196,7 @@ export function BudgetSettings({
               >
                 {periodOptions.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {`${option.value} ${t('budgetSet.days', 'days')}`}
                   </option>
                 ))}
               </select>
@@ -208,7 +205,7 @@ export function BudgetSettings({
 
           <div className="flex items-center gap-2 text-sm text-surface-400">
             <Info className="w-4 h-4" />
-            <span>You'll receive alerts at 80% and 100% of your budget.</span>
+            <span>{t('budgetSet.alertsInfo', "You'll receive alerts at 80% and 100% of your budget.")}</span>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
@@ -218,7 +215,7 @@ export function BudgetSettings({
                 disabled={isSaving}
                 className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
               >
-                Remove Limit
+                {t('budgetSet.removeLimit', 'Remove Limit')}
               </button>
             )}
             <button
@@ -226,7 +223,7 @@ export function BudgetSettings({
               disabled={isSaving}
               className="px-3 py-1.5 text-sm bg-surface-700 hover:bg-surface-600 rounded-lg transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('budgetSet.cancel', 'Cancel')}
             </button>
             <button
               onClick={handleSave}
@@ -238,7 +235,7 @@ export function BudgetSettings({
               ) : (
                 <Check className="w-4 h-4" />
               )}
-              Save
+              {t('budgetSet.save', 'Save')}
             </button>
           </div>
         </div>
@@ -247,7 +244,7 @@ export function BudgetSettings({
           onClick={() => setIsEditing(true)}
           className="w-full px-4 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm transition-colors text-left flex items-center justify-between"
         >
-          <span>{currentBudgetLimit ? 'Change Budget Settings' : 'Set Budget Limit'}</span>
+          <span>{currentBudgetLimit ? t('budgetSet.changeBudgetSettings', 'Change Budget Settings') : t('budgetSet.setBudgetLimit', 'Set Budget Limit')}</span>
           <DollarSign className="w-4 h-4 text-surface-400" />
         </button>
       )}
@@ -267,6 +264,7 @@ export function BudgetAlertBanner({
   periodDays: number;
   onDismiss?: () => void;
 }) {
+  const { t } = useTranslation();
   const usagePercent = (spent / budgetLimit) * 100;
   const isOver = usagePercent >= 100;
   const isNear = usagePercent >= 80;
@@ -284,11 +282,11 @@ export function BudgetAlertBanner({
         <AlertTriangle className="w-5 h-5" />
         <div>
           <span className="font-medium">
-            {isOver ? 'Budget Exceeded' : 'Approaching Budget Limit'}
+            {isOver ? t('budgetSet.budgetExceeded', 'Budget Exceeded') : t('budgetSet.approachingBudgetLimit', 'Approaching Budget Limit')}
           </span>
           <span className="text-sm opacity-80 ml-2">
-            ${spent.toFixed(2)} / ${budgetLimit.toFixed(2)} ({usagePercent.toFixed(0)}%) in last{' '}
-            {periodDays} days
+            ${spent.toFixed(2)} / ${budgetLimit.toFixed(2)} ({usagePercent.toFixed(0)}%) {t('budgetSet.inLast', 'in last')}{' '}
+            {periodDays} {t('budgetSet.days', 'days')}
           </span>
         </div>
       </div>
@@ -296,9 +294,9 @@ export function BudgetAlertBanner({
         <button
           onClick={onDismiss}
           className="icon-btn p-2 hover:bg-white/10 rounded transition-colors"
-          aria-label="Dismiss budget warning"
+          aria-label={t('budgetSet.dismissBudgetWarning', 'Dismiss budget warning')}
         >
-          <span className="sr-only">Dismiss</span>
+          <span className="sr-only">{t('budgetSet.dismiss', 'Dismiss')}</span>
           &times;
         </button>
       )}

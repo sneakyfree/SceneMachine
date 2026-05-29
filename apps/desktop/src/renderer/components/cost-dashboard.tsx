@@ -21,6 +21,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 // Cost stats interfaces
 interface CostStats {
@@ -109,6 +110,7 @@ function CostStatCard({
 
 // Provider cost breakdown
 function ProviderCostBreakdown({ costs }: { costs: Record<string, number> }) {
+  const { t } = useTranslation();
   const total = Object.values(costs).reduce((sum, cost) => sum + cost, 0);
   const providers = Object.entries(costs)
     .sort(([, a], [, b]) => b - a)
@@ -127,7 +129,7 @@ function ProviderCostBreakdown({ costs }: { costs: Record<string, number> }) {
     return (
       <div className="text-center py-8 text-surface-400">
         <PieChart className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p>No cost data available</p>
+        <p>{t('costDash.noCostDataAvailable', 'No cost data available')}</p>
       </div>
     );
   }
@@ -171,7 +173,7 @@ function ProviderCostBreakdown({ costs }: { costs: Record<string, number> }) {
 
       {/* Total */}
       <div className="pt-2 border-t border-surface-700 flex justify-between">
-        <span className="text-sm font-medium">Total</span>
+        <span className="text-sm font-medium">{t('costDash.total', 'Total')}</span>
         <span className="font-bold">{formatCurrency(total)}</span>
       </div>
     </div>
@@ -180,6 +182,7 @@ function ProviderCostBreakdown({ costs }: { costs: Record<string, number> }) {
 
 // Project cost breakdown
 function ProjectCostBreakdown({ costs }: { costs: Record<string, number> }) {
+  const { t } = useTranslation();
   const projects = Object.entries(costs)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5);
@@ -188,7 +191,7 @@ function ProjectCostBreakdown({ costs }: { costs: Record<string, number> }) {
     return (
       <div className="text-center py-8 text-surface-400">
         <Layers className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p>No project costs yet</p>
+        <p>{t('costDash.noProjectCostsYet', 'No project costs yet')}</p>
       </div>
     );
   }
@@ -220,11 +223,12 @@ function ProjectCostBreakdown({ costs }: { costs: Record<string, number> }) {
 
 // Daily cost chart
 function DailyCostChart({ data }: { data: DailyStats[] }) {
+  const { t } = useTranslation();
   if (data.length === 0) {
     return (
       <div className="text-center py-8 text-surface-400">
         <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p>No daily data available</p>
+        <p>{t('costDash.noDailyDataAvailable', 'No daily data available')}</p>
       </div>
     );
   }
@@ -275,17 +279,17 @@ function DailyCostChart({ data }: { data: DailyStats[] }) {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4 pt-2 border-t border-surface-700 text-sm">
         <div>
-          <span className="text-surface-400">Total</span>
+          <span className="text-surface-400">{t('costDash.total', 'Total')}</span>
           <p className="font-medium">
             {formatCurrency(data.reduce((sum, d) => sum + d.total_cost_usd, 0))}
           </p>
         </div>
         <div>
-          <span className="text-surface-400">Jobs</span>
+          <span className="text-surface-400">{t('costDash.jobs', 'Jobs')}</span>
           <p className="font-medium">{data.reduce((sum, d) => sum + d.total_jobs, 0)}</p>
         </div>
         <div>
-          <span className="text-surface-400">Avg/Day</span>
+          <span className="text-surface-400">{t('costDash.avgPerDay', 'Avg/Day')}</span>
           <p className="font-medium">
             {formatCurrency(
               data.reduce((sum, d) => sum + d.total_cost_usd, 0) / Math.max(data.length, 1)
@@ -299,11 +303,12 @@ function DailyCostChart({ data }: { data: DailyStats[] }) {
 
 // Provider usage table
 function ProviderUsageTable({ data }: { data: ProviderUsage[] }) {
+  const { t } = useTranslation();
   if (data.length === 0) {
     return (
       <div className="text-center py-8 text-surface-400">
         <Film className="w-8 h-8 mx-auto mb-2 opacity-50" />
-        <p>No provider usage data</p>
+        <p>{t('costDash.noProviderUsageData', 'No provider usage data')}</p>
       </div>
     );
   }
@@ -313,10 +318,10 @@ function ProviderUsageTable({ data }: { data: ProviderUsage[] }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-surface-400 border-b border-surface-700">
-            <th className="pb-2 font-medium">Provider</th>
-            <th className="pb-2 font-medium text-right">Jobs</th>
-            <th className="pb-2 font-medium text-right">Success</th>
-            <th className="pb-2 font-medium text-right">Cost</th>
+            <th className="pb-2 font-medium">{t('costDash.provider', 'Provider')}</th>
+            <th className="pb-2 font-medium text-right">{t('costDash.jobs', 'Jobs')}</th>
+            <th className="pb-2 font-medium text-right">{t('costDash.success', 'Success')}</th>
+            <th className="pb-2 font-medium text-right">{t('costDash.cost', 'Cost')}</th>
           </tr>
         </thead>
         <tbody>
@@ -356,11 +361,12 @@ function TimeRangeSelector({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const ranges = [
-    { value: '24h', label: '24H' },
-    { value: '7d', label: '7D' },
-    { value: '30d', label: '30D' },
-    { value: 'all', label: 'All' },
+    { value: '24h', labelKey: 'costDash.range24h', labelEn: '24H' },
+    { value: '7d', labelKey: 'costDash.range7d', labelEn: '7D' },
+    { value: '30d', labelKey: 'costDash.range30d', labelEn: '30D' },
+    { value: 'all', labelKey: 'costDash.rangeAll', labelEn: 'All' },
   ];
 
   return (
@@ -376,7 +382,7 @@ function TimeRangeSelector({
               : 'text-surface-400 hover:text-surface-200'
           )}
         >
-          {range.label}
+          {t(range.labelKey, range.labelEn)}
         </button>
       ))}
     </div>
@@ -388,6 +394,7 @@ interface CostDashboardProps {
 }
 
 export function CostDashboard({ projectId }: CostDashboardProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [timeRange, setTimeRange] = useState('7d');
   const [showBudgetForm, setShowBudgetForm] = useState(false);
@@ -477,10 +484,10 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
         <div>
           <h2 className="text-lg font-medium flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-brand-400" />
-            Cost Tracking
+            {t('costDash.costTracking', 'Cost Tracking')}
           </h2>
           <p className="text-sm text-surface-400 mt-1">
-            Monitor generation costs and usage across providers
+            {t('costDash.monitorCostsSubtitle', 'Monitor generation costs and usage across providers')}
           </p>
         </div>
 
@@ -490,7 +497,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
             onClick={() => refetchCost()}
             disabled={isLoading}
             className="p-2 hover:bg-surface-700 rounded-lg"
-            title="Refresh"
+            title={t('costDash.refresh', 'Refresh')}
           >
             <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
@@ -507,25 +514,25 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <CostStatCard
               icon={DollarSign}
-              label="Total Spent"
+              label={t('costDash.totalSpent', 'Total Spent')}
               value={formatCurrency(costStats?.total_cost_usd || 0)}
               color="green"
             />
             <CostStatCard
               icon={Film}
-              label="Avg Cost/Shot"
+              label={t('costDash.avgCostPerShot', 'Avg Cost/Shot')}
               value={formatCurrency(costStats?.avg_cost_per_shot || 0)}
               color="blue"
             />
             <CostStatCard
               icon={Layers}
-              label="Active Providers"
+              label={t('costDash.activeProviders', 'Active Providers')}
               value={String(Object.keys(costStats?.cost_by_provider || {}).length)}
               color="brand"
             />
             <CostStatCard
               icon={Calendar}
-              label="Active Projects"
+              label={t('costDash.activeProjects', 'Active Projects')}
               value={String(Object.keys(costStats?.cost_by_project || {}).length)}
               color="yellow"
             />
@@ -537,7 +544,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
             <div className="card">
               <h3 className="text-sm font-medium text-surface-400 mb-4 flex items-center gap-2">
                 <PieChart className="w-4 h-4" />
-                Cost by Provider
+                {t('costDash.costByProvider', 'Cost by Provider')}
               </h3>
               <ProviderCostBreakdown costs={costStats?.cost_by_provider || {}} />
             </div>
@@ -546,7 +553,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
             <div className="card">
               <h3 className="text-sm font-medium text-surface-400 mb-4 flex items-center gap-2">
                 <Layers className="w-4 h-4" />
-                Cost by Project
+                {t('costDash.costByProject', 'Cost by Project')}
               </h3>
               <ProjectCostBreakdown costs={costStats?.cost_by_project || {}} />
             </div>
@@ -556,7 +563,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
           <div className="card">
             <h3 className="text-sm font-medium text-surface-400 mb-4 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
-              Daily Costs
+              {t('costDash.dailyCosts', 'Daily Costs')}
             </h3>
             <DailyCostChart data={dailyStats || []} />
           </div>
@@ -565,7 +572,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
           <div className="card">
             <h3 className="text-sm font-medium text-surface-400 mb-4 flex items-center gap-2">
               <Film className="w-4 h-4" />
-              Provider Performance
+              {t('costDash.providerPerformance', 'Provider Performance')}
             </h3>
             <ProviderUsageTable data={providerUsage || []} />
           </div>
@@ -574,11 +581,11 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
           <div className="card">
             <h3 className="text-sm font-medium text-surface-400 mb-4 flex items-center gap-2">
               <Shield className="w-4 h-4" />
-              Budget Management
+              {t('costDash.budgetManagement', 'Budget Management')}
               <button
                 onClick={() => setShowBudgetForm(!showBudgetForm)}
                 className="ml-auto p-1 hover:bg-surface-700 rounded transition-colors"
-                title="Configure budget"
+                title={t('costDash.configureBudget', 'Configure budget')}
               >
                 <Settings className="w-3.5 h-3.5 text-surface-400" />
               </button>
@@ -587,7 +594,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
             {budgetStatus?.budget?.has_budget ? (
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-surface-400">Spent / Limit</span>
+                  <span className="text-surface-400">{t('costDash.spentSlashLimit', 'Spent / Limit')}</span>
                   <span className="font-medium">
                     {formatCurrency(budgetStatus.currentSpend)} /{' '}
                     {formatCurrency(budgetStatus.budget.limit_usd ?? 0)}
@@ -607,8 +614,8 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                   />
                 </div>
                 <div className="flex justify-between text-xs text-surface-500">
-                  <span>{Math.round(budgetStatus.budget.percent_used ?? 0)}% used</span>
-                  <span>{formatCurrency(budgetStatus.budget.remaining_usd ?? 0)} remaining</span>
+                  <span>{Math.round(budgetStatus.budget.percent_used ?? 0)}{t('costDash.percentUsedSuffix', '% used')}</span>
+                  <span>{formatCurrency(budgetStatus.budget.remaining_usd ?? 0)} {t('costDash.remaining', 'remaining')}</span>
                 </div>
 
                 {budgetStatus.budgetAlert && (
@@ -623,8 +630,14 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>
                       {budgetStatus.budgetAlert.alert_type === 'budget_exceeded'
-                        ? 'Budget exceeded! Generation will be blocked until limit is raised.'
-                        : `Warning: ${Math.round(budgetStatus.budgetAlert.percent_used ?? 0)}% of budget used.`}
+                        ? t(
+                            'costDash.budgetExceeded',
+                            'Budget exceeded! Generation will be blocked until limit is raised.'
+                          )
+                        : t('costDash.budgetWarning', 'Warning: {percent}% of budget used.').replace(
+                            '{percent}',
+                            String(Math.round(budgetStatus.budgetAlert.percent_used ?? 0))
+                          )}
                     </span>
                   </div>
                 )}
@@ -632,21 +645,21 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
             ) : (
               <div className="text-center py-4 text-surface-400 text-sm">
                 <Shield className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                No budget limit configured
+                {t('costDash.noBudgetLimitConfigured', 'No budget limit configured')}
               </div>
             )}
 
             {showBudgetForm && (
               <div className="mt-4 pt-4 border-t border-surface-700">
                 <label className="text-xs text-surface-400 mb-1 block">
-                  30-day budget limit (USD)
+                  {t('costDash.budgetLimitLabel', '30-day budget limit (USD)')}
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="number"
                     value={budgetInput}
                     onChange={(e) => setBudgetInput(e.target.value)}
-                    placeholder="$ limit"
+                    placeholder={t('costDash.budgetInputPlaceholder', '$ limit')}
                     className="flex-1 px-3 py-1.5 bg-surface-700 border border-surface-600 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
                     min="1"
                   />
@@ -658,7 +671,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                     {setBudgetMutation.isPending ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
-                      'Set Budget'
+                      t('costDash.setBudget', 'Set Budget')
                     )}
                   </button>
                 </div>

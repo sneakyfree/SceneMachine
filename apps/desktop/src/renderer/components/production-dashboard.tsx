@@ -29,6 +29,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 // Pipeline stages matching backend
 type PipelineStage =
@@ -83,16 +84,18 @@ interface ProductionDashboardProps {
 // Stage configuration
 const STAGES: {
   id: PipelineStage;
+  labelKey: string;
   label: string;
   icon: typeof Film;
+  descriptionKey: string;
   description: string;
 }[] = [
-  { id: 'parsing', label: 'Parse', icon: FileText, description: 'Analyzing screenplay' },
-  { id: 'shot_breakdown', label: 'Breakdown', icon: Layers, description: 'Generating shot list' },
-  { id: 'character_prep', label: 'Characters', icon: Users, description: 'Preparing references' },
-  { id: 'video_generation', label: 'Video', icon: Video, description: 'Generating clips' },
-  { id: 'audio_generation', label: 'Audio', icon: Mic, description: 'Generating dialogue' },
-  { id: 'assembly', label: 'Assembly', icon: Film, description: 'Combining clips' },
+  { id: 'parsing', labelKey: 'prodDash.stageParseLabel', label: 'Parse', icon: FileText, descriptionKey: 'prodDash.stageParseDesc', description: 'Analyzing screenplay' },
+  { id: 'shot_breakdown', labelKey: 'prodDash.stageBreakdownLabel', label: 'Breakdown', icon: Layers, descriptionKey: 'prodDash.stageBreakdownDesc', description: 'Generating shot list' },
+  { id: 'character_prep', labelKey: 'prodDash.stageCharactersLabel', label: 'Characters', icon: Users, descriptionKey: 'prodDash.stageCharactersDesc', description: 'Preparing references' },
+  { id: 'video_generation', labelKey: 'prodDash.stageVideoLabel', label: 'Video', icon: Video, descriptionKey: 'prodDash.stageVideoDesc', description: 'Generating clips' },
+  { id: 'audio_generation', labelKey: 'prodDash.stageAudioLabel', label: 'Audio', icon: Mic, descriptionKey: 'prodDash.stageAudioDesc', description: 'Generating dialogue' },
+  { id: 'assembly', labelKey: 'prodDash.stageAssemblyLabel', label: 'Assembly', icon: Film, descriptionKey: 'prodDash.stageAssemblyDesc', description: 'Combining clips' },
 ];
 
 // Get stage index for progress bar
@@ -124,6 +127,7 @@ function StageProgress({
   stages: typeof STAGES;
   currentStage: PipelineStage;
 }) {
+  const { t } = useTranslation();
   const currentIndex = useMemo(() => {
     if (currentStage === 'completed') return stages.length;
     return stages.findIndex((s) => s.id === currentStage);
@@ -174,9 +178,13 @@ function StageProgress({
                         : 'text-surface-400'
                   )}
                 >
-                  {stage.label}
+                  {t(stage.labelKey, stage.label)}
                 </p>
-                {isCurrent && <p className="text-[10px] text-surface-400">{stage.description}</p>}
+                {isCurrent && (
+                  <p className="text-[10px] text-surface-400">
+                    {t(stage.descriptionKey, stage.description)}
+                  </p>
+                )}
               </div>
             </div>
             {index < stages.length - 1 && (
@@ -202,6 +210,7 @@ function ShotGrid({
   shots: ShotProgress[];
   onPreviewClick?: (shotId: string) => void;
 }) {
+  const { t } = useTranslation();
   const statusColors: Record<ShotStatus, string> = {
     queued: 'bg-surface-700',
     generating: 'bg-brand-500 animate-pulse',
@@ -222,7 +231,7 @@ function ShotGrid({
             statusColors[shot.status],
             shot.videoPath && 'hover:ring-2 hover:ring-brand-400 cursor-pointer'
           )}
-          title={`Shot ${shot.shotId} - ${shot.status}`}
+          title={`${t('prodDash.shotTitlePrefix', 'Shot')} ${shot.shotId} - ${shot.status}`}
         >
           {shot.status === 'completed' && (
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded">
@@ -281,6 +290,7 @@ export function ProductionDashboard({
   onDownloadClick,
   className,
 }: ProductionDashboardProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [isRunning, setIsRunning] = useState(false);
 
@@ -378,8 +388,12 @@ export function ProductionDashboard({
         <div className="flex items-center gap-3">
           <Film className="w-6 h-6 text-brand-400" />
           <div>
-            <h2 className="font-semibold text-white">Production Pipeline</h2>
-            <p className="text-xs text-surface-400">{status?.message || 'Ready to start'}</p>
+            <h2 className="font-semibold text-white">
+              {t('prodDash.headerTitle', 'Production Pipeline')}
+            </h2>
+            <p className="text-xs text-surface-400">
+              {status?.message || t('prodDash.readyToStart', 'Ready to start')}
+            </p>
           </div>
         </div>
 
@@ -390,7 +404,7 @@ export function ProductionDashboard({
               className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
             >
               <Download className="w-4 h-4" />
-              Download Movie
+              {t('prodDash.downloadMovie', 'Download Movie')}
             </button>
           ) : isRunning ? (
             <button
@@ -403,7 +417,7 @@ export function ProductionDashboard({
               ) : (
                 <Pause className="w-4 h-4" />
               )}
-              Pause
+              {t('prodDash.pause', 'Pause')}
             </button>
           ) : (
             <button
@@ -416,7 +430,9 @@ export function ProductionDashboard({
               ) : (
                 <Play className="w-4 h-4" />
               )}
-              {status?.stage === 'paused' ? 'Resume' : 'Generate Movie'}
+              {status?.stage === 'paused'
+                ? t('prodDash.resume', 'Resume')
+                : t('prodDash.generateMovie', 'Generate Movie')}
             </button>
           )}
 
@@ -425,7 +441,7 @@ export function ProductionDashboard({
               queryClient.invalidateQueries({ queryKey: ['pipeline-status', projectId] })
             }
             className="p-2 hover:bg-surface-700 rounded-lg transition-colors"
-            title="Refresh"
+            title={t('prodDash.refresh', 'Refresh')}
           >
             <RefreshCw className="w-4 h-4 text-surface-400" />
           </button>
@@ -442,34 +458,34 @@ export function ProductionDashboard({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border-b border-surface-700">
           <StatCard
             icon={Video}
-            label="Shots"
+            label={t('prodDash.statShots', 'Shots')}
             value={`${stats.completedShots}/${stats.totalShots}`}
-            subValue={`${Math.round((stats.completedShots / Math.max(1, stats.totalShots)) * 100)}% complete`}
+            subValue={`${Math.round((stats.completedShots / Math.max(1, stats.totalShots)) * 100)}% ${t('prodDash.complete', 'complete')}`}
             color="brand"
           />
           <StatCard
             icon={BarChart3}
-            label="Avg Quality"
+            label={t('prodDash.statAvgQuality', 'Avg Quality')}
             value={`${Math.round(stats.avgQuality * 100)}%`}
-            subValue="0.7 threshold"
+            subValue={t('prodDash.qualityThreshold', '0.7 threshold')}
             color={stats.avgQuality >= 0.7 ? 'green' : 'yellow'}
           />
           <StatCard
             icon={DollarSign}
-            label="Cost"
+            label={t('prodDash.statCost', 'Cost')}
             value={`$${stats.cost.toFixed(2)}`}
-            subValue={`$${stats.budgetRemaining.toFixed(2)} remaining`}
+            subValue={`$${stats.budgetRemaining.toFixed(2)} ${t('prodDash.remaining', 'remaining')}`}
             color={stats.budgetRemaining > 0 ? 'green' : 'red'}
           />
           <StatCard
             icon={Clock}
-            label="Time"
+            label={t('prodDash.statTime', 'Time')}
             value={
               status?.estimatedTimeRemaining
                 ? `${Math.ceil(status.estimatedTimeRemaining / 60)}m`
                 : '--'
             }
-            subValue="remaining"
+            subValue={t('prodDash.remaining', 'remaining')}
             color="brand"
           />
         </div>
@@ -478,13 +494,15 @@ export function ProductionDashboard({
       {/* Shot grid */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-4">
-          <h3 className="text-sm font-medium text-surface-300 mb-3">Shot Progress</h3>
+          <h3 className="text-sm font-medium text-surface-300 mb-3">
+            {t('prodDash.shotProgress', 'Shot Progress')}
+          </h3>
           {status?.shots && status.shots.length > 0 ? (
             <ShotGrid shots={status.shots} onPreviewClick={onPreviewClick} />
           ) : (
             <div className="text-center py-8 text-surface-400">
               <Layers className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>No shots yet. Start the pipeline to generate.</p>
+              <p>{t('prodDash.noShots', 'No shots yet. Start the pipeline to generate.')}</p>
             </div>
           )}
         </div>
@@ -496,7 +514,9 @@ export function ProductionDashboard({
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-medium text-red-400">Pipeline Failed</h4>
+              <h4 className="font-medium text-red-400">
+                {t('prodDash.pipelineFailed', 'Pipeline Failed')}
+              </h4>
               <p className="text-sm text-red-300 mt-1">{status.error}</p>
             </div>
           </div>

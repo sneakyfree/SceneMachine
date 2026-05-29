@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAudioStore, Voice, TTSProvider } from '../stores/audio-store';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface VoiceSelectorProps {
   characterId?: string;
@@ -37,6 +38,7 @@ function VoicePreview({
   provider: string;
   voiceName: string;
 }) {
+  const { t } = useTranslation();
   const { previewVoice, isGenerating, previewAudioUrl, previewPlaying, setPreviewPlaying } =
     useAudioStore();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -77,8 +79,8 @@ function VoicePreview({
         onClick={handlePreview}
         disabled={isGenerating}
         className="icon-btn p-2 text-surface-400 hover:text-surface-200 hover:bg-surface-700 rounded transition-colors disabled:opacity-50"
-        title="Preview voice"
-        aria-label="Preview voice"
+        title={t('voiceSel.previewVoice', 'Preview voice')}
+        aria-label={t('voiceSel.previewVoice', 'Preview voice')}
       >
         {isGenerating && currentPreviewId === voiceId ? (
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -165,6 +167,7 @@ export function VoiceSelector({
   compact = false,
   showPreview = true,
 }: VoiceSelectorProps) {
+  const { t } = useTranslation();
   const {
     providers,
     voices,
@@ -247,7 +250,7 @@ export function VoiceSelector({
         >
           <Mic className="w-4 h-4 text-surface-400 flex-shrink-0" />
           <span className="flex-1 truncate text-left">
-            {selectedVoice ? selectedVoice.name : 'Select voice...'}
+            {selectedVoice ? selectedVoice.name : t('voiceSel.selectVoiceShort', 'Select voice...')}
           </span>
           <ChevronDown
             className={cn('w-4 h-4 text-surface-400 transition-transform', isOpen && 'rotate-180')}
@@ -262,7 +265,7 @@ export function VoiceSelector({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search voices..."
+                placeholder={t('voiceSel.searchVoices', 'Search voices...')}
                 className="w-full px-3 py-1.5 bg-surface-900 border border-surface-700 rounded text-sm"
                 autoFocus
               />
@@ -276,7 +279,9 @@ export function VoiceSelector({
                 </div>
               ) : filteredVoices.length === 0 ? (
                 <div className="py-8 text-center text-surface-400 text-sm">
-                  {searchQuery ? 'No voices found' : 'No voices available'}
+                  {searchQuery
+                    ? t('voiceSel.noVoicesFound', 'No voices found')
+                    : t('voiceSel.noVoicesAvailable', 'No voices available')}
                 </div>
               ) : (
                 filteredVoices.map((voice) => (
@@ -302,13 +307,17 @@ export function VoiceSelector({
       {characterName && (
         <div className="flex items-center gap-2">
           <Volume2 className="w-5 h-5 text-brand-400" />
-          <span className="font-medium">Voice for {characterName}</span>
+          <span className="font-medium">
+            {t('voiceSel.voiceFor', 'Voice for')} {characterName}
+          </span>
         </div>
       )}
 
       {/* Provider selector */}
       <div>
-        <label className="block text-sm text-surface-400 mb-2">TTS Provider</label>
+        <label className="block text-sm text-surface-400 mb-2">
+          {t('voiceSel.ttsProvider', 'TTS Provider')}
+        </label>
         <div className="flex items-center gap-2">
           <select
             value={activeProvider}
@@ -318,7 +327,7 @@ export function VoiceSelector({
           >
             {availableProviders.map((provider) => (
               <option key={provider.id} value={provider.id}>
-                {provider.name} ({provider.voices_count} voices)
+                {provider.name} ({provider.voices_count} {t('voiceSel.voices', 'voices')})
               </option>
             ))}
           </select>
@@ -329,7 +338,7 @@ export function VoiceSelector({
             }}
             disabled={isLoadingProviders || isLoadingVoices}
             className="p-2 bg-surface-700 hover:bg-surface-600 rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh"
+            title={t('voiceSel.refresh', 'Refresh')}
           >
             <RefreshCw
               className={cn('w-5 h-5', (isLoadingProviders || isLoadingVoices) && 'animate-spin')}
@@ -340,7 +349,7 @@ export function VoiceSelector({
 
       {/* Voice selector */}
       <div ref={dropdownRef} className="relative">
-        <label className="block text-sm text-surface-400 mb-2">Voice</label>
+        <label className="block text-sm text-surface-400 mb-2">{t('voiceSel.voice', 'Voice')}</label>
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
@@ -358,7 +367,7 @@ export function VoiceSelector({
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-medium truncate">
-              {selectedVoice ? selectedVoice.name : 'Select a voice...'}
+              {selectedVoice ? selectedVoice.name : t('voiceSel.selectAVoice', 'Select a voice...')}
             </div>
             {selectedVoice && (
               <div className="text-sm text-surface-400 flex items-center gap-2">
@@ -385,7 +394,7 @@ export function VoiceSelector({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search voices..."
+                placeholder={t('voiceSel.searchVoices', 'Search voices...')}
                 className="w-full px-3 py-2 bg-surface-900 border border-surface-700 rounded-lg"
                 autoFocus
               />
@@ -399,7 +408,9 @@ export function VoiceSelector({
                 </div>
               ) : filteredVoices.length === 0 ? (
                 <div className="py-12 text-center text-surface-400">
-                  {searchQuery ? 'No voices match your search' : 'No voices available'}
+                  {searchQuery
+                    ? t('voiceSel.noVoicesMatch', 'No voices match your search')
+                    : t('voiceSel.noVoicesAvailable', 'No voices available')}
                 </div>
               ) : (
                 filteredVoices.map((voice) => (
@@ -421,7 +432,9 @@ export function VoiceSelector({
       {selectedVoice && showPreview && (
         <div className="flex items-center gap-3 p-3 bg-surface-800/50 rounded-lg">
           <div className="flex-1">
-            <div className="text-sm text-surface-400">Preview selected voice</div>
+            <div className="text-sm text-surface-400">
+              {t('voiceSel.previewSelectedVoice', 'Preview selected voice')}
+            </div>
           </div>
           <VoicePreview
             voiceId={selectedVoice.id}

@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Wand2, Palette, Settings2, ChevronDown, Check, RotateCcw, Info } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import {
   useExperienceStore,
   ExperienceMode,
@@ -39,6 +40,7 @@ export function ExperienceModeSelector({
   showDescription = true,
   onChange,
 }: ExperienceModeSelectorProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   const {
@@ -120,7 +122,7 @@ export function ExperienceModeSelector({
                     className="w-full flex items-center gap-3 px-4 py-2 text-left text-surface-400 hover:bg-surface-800 transition-colors"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    <span>Reset to global</span>
+                    <span>{t('expModeSel.resetToGlobal', 'Reset to global')}</span>
                   </button>
                 </>
               )}
@@ -136,12 +138,18 @@ export function ExperienceModeSelector({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-medium">Experience Level</h3>
+          <h3 className="font-medium">{t('expModeSel.experienceLevel', 'Experience Level')}</h3>
           {showDescription && (
             <p className="text-sm text-surface-400 mt-1">
               {feature
-                ? 'Override the experience level for this feature'
-                : 'Choose how much control and technical detail you want to see'}
+                ? t(
+                    'expModeSel.overrideDescription',
+                    'Override the experience level for this feature'
+                  )
+                : t(
+                    'expModeSel.globalDescription',
+                    'Choose how much control and technical detail you want to see'
+                  )}
             </p>
           )}
         </div>
@@ -151,7 +159,7 @@ export function ExperienceModeSelector({
             className="flex items-center gap-1 text-sm text-surface-400 hover:text-surface-200"
           >
             <RotateCcw className="w-3 h-3" />
-            Reset
+            {t('expModeSel.reset', 'Reset')}
           </button>
         )}
       </div>
@@ -214,7 +222,8 @@ export function ExperienceModeSelector({
       {feature && !hasOverride && (
         <p className="text-xs text-surface-500 flex items-center gap-1">
           <Info className="w-3 h-3" />
-          Using global setting: {MODE_INFO[globalMode].name}
+          {t('expModeSel.usingGlobalSetting', 'Using global setting:')}{' '}
+          {MODE_INFO[globalMode].name}
         </p>
       )}
     </div>
@@ -229,6 +238,7 @@ export function ExperienceModeSlider({
   feature?: FeatureArea;
   onChange?: (mode: ExperienceMode) => void;
 }) {
+  const { t } = useTranslation();
   const { getEffectiveMode, setGlobalMode, setFeatureMode } = useExperienceStore();
   const currentMode = getEffectiveMode(feature);
 
@@ -248,9 +258,9 @@ export function ExperienceModeSlider({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-surface-400">Simplest</span>
+        <span className="text-surface-400">{t('expModeSel.simplest', 'Simplest')}</span>
         <span className="font-medium">{MODE_INFO[currentMode].shortName}</span>
-        <span className="text-surface-400">Most Control</span>
+        <span className="text-surface-400">{t('expModeSel.mostControl', 'Most Control')}</span>
       </div>
 
       <div className="relative h-2 bg-surface-800 rounded-full">

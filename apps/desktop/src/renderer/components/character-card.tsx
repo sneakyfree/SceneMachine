@@ -32,6 +32,7 @@ import { VoiceSelector } from './voice-selector';
 import { FaceSimilarityPanel } from './face-similarity-panel';
 import { PhysicalDescriptionForm, type PhysicalDescription } from './physical-description-form';
 import { useExperienceStore } from '../stores/experience-store';
+import { useTranslation } from '../i18n/use-translation';
 
 interface ReferenceAsset {
   id: string;
@@ -112,6 +113,7 @@ export function CharacterCard({
   const [isCheckingConsistency, setIsCheckingConsistency] = useState(false);
   const [isSuggestingVoice, setIsSuggestingVoice] = useState(false);
   const { getTerm } = useExperienceStore();
+  const { t } = useTranslation();
 
   const getLockStateColor = (state: string) => {
     switch (state) {
@@ -135,13 +137,13 @@ export function CharacterCard({
       case 'locked':
         return getTerm('locked', 'characters');
       case 'review':
-        return 'In Review';
+        return t('charCard.inReview', 'In Review');
       case 'generating':
-        return 'Generating';
+        return t('charCard.generating', 'Generating');
       case 'reference_uploaded':
-        return 'Has References';
+        return t('charCard.hasReferences', 'Has References');
       case 'draft':
-        return 'Draft';
+        return t('charCard.draft', 'Draft');
       case 'unlocked':
         return getTerm('unlocked', 'characters');
       default:
@@ -183,7 +185,7 @@ export function CharacterCard({
               {character.isLocked && <Lock className="w-4 h-4 text-green-400" />}
             </div>
             {character.name !== character.screenplayName && (
-              <p className="text-sm text-surface-500">as "{character.screenplayName}"</p>
+              <p className="text-sm text-surface-500">{t('charCard.as', 'as')} "{character.screenplayName}"</p>
             )}
           </div>
         </div>
@@ -203,19 +205,19 @@ export function CharacterCard({
       <div className="flex flex-wrap gap-4 mt-4 text-sm">
         <div className="flex items-center gap-1 text-surface-400">
           <Film className="w-4 h-4" />
-          <span>{character.sceneCount} scenes</span>
+          <span>{character.sceneCount} {t('charCard.scenes', 'scenes')}</span>
         </div>
         <div className="flex items-center gap-1 text-surface-400">
           <MessageSquare className="w-4 h-4" />
-          <span>{character.dialogueCount} lines</span>
+          <span>{character.dialogueCount} {t('charCard.lines', 'lines')}</span>
         </div>
         <div className="flex items-center gap-1 text-surface-400">
           <ImageIcon className="w-4 h-4" />
-          <span>{referenceCount} refs</span>
+          <span>{referenceCount} {t('charCard.refs', 'refs')}</span>
         </div>
         <div className="flex items-center gap-1 text-surface-400">
           <Mic className="w-4 h-4" />
-          <span>{character.voiceName || 'No voice'}</span>
+          <span>{character.voiceName || t('charCard.noVoice', 'No voice')}</span>
         </div>
       </div>
 
@@ -251,12 +253,12 @@ export function CharacterCard({
         {isExpanded ? (
           <>
             <ChevronUp className="w-4 h-4" />
-            <span>Show less</span>
+            <span>{t('charCard.showLess', 'Show less')}</span>
           </>
         ) : (
           <>
             <ChevronDown className="w-4 h-4" />
-            <span>Show more</span>
+            <span>{t('charCard.showMore', 'Show more')}</span>
           </>
         )}
       </button>
@@ -267,14 +269,14 @@ export function CharacterCard({
           {/* Physical Description */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-surface-400">Physical Description</h4>
+              <h4 className="text-sm font-medium text-surface-400">{t('charCard.physicalDescription', 'Physical Description')}</h4>
               {!character.isLocked && !isEditingPhysical && (
                 <button
                   onClick={() => setIsEditingPhysical(true)}
                   className="flex items-center gap-1 px-2 py-1 text-xs text-surface-400 hover:text-surface-200 hover:bg-surface-800 rounded transition-colors"
                 >
                   <Edit3 className="w-3 h-3" />
-                  Edit
+                  {t('charCard.edit', 'Edit')}
                 </button>
               )}
               {isEditingPhysical && (
@@ -283,7 +285,7 @@ export function CharacterCard({
                   className="flex items-center gap-1 px-2 py-1 text-xs text-surface-400 hover:text-surface-200 hover:bg-surface-800 rounded transition-colors"
                 >
                   <X className="w-3 h-3" />
-                  Close
+                  {t('charCard.close', 'Close')}
                 </button>
               )}
             </div>
@@ -305,7 +307,7 @@ export function CharacterCard({
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   {character.physicalDescription.hair_color && (
                     <div>
-                      <span className="text-surface-500">Hair:</span>{' '}
+                      <span className="text-surface-500">{t('charCard.hair', 'Hair')}:</span>{' '}
                       <span className="text-surface-200">
                         {character.physicalDescription.hair_color}
                         {character.physicalDescription.hair_style &&
@@ -315,7 +317,7 @@ export function CharacterCard({
                   )}
                   {character.physicalDescription.eye_color && (
                     <div>
-                      <span className="text-surface-500">Eyes:</span>{' '}
+                      <span className="text-surface-500">{t('charCard.eyes', 'Eyes')}:</span>{' '}
                       <span className="text-surface-200">
                         {character.physicalDescription.eye_color}
                       </span>
@@ -323,7 +325,7 @@ export function CharacterCard({
                   )}
                   {character.physicalDescription.build && (
                     <div>
-                      <span className="text-surface-500">Build:</span>{' '}
+                      <span className="text-surface-500">{t('charCard.build', 'Build')}:</span>{' '}
                       <span className="text-surface-200">
                         {character.physicalDescription.build}
                       </span>
@@ -331,13 +333,13 @@ export function CharacterCard({
                   )}
                   {character.ageRangeDisplay && (
                     <div>
-                      <span className="text-surface-500">Age:</span>{' '}
+                      <span className="text-surface-500">{t('charCard.age', 'Age')}:</span>{' '}
                       <span className="text-surface-200">{character.ageRangeDisplay}</span>
                     </div>
                   )}
                   {character.physicalDescription.height && (
                     <div>
-                      <span className="text-surface-500">Height:</span>{' '}
+                      <span className="text-surface-500">{t('charCard.height', 'Height')}:</span>{' '}
                       <span className="text-surface-200">
                         {character.physicalDescription.height}
                       </span>
@@ -345,7 +347,7 @@ export function CharacterCard({
                   )}
                   {character.physicalDescription.skin_tone && (
                     <div>
-                      <span className="text-surface-500">Skin:</span>{' '}
+                      <span className="text-surface-500">{t('charCard.skin', 'Skin')}:</span>{' '}
                       <span className="text-surface-200">
                         {character.physicalDescription.skin_tone}
                       </span>
@@ -354,7 +356,7 @@ export function CharacterCard({
                 </div>
                 {character.physicalDescription.clothing_style && (
                   <div className="mt-2 text-sm">
-                    <span className="text-surface-500">Clothing:</span>{' '}
+                    <span className="text-surface-500">{t('charCard.clothing', 'Clothing')}:</span>{' '}
                     <span className="text-surface-200">
                       {character.physicalDescription.clothing_style}
                     </span>
@@ -363,7 +365,7 @@ export function CharacterCard({
                 {character.physicalDescription.distinguishing_features &&
                   character.physicalDescription.distinguishing_features.length > 0 && (
                     <div className="mt-2">
-                      <span className="text-surface-500 text-sm">Features:</span>
+                      <span className="text-surface-500 text-sm">{t('charCard.features', 'Features')}:</span>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {character.physicalDescription.distinguishing_features.map((feature, i) => (
                           <span
@@ -379,13 +381,13 @@ export function CharacterCard({
               </>
             ) : (
               <div className="text-sm text-surface-500 italic">
-                No physical description yet.{' '}
+                {t('charCard.noPhysicalDescriptionYet', 'No physical description yet.')}{' '}
                 {!character.isLocked && (
                   <button
                     onClick={() => setIsEditingPhysical(true)}
                     className="text-brand-400 hover:text-brand-300 underline"
                   >
-                    Add one
+                    {t('charCard.addOne', 'Add one')}
                   </button>
                 )}
               </div>
@@ -395,7 +397,7 @@ export function CharacterCard({
           {/* Reference Images */}
           {character.referenceAssets && character.referenceAssets.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-surface-400 mb-2">Reference Images</h4>
+              <h4 className="text-sm font-medium text-surface-400 mb-2">{t('charCard.referenceImages', 'Reference Images')}</h4>
               <div className="grid grid-cols-4 gap-2">
                 {character.referenceAssets.map((asset) => (
                   <div
@@ -420,7 +422,7 @@ export function CharacterCard({
                     )}
                     {asset.isPrimary && (
                       <span className="absolute bottom-1 left-1 px-1 py-0.5 bg-brand-500/80 rounded text-xs text-white">
-                        Primary
+                        {t('charCard.primary', 'Primary')}
                       </span>
                     )}
                   </div>
@@ -434,7 +436,7 @@ export function CharacterCard({
             <div>
               <h4 className="text-sm font-medium text-surface-400 mb-2 flex items-center gap-2">
                 <Volume2 className="w-4 h-4" />
-                Voice Assignment
+                {t('charCard.voiceAssignment', 'Voice Assignment')}
               </h4>
               {character.isLocked ? (
                 <div className="flex items-center gap-3 p-3 bg-surface-800/50 rounded-lg">
@@ -447,10 +449,10 @@ export function CharacterCard({
                     <Mic className="w-5 h-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium">{character.voiceName || 'No voice assigned'}</div>
+                    <div className="font-medium">{character.voiceName || t('charCard.noVoiceAssigned', 'No voice assigned')}</div>
                     {character.voiceProvider && (
                       <div className="text-sm text-surface-400">
-                        Provider: {character.voiceProvider}
+                        {t('charCard.provider', 'Provider')}: {character.voiceProvider}
                       </div>
                     )}
                   </div>
@@ -487,7 +489,7 @@ export function CharacterCard({
                   className="btn-secondary text-sm"
                 >
                   <User className="w-4 h-4 mr-1" />
-                  Edit Details
+                  {t('charCard.editDetails', 'Edit Details')}
                 </button>
 
                 <button
@@ -496,7 +498,7 @@ export function CharacterCard({
                   className="btn-secondary text-sm"
                 >
                   <Upload className="w-4 h-4 mr-1" />
-                  Add Reference
+                  {t('charCard.addReference', 'Add Reference')}
                 </button>
 
                 <button
@@ -505,7 +507,7 @@ export function CharacterCard({
                   className="btn-secondary text-sm"
                 >
                   <Sparkles className="w-4 h-4 mr-1" />
-                  AI Describe
+                  {t('charCard.aiDescribe', 'AI Describe')}
                 </button>
 
                 {/* FEAT-062: Suggest Voice */}
@@ -521,14 +523,14 @@ export function CharacterCard({
                     }}
                     disabled={disabled || isSuggestingVoice}
                     className="btn-secondary text-sm"
-                    title="AI will suggest a voice based on character description"
+                    title={t('charCard.suggestVoiceTitle', 'AI will suggest a voice based on character description')}
                   >
                     {isSuggestingVoice ? (
                       <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                     ) : (
                       <Wand2 className="w-4 h-4 mr-1" />
                     )}
-                    Suggest Voice
+                    {t('charCard.suggestVoice', 'Suggest Voice')}
                   </button>
                 )}
 
@@ -553,14 +555,14 @@ export function CharacterCard({
                       }}
                       disabled={disabled || isCheckingConsistency}
                       className="btn-secondary text-sm"
-                      title="Compare reference images with generated shots"
+                      title={t('charCard.checkConsistencyTitle', 'Compare reference images with generated shots')}
                     >
                       {isCheckingConsistency ? (
                         <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                       ) : (
                         <ScanFace className="w-4 h-4 mr-1" />
                       )}
-                      Check Consistency
+                      {t('charCard.checkConsistency', 'Check Consistency')}
                     </button>
                   )}
 
@@ -568,7 +570,7 @@ export function CharacterCard({
                   onClick={() => onLock(character.id)}
                   disabled={disabled || !character.physicalDescription}
                   className="btn-primary text-sm ml-auto"
-                  title="Once saved, this character will look the same in every scene"
+                  title={t('charCard.lockTitle', 'Once saved, this character will look the same in every scene')}
                 >
                   <Lock className="w-4 h-4 mr-1" />
                   {getTerm('lock', 'characters')}
@@ -600,7 +602,7 @@ export function CharacterCard({
                     )}
                   >
                     <ScanFace className="w-4 h-4" />
-                    Consistency: {consistencyScore}%
+                    {t('charCard.consistency', 'Consistency')}: {consistencyScore}%
                   </div>
                 )}
               </>

@@ -31,6 +31,7 @@ import {
   classifyError,
   formatErrorForDisplay,
 } from '../lib/errors';
+import { useTranslation } from '../i18n/use-translation';
 
 // ============================================================================
 // Types
@@ -272,6 +273,7 @@ function InlineError({
   className,
   compact,
 }: InlineErrorProps) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn('flex items-center gap-2 px-3 py-2 rounded-lg border', colorClass, className)}
@@ -286,7 +288,7 @@ function InlineError({
         <button
           onClick={onRetry}
           className="p-1 hover:bg-white/10 rounded transition-colors"
-          aria-label="Retry"
+          aria-label={t('errDisplay.retry', 'Retry')}
         >
           <RefreshCw className="w-4 h-4" />
         </button>
@@ -322,6 +324,7 @@ function BannerError({
   className,
   countdown = 0,
 }: BannerErrorProps) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -337,21 +340,26 @@ function BannerError({
         <p className="text-xs opacity-80">{hint}</p>
       </div>
       <div className="flex items-center gap-2">
-        {countdown > 0 && <span className="text-xs opacity-70">Retrying in {countdown}s...</span>}
+        {countdown > 0 && (
+          <span className="text-xs opacity-70">
+            {t('errDisplay.retryingIn', 'Retrying in')} {countdown}
+            {t('errDisplay.secondsSuffix', 's...')}
+          </span>
+        )}
         {canRetry && onRetry && !countdown && (
           <button
             onClick={onRetry}
             className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded transition-colors flex items-center gap-1"
           >
             <RefreshCw className="w-3 h-3" />
-            Retry
+            {t('errDisplay.retry', 'Retry')}
           </button>
         )}
         {onDismiss && (
           <button
             onClick={onDismiss}
             className="p-1 hover:bg-white/10 rounded transition-colors"
-            aria-label="Dismiss"
+            aria-label={t('errDisplay.dismiss', 'Dismiss')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -374,6 +382,7 @@ interface ToastErrorProps {
 }
 
 function ToastError({ icon, message, onDismiss, colorClass, className }: ToastErrorProps) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -389,7 +398,7 @@ function ToastError({ icon, message, onDismiss, colorClass, className }: ToastEr
         <button
           onClick={onDismiss}
           className="p-1 hover:bg-white/10 rounded transition-colors"
-          aria-label="Dismiss"
+          aria-label={t('errDisplay.dismiss', 'Dismiss')}
         >
           <X className="w-4 h-4" />
         </button>
@@ -437,6 +446,7 @@ function CardError({
   retryState,
   showRetryCountdown,
 }: CardErrorProps) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn('rounded-lg border overflow-hidden', colorClass, className)}
@@ -460,7 +470,10 @@ function CardError({
           {appError.showTimeout && (
             <div className="mt-2 flex items-center gap-2 text-xs">
               <Clock className="w-3.5 h-3.5" />
-              <span>Expected wait: ~{appError.timeoutSeconds}s</span>
+              <span>
+                {t('errDisplay.expectedWait', 'Expected wait:')} ~{appError.timeoutSeconds}
+                {t('errDisplay.secondsUnit', 's')}
+              </span>
             </div>
           )}
 
@@ -469,9 +482,13 @@ function CardError({
             <div className="mt-2 flex items-center gap-2 text-xs">
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
               <span>
-                Retrying automatically in {retryState.countdown}s
+                {t('errDisplay.retryingAutomaticallyIn', 'Retrying automatically in')}{' '}
+                {retryState.countdown}
+                {t('errDisplay.secondsUnit', 's')}
                 {retryState.attemptsMade > 0 &&
-                  ` (attempt ${retryState.attemptsMade + 1}/${appError.retryCount + 1})`}
+                  ` (${t('errDisplay.attempt', 'attempt')} ${retryState.attemptsMade + 1}/${
+                    appError.retryCount + 1
+                  })`}
               </span>
             </div>
           )}
@@ -482,7 +499,7 @@ function CardError({
           <button
             onClick={onDismiss}
             className="p-1 hover:bg-white/10 rounded transition-colors"
-            aria-label="Dismiss error"
+            aria-label={t('errDisplay.dismissError', 'Dismiss error')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -502,7 +519,9 @@ function CardError({
             )}
           >
             <RefreshCw className={cn('w-3.5 h-3.5', retryState.isRetrying && 'animate-spin')} />
-            {retryState.isRetrying ? 'Retrying...' : 'Try Again'}
+            {retryState.isRetrying
+              ? t('errDisplay.retrying', 'Retrying...')
+              : t('errDisplay.tryAgain', 'Try Again')}
           </button>
         )}
 
@@ -512,7 +531,7 @@ function CardError({
             className="px-3 py-1.5 text-sm hover:bg-white/10 rounded-md transition-colors flex items-center gap-2"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            Get Help
+            {t('errDisplay.getHelp', 'Get Help')}
           </button>
         )}
 
@@ -524,12 +543,12 @@ function CardError({
           {isExpanded ? (
             <>
               <ChevronUp className="w-3 h-3" />
-              Hide Details
+              {t('errDisplay.hideDetails', 'Hide Details')}
             </>
           ) : (
             <>
               <ChevronDown className="w-3 h-3" />
-              Show Details
+              {t('errDisplay.showDetails', 'Show Details')}
             </>
           )}
         </button>
@@ -540,22 +559,27 @@ function CardError({
         <div className="px-4 pb-4 pt-0">
           <div className="p-3 bg-black/20 rounded-md text-xs font-mono space-y-1">
             <p>
-              <span className="opacity-60">Code:</span> {appError.code}
+              <span className="opacity-60">{t('errDisplay.codeLabel', 'Code:')}</span>{' '}
+              {appError.code}
             </p>
             <p>
-              <span className="opacity-60">Category:</span> {appError.category}
+              <span className="opacity-60">{t('errDisplay.categoryLabel', 'Category:')}</span>{' '}
+              {appError.category}
             </p>
             <p>
-              <span className="opacity-60">Timestamp:</span> {appError.timestamp.toISOString()}
+              <span className="opacity-60">{t('errDisplay.timestampLabel', 'Timestamp:')}</span>{' '}
+              {appError.timestamp.toISOString()}
             </p>
             {appError.context && (
               <p>
-                <span className="opacity-60">Context:</span> {JSON.stringify(appError.context)}
+                <span className="opacity-60">{t('errDisplay.contextLabel', 'Context:')}</span>{' '}
+                {JSON.stringify(appError.context)}
               </p>
             )}
             {appError.originalError && (
               <p className="break-all">
-                <span className="opacity-60">Original:</span> {appError.originalError.message}
+                <span className="opacity-60">{t('errDisplay.originalLabel', 'Original:')}</span>{' '}
+                {appError.originalError.message}
               </p>
             )}
           </div>
@@ -583,6 +607,7 @@ export function DataLoadError({
   onRetry?: () => void;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const formatted = formatErrorForDisplay(error);
 
   return (
@@ -593,7 +618,9 @@ export function DataLoadError({
       <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
         <AlertTriangle className="w-8 h-8 text-red-400" />
       </div>
-      <h3 className="text-lg font-semibold text-surface-100 mb-2">Unable to load {entity}</h3>
+      <h3 className="text-lg font-semibold text-surface-100 mb-2">
+        {t('errDisplay.unableToLoad', 'Unable to load')} {entity}
+      </h3>
       <p className="text-surface-400 text-sm max-w-md mb-2">{formatted.message}</p>
       <p className="text-surface-500 text-xs max-w-md mb-6">{formatted.hint}</p>
       {formatted.canRetry && onRetry && (
@@ -602,7 +629,7 @@ export function DataLoadError({
           className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg flex items-center gap-2 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
-          Try Again
+          {t('errDisplay.tryAgain', 'Try Again')}
         </button>
       )}
     </div>
@@ -633,6 +660,7 @@ export function ConnectionError({
   onRetry?: () => void;
   className?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -643,8 +671,15 @@ export function ConnectionError({
     >
       <WifiOff className="w-5 h-5" />
       <div className="flex-1">
-        <p className="font-medium text-sm">Cannot connect to server</p>
-        <p className="text-xs opacity-80">Make sure the backend is running and try again.</p>
+        <p className="font-medium text-sm">
+          {t('errDisplay.cannotConnectToServer', 'Cannot connect to server')}
+        </p>
+        <p className="text-xs opacity-80">
+          {t(
+            'errDisplay.backendRunningHint',
+            'Make sure the backend is running and try again.'
+          )}
+        </p>
       </div>
       {onRetry && (
         <button
@@ -652,7 +687,7 @@ export function ConnectionError({
           className="px-3 py-1.5 text-sm bg-amber-500/20 hover:bg-amber-500/30 rounded transition-colors flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
-          Retry
+          {t('errDisplay.retry', 'Retry')}
         </button>
       )}
     </div>

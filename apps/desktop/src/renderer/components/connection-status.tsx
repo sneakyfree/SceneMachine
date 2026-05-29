@@ -15,6 +15,7 @@ import {
   getConnectionStatusInfo,
 } from '../lib/websocket';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 interface ConnectionStatusProps {
   /**
@@ -114,6 +115,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
   showTooltip = true,
   showLabel = false,
 }: ConnectionStatusProps) {
+  const { t } = useTranslation();
   const { connectionState, error, reconnectAttempts, isPolling } = useWebSocketStore();
   const [showDetails, setShowDetails] = useState(false);
 
@@ -166,7 +168,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
           onClick={() => setShowDetails(!showDetails)}
           title={showTooltip && statusInfo.message ? statusInfo.message : undefined}
           role="status"
-          aria-label={`Connection status: ${statusInfo.label}`}
+          aria-label={`${t('connStatus.connectionStatus', 'Connection status')}: ${statusInfo.label}`}
         >
           {IconComponent}
           <span className="font-medium">{statusInfo.label}</span>
@@ -180,7 +182,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
             onClick={handleReconnect}
             className="text-xs text-primary-400 hover:text-primary-300"
           >
-            Reconnect
+            {t('connStatus.reconnect', 'Reconnect')}
           </button>
         )}
       </div>
@@ -199,7 +201,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
           sizes.text
         )}
         role="status"
-        aria-label={`Connection status: ${statusInfo.label}`}
+        aria-label={`${t('connStatus.connectionStatus', 'Connection status')}: ${statusInfo.label}`}
       >
         {IconComponent}
         <span className="font-medium">{statusInfo.label}</span>
@@ -210,7 +212,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
       )}
 
       {isPolling && (
-        <p className="text-yellow-300 text-xs">Real-time updates may be delayed while polling</p>
+        <p className="text-yellow-300 text-xs">{t('connStatus.realtimeDelayedPolling', 'Real-time updates may be delayed while polling')}</p>
       )}
 
       {/* Reconnect button for error/disconnected states */}
@@ -228,7 +230,7 @@ export const ConnectionStatus = memo(function ConnectionStatus({
           )}
         >
           <RefreshCw className={sizes.icon} />
-          <span>Reconnect</span>
+          <span>{t('connStatus.reconnect', 'Reconnect')}</span>
         </button>
       )}
     </div>
@@ -246,6 +248,7 @@ export const ConnectionStatusBanner = memo(function ConnectionStatusBanner({
 }: {
   className?: string;
 }) {
+  const { t } = useTranslation();
   const { connectionState, error, reconnectAttempts, isPolling } = useWebSocketStore();
 
   // Don't show banner when connected normally
@@ -279,7 +282,7 @@ export const ConnectionStatusBanner = memo(function ConnectionStatusBanner({
             <span className="ml-2 text-surface-400 text-sm">{statusInfo.message}</span>
           )}
           {isPolling && (
-            <span className="ml-2 text-yellow-300 text-sm">Updates may be delayed</span>
+            <span className="ml-2 text-yellow-300 text-sm">{t('connStatus.updatesMayBeDelayed', 'Updates may be delayed')}</span>
           )}
         </div>
       </div>
@@ -296,7 +299,7 @@ export const ConnectionStatusBanner = memo(function ConnectionStatusBanner({
           )}
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Reconnect</span>
+          <span>{t('connStatus.reconnect', 'Reconnect')}</span>
         </button>
       )}
     </div>

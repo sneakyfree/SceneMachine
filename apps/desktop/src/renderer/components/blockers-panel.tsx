@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 // Severity levels matching backend
 type BlockerSeverity = 'critical' | 'high' | 'medium' | 'low';
@@ -82,7 +83,8 @@ const SEVERITY_CONFIG: Record<
     bgColor: string;
     textColor: string;
     borderColor: string;
-    label: string;
+    labelKey: string;
+    labelEn: string;
   }
 > = {
   critical: {
@@ -90,28 +92,32 @@ const SEVERITY_CONFIG: Record<
     bgColor: 'bg-red-500/10',
     textColor: 'text-red-400',
     borderColor: 'border-red-500/30',
-    label: 'Critical',
+    labelKey: 'blockers.severityCritical',
+    labelEn: 'Critical',
   },
   high: {
     icon: AlertTriangle,
     bgColor: 'bg-orange-500/10',
     textColor: 'text-orange-400',
     borderColor: 'border-orange-500/30',
-    label: 'High',
+    labelKey: 'blockers.severityHigh',
+    labelEn: 'High',
   },
   medium: {
     icon: Info,
     bgColor: 'bg-yellow-500/10',
     textColor: 'text-yellow-400',
     borderColor: 'border-yellow-500/30',
-    label: 'Medium',
+    labelKey: 'blockers.severityMedium',
+    labelEn: 'Medium',
   },
   low: {
     icon: Info,
     bgColor: 'bg-blue-500/10',
     textColor: 'text-blue-400',
     borderColor: 'border-blue-500/30',
-    label: 'Low',
+    labelKey: 'blockers.severityLow',
+    labelEn: 'Low',
   },
 };
 
@@ -121,37 +127,47 @@ const PRIORITY_CONFIG: Record<
   {
     icon: typeof Zap;
     color: string;
-    label: string;
+    labelKey: string;
+    labelEn: string;
   }
 > = {
   quick_win: {
     icon: Zap,
     color: 'text-green-400',
-    label: 'Quick Win',
+    labelKey: 'blockers.priorityQuickWin',
+    labelEn: 'Quick Win',
   },
   thirty_days: {
     icon: Clock,
     color: 'text-yellow-400',
-    label: '30 Days',
+    labelKey: 'blockers.priorityThirtyDays',
+    labelEn: '30 Days',
   },
   ninety_days: {
     icon: Target,
     color: 'text-blue-400',
-    label: '90 Days',
+    labelKey: 'blockers.priorityNinetyDays',
+    labelEn: '90 Days',
   },
 };
 
 // Category labels
-const CATEGORY_LABELS: Record<BlockerCategory, string> = {
-  character_missing: 'Missing Character',
-  character_incomplete: 'Incomplete Character',
-  voice_missing: 'Missing Voice',
-  reference_missing: 'Missing Reference',
-  scene_vague: 'Vague Scene Description',
-  quality_risk: 'Quality Risk',
-  resource_insufficient: 'Insufficient Resources',
-  approval_required: 'Approval Required',
-  budget_exceeded: 'Budget Exceeded',
+const CATEGORY_LABELS: Record<BlockerCategory, { key: string; en: string }> = {
+  character_missing: { key: 'blockers.categoryCharacterMissing', en: 'Missing Character' },
+  character_incomplete: {
+    key: 'blockers.categoryCharacterIncomplete',
+    en: 'Incomplete Character',
+  },
+  voice_missing: { key: 'blockers.categoryVoiceMissing', en: 'Missing Voice' },
+  reference_missing: { key: 'blockers.categoryReferenceMissing', en: 'Missing Reference' },
+  scene_vague: { key: 'blockers.categorySceneVague', en: 'Vague Scene Description' },
+  quality_risk: { key: 'blockers.categoryQualityRisk', en: 'Quality Risk' },
+  resource_insufficient: {
+    key: 'blockers.categoryResourceInsufficient',
+    en: 'Insufficient Resources',
+  },
+  approval_required: { key: 'blockers.categoryApprovalRequired', en: 'Approval Required' },
+  budget_exceeded: { key: 'blockers.categoryBudgetExceeded', en: 'Budget Exceeded' },
 };
 
 // Blocker item component
@@ -168,6 +184,7 @@ function BlockerItem({
   onFixClick: (fix: Unlocker) => void;
   isApplyingFix: string | null;
 }) {
+  const { t } = useTranslation();
   const config = SEVERITY_CONFIG[blocker.severity];
   const Icon = config.icon;
 
@@ -196,9 +213,11 @@ function BlockerItem({
                 config.textColor
               )}
             >
-              {config.label}
+              {t(config.labelKey, config.labelEn)}
             </span>
-            <span className="text-xs text-surface-400">{CATEGORY_LABELS[blocker.category]}</span>
+            <span className="text-xs text-surface-400">
+              {t(CATEGORY_LABELS[blocker.category].key, CATEGORY_LABELS[blocker.category].en)}
+            </span>
           </div>
           <h4 className="font-medium text-sm text-white truncate">{blocker.title}</h4>
           <p className="text-xs text-surface-400 mt-1 line-clamp-2">{blocker.description}</p>
@@ -207,7 +226,7 @@ function BlockerItem({
         <div className="flex items-center gap-2">
           {blocker.suggestedFixes.length > 0 && (
             <span className="text-xs text-surface-400 bg-surface-700 px-2 py-1 rounded">
-              {blocker.suggestedFixes.length} fixes
+              {blocker.suggestedFixes.length} {t('blockers.fixesCountSuffix', 'fixes')}
             </span>
           )}
           {isExpanded ? (
@@ -224,7 +243,7 @@ function BlockerItem({
           {/* Impact */}
           {blocker.impact && (
             <div className="text-xs text-surface-300 bg-surface-800/50 p-2 rounded">
-              <span className="font-medium text-surface-200">Impact: </span>
+              <span className="font-medium text-surface-200">{t('blockers.impactLabel', 'Impact:')} </span>
               {blocker.impact}
             </div>
           )}
@@ -232,10 +251,11 @@ function BlockerItem({
           {/* Affected items */}
           {blocker.affectedItems.length > 0 && (
             <div className="text-xs">
-              <span className="text-surface-400">Affects: </span>
+              <span className="text-surface-400">{t('blockers.affectsLabel', 'Affects:')} </span>
               <span className="text-surface-300">
                 {blocker.affectedItems.slice(0, 3).join(', ')}
-                {blocker.affectedItems.length > 3 && ` +${blocker.affectedItems.length - 3} more`}
+                {blocker.affectedItems.length > 3 &&
+                  ` +${blocker.affectedItems.length - 3} ${t('blockers.moreSuffix', 'more')}`}
               </span>
             </div>
           )}
@@ -245,7 +265,7 @@ function BlockerItem({
             <div className="space-y-2">
               <h5 className="text-xs font-medium text-surface-300 flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                Suggested Fixes
+                {t('blockers.suggestedFixes', 'Suggested Fixes')}
               </h5>
               <div className="space-y-1.5">
                 {blocker.suggestedFixes.map((fix) => {
@@ -277,12 +297,12 @@ function BlockerItem({
                         ) : fix.autoApplicable ? (
                           <>
                             <Zap className="w-3 h-3" />
-                            Apply
+                            {t('blockers.applyFix', 'Apply')}
                           </>
                         ) : (
                           <>
                             <ExternalLink className="w-3 h-3" />
-                            View
+                            {t('blockers.viewFix', 'View')}
                           </>
                         )}
                       </button>
@@ -305,6 +325,7 @@ export function BlockersPanel({
   compact = false,
   className,
 }: BlockersPanelProps) {
+  const { t } = useTranslation();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<BlockerSeverity | 'all'>('all');
   const [isApplyingFix, setIsApplyingFix] = useState<string | null>(null);
@@ -410,15 +431,21 @@ export function BlockersPanel({
   }
 
   if (error) {
-    return <div className={cn('p-4 text-red-400 text-sm', className)}>Failed to load blockers</div>;
+    return (
+      <div className={cn('p-4 text-red-400 text-sm', className)}>
+        {t('blockers.loadError', 'Failed to load blockers')}
+      </div>
+    );
   }
 
   if (!blockers || blockers.length === 0) {
     return (
       <div className={cn('p-6 text-center', className)}>
         <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-green-400" />
-        <h3 className="text-lg font-medium text-white mb-1">All Clear!</h3>
-        <p className="text-sm text-surface-400">No blockers detected. Ready to generate.</p>
+        <h3 className="text-lg font-medium text-white mb-1">{t('blockers.allClearTitle', 'All Clear!')}</h3>
+        <p className="text-sm text-surface-400">
+          {t('blockers.allClearMessage', 'No blockers detected. Ready to generate.')}
+        </p>
       </div>
     );
   }
@@ -429,7 +456,7 @@ export function BlockersPanel({
       <div className="flex items-center justify-between p-4 border-b border-surface-700">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-yellow-400" />
-          <h2 className="font-semibold text-white">Blockers</h2>
+          <h2 className="font-semibold text-white">{t('blockers.panelTitle', 'Blockers')}</h2>
           <span className="text-xs bg-surface-700 px-2 py-0.5 rounded-full text-surface-300">
             {summaryCounts.total}
           </span>
@@ -439,12 +466,12 @@ export function BlockersPanel({
         <div className="flex items-center gap-1">
           {summaryCounts.critical > 0 && (
             <span className="px-2 py-0.5 text-xs font-medium bg-red-500/20 text-red-400 rounded">
-              {summaryCounts.critical} Critical
+              {summaryCounts.critical} {t('blockers.severityCritical', 'Critical')}
             </span>
           )}
           {summaryCounts.high > 0 && (
             <span className="px-2 py-0.5 text-xs font-medium bg-orange-500/20 text-orange-400 rounded">
-              {summaryCounts.high} High
+              {summaryCounts.high} {t('blockers.severityHigh', 'High')}
             </span>
           )}
         </div>
@@ -464,7 +491,9 @@ export function BlockersPanel({
                   : 'text-surface-400 hover:bg-surface-700'
               )}
             >
-              {severity === 'all' ? 'All' : SEVERITY_CONFIG[severity].label}
+              {severity === 'all'
+                ? t('blockers.filterAll', 'All')
+                : t(SEVERITY_CONFIG[severity].labelKey, SEVERITY_CONFIG[severity].labelEn)}
             </button>
           ))}
         </div>

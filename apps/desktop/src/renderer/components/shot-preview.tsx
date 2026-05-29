@@ -19,6 +19,7 @@ import {
   Minimize,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import { VideoPlayer } from './video-player';
 
 interface Shot {
@@ -58,6 +59,7 @@ export const ShotPreview = memo(function ShotPreview({
   onRegenerate,
   disabled = false,
 }: ShotPreviewProps) {
+  const { t } = useTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectNotes, setRejectNotes] = useState('');
@@ -82,7 +84,7 @@ export const ShotPreview = memo(function ShotPreview({
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <Loader2 className="w-12 h-12 text-brand-400 animate-spin mb-4" />
             <div className="text-center px-4">
-              <p className="font-medium mb-1">{latestJob?.progressMessage || 'Generating...'}</p>
+              <p className="font-medium mb-1">{latestJob?.progressMessage || t('shotPreview.generating', 'Generating...')}</p>
               {latestJob?.progressPercent !== undefined && (
                 <div className="w-48 h-2 bg-surface-700 rounded-full overflow-hidden">
                   <div
@@ -97,9 +99,9 @@ export const ShotPreview = memo(function ShotPreview({
           /* Failed state */
           <div className="absolute inset-0 flex flex-col items-center justify-center text-red-400">
             <AlertCircle className="w-12 h-12 mb-4" />
-            <p className="font-medium mb-2">Generation Failed</p>
+            <p className="font-medium mb-2">{t('shotPreview.generationFailed', 'Generation Failed')}</p>
             <p className="text-sm text-surface-400 text-center px-4 max-w-xs">
-              {latestJob?.errorMessage || 'An error occurred during generation'}
+              {latestJob?.errorMessage || t('shotPreview.generationError', 'An error occurred during generation')}
             </p>
             <button
               onClick={() => onRegenerate(shot.id)}
@@ -107,7 +109,7 @@ export const ShotPreview = memo(function ShotPreview({
               className="mt-4 btn-secondary text-sm"
             >
               <RotateCcw className="w-4 h-4 mr-1" />
-              Retry
+              {t('shotPreview.retry', 'Retry')}
             </button>
           </div>
         ) : isGenerated || isApproved ? (
@@ -129,7 +131,7 @@ export const ShotPreview = memo(function ShotPreview({
                 <button
                   onClick={() => setIsPlaying(false)}
                   className="absolute top-3 left-3 p-2 bg-black/50 hover:bg-black/70 text-white rounded-lg transition-colors z-10"
-                  title="Close player"
+                  title={t('shotPreview.closePlayer', 'Close player')}
                 >
                   <Minimize className="w-4 h-4" />
                 </button>
@@ -159,7 +161,7 @@ export const ShotPreview = memo(function ShotPreview({
                       <Play className="w-8 h-8 text-white ml-1" />
                     </div>
                     <span className="absolute bottom-4 text-white text-sm font-medium">
-                      Click to preview
+                      {t('shotPreview.clickToPreview', 'Click to preview')}
                     </span>
                   </button>
                 )}
@@ -170,7 +172,7 @@ export const ShotPreview = memo(function ShotPreview({
             {isApproved && !isPlaying && (
               <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-green-500/90 text-white text-xs font-medium rounded-full">
                 <Check className="w-3 h-3" />
-                Approved
+                {t('shotPreview.approved', 'Approved')}
               </div>
             )}
           </>
@@ -178,8 +180,8 @@ export const ShotPreview = memo(function ShotPreview({
           /* Not generated yet */
           <div className="absolute inset-0 flex flex-col items-center justify-center text-surface-500">
             <Clock className="w-12 h-12 mb-4" />
-            <p className="font-medium">Not Generated</p>
-            <p className="text-sm text-surface-500 mt-1">Waiting in queue</p>
+            <p className="font-medium">{t('shotPreview.notGenerated', 'Not Generated')}</p>
+            <p className="text-sm text-surface-500 mt-1">{t('shotPreview.waitingInQueue', 'Waiting in queue')}</p>
           </div>
         )}
       </div>
@@ -223,10 +225,10 @@ export const ShotPreview = memo(function ShotPreview({
               }}
               disabled={disabled || isApproved}
               className="flex-1 btn-primary text-sm"
-              title="Approve this take"
+              title={t('shotPreview.approveThisTake', 'Approve this take')}
             >
               <Check className="w-4 h-4 mr-1" />
-              Use This Take
+              {t('shotPreview.useThisTake', 'Use This Take')}
             </button>
             <button
               onClick={() => {
@@ -235,10 +237,10 @@ export const ShotPreview = memo(function ShotPreview({
               }}
               disabled={disabled}
               className="flex-1 btn-secondary text-sm"
-              title="Generate another take"
+              title={t('shotPreview.generateAnotherTake', 'Generate another take')}
             >
               <RotateCcw className="w-4 h-4 mr-1" />
-              Regenerate
+              {t('shotPreview.regenerate', 'Regenerate')}
             </button>
             <button
               onClick={async () => {
@@ -255,7 +257,7 @@ export const ShotPreview = memo(function ShotPreview({
               }}
               disabled={disabled}
               className="btn-secondary text-sm"
-              title="Download video file"
+              title={t('shotPreview.downloadVideoFile', 'Download video file')}
             >
               <Download className="w-4 h-4" />
             </button>
@@ -271,7 +273,7 @@ export const ShotPreview = memo(function ShotPreview({
               className="flex-1 btn-primary text-sm"
             >
               <ThumbsUp className="w-4 h-4 mr-1" />
-              Approve
+              {t('shotPreview.approve', 'Approve')}
             </button>
             <button
               onClick={() => setShowRejectModal(true)}
@@ -279,13 +281,13 @@ export const ShotPreview = memo(function ShotPreview({
               className="flex-1 btn-secondary text-sm"
             >
               <ThumbsDown className="w-4 h-4 mr-1" />
-              Reject
+              {t('shotPreview.reject', 'Reject')}
             </button>
             <button
               onClick={() => onRegenerate(shot.id)}
               disabled={disabled}
               className="btn-secondary text-sm"
-              title="Regenerate"
+              title={t('shotPreview.regenerate', 'Regenerate')}
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -299,7 +301,7 @@ export const ShotPreview = memo(function ShotPreview({
             className="w-full btn-primary text-sm mt-4"
           >
             <RotateCcw className="w-4 h-4 mr-1" />
-            Regenerate
+            {t('shotPreview.regenerate', 'Regenerate')}
           </button>
         )}
       </div>
@@ -308,23 +310,23 @@ export const ShotPreview = memo(function ShotPreview({
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-surface-800 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium mb-4">Reject Shot</h3>
+            <h3 className="text-lg font-medium mb-4">{t('shotPreview.rejectShot', 'Reject Shot')}</h3>
             <p className="text-sm text-surface-400 mb-4">
-              Provide feedback for regeneration (optional):
+              {t('shotPreview.rejectFeedbackPrompt', 'Provide feedback for regeneration (optional):')}
             </p>
             <textarea
               value={rejectNotes}
               onChange={(e) => setRejectNotes(e.target.value)}
-              placeholder="e.g., Character looks different, lighting is too dark..."
+              placeholder={t('shotPreview.rejectNotesPlaceholder', 'e.g., Character looks different, lighting is too dark...')}
               rows={3}
               className="w-full px-3 py-2 bg-surface-900 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500 resize-none mb-4"
             />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowRejectModal(false)} className="btn-secondary">
-                Cancel
+                {t('shotPreview.cancel', 'Cancel')}
               </button>
               <button onClick={handleReject} className="btn-primary bg-red-500 hover:bg-red-600">
-                Reject Shot
+                {t('shotPreview.rejectShot', 'Reject Shot')}
               </button>
             </div>
           </div>
