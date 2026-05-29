@@ -20,6 +20,7 @@ import { cn } from '../lib/utils';
 import { TimelinePreview } from '../components/timeline-preview';
 import { WatermarkPicker } from '../components/watermark-picker';
 import { api } from '../api/client';
+import { useTranslation } from '../i18n/use-translation';
 
 // Export format options
 interface ExportFormat {
@@ -122,6 +123,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export function ExportPage() {
+  const { t } = useTranslation();
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -276,7 +278,7 @@ export function ExportPage() {
         active: true,
         percent: 0,
         stage: 'starting',
-        message: 'Starting export...',
+        message: t('export.startingExport', 'Starting export...'),
       });
     },
     onSuccess: (_result) => {
@@ -284,7 +286,7 @@ export function ExportPage() {
         active: false,
         percent: 100,
         stage: 'complete',
-        message: 'Export complete!',
+        message: t('export.exportComplete', 'Export complete!'),
       });
       queryClient.invalidateQueries({ queryKey: ['exportHistory', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
@@ -294,7 +296,7 @@ export function ExportPage() {
         active: false,
         percent: 0,
         stage: 'error',
-        message: error instanceof Error ? error.message : 'Export failed',
+        message: error instanceof Error ? error.message : t('export.exportFailed', 'Export failed'),
       });
     },
   });
@@ -354,7 +356,7 @@ export function ExportPage() {
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
               <Download className="w-5 h-5 text-brand-400" />
-              Export Movie
+              {t('export.exportMovie', 'Export Movie')}
             </h1>
             <p className="text-sm text-surface-400">{project?.name}</p>
           </div>
@@ -370,12 +372,12 @@ export function ExportPage() {
               {exportMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Exporting...
+                  {t('export.exporting', 'Exporting...')}
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  Export Movie
+                  {t('export.exportMovie', 'Export Movie')}
                 </>
               )}
             </button>
@@ -383,8 +385,8 @@ export function ExportPage() {
             <div className="flex items-center gap-2 text-yellow-400">
               <AlertTriangle className="w-4 h-4" />
               <span className="text-sm">
-                {assemblyStatus?.generatedShots || 0}/{assemblyStatus?.totalShots || 0} shots
-                generated
+                {assemblyStatus?.generatedShots || 0}/{assemblyStatus?.totalShots || 0}{' '}
+                {t('export.shotsGeneratedSuffix', 'shots generated')}
               </span>
             </div>
           )}
@@ -398,7 +400,7 @@ export function ExportPage() {
           <div className="card mb-6">
             <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
               <Film className="w-5 h-5 text-brand-400" />
-              Assembly Status
+              {t('export.assemblyStatus', 'Assembly Status')}
             </h2>
 
             {assemblyStatus && (
@@ -406,7 +408,7 @@ export function ExportPage() {
                 {/* Progress */}
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-surface-400">Shots Generated</span>
+                    <span className="text-surface-400">{t('export.shotsGenerated', 'Shots Generated')}</span>
                     <span>
                       {assemblyStatus.generatedShots ?? 0}/{assemblyStatus.totalShots ?? 0}
                     </span>
@@ -431,24 +433,24 @@ export function ExportPage() {
                 {/* Stats grid */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-surface-800/50 rounded-lg p-3">
-                    <div className="text-surface-400 text-xs mb-1">Scenes</div>
+                    <div className="text-surface-400 text-xs mb-1">{t('export.scenes', 'Scenes')}</div>
                     <div className="text-xl font-bold">{assemblyStatus.totalScenes ?? 0}</div>
                   </div>
                   <div className="bg-surface-800/50 rounded-lg p-3">
-                    <div className="text-surface-400 text-xs mb-1">Total Duration</div>
+                    <div className="text-surface-400 text-xs mb-1">{t('export.totalDuration', 'Total Duration')}</div>
                     <div className="text-xl font-bold">
                       {formatDuration(assemblyStatus.totalDuration)}
                     </div>
                   </div>
                   <div className="bg-surface-800/50 rounded-lg p-3">
-                    <div className="text-surface-400 text-xs mb-1">Status</div>
+                    <div className="text-surface-400 text-xs mb-1">{t('export.status', 'Status')}</div>
                     <div
                       className={cn(
                         'text-xl font-bold',
                         assemblyStatus.isReady ? 'text-green-400' : 'text-yellow-400'
                       )}
                     >
-                      {assemblyStatus.isReady ? 'Ready' : 'Pending'}
+                      {assemblyStatus.isReady ? t('export.ready', 'Ready') : t('export.pending', 'Pending')}
                     </div>
                   </div>
                 </div>
@@ -464,10 +466,10 @@ export function ExportPage() {
                   <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-yellow-400 mb-2">
                       <AlertTriangle className="w-4 h-4" />
-                      <span className="font-medium">Missing Shots</span>
+                      <span className="font-medium">{t('export.missingShots', 'Missing Shots')}</span>
                     </div>
                     <p className="text-sm text-surface-400">
-                      The following shots need to be generated:{' '}
+                      {t('export.followingShotsNeedGenerated', 'The following shots need to be generated:')}{' '}
                       {assemblyStatus.missingShots.join(', ')}
                       {assemblyStatus.missingShots.length >= 10 && '...'}
                     </p>
@@ -475,7 +477,7 @@ export function ExportPage() {
                       onClick={() => navigate(`/project/${projectId}/generate`)}
                       className="mt-2 text-sm text-brand-400 hover:text-brand-300"
                     >
-                      Go to Generation
+                      {t('export.goToGeneration', 'Go to Generation')}
                     </button>
                   </div>
                 )}
@@ -488,7 +490,7 @@ export function ExportPage() {
             <div className="card mb-6">
               <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <Play className="w-5 h-5 text-brand-400" />
-                Timeline Preview
+                {t('export.timelinePreview', 'Timeline Preview')}
               </h2>
               <TimelinePreview
                 scenes={timeline.scenes}
@@ -509,7 +511,7 @@ export function ExportPage() {
             <div className="card mb-6">
               <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <Loader2 className="w-5 h-5 text-brand-400 animate-spin" />
-                Export Progress
+                {t('export.exportProgress', 'Export Progress')}
               </h2>
               <div className="space-y-4">
                 <div className="w-full h-3 bg-surface-800 rounded-full overflow-hidden">
@@ -532,7 +534,7 @@ export function ExportPage() {
             <div className="card">
               <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <FileVideo className="w-5 h-5 text-brand-400" />
-                Export History
+                {t('export.exportHistory', 'Export History')}
               </h2>
               <div className="space-y-2">
                 {exportHistory.map((item: any, idx: number) => (
@@ -559,7 +561,7 @@ export function ExportPage() {
                           (window.electronAPI as any).showItemInFolder?.(item.outputPath);
                         }}
                         className="p-2 hover:bg-surface-700 rounded transition-colors"
-                        title="Show in folder"
+                        title={t('export.showInFolder', 'Show in folder')}
                       >
                         <Folder className="w-4 h-4" />
                       </button>
@@ -575,13 +577,13 @@ export function ExportPage() {
         <div className="w-80 border-l border-surface-800 overflow-y-auto p-4">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <Settings className="w-5 h-5 text-brand-400" />
-            Export Settings
+            {t('export.exportSettings', 'Export Settings')}
           </h2>
 
           <div className="space-y-4">
             {/* Platform Presets */}
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Platform Preset</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('export.platformPreset', 'Platform Preset')}</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   {
@@ -668,7 +670,7 @@ export function ExportPage() {
 
             {/* Format */}
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Format</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('export.format', 'Format')}</label>
               <select
                 value={settings.format}
                 onChange={(e) => handleSettingChange('format', e.target.value)}
@@ -691,7 +693,7 @@ export function ExportPage() {
 
             {/* Quality */}
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Quality</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('export.quality', 'Quality')}</label>
               <select
                 value={settings.quality}
                 onChange={(e) => handleSettingChange('quality', e.target.value)}
@@ -703,10 +705,10 @@ export function ExportPage() {
                   </option>
                 )) || (
                   <>
-                    <option value="draft">Draft (Fast)</option>
-                    <option value="standard">Standard</option>
-                    <option value="high">High</option>
-                    <option value="master">Master (Slow)</option>
+                    <option value="draft">{t('export.qualityDraft', 'Draft (Fast)')}</option>
+                    <option value="standard">{t('export.qualityStandard', 'Standard')}</option>
+                    <option value="high">{t('export.qualityHigh', 'High')}</option>
+                    <option value="master">{t('export.qualityMaster', 'Master (Slow)')}</option>
                   </>
                 )}
               </select>
@@ -714,7 +716,7 @@ export function ExportPage() {
 
             {/* Resolution */}
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Resolution</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('export.resolution', 'Resolution')}</label>
               <select
                 value={settings.resolution}
                 onChange={(e) => handleSettingChange('resolution', e.target.value)}
@@ -730,7 +732,7 @@ export function ExportPage() {
 
             {/* Frame Rate */}
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Frame Rate</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('export.frameRate', 'Frame Rate')}</label>
               <select
                 value={settings.frameRate}
                 onChange={(e) => handleSettingChange('frameRate', parseInt(e.target.value))}
@@ -746,12 +748,12 @@ export function ExportPage() {
 
             {/* Output Filename */}
             <div>
-              <label className="block text-sm text-surface-400 mb-2">Output Filename</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('export.outputFilename', 'Output Filename')}</label>
               <input
                 type="text"
                 value={settings.outputFilename}
                 onChange={(e) => handleSettingChange('outputFilename', e.target.value)}
-                placeholder="movie_export"
+                placeholder={t('export.outputFilenamePlaceholder', 'movie_export')}
                 className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2"
               />
             </div>
@@ -765,7 +767,7 @@ export function ExportPage() {
                   onChange={(e) => handleSettingChange('includeAudio', e.target.checked)}
                   className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                 />
-                <span className="text-sm">Include Audio</span>
+                <span className="text-sm">{t('export.includeAudio', 'Include Audio')}</span>
               </label>
 
               <label className="flex items-center gap-3 cursor-pointer">
@@ -775,7 +777,7 @@ export function ExportPage() {
                   onChange={(e) => handleSettingChange('includeSubtitles', e.target.checked)}
                   className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                 />
-                <span className="text-sm">Include Subtitles</span>
+                <span className="text-sm">{t('export.includeSubtitles', 'Include Subtitles')}</span>
               </label>
 
               <label className="flex items-center gap-3 cursor-pointer">
@@ -785,7 +787,7 @@ export function ExportPage() {
                   onChange={(e) => handleSettingChange('includeTextOverlays', e.target.checked)}
                   className="w-4 h-4 rounded border-surface-600 bg-surface-800"
                 />
-                <span className="text-sm">Include Text Overlays</span>
+                <span className="text-sm">{t('export.includeTextOverlays', 'Include Text Overlays')}</span>
               </label>
             </div>
 
@@ -827,11 +829,11 @@ export function ExportPage() {
             {estimatedSize && (
               <div className="pt-4 border-t border-surface-700">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-surface-400">Estimated Size</span>
+                  <span className="text-surface-400">{t('export.estimatedSize', 'Estimated Size')}</span>
                   <span className="font-medium">{formatFileSize(estimatedSize)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-2">
-                  <span className="text-surface-400">Duration</span>
+                  <span className="text-surface-400">{t('export.duration', 'Duration')}</span>
                   <span className="font-medium">
                     {formatDuration(timeline?.totalDuration || 0)}
                   </span>

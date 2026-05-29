@@ -28,6 +28,7 @@ import {
   Info,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 
 /* ────────────────────── Types ────────────────────── */
 
@@ -93,10 +94,38 @@ interface DashboardStats {
 /* ────────────────────── Tab views ────────────────── */
 
 const TABS = [
-  { id: 'client', label: 'Client', icon: Eye, description: 'Plain-language summary' },
-  { id: 'operator', label: 'Operator', icon: Clapperboard, description: 'Shot-by-shot breakdown' },
-  { id: 'technical', label: 'Technical', icon: Code2, description: 'Model parameters & logs' },
-  { id: 'audit', label: 'Audit', icon: Shield, description: 'Immutable snapshots' },
+  {
+    id: 'client',
+    labelKey: 'explain.tabClient',
+    label: 'Client',
+    icon: Eye,
+    descKey: 'explain.tabClientDesc',
+    description: 'Plain-language summary',
+  },
+  {
+    id: 'operator',
+    labelKey: 'explain.tabOperator',
+    label: 'Operator',
+    icon: Clapperboard,
+    descKey: 'explain.tabOperatorDesc',
+    description: 'Shot-by-shot breakdown',
+  },
+  {
+    id: 'technical',
+    labelKey: 'explain.tabTechnical',
+    label: 'Technical',
+    icon: Code2,
+    descKey: 'explain.tabTechnicalDesc',
+    description: 'Model parameters & logs',
+  },
+  {
+    id: 'audit',
+    labelKey: 'explain.tabAudit',
+    label: 'Audit',
+    icon: Shield,
+    descKey: 'explain.tabAuditDesc',
+    description: 'Immutable snapshots',
+  },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -104,8 +133,9 @@ type TabId = (typeof TABS)[number]['id'];
 /* ────────────────────── Client View ─────────────── */
 
 function ClientView({ stats }: { stats: DashboardStats | undefined }) {
+  const { t } = useTranslation();
   if (!stats) {
-    return <EmptyState icon={Eye} message="No project data available yet" />;
+    return <EmptyState icon={Eye} message={t('explain.noProjectData', 'No project data available yet')} />;
   }
 
   // The runtime type doesn't always match the static `DashboardStats` shape
@@ -132,13 +162,13 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
     <div className="space-y-6">
       {/* Project summary */}
       <div className="card">
-        <h3 className="text-lg font-medium mb-4">Project Overview</h3>
+        <h3 className="text-lg font-medium mb-4">{t('explain.projectOverview', 'Project Overview')}</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <SummaryCard label="Scenes" value={projects.totalScenes} icon={Film} />
-          <SummaryCard label="Shots" value={projects.totalShots} icon={Clapperboard} />
-          <SummaryCard label="Characters" value={projects.totalCharacters} icon={Eye} />
+          <SummaryCard label={t('explain.scenes', 'Scenes')} value={projects.totalScenes} icon={Film} />
+          <SummaryCard label={t('explain.shots', 'Shots')} value={projects.totalShots} icon={Clapperboard} />
+          <SummaryCard label={t('explain.characters', 'Characters')} value={projects.totalCharacters} icon={Eye} />
           <SummaryCard
-            label="Total Cost"
+            label={t('explain.totalCost', 'Total Cost')}
             value={`$${(costs.totalCostUsd ?? 0).toFixed(2)}`}
             icon={DollarSign}
           />
@@ -147,12 +177,12 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
 
       {/* Generation status */}
       <div className="card">
-        <h3 className="text-lg font-medium mb-4">Generation Status</h3>
+        <h3 className="text-lg font-medium mb-4">{t('explain.generationStatus', 'Generation Status')}</h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-surface-400">Progress</span>
+            <span className="text-surface-400">{t('explain.progress', 'Progress')}</span>
             <span className="text-sm">
-              {generation.completedJobs} / {generation.totalJobs} shots complete
+              {generation.completedJobs} / {generation.totalJobs} {t('explain.shotsComplete', 'shots complete')}
             </span>
           </div>
           <div className="h-3 bg-surface-700 rounded-full overflow-hidden">
@@ -170,15 +200,15 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-400" />
-              <span>{generation.completedJobs} completed</span>
+              <span>{generation.completedJobs} {t('explain.completed', 'completed')}</span>
             </div>
             <div className="flex items-center gap-2">
               <XCircle className="w-4 h-4 text-red-400" />
-              <span>{generation.failedJobs} failed</span>
+              <span>{generation.failedJobs} {t('explain.failed', 'failed')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-yellow-400" />
-              <span>{generation.avgGenerationTimeSeconds.toFixed(0)}s avg</span>
+              <span>{generation.avgGenerationTimeSeconds.toFixed(0)}s {t('explain.avg', 'avg')}</span>
             </div>
           </div>
         </div>
@@ -205,12 +235,12 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
           <div>
             <p className="font-medium">
               {stats.budgetAlert.alert_type === 'budget_exceeded'
-                ? 'Budget Exceeded'
-                : 'Budget Warning'}
+                ? t('explain.budgetExceeded', 'Budget Exceeded')
+                : t('explain.budgetWarning', 'Budget Warning')}
             </p>
             <p className="text-sm text-surface-400 mt-1">
-              ${stats.budgetAlert.current_spend_usd?.toFixed(2)} of $
-              {stats.budgetAlert.budget_limit_usd?.toFixed(2)} used (
+              ${stats.budgetAlert.current_spend_usd?.toFixed(2)} {t('explain.of', 'of')} $
+              {stats.budgetAlert.budget_limit_usd?.toFixed(2)} {t('explain.used', 'used')} (
               {Math.round(stats.budgetAlert.percent_used ?? 0)}%)
             </p>
           </div>
@@ -219,16 +249,16 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
 
       {/* Estimated delivery */}
       <div className="card">
-        <h3 className="text-lg font-medium mb-2">Estimated Completion</h3>
+        <h3 className="text-lg font-medium mb-2">{t('explain.estimatedCompletion', 'Estimated Completion')}</h3>
         <p className="text-surface-400 text-sm">
-          Based on current rates, remaining shots should complete in approximately{' '}
+          {t('explain.estimatePrefix', 'Based on current rates, remaining shots should complete in approximately')}{' '}
           <span className="text-white font-medium">
             {Math.ceil(
               ((generation.totalJobs - generation.completedJobs) *
                 generation.avgGenerationTimeSeconds) /
                 60
             )}{' '}
-            minutes
+            {t('explain.minutes', 'minutes')}
           </span>
           .
         </p>
@@ -240,24 +270,25 @@ function ClientView({ stats }: { stats: DashboardStats | undefined }) {
 /* ────────────────────── Operator View ────────────── */
 
 function OperatorView({ jobs }: { jobs: GenerationJob[] }) {
+  const { t } = useTranslation();
   if (jobs.length === 0) {
-    return <EmptyState icon={Clapperboard} message="No generation jobs found" />;
+    return <EmptyState icon={Clapperboard} message={t('explain.noJobs', 'No generation jobs found')} />;
   }
 
   return (
     <div className="space-y-4">
       <div className="card">
-        <h3 className="text-lg font-medium mb-4">Shot-by-Shot Breakdown</h3>
+        <h3 className="text-lg font-medium mb-4">{t('explain.shotByShot', 'Shot-by-Shot Breakdown')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-surface-400 border-b border-surface-700">
-                <th className="pb-2 font-medium">Shot</th>
-                <th className="pb-2 font-medium">Status</th>
-                <th className="pb-2 font-medium">Provider</th>
-                <th className="pb-2 font-medium">Model</th>
-                <th className="pb-2 font-medium text-right">Time</th>
-                <th className="pb-2 font-medium text-right">Cost</th>
+                <th className="pb-2 font-medium">{t('explain.shot', 'Shot')}</th>
+                <th className="pb-2 font-medium">{t('explain.status', 'Status')}</th>
+                <th className="pb-2 font-medium">{t('explain.provider', 'Provider')}</th>
+                <th className="pb-2 font-medium">{t('explain.model', 'Model')}</th>
+                <th className="pb-2 font-medium text-right">{t('explain.time', 'Time')}</th>
+                <th className="pb-2 font-medium text-right">{t('explain.cost', 'Cost')}</th>
               </tr>
             </thead>
             <tbody>
@@ -286,16 +317,16 @@ function OperatorView({ jobs }: { jobs: GenerationJob[] }) {
 
       {/* Cost summary */}
       <div className="card">
-        <h3 className="text-sm font-medium text-surface-400 mb-3">Cost Summary</h3>
+        <h3 className="text-sm font-medium text-surface-400 mb-3">{t('explain.costSummary', 'Cost Summary')}</h3>
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
-            <span className="text-surface-400">Total Cost</span>
+            <span className="text-surface-400">{t('explain.totalCost', 'Total Cost')}</span>
             <p className="font-medium text-lg">
               ${jobs.reduce((sum, j) => sum + (j.cost_usd || 0), 0).toFixed(2)}
             </p>
           </div>
           <div>
-            <span className="text-surface-400">Avg/Shot</span>
+            <span className="text-surface-400">{t('explain.avgPerShot', 'Avg/Shot')}</span>
             <p className="font-medium text-lg">
               $
               {jobs.length > 0
@@ -304,7 +335,7 @@ function OperatorView({ jobs }: { jobs: GenerationJob[] }) {
             </p>
           </div>
           <div>
-            <span className="text-surface-400">Total Time</span>
+            <span className="text-surface-400">{t('explain.totalTime', 'Total Time')}</span>
             <p className="font-medium text-lg">
               {(jobs.reduce((sum, j) => sum + (j.generation_time_seconds || 0), 0) / 60).toFixed(1)}
               m
@@ -319,6 +350,7 @@ function OperatorView({ jobs }: { jobs: GenerationJob[] }) {
 /* ────────────────────── Technical View ───────────── */
 
 function TechnicalView({ jobs, agentLogs }: { jobs: GenerationJob[]; agentLogs: AgentLog[] }) {
+  const { t } = useTranslation();
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
 
   return (
@@ -327,11 +359,11 @@ function TechnicalView({ jobs, agentLogs }: { jobs: GenerationJob[]; agentLogs: 
       <div className="card">
         <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
           <Code2 className="w-5 h-5 text-brand-400" />
-          Agent Action Log
+          {t('explain.agentActionLog', 'Agent Action Log')}
         </h3>
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {agentLogs.length === 0 ? (
-            <p className="text-surface-400 text-sm">No agent actions logged yet.</p>
+            <p className="text-surface-400 text-sm">{t('explain.noAgentActions', 'No agent actions logged yet.')}</p>
           ) : (
             agentLogs.slice(0, 50).map((log) => (
               <div
@@ -370,7 +402,7 @@ function TechnicalView({ jobs, agentLogs }: { jobs: GenerationJob[]; agentLogs: 
 
       {/* Generation parameters per job */}
       <div className="card">
-        <h3 className="text-lg font-medium mb-4">Generation Parameters</h3>
+        <h3 className="text-lg font-medium mb-4">{t('explain.generationParameters', 'Generation Parameters')}</h3>
         <div className="space-y-1">
           {jobs.slice(0, 20).map((job) => (
             <div key={job.id} className="border border-surface-700 rounded-lg">
@@ -383,7 +415,7 @@ function TechnicalView({ jobs, agentLogs }: { jobs: GenerationJob[]; agentLogs: 
                 ) : (
                   <ChevronRight className="w-4 h-4 text-surface-400" />
                 )}
-                <span className="font-mono text-sm">Shot #{job.shot_number}</span>
+                <span className="font-mono text-sm">{t('explain.shot', 'Shot')} #{job.shot_number}</span>
                 <StatusBadge status={job.status} />
                 <span className="text-xs text-surface-500 ml-auto">{job.provider}</span>
               </button>
@@ -391,29 +423,29 @@ function TechnicalView({ jobs, agentLogs }: { jobs: GenerationJob[]; agentLogs: 
                 <div className="px-3 pb-3 pt-0 border-t border-surface-700">
                   <div className="grid grid-cols-2 gap-3 text-sm mt-3">
                     <div>
-                      <span className="text-surface-500 text-xs">Provider</span>
-                      <p className="capitalize">{job.provider || 'N/A'}</p>
+                      <span className="text-surface-500 text-xs">{t('explain.provider', 'Provider')}</span>
+                      <p className="capitalize">{job.provider || t('explain.na', 'N/A')}</p>
                     </div>
                     <div>
-                      <span className="text-surface-500 text-xs">Model</span>
-                      <p>{job.model || 'N/A'}</p>
+                      <span className="text-surface-500 text-xs">{t('explain.model', 'Model')}</span>
+                      <p>{job.model || t('explain.na', 'N/A')}</p>
                     </div>
                     <div>
-                      <span className="text-surface-500 text-xs">Cost</span>
-                      <p>{job.cost_usd ? `$${job.cost_usd.toFixed(6)}` : 'N/A'}</p>
+                      <span className="text-surface-500 text-xs">{t('explain.cost', 'Cost')}</span>
+                      <p>{job.cost_usd ? `$${job.cost_usd.toFixed(6)}` : t('explain.na', 'N/A')}</p>
                     </div>
                     <div>
-                      <span className="text-surface-500 text-xs">Inference Time</span>
+                      <span className="text-surface-500 text-xs">{t('explain.inferenceTime', 'Inference Time')}</span>
                       <p>
                         {job.generation_time_seconds
                           ? `${job.generation_time_seconds.toFixed(2)}s`
-                          : 'N/A'}
+                          : t('explain.na', 'N/A')}
                       </p>
                     </div>
                   </div>
                   {job.prompt && (
                     <div className="mt-3">
-                      <span className="text-surface-500 text-xs">Prompt</span>
+                      <span className="text-surface-500 text-xs">{t('explain.prompt', 'Prompt')}</span>
                       <p className="text-sm bg-surface-800 rounded p-2 mt-1 font-mono text-xs">
                         {job.prompt}
                       </p>
@@ -421,7 +453,7 @@ function TechnicalView({ jobs, agentLogs }: { jobs: GenerationJob[]; agentLogs: 
                   )}
                   {job.error && (
                     <div className="mt-3">
-                      <span className="text-red-400 text-xs">Error</span>
+                      <span className="text-red-400 text-xs">{t('explain.error', 'Error')}</span>
                       <p className="text-sm bg-red-500/10 border border-red-500/20 rounded p-2 mt-1 text-red-300">
                         {job.error}
                       </p>
@@ -440,10 +472,11 @@ function TechnicalView({ jobs, agentLogs }: { jobs: GenerationJob[]; agentLogs: 
 /* ────────────────────── Audit View ───────────────── */
 
 function AuditView({ snapshots }: { snapshots: Snapshot[] }) {
+  const { t } = useTranslation();
   const [selectedPair, setSelectedPair] = useState<[number, number] | null>(null);
 
   if (snapshots.length === 0) {
-    return <EmptyState icon={Shield} message="No snapshots recorded yet" />;
+    return <EmptyState icon={Shield} message={t('explain.noSnapshots', 'No snapshots recorded yet')} />;
   }
 
   return (
@@ -452,7 +485,7 @@ function AuditView({ snapshots }: { snapshots: Snapshot[] }) {
       <div className="card">
         <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
           <FileText className="w-5 h-5 text-brand-400" />
-          Immutable Snapshot History
+          {t('explain.immutableSnapshotHistory', 'Immutable Snapshot History')}
         </h3>
         <div className="space-y-2">
           {snapshots.map((snap, index) => (
@@ -483,18 +516,18 @@ function AuditView({ snapshots }: { snapshots: Snapshot[] }) {
                 </p>
                 <p className="text-xs text-surface-500">
                   {new Date(snap.created_at).toLocaleString()}
-                  {snap.created_by && ` by ${snap.created_by}`}
+                  {snap.created_by && ` ${t('explain.by', 'by')} ${snap.created_by}`}
                 </p>
               </div>
               <span className="text-xs text-surface-500">
-                {Object.keys(snap.data).length} fields
+                {Object.keys(snap.data).length} {t('explain.fields', 'fields')}
               </span>
             </div>
           ))}
         </div>
         <p className="text-xs text-surface-500 mt-3 flex items-center gap-1">
           <Info className="w-3 h-3" />
-          Click two snapshots to compare them side-by-side.
+          {t('explain.clickTwoSnapshots', 'Click two snapshots to compare them side-by-side.')}
         </p>
       </div>
 
@@ -503,7 +536,7 @@ function AuditView({ snapshots }: { snapshots: Snapshot[] }) {
         <div className="card">
           <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
             <GitCompare className="w-5 h-5 text-brand-400" />
-            Delta Comparison — v{snapshots[selectedPair[0]]?.version} → v
+            {t('explain.deltaComparison', 'Delta Comparison')} — v{snapshots[selectedPair[0]]?.version} → v
             {snapshots[selectedPair[1]]?.version}
           </h3>
           <DeltaViewer
@@ -515,23 +548,23 @@ function AuditView({ snapshots }: { snapshots: Snapshot[] }) {
 
       {/* Consent & provenance */}
       <div className="card">
-        <h3 className="text-sm font-medium text-surface-400 mb-3">Provenance & Consent</h3>
+        <h3 className="text-sm font-medium text-surface-400 mb-3">{t('explain.provenanceConsent', 'Provenance & Consent')}</h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-400" />
-            <span>All generation prompts derived from uploaded screenplay</span>
+            <span>{t('explain.consentPrompts', 'All generation prompts derived from uploaded screenplay')}</span>
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-400" />
-            <span>No real-person likeness used without user confirmation</span>
+            <span>{t('explain.consentLikeness', 'No real-person likeness used without user confirmation')}</span>
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-400" />
-            <span>All snapshots cryptographically immutable</span>
+            <span>{t('explain.consentImmutable', 'All snapshots cryptographically immutable')}</span>
           </div>
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-brand-400" />
-            <span>{snapshots.length} snapshots in audit trail</span>
+            <span>{snapshots.length} {t('explain.snapshotsInAuditTrail', 'snapshots in audit trail')}</span>
           </div>
         </div>
       </div>
@@ -548,6 +581,7 @@ function DeltaViewer({
   before: Record<string, unknown>;
   after: Record<string, unknown>;
 }) {
+  const { t } = useTranslation();
   const allKeys = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
 
   const changes = allKeys.filter(
@@ -556,7 +590,7 @@ function DeltaViewer({
 
   if (changes.length === 0) {
     return (
-      <p className="text-surface-400 text-sm">No differences found between these snapshots.</p>
+      <p className="text-surface-400 text-sm">{t('explain.noDifferences', 'No differences found between these snapshots.')}</p>
     );
   }
 
@@ -567,13 +601,13 @@ function DeltaViewer({
           <span className="font-mono text-brand-400">{key}</span>
           <div className="grid grid-cols-2 gap-4 mt-2">
             <div>
-              <span className="text-xs text-red-400">Before</span>
+              <span className="text-xs text-red-400">{t('explain.before', 'Before')}</span>
               <pre className="text-xs text-surface-400 mt-1 overflow-hidden text-ellipsis">
                 {JSON.stringify(before[key] ?? null, null, 2)}
               </pre>
             </div>
             <div>
-              <span className="text-xs text-green-400">After</span>
+              <span className="text-xs text-green-400">{t('explain.after', 'After')}</span>
               <pre className="text-xs text-surface-400 mt-1 overflow-hidden text-ellipsis">
                 {JSON.stringify(after[key] ?? null, null, 2)}
               </pre>
@@ -659,6 +693,7 @@ function EmptyState({ icon: Icon, message }: { icon: typeof Eye; message: string
 /* ────────────────────── Main Page ────────────────── */
 
 export function ExplainabilityPage() {
+  const { t } = useTranslation();
   const { projectId } = useParams<{ projectId: string }>();
   const [activeTab, setActiveTab] = useState<TabId>('client');
 
@@ -717,17 +752,17 @@ export function ExplainabilityPage() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3">
             <Eye className="w-7 h-7 text-brand-400" />
-            Explainability Dashboard
+            {t('explain.pageTitle', 'Explainability Dashboard')}
           </h1>
           <p className="text-sm text-surface-400 mt-1">
-            Understand every AI decision with full transparency
+            {t('explain.pageSubtitle', 'Understand every AI decision with full transparency')}
           </p>
         </div>
         <button
           onClick={() => refetch()}
           disabled={statsLoading}
           className="p-2 hover:bg-surface-700 rounded-lg"
-          title="Refresh"
+          title={t('explain.refresh', 'Refresh')}
         >
           <RefreshCw className={cn('w-4 h-4', statsLoading && 'animate-spin')} />
         </button>
@@ -749,7 +784,7 @@ export function ExplainabilityPage() {
               )}
             >
               <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="hidden sm:inline">{t(tab.labelKey, tab.label)}</span>
             </button>
           );
         })}
@@ -758,7 +793,10 @@ export function ExplainabilityPage() {
       {/* Active view description */}
       <div className="flex items-center gap-2 text-sm text-surface-500">
         <Info className="w-4 h-4" />
-        {TABS.find((t) => t.id === activeTab)?.description}
+        {(() => {
+          const active = TABS.find((tab) => tab.id === activeTab);
+          return active ? t(active.descKey, active.description) : null;
+        })()}
       </div>
 
       {/* Loading state */}

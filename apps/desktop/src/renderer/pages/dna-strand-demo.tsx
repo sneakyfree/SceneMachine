@@ -26,6 +26,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import { BlockersPanel } from '../components/blockers-panel';
 import { ProductionDashboard } from '../components/production-dashboard';
 
@@ -160,76 +161,115 @@ function DnaStrandVisualization() {
 }
 
 export function DnaStrandDemoPage() {
+  const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState<
     'overview' | 'blockers' | 'pipeline' | 'agents'
   >('overview');
   const [demoProjectId] = useState('demo-project-001');
 
+  // Localized tab labels
+  const sectionLabels: Record<'overview' | 'blockers' | 'pipeline' | 'agents', string> = {
+    overview: t('dnaStrand.tabOverview', 'Overview'),
+    blockers: t('dnaStrand.tabBlockers', 'Blockers'),
+    pipeline: t('dnaStrand.tabPipeline', 'Pipeline'),
+    agents: t('dnaStrand.tabAgents', 'Agents'),
+  };
+
   // Simulated agent statuses
   const agents = [
     {
-      name: 'Parser Agent',
-      role: 'Screenplay analysis',
+      name: t('dnaStrand.agentParserName', 'Parser Agent'),
+      role: t('dnaStrand.agentParserRole', 'Screenplay analysis'),
       status: 'complete' as const,
       icon: FileText,
     },
     {
-      name: 'Character Agent',
-      role: 'Reference generation',
+      name: t('dnaStrand.agentCharacterName', 'Character Agent'),
+      role: t('dnaStrand.agentCharacterRole', 'Reference generation'),
       status: 'complete' as const,
       icon: Users,
     },
-    { name: 'Generator Agent', role: 'Video generation', status: 'working' as const, icon: Video },
-    { name: 'Assembler Agent', role: 'Scene composition', status: 'idle' as const, icon: Film },
-    { name: 'Reviewer Agent', role: 'Quality assurance', status: 'idle' as const, icon: Shield },
+    {
+      name: t('dnaStrand.agentGeneratorName', 'Generator Agent'),
+      role: t('dnaStrand.agentGeneratorRole', 'Video generation'),
+      status: 'working' as const,
+      icon: Video,
+    },
+    {
+      name: t('dnaStrand.agentAssemblerName', 'Assembler Agent'),
+      role: t('dnaStrand.agentAssemblerRole', 'Scene composition'),
+      status: 'idle' as const,
+      icon: Film,
+    },
+    {
+      name: t('dnaStrand.agentReviewerName', 'Reviewer Agent'),
+      role: t('dnaStrand.agentReviewerRole', 'Quality assurance'),
+      status: 'idle' as const,
+      icon: Shield,
+    },
   ];
 
   // DNA strand features
   const features = [
     {
       icon: FileText,
-      title: 'Screenplay Parser',
-      description: 'FDX, Fountain, PDF support with LLM-powered shot breakdown',
+      title: t('dnaStrand.featureParserTitle', 'Screenplay Parser'),
+      description: t(
+        'dnaStrand.featureParserDesc',
+        'FDX, Fountain, PDF support with LLM-powered shot breakdown'
+      ),
       status: 'complete' as const,
     },
     {
       icon: Users,
-      title: 'Character Laboratory',
-      description: 'Face embedding, voice cloning, AI reference generation',
+      title: t('dnaStrand.featureCharacterTitle', 'Character Laboratory'),
+      description: t(
+        'dnaStrand.featureCharacterDesc',
+        'Face embedding, voice cloning, AI reference generation'
+      ),
       status: 'complete' as const,
     },
     {
       icon: AlertTriangle,
-      title: 'Blockers Engine',
-      description: '"Why Not + What To Do Next" pattern with auto-fix',
+      title: t('dnaStrand.featureBlockersTitle', 'Blockers Engine'),
+      description: t(
+        'dnaStrand.featureBlockersDesc',
+        '"Why Not + What To Do Next" pattern with auto-fix'
+      ),
       status: 'complete' as const,
     },
     {
       icon: Video,
-      title: 'Video Generation',
-      description: 'Multi-provider (Wan 2.1, Flux, Fal) with quality gating',
+      title: t('dnaStrand.featureVideoTitle', 'Video Generation'),
+      description: t(
+        'dnaStrand.featureVideoDesc',
+        'Multi-provider (Wan 2.1, Flux, Fal) with quality gating'
+      ),
       status: 'active' as const,
     },
     {
       icon: Mic,
-      title: 'Audio Pipeline',
-      description: '20 TTS voices, emotion support, lip-sync',
+      title: t('dnaStrand.featureAudioTitle', 'Audio Pipeline'),
+      description: t('dnaStrand.featureAudioDesc', '20 TTS voices, emotion support, lip-sync'),
       status: 'ready' as const,
     },
     {
       icon: Film,
-      title: 'Assembly & Export',
-      description: 'FFmpeg composition with color grading, watermarks',
+      title: t('dnaStrand.featureAssemblyTitle', 'Assembly & Export'),
+      description: t(
+        'dnaStrand.featureAssemblyDesc',
+        'FFmpeg composition with color grading, watermarks'
+      ),
       status: 'ready' as const,
     },
   ];
 
   // Stats
   const stats = [
-    { label: 'New Code', value: '6,200+', unit: 'lines' },
-    { label: 'Services', value: '12', unit: 'modules' },
-    { label: 'TTS Voices', value: '20', unit: 'built-in' },
-    { label: 'Quality Dims', value: '8', unit: 'metrics' },
+    { label: t('dnaStrand.statNewCode', 'New Code'), value: '6,200+', unit: t('dnaStrand.unitLines', 'lines') },
+    { label: t('dnaStrand.statServices', 'Services'), value: '12', unit: t('dnaStrand.unitModules', 'modules') },
+    { label: t('dnaStrand.statTtsVoices', 'TTS Voices'), value: '20', unit: t('dnaStrand.unitBuiltIn', 'built-in') },
+    { label: t('dnaStrand.statQualityDims', 'Quality Dims'), value: '8', unit: t('dnaStrand.unitMetrics', 'metrics') },
   ];
 
   return (
@@ -243,8 +283,8 @@ export function DnaStrandDemoPage() {
                 <Dna className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold">DNA Strand Master Plan</h1>
-                <p className="text-xs text-surface-400">SceneMachine A+ Implementation</p>
+                <h1 className="text-lg font-bold">{t('dnaStrand.headerTitle', 'DNA Strand Master Plan')}</h1>
+                <p className="text-xs text-surface-400">{t('dnaStrand.headerSubtitle', 'SceneMachine A+ Implementation')}</p>
               </div>
             </div>
 
@@ -260,7 +300,7 @@ export function DnaStrandDemoPage() {
                       : 'text-surface-400 hover:bg-surface-700'
                   )}
                 >
-                  {section}
+                  {sectionLabels[section]}
                 </button>
               ))}
             </div>
@@ -275,11 +315,13 @@ export function DnaStrandDemoPage() {
             <div className="text-center py-8">
               <DnaStrandVisualization />
               <h2 className="text-3xl font-bold mt-4">
-                Upload a Script → Click Generate → Download a Film
+                {t('dnaStrand.heroTitle', 'Upload a Script → Click Generate → Download a Film')}
               </h2>
               <p className="text-surface-400 mt-2 max-w-2xl mx-auto">
-                The complete DNA Strand implementation transforms screenplays into movies using
-                multi-agent orchestration, quality gating, and human-in-the-loop approval.
+                {t(
+                  'dnaStrand.heroDescription',
+                  'The complete DNA Strand implementation transforms screenplays into movies using multi-agent orchestration, quality gating, and human-in-the-loop approval.'
+                )}
               </p>
             </div>
 
@@ -309,21 +351,21 @@ export function DnaStrandDemoPage() {
                 className="flex items-center gap-2 px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-medium rounded-lg transition-colors"
               >
                 <AlertTriangle className="w-5 h-5" />
-                View Blockers
+                {t('dnaStrand.actionViewBlockers', 'View Blockers')}
               </button>
               <button
                 onClick={() => setActiveSection('pipeline')}
                 className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-lg transition-colors"
               >
                 <Play className="w-5 h-5" />
-                Production Dashboard
+                {t('dnaStrand.actionProductionDashboard', 'Production Dashboard')}
               </button>
               <button
                 onClick={() => setActiveSection('agents')}
                 className="flex items-center gap-2 px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white font-medium rounded-lg transition-colors"
               >
                 <Bot className="w-5 h-5" />
-                Agent Crew
+                {t('dnaStrand.actionAgentCrew', 'Agent Crew')}
               </button>
             </div>
           </div>
@@ -344,9 +386,12 @@ export function DnaStrandDemoPage() {
         {activeSection === 'agents' && (
           <div className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl font-bold">Agentic Crew</h2>
+              <h2 className="text-2xl font-bold">{t('dnaStrand.agentsHeading', 'Agentic Crew')}</h2>
               <p className="text-surface-400 mt-2">
-                5 specialized agents work together with bounded autonomy
+                {t(
+                  'dnaStrand.agentsSubheading',
+                  '5 specialized agents work together with bounded autonomy'
+                )}
               </p>
             </div>
 
@@ -361,34 +406,34 @@ export function DnaStrandDemoPage() {
             <div className="bg-surface-800 rounded-lg border border-surface-700 p-6">
               <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-brand-400" />
-                Multi-Agent Architecture
+                {t('dnaStrand.architectureTitle', 'Multi-Agent Architecture')}
               </h3>
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="p-4 bg-surface-700/50 rounded-lg">
-                  <h4 className="font-medium text-brand-400 mb-2">Layer 1: Orchestrator</h4>
+                  <h4 className="font-medium text-brand-400 mb-2">{t('dnaStrand.layer1Title', 'Layer 1: Orchestrator')}</h4>
                   <ul className="text-sm text-surface-400 space-y-1">
-                    <li>• Workflow coordination</li>
-                    <li>• Agent delegation</li>
-                    <li>• State management</li>
+                    <li>• {t('dnaStrand.layer1Item1', 'Workflow coordination')}</li>
+                    <li>• {t('dnaStrand.layer1Item2', 'Agent delegation')}</li>
+                    <li>• {t('dnaStrand.layer1Item3', 'State management')}</li>
                   </ul>
                 </div>
                 <div className="p-4 bg-surface-700/50 rounded-lg">
-                  <h4 className="font-medium text-purple-400 mb-2">Layer 2: Specialists</h4>
+                  <h4 className="font-medium text-purple-400 mb-2">{t('dnaStrand.layer2Title', 'Layer 2: Specialists')}</h4>
                   <ul className="text-sm text-surface-400 space-y-1">
-                    <li>• Parser Agent</li>
-                    <li>• Character Agent</li>
-                    <li>• Generator Agent</li>
-                    <li>• Assembler Agent</li>
-                    <li>• Reviewer Agent</li>
+                    <li>• {t('dnaStrand.agentParserName', 'Parser Agent')}</li>
+                    <li>• {t('dnaStrand.agentCharacterName', 'Character Agent')}</li>
+                    <li>• {t('dnaStrand.agentGeneratorName', 'Generator Agent')}</li>
+                    <li>• {t('dnaStrand.agentAssemblerName', 'Assembler Agent')}</li>
+                    <li>• {t('dnaStrand.agentReviewerName', 'Reviewer Agent')}</li>
                   </ul>
                 </div>
                 <div className="p-4 bg-surface-700/50 rounded-lg">
-                  <h4 className="font-medium text-green-400 mb-2">Layer 3: Guardrails</h4>
+                  <h4 className="font-medium text-green-400 mb-2">{t('dnaStrand.layer3Title', 'Layer 3: Guardrails')}</h4>
                   <ul className="text-sm text-surface-400 space-y-1">
-                    <li>• Approval gates</li>
-                    <li>• Budget limits</li>
-                    <li>• Quality thresholds</li>
-                    <li>• Action logging</li>
+                    <li>• {t('dnaStrand.layer3Item1', 'Approval gates')}</li>
+                    <li>• {t('dnaStrand.layer3Item2', 'Budget limits')}</li>
+                    <li>• {t('dnaStrand.layer3Item3', 'Quality thresholds')}</li>
+                    <li>• {t('dnaStrand.layer3Item4', 'Action logging')}</li>
                   </ul>
                 </div>
               </div>
@@ -398,24 +443,24 @@ export function DnaStrandDemoPage() {
             <div className="bg-gradient-to-r from-brand-500/10 to-purple-500/10 rounded-lg border border-brand-500/30 p-6">
               <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-brand-400" />
-                Bounded Autonomy
+                {t('dnaStrand.boundedAutonomyTitle', 'Bounded Autonomy')}
               </h3>
               <div className="grid md:grid-cols-4 gap-4 text-sm">
                 <div className="p-3 bg-surface-900/50 rounded">
-                  <p className="font-medium text-green-400">Tier 0: Auto</p>
-                  <p className="text-surface-400 mt-1">Minor decisions like prompt refinement</p>
+                  <p className="font-medium text-green-400">{t('dnaStrand.tier0Title', 'Tier 0: Auto')}</p>
+                  <p className="text-surface-400 mt-1">{t('dnaStrand.tier0Desc', 'Minor decisions like prompt refinement')}</p>
                 </div>
                 <div className="p-3 bg-surface-900/50 rounded">
-                  <p className="font-medium text-blue-400">Tier 1: Notify</p>
-                  <p className="text-surface-400 mt-1">User informed but not blocked</p>
+                  <p className="font-medium text-blue-400">{t('dnaStrand.tier1Title', 'Tier 1: Notify')}</p>
+                  <p className="text-surface-400 mt-1">{t('dnaStrand.tier1Desc', 'User informed but not blocked')}</p>
                 </div>
                 <div className="p-3 bg-surface-900/50 rounded">
-                  <p className="font-medium text-yellow-400">Tier 2: Approval</p>
-                  <p className="text-surface-400 mt-1">Requires explicit user approval</p>
+                  <p className="font-medium text-yellow-400">{t('dnaStrand.tier2Title', 'Tier 2: Approval')}</p>
+                  <p className="text-surface-400 mt-1">{t('dnaStrand.tier2Desc', 'Requires explicit user approval')}</p>
                 </div>
                 <div className="p-3 bg-surface-900/50 rounded">
-                  <p className="font-medium text-red-400">Tier 3: Blocked</p>
-                  <p className="text-surface-400 mt-1">Cannot proceed without intervention</p>
+                  <p className="font-medium text-red-400">{t('dnaStrand.tier3Title', 'Tier 3: Blocked')}</p>
+                  <p className="text-surface-400 mt-1">{t('dnaStrand.tier3Desc', 'Cannot proceed without intervention')}</p>
                 </div>
               </div>
             </div>

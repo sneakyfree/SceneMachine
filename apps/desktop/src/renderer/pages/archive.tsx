@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useToast } from '../components/toast';
+import { useTranslation } from '../i18n/use-translation';
 
 interface ExportedArchive {
   filename: string;
@@ -70,6 +71,7 @@ export function ArchivePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const { t } = useTranslation();
 
   // Export options
   const [exportProjectId, setExportProjectId] = useState<string | null>(null);
@@ -98,13 +100,13 @@ export function ArchivePage() {
   // Export mutation
   const exportMutation = useMutation({
     mutationFn: async () => {
-      if (!exportProjectId) throw new Error('No project selected');
+      if (!exportProjectId) throw new Error(t('archive.errorNoProjectSelected', 'No project selected'));
 
       // Show save dialog
       const result = await window.electronAPI.saveFile({
-        title: 'Export Project',
+        title: t('archive.exportProjectDialogTitle', 'Export Project'),
         defaultPath: `project-${Date.now()}.smproject`,
-        filters: [{ name: 'SceneMachine Project', extensions: ['smproject'] }],
+        filters: [{ name: t('archive.fileFilterSmProject', 'SceneMachine Project'), extensions: ['smproject'] }],
       });
 
       if (result.canceled || !result.filePath) {
@@ -120,13 +122,13 @@ export function ArchivePage() {
       });
     },
     onSuccess: () => {
-      showToast('Project exported successfully', 'success');
+      showToast(t('archive.toastExportSuccess', 'Project exported successfully'), 'success');
       queryClient.invalidateQueries({ queryKey: ['project-exports'] });
       setExportProjectId(null);
     },
     onError: (error: any) => {
       if (error.message !== 'Export cancelled') {
-        showToast(`Export failed: ${error.message}`, 'error');
+        showToast(`${t('archive.toastExportFailed', 'Export failed')}: ${error.message}`, 'error');
       }
     },
   });
@@ -134,7 +136,7 @@ export function ArchivePage() {
   // Import mutation
   const importMutation = useMutation({
     mutationFn: async () => {
-      if (!importFile) throw new Error('No file selected');
+      if (!importFile) throw new Error(t('archive.errorNoFileSelected', 'No file selected'));
 
       return window.electronAPI.backendRequest('project.import', {
         archive_path: importFile,
@@ -143,7 +145,7 @@ export function ArchivePage() {
       });
     },
     onSuccess: (result: any) => {
-      showToast('Project imported successfully', 'success');
+      showToast(t('archive.toastImportSuccess', 'Project imported successfully'), 'success');
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       setImportFile(null);
       setArchiveInfo(null);
@@ -155,17 +157,17 @@ export function ArchivePage() {
       }
     },
     onError: (error: any) => {
-      showToast(`Import failed: ${error.message}`, 'error');
+      showToast(`${t('archive.toastImportFailed', 'Import failed')}: ${error.message}`, 'error');
     },
   });
 
   // Handle file selection for import
   const handleSelectImportFile = async () => {
     const result = await window.electronAPI.openFile({
-      title: 'Select Project Archive',
+      title: t('archive.selectArchiveDialogTitle', 'Select Project Archive'),
       filters: [
-        { name: 'SceneMachine Project', extensions: ['smproject'] },
-        { name: 'All Files', extensions: ['*'] },
+        { name: t('archive.fileFilterSmProject', 'SceneMachine Project'), extensions: ['smproject'] },
+        { name: t('archive.fileFilterAllFiles', 'All Files'), extensions: ['*'] },
       ],
       properties: ['openFile'],
     });
@@ -183,7 +185,7 @@ export function ArchivePage() {
         setArchiveInfo(info);
         setNewProjectName(info.projectName);
       } catch (error: any) {
-        showToast(`Failed to read archive: ${error.message}`, 'error');
+        showToast(`${t('archive.toastReadArchiveFailed', 'Failed to read archive')}: ${error.message}`, 'error');
         setImportFile(null);
       }
     }
@@ -205,9 +207,9 @@ export function ArchivePage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Archive className="w-6 h-6 text-brand-400" />
-              Project Archive
+              {t('archive.pageTitle', 'Project Archive')}
             </h1>
-            <p className="text-surface-400 mt-1">Export and import projects as portable archives</p>
+            <p className="text-surface-400 mt-1">{t('archive.pageSubtitle', 'Export and import projects as portable archives')}</p>
           </div>
         </div>
 
@@ -216,18 +218,18 @@ export function ArchivePage() {
           <div className="card">
             <div className="flex items-center gap-2 mb-4">
               <Download className="w-5 h-5 text-brand-400" />
-              <h2 className="text-lg font-semibold">Export Project</h2>
+              <h2 className="text-lg font-semibold">{t('archive.exportSectionTitle', 'Export Project')}</h2>
             </div>
 
             {/* Project Selection */}
             <div className="mb-4">
-              <label className="block text-sm text-surface-400 mb-2">Select Project</label>
+              <label className="block text-sm text-surface-400 mb-2">{t('archive.selectProjectLabel', 'Select Project')}</label>
               <select
                 value={exportProjectId || ''}
                 onChange={(e) => setExportProjectId(e.target.value || null)}
                 className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2"
               >
-                <option value="">Choose a project...</option>
+                <option value="">{t('archive.chooseProjectOption', 'Choose a project...')}</option>
                 {projects?.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
@@ -244,9 +246,9 @@ export function ArchivePage() {
                   <span className="font-medium">{selectedProject.name}</span>
                 </div>
                 <div className="text-sm text-surface-400 space-y-1">
-                  <p>State: {selectedProject.state}</p>
-                  <p>Scenes: {selectedProject.sceneCount || 0}</p>
-                  <p>Characters: {selectedProject.characterCount || 0}</p>
+                  <p>{t('archive.stateLabel', 'State')}: {selectedProject.state}</p>
+                  <p>{t('archive.scenesLabel', 'Scenes')}: {selectedProject.sceneCount || 0}</p>
+                  <p>{t('archive.charactersLabel', 'Characters')}: {selectedProject.characterCount || 0}</p>
                 </div>
               </div>
             )}
@@ -261,7 +263,7 @@ export function ArchivePage() {
                   className="rounded border-surface-600 bg-surface-800"
                 />
                 <Image className="w-4 h-4 text-surface-400" />
-                <span className="text-sm">Include character reference images</span>
+                <span className="text-sm">{t('archive.includeCharacterImages', 'Include character reference images')}</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -272,7 +274,7 @@ export function ArchivePage() {
                   className="rounded border-surface-600 bg-surface-800"
                 />
                 <HardDrive className="w-4 h-4 text-surface-400" />
-                <span className="text-sm">Include output files</span>
+                <span className="text-sm">{t('archive.includeOutputFiles', 'Include output files')}</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer">
@@ -283,7 +285,7 @@ export function ArchivePage() {
                   className="rounded border-surface-600 bg-surface-800"
                 />
                 <Video className="w-4 h-4 text-surface-400" />
-                <span className="text-sm">Include generated videos (larger file)</span>
+                <span className="text-sm">{t('archive.includeGeneratedVideos', 'Include generated videos (larger file)')}</span>
               </label>
             </div>
 
@@ -297,7 +299,7 @@ export function ArchivePage() {
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              Export Project
+              {t('archive.exportSectionTitle', 'Export Project')}
             </button>
           </div>
 
@@ -305,7 +307,7 @@ export function ArchivePage() {
           <div className="card">
             <div className="flex items-center gap-2 mb-4">
               <Upload className="w-5 h-5 text-brand-400" />
-              <h2 className="text-lg font-semibold">Import Project</h2>
+              <h2 className="text-lg font-semibold">{t('archive.importSectionTitle', 'Import Project')}</h2>
             </div>
 
             {!importFile ? (
@@ -314,8 +316,8 @@ export function ArchivePage() {
                 className="w-full p-8 border-2 border-dashed border-surface-700 rounded-lg hover:border-surface-600 hover:bg-surface-800/30 transition-colors"
               >
                 <FolderOpen className="w-8 h-8 mx-auto mb-2 text-surface-400" />
-                <p className="text-surface-400">Click to select archive file</p>
-                <p className="text-sm text-surface-500 mt-1">.smproject files</p>
+                <p className="text-surface-400">{t('archive.clickToSelectArchive', 'Click to select archive file')}</p>
+                <p className="text-sm text-surface-500 mt-1">{t('archive.smprojectFilesHint', '.smproject files')}</p>
               </button>
             ) : (
               <>
@@ -340,33 +342,33 @@ export function ArchivePage() {
                   {archiveInfo && (
                     <div className="text-sm text-surface-400 space-y-1 mt-3">
                       <p>
-                        <span className="text-surface-500">Project:</span> {archiveInfo.projectName}
+                        <span className="text-surface-500">{t('archive.infoProjectLabel', 'Project:')}</span> {archiveInfo.projectName}
                       </p>
                       <p>
-                        <span className="text-surface-500">Exported:</span>{' '}
+                        <span className="text-surface-500">{t('archive.infoExportedLabel', 'Exported:')}</span>{' '}
                         {formatDate(archiveInfo.exportedAt)}
                       </p>
                       <p>
-                        <span className="text-surface-500">Scenes:</span> {archiveInfo.sceneCount}
+                        <span className="text-surface-500">{t('archive.infoScenesLabel', 'Scenes:')}</span> {archiveInfo.sceneCount}
                       </p>
                       <p>
-                        <span className="text-surface-500">Characters:</span>{' '}
+                        <span className="text-surface-500">{t('archive.infoCharactersLabel', 'Characters:')}</span>{' '}
                         {archiveInfo.characterCount}
                       </p>
                       <div className="flex gap-2 mt-2">
                         {archiveInfo.includesAssets && (
                           <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded">
-                            Assets
+                            {t('archive.badgeAssets', 'Assets')}
                           </span>
                         )}
                         {archiveInfo.includesOutputs && (
                           <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">
-                            Outputs
+                            {t('archive.badgeOutputs', 'Outputs')}
                           </span>
                         )}
                         {archiveInfo.includesGeneratedVideos && (
                           <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded">
-                            Videos
+                            {t('archive.badgeVideos', 'Videos')}
                           </span>
                         )}
                       </div>
@@ -378,13 +380,13 @@ export function ArchivePage() {
                 <div className="space-y-3 mb-4">
                   <div>
                     <label className="block text-sm text-surface-400 mb-1">
-                      Project Name (optional)
+                      {t('archive.projectNameLabel', 'Project Name (optional)')}
                     </label>
                     <input
                       type="text"
                       value={newProjectName}
                       onChange={(e) => setNewProjectName(e.target.value)}
-                      placeholder="Leave empty to use original name"
+                      placeholder={t('archive.projectNamePlaceholder', 'Leave empty to use original name')}
                       className="w-full bg-surface-800 border border-surface-700 rounded-lg px-3 py-2"
                     />
                   </div>
@@ -396,7 +398,7 @@ export function ArchivePage() {
                       onChange={(e) => setImportAssets(e.target.checked)}
                       className="rounded border-surface-600 bg-surface-800"
                     />
-                    <span className="text-sm">Import assets and media files</span>
+                    <span className="text-sm">{t('archive.importAssetsLabel', 'Import assets and media files')}</span>
                   </label>
                 </div>
 
@@ -410,7 +412,7 @@ export function ArchivePage() {
                   ) : (
                     <Upload className="w-4 h-4" />
                   )}
-                  Import Project
+                  {t('archive.importSectionTitle', 'Import Project')}
                 </button>
               </>
             )}
@@ -421,7 +423,7 @@ export function ArchivePage() {
         <div className="mt-8">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Clock className="w-5 h-5 text-surface-400" />
-            Recent Exports
+            {t('archive.recentExportsTitle', 'Recent Exports')}
           </h2>
 
           {exportsLoading ? (
@@ -449,7 +451,7 @@ export function ArchivePage() {
                         // Would need to get archive info here
                       }}
                       className="p-2 hover:bg-surface-700 rounded transition-colors"
-                      title="Re-import this archive"
+                      title={t('archive.reimportTitle', 'Re-import this archive')}
                     >
                       <Upload className="w-4 h-4" />
                     </button>
@@ -460,8 +462,8 @@ export function ArchivePage() {
           ) : (
             <div className="text-center py-8 text-surface-400">
               <Archive className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p>No exports yet</p>
-              <p className="text-sm text-surface-500">Export a project to see it here</p>
+              <p>{t('archive.noExportsYet', 'No exports yet')}</p>
+              <p className="text-sm text-surface-500">{t('archive.noExportsHint', 'Export a project to see it here')}</p>
             </div>
           )}
         </div>

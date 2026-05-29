@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { ShotCard } from '../components/shot-card';
 import { useToast } from '../components/toast';
+import { useTranslation } from '../i18n/use-translation';
 import { cn } from '../lib/utils';
 
 interface Scene {
@@ -97,6 +98,7 @@ export function ScenePlanningPage() {
   // so a save failure looked indistinguishable from success. Found by the
   // UI stress-test report.
   const { showToast } = useToast();
+  const { t } = useTranslation();
 
   const [expandedScenes, setExpandedScenes] = useState<Set<string>>(new Set());
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
@@ -165,8 +167,11 @@ export function ScenePlanningPage() {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : 'Failed to generate breakdown';
-      showToast(`Generate breakdown failed: ${msg}`, 'error');
+      const msg =
+        error instanceof Error
+          ? error.message
+          : t('scenePlan.errGenerateBreakdown', 'Failed to generate breakdown');
+      showToast(`${t('scenePlan.toastGenerateBreakdownFailed', 'Generate breakdown failed')}: ${msg}`, 'error');
     },
   });
 
@@ -182,8 +187,11 @@ export function ScenePlanningPage() {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : 'Failed to approve breakdown';
-      showToast(`Approve breakdown failed: ${msg}`, 'error');
+      const msg =
+        error instanceof Error
+          ? error.message
+          : t('scenePlan.errApproveBreakdown', 'Failed to approve breakdown');
+      showToast(`${t('scenePlan.toastApproveBreakdownFailed', 'Approve breakdown failed')}: ${msg}`, 'error');
     },
   });
 
@@ -204,8 +212,9 @@ export function ScenePlanningPage() {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : 'Failed to update shot';
-      showToast(`Update shot failed: ${msg}`, 'error');
+      const msg =
+        error instanceof Error ? error.message : t('scenePlan.errUpdateShot', 'Failed to update shot');
+      showToast(`${t('scenePlan.toastUpdateShotFailed', 'Update shot failed')}: ${msg}`, 'error');
     },
   });
 
@@ -233,8 +242,9 @@ export function ScenePlanningPage() {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : 'Failed to add shot';
-      showToast(`Add shot failed: ${msg}`, 'error');
+      const msg =
+        error instanceof Error ? error.message : t('scenePlan.errAddShot', 'Failed to add shot');
+      showToast(`${t('scenePlan.toastAddShotFailed', 'Add shot failed')}: ${msg}`, 'error');
     },
   });
 
@@ -249,8 +259,9 @@ export function ScenePlanningPage() {
       queryClient.invalidateQueries({ queryKey: ['scenes', projectId] });
     },
     onError: (error: unknown) => {
-      const msg = error instanceof Error ? error.message : 'Failed to delete shot';
-      showToast(`Delete shot failed: ${msg}`, 'error');
+      const msg =
+        error instanceof Error ? error.message : t('scenePlan.errDeleteShot', 'Failed to delete shot');
+      showToast(`${t('scenePlan.toastDeleteShotFailed', 'Delete shot failed')}: ${msg}`, 'error');
     },
   });
 
@@ -299,7 +310,7 @@ export function ScenePlanningPage() {
       addShotMutation.mutate({
         sceneId,
         shotType: 'medium',
-        description: 'New shot',
+        description: t('scenePlan.newShotDefault', 'New shot'),
       });
     },
     [addShotMutation]
@@ -314,7 +325,7 @@ export function ScenePlanningPage() {
   if (isLoadingScenes) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-surface-400">Loading scenes...</div>
+        <div className="text-surface-400">{t('scenePlan.loadingScenes', 'Loading scenes...')}</div>
       </div>
     );
   }
@@ -333,10 +344,10 @@ export function ScenePlanningPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Clapperboard className="w-7 h-7 text-brand-400" />
-              Scene Planning
+              {t('scenePlan.title', 'Scene Planning')}
             </h1>
             <p className="text-surface-400 mt-1">
-              Review and approve shot breakdowns for each scene
+              {t('scenePlan.subtitle', 'Review and approve shot breakdowns for each scene')}
             </p>
           </div>
         </div>
@@ -344,13 +355,13 @@ export function ScenePlanningPage() {
         {/* Progress Stats */}
         <div className="flex items-center gap-6">
           <div className="text-right">
-            <div className="text-sm text-surface-400">Scenes Approved</div>
+            <div className="text-sm text-surface-400">{t('scenePlan.scenesApproved', 'Scenes Approved')}</div>
             <div className="text-2xl font-bold">
               {approvedScenes}/{totalScenes}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-surface-400">Est. Duration</div>
+            <div className="text-sm text-surface-400">{t('scenePlan.estDuration', 'Est. Duration')}</div>
             <div className="text-2xl font-bold">
               {Math.floor(totalDuration / 60)}:
               {String(Math.floor(totalDuration % 60)).padStart(2, '0')}
@@ -359,12 +370,12 @@ export function ScenePlanningPage() {
           {allApproved ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-lg">
               <Check className="w-5 h-5" />
-              <span>All Approved</span>
+              <span>{t('scenePlan.allApproved', 'All Approved')}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg">
               <AlertTriangle className="w-5 h-5" />
-              <span>In Progress</span>
+              <span>{t('scenePlan.inProgress', 'In Progress')}</span>
             </div>
           )}
         </div>
@@ -427,7 +438,9 @@ export function ScenePlanningPage() {
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-1 text-surface-400">
                       <Film className="w-4 h-4" />
-                      <span>{scene.shotCount || scene.shots?.length || 0} shots</span>
+                      <span>
+                        {scene.shotCount || scene.shots?.length || 0} {t('scenePlan.shotsLabel', 'shots')}
+                      </span>
                     </div>
                     {scene.estimatedDurationSeconds && (
                       <div className="flex items-center gap-1 text-surface-400">
@@ -441,15 +454,15 @@ export function ScenePlanningPage() {
                   {scene.shotBreakdownApproved ? (
                     <div className="flex items-center gap-1 px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">
                       <Check className="w-4 h-4" />
-                      <span>Approved</span>
+                      <span>{t('scenePlan.statusApproved', 'Approved')}</span>
                     </div>
                   ) : hasBreakdown ? (
                     <div className="px-3 py-1 bg-brand-500/20 text-brand-400 rounded-full text-sm">
-                      Planned
+                      {t('scenePlan.statusPlanned', 'Planned')}
                     </div>
                   ) : (
                     <div className="px-3 py-1 bg-surface-700 text-surface-400 rounded-full text-sm">
-                      Pending
+                      {t('scenePlan.statusPending', 'Pending')}
                     </div>
                   )}
                 </div>
@@ -463,13 +476,13 @@ export function ScenePlanningPage() {
                         <div className="grid grid-cols-4 gap-4 text-sm">
                           {scene.analysis.summary && (
                             <div className="col-span-2">
-                              <span className="text-surface-500">Summary:</span>
+                              <span className="text-surface-500">{t('scenePlan.summaryLabel', 'Summary:')}</span>
                               <p className="text-surface-300 mt-1">{scene.analysis.summary}</p>
                             </div>
                           )}
                           {scene.analysis.pacing && (
                             <div>
-                              <span className="text-surface-500">Pacing:</span>
+                              <span className="text-surface-500">{t('scenePlan.pacingLabel', 'Pacing:')}</span>
                               <p className="text-surface-300 mt-1 capitalize">
                                 {scene.analysis.pacing}
                               </p>
@@ -477,7 +490,7 @@ export function ScenePlanningPage() {
                           )}
                           {scene.analysis.importance && (
                             <div>
-                              <span className="text-surface-500">Importance:</span>
+                              <span className="text-surface-500">{t('scenePlan.importanceLabel', 'Importance:')}</span>
                               <p className="text-surface-300 mt-1">
                                 {scene.analysis.importance}/10
                               </p>
@@ -492,7 +505,7 @@ export function ScenePlanningPage() {
                       {isGenerating ? (
                         <div className="flex flex-col items-center justify-center py-8">
                           <Loader2 className="w-8 h-8 text-brand-400 animate-spin mb-3" />
-                          <p className="text-surface-400">Generating shot breakdown...</p>
+                          <p className="text-surface-400">{t('scenePlan.generatingBreakdown', 'Generating shot breakdown...')}</p>
                         </div>
                       ) : hasBreakdown ? (
                         <>
@@ -507,7 +520,7 @@ export function ScenePlanningPage() {
                                   </p>
                                   {scene.shotBreakdown.coverageStyle && (
                                     <p className="text-xs text-surface-400 mt-1">
-                                      Coverage: {scene.shotBreakdown.coverageStyle}
+                                      {t('scenePlan.coverageLabel', 'Coverage:')} {scene.shotBreakdown.coverageStyle}
                                     </p>
                                   )}
                                 </div>
@@ -544,7 +557,7 @@ export function ScenePlanningPage() {
                                 className="btn-secondary text-sm"
                               >
                                 <Plus className="w-4 h-4 mr-1" />
-                                Add Shot
+                                {t('scenePlan.addShot', 'Add Shot')}
                               </button>
                               <button
                                 onClick={() => handleGenerateBreakdown(scene.id, true)}
@@ -552,7 +565,7 @@ export function ScenePlanningPage() {
                                 className="btn-secondary text-sm"
                               >
                                 <RefreshCw className="w-4 h-4 mr-1" />
-                                Regenerate
+                                {t('scenePlan.regenerate', 'Regenerate')}
                               </button>
                             </div>
                             {!scene.shotBreakdownApproved && (
@@ -562,7 +575,7 @@ export function ScenePlanningPage() {
                                 className="btn-primary"
                               >
                                 <Check className="w-4 h-4 mr-1" />
-                                Approve Breakdown
+                                {t('scenePlan.approveBreakdown', 'Approve Breakdown')}
                               </button>
                             )}
                           </div>
@@ -570,13 +583,13 @@ export function ScenePlanningPage() {
                       ) : (
                         <div className="flex flex-col items-center justify-center py-8">
                           <Film className="w-12 h-12 text-surface-600 mb-3" />
-                          <p className="text-surface-400 mb-4">No shot breakdown generated yet</p>
+                          <p className="text-surface-400 mb-4">{t('scenePlan.noBreakdownYet', 'No shot breakdown generated yet')}</p>
                           <button
                             onClick={() => handleGenerateBreakdown(scene.id)}
                             className="btn-primary"
                           >
                             <Sparkles className="w-4 h-4 mr-1" />
-                            Generate Shot Breakdown
+                            {t('scenePlan.generateBreakdown', 'Generate Shot Breakdown')}
                           </button>
                         </div>
                       )}
@@ -590,8 +603,8 @@ export function ScenePlanningPage() {
       ) : (
         <div className="text-center py-16">
           <Clapperboard className="w-16 h-16 mx-auto text-surface-600 mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Scenes Found</h3>
-          <p className="text-surface-400">Scenes will appear here once a screenplay is parsed.</p>
+          <h3 className="text-lg font-medium mb-2">{t('scenePlan.noScenesTitle', 'No Scenes Found')}</h3>
+          <p className="text-surface-400">{t('scenePlan.noScenesDesc', 'Scenes will appear here once a screenplay is parsed.')}</p>
         </div>
       )}
 
@@ -603,7 +616,7 @@ export function ScenePlanningPage() {
             className="btn-primary shadow-lg"
           >
             <Play className="w-4 h-4 mr-2" />
-            Continue to Generation
+            {t('scenePlan.continueToGeneration', 'Continue to Generation')}
           </button>
         </div>
       )}

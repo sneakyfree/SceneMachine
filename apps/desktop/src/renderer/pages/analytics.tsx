@@ -30,6 +30,7 @@ import { BudgetAlertBanner } from '../components/budget-settings';
 import { useToast } from '../stores/toast-store';
 import { api } from '../api/client';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../i18n/use-translation';
 
 // Analytics data interfaces
 interface GenerationStats {
@@ -164,6 +165,7 @@ function ProgressBar({
 
 // Provider cost breakdown
 function ProviderCostChart({ costs }: { costs: Record<string, number> }) {
+  const { t } = useTranslation();
   const total = Object.values(costs).reduce((sum, cost) => sum + cost, 0);
   const providers = Object.entries(costs)
     .sort(([, a], [, b]) => b - a)
@@ -193,7 +195,9 @@ function ProviderCostChart({ costs }: { costs: Record<string, number> }) {
         );
       })}
       {providers.length === 0 && (
-        <div className="text-center text-surface-400 py-4">No cost data available</div>
+        <div className="text-center text-surface-400 py-4">
+          {t('analytics.noCostData', 'No cost data available')}
+        </div>
       )}
     </div>
   );
@@ -207,11 +211,12 @@ function TimeRangeSelector({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const ranges = [
-    { value: '24h', label: '24 Hours' },
-    { value: '7d', label: '7 Days' },
-    { value: '30d', label: '30 Days' },
-    { value: 'all', label: 'All Time' },
+    { value: '24h', label: t('analytics.range24Hours', '24 Hours') },
+    { value: '7d', label: t('analytics.range7Days', '7 Days') },
+    { value: '30d', label: t('analytics.range30Days', '30 Days') },
+    { value: 'all', label: t('analytics.rangeAllTime', 'All Time') },
   ];
 
   return (
@@ -235,6 +240,7 @@ function TimeRangeSelector({
 }
 
 export function AnalyticsPage() {
+  const { t } = useTranslation();
   const [timeRange, setTimeRange] = useState('7d');
   const [dismissedBudgetAlert, setDismissedBudgetAlert] = useState(false);
   const toast = useToast();
@@ -375,24 +381,24 @@ export function AnalyticsPage() {
 
     if (isOverBudget) {
       toast.error(
-        'Budget Exceeded',
+        t('analytics.budgetExceededTitle', 'Budget Exceeded'),
         `You've spent $${currentSpent.toFixed(2)} of your $${budgetLimit.toFixed(2)} budget.`,
         {
           duration: 10000,
           action: {
-            label: 'View Settings',
+            label: t('analytics.viewSettings', 'View Settings'),
             onClick: () => navigate('/settings'),
           },
         }
       );
     } else if (isNearBudget) {
       toast.warning(
-        'Approaching Budget Limit',
+        t('analytics.approachingBudgetTitle', 'Approaching Budget Limit'),
         `You've used ${budgetUsagePercent.toFixed(0)}% of your $${budgetLimit.toFixed(2)} budget.`,
         {
           duration: 8000,
           action: {
-            label: 'View Settings',
+            label: t('analytics.viewSettings', 'View Settings'),
             onClick: () => navigate('/settings'),
           },
         }
@@ -408,10 +414,10 @@ export function AnalyticsPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <BarChart3 className="w-6 h-6 text-brand-400" />
-              Analytics
+              {t('analytics.title', 'Analytics')}
             </h1>
             <p className="text-surface-400 mt-1">
-              Generation metrics, costs, and performance insights
+              {t('analytics.subtitle', 'Generation metrics, costs, and performance insights')}
             </p>
           </div>
 
@@ -421,7 +427,7 @@ export function AnalyticsPage() {
               onClick={() => refetch()}
               disabled={isFetching}
               className="p-2 bg-surface-700 hover:bg-surface-600 rounded-lg transition-colors disabled:opacity-50"
-              title="Refresh"
+              title={t('analytics.refresh', 'Refresh')}
             >
               <RefreshCw className={cn('w-5 h-5', isFetching && 'animate-spin')} />
             </button>
@@ -450,33 +456,33 @@ export function AnalyticsPage() {
             <div>
               <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-brand-400" />
-                Generation Overview
+                {t('analytics.generationOverview', 'Generation Overview')}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard
                   icon={Activity}
-                  label="Total Jobs"
+                  label={t('analytics.totalJobs', 'Total Jobs')}
                   value={analytics?.generation.total_jobs || 0}
                   color="brand"
                 />
                 <StatCard
                   icon={CheckCircle}
-                  label="Completed"
+                  label={t('analytics.completed', 'Completed')}
                   value={analytics?.generation.completed_jobs || 0}
-                  subValue={`${(analytics?.generation.success_rate || 0).toFixed(1)}% success rate`}
+                  subValue={`${(analytics?.generation.success_rate || 0).toFixed(1)}${t('analytics.successRateSuffix', '% success rate')}`}
                   color="green"
                 />
                 <StatCard
                   icon={XCircle}
-                  label="Failed"
+                  label={t('analytics.failed', 'Failed')}
                   value={analytics?.generation.failed_jobs || 0}
                   color="red"
                 />
                 <StatCard
                   icon={Clock}
-                  label="Avg. Generation Time"
+                  label={t('analytics.avgGenerationTime', 'Avg. Generation Time')}
                   value={formatDuration(analytics?.generation.avg_generation_time_seconds || 0)}
-                  subValue={`Total: ${formatDuration(analytics?.generation.total_generation_time_seconds || 0)}`}
+                  subValue={`${t('analytics.totalPrefix', 'Total:')} ${formatDuration(analytics?.generation.total_generation_time_seconds || 0)}`}
                   color="blue"
                 />
               </div>
@@ -487,23 +493,25 @@ export function AnalyticsPage() {
               <div className="card">
                 <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-brand-400" />
-                  Cost Summary
+                  {t('analytics.costSummary', 'Cost Summary')}
                 </h2>
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <StatCard
                     icon={DollarSign}
-                    label="Total Spent"
+                    label={t('analytics.totalSpent', 'Total Spent')}
                     value={`$${(analytics?.costs.total_cost_usd || 0).toFixed(2)}`}
                     color="green"
                   />
                   <StatCard
                     icon={Film}
-                    label="Avg. Cost/Shot"
+                    label={t('analytics.avgCostPerShot', 'Avg. Cost/Shot')}
                     value={`$${(analytics?.costs.avg_cost_per_shot || 0).toFixed(3)}`}
                     color="blue"
                   />
                 </div>
-                <h3 className="text-sm font-medium text-surface-400 mb-3">Cost by Provider</h3>
+                <h3 className="text-sm font-medium text-surface-400 mb-3">
+                  {t('analytics.costByProvider', 'Cost by Provider')}
+                </h3>
                 <ProviderCostChart costs={analytics?.costs.cost_by_provider || {}} />
               </div>
 
@@ -511,31 +519,31 @@ export function AnalyticsPage() {
               <div className="card">
                 <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                   <Layers className="w-5 h-5 text-brand-400" />
-                  Project Overview
+                  {t('analytics.projectOverview', 'Project Overview')}
                 </h2>
                 <div className="grid grid-cols-2 gap-4">
                   <StatCard
                     icon={Film}
-                    label="Total Projects"
+                    label={t('analytics.totalProjects', 'Total Projects')}
                     value={analytics?.projects.total_projects || 0}
-                    subValue={`${analytics?.projects.active_projects || 0} active`}
+                    subValue={`${analytics?.projects.active_projects || 0} ${t('analytics.activeSuffix', 'active')}`}
                     color="brand"
                   />
                   <StatCard
                     icon={Layers}
-                    label="Total Scenes"
+                    label={t('analytics.totalScenes', 'Total Scenes')}
                     value={analytics?.projects.total_scenes || 0}
                     color="blue"
                   />
                   <StatCard
                     icon={Activity}
-                    label="Total Shots"
+                    label={t('analytics.totalShots', 'Total Shots')}
                     value={analytics?.projects.total_shots || 0}
                     color="green"
                   />
                   <StatCard
                     icon={Users}
-                    label="Characters"
+                    label={t('analytics.characters', 'Characters')}
                     value={analytics?.projects.total_characters || 0}
                     color="yellow"
                   />
@@ -547,33 +555,33 @@ export function AnalyticsPage() {
             <div className="card">
               <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-brand-400" />
-                Performance Metrics
+                {t('analytics.performanceMetrics', 'Performance Metrics')}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard
                   icon={Clock}
-                  label="Avg. Wait Time"
+                  label={t('analytics.avgWaitTime', 'Avg. Wait Time')}
                   value={formatDuration(analytics?.performance.avg_wait_time_seconds || 0)}
                   color="yellow"
                 />
                 <StatCard
                   icon={Zap}
-                  label="Avg. Processing Time"
+                  label={t('analytics.avgProcessingTime', 'Avg. Processing Time')}
                   value={formatDuration(analytics?.performance.avg_processing_time_seconds || 0)}
                   color="blue"
                 />
                 <StatCard
                   icon={Activity}
-                  label="Peak Concurrent"
+                  label={t('analytics.peakConcurrent', 'Peak Concurrent')}
                   value={analytics?.performance.peak_concurrent_jobs || 0}
-                  subValue="jobs"
+                  subValue={t('analytics.jobs', 'jobs')}
                   color="brand"
                 />
                 <StatCard
                   icon={Layers}
-                  label="Current Queue"
+                  label={t('analytics.currentQueue', 'Current Queue')}
                   value={analytics?.performance.current_queue_size || 0}
-                  subValue="pending jobs"
+                  subValue={t('analytics.pendingJobs', 'pending jobs')}
                   color="green"
                 />
               </div>
@@ -583,7 +591,7 @@ export function AnalyticsPage() {
             <div className="card">
               <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-brand-400" />
-                Success Rate Over Time
+                {t('analytics.successRateOverTime', 'Success Rate Over Time')}
               </h2>
               <LineChart
                 data={analytics?.historical?.success_rate_history || []}
@@ -600,7 +608,7 @@ export function AnalyticsPage() {
               <div className="card">
                 <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                   <Activity className="w-5 h-5 text-brand-400" />
-                  Generations Over Time
+                  {t('analytics.generationsOverTime', 'Generations Over Time')}
                 </h2>
                 <LineChart
                   data={analytics?.historical?.generation_count_history || []}
@@ -615,7 +623,7 @@ export function AnalyticsPage() {
               <div className="card">
                 <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-brand-400" />
-                  Daily Cost Trend
+                  {t('analytics.dailyCostTrend', 'Daily Cost Trend')}
                 </h2>
                 <LineChart
                   data={analytics?.historical?.cost_history || []}
@@ -633,41 +641,41 @@ export function AnalyticsPage() {
               <div className="card">
                 <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                   <Layers className="w-5 h-5 text-brand-400" />
-                  Job Status Breakdown
+                  {t('analytics.jobStatusBreakdown', 'Job Status Breakdown')}
                 </h2>
                 <DonutChart
                   data={[
                     {
-                      label: 'Completed',
+                      label: t('analytics.completed', 'Completed'),
                       value: analytics?.generation.completed_jobs || 0,
                       color: '#22c55e',
                     },
                     {
-                      label: 'Failed',
+                      label: t('analytics.failed', 'Failed'),
                       value: analytics?.generation.failed_jobs || 0,
                       color: '#ef4444',
                     },
                     {
-                      label: 'Cancelled',
+                      label: t('analytics.cancelled', 'Cancelled'),
                       value: analytics?.generation.cancelled_jobs || 0,
                       color: '#f59e0b',
                     },
                     {
-                      label: 'Pending',
+                      label: t('analytics.pending', 'Pending'),
                       value: analytics?.generation.pending_jobs || 0,
                       color: '#6b7280',
                     },
                   ].filter((d) => d.value > 0)}
                   size={160}
                   centerValue={`${(analytics?.generation.success_rate || 0).toFixed(0)}%`}
-                  centerLabel="Success"
+                  centerLabel={t('analytics.success', 'Success')}
                 />
               </div>
 
               <div className="card">
                 <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
                   <Zap className="w-5 h-5 text-brand-400" />
-                  Quick Stats
+                  {t('analytics.quickStats', 'Quick Stats')}
                 </h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col items-center">
@@ -675,7 +683,7 @@ export function AnalyticsPage() {
                       value={analytics?.generation.success_rate || 0}
                       color="#22c55e"
                       size={80}
-                      label="Success"
+                      label={t('analytics.success', 'Success')}
                     />
                   </div>
                   <div className="flex flex-col items-center">
@@ -684,20 +692,20 @@ export function AnalyticsPage() {
                       max={analytics?.projects.total_projects || 1}
                       color="#8b5cf6"
                       size={80}
-                      label="Active"
+                      label={t('analytics.active', 'Active')}
                     />
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-brand-400">
                       {analytics?.projects.total_shots || 0}
                     </p>
-                    <p className="text-xs text-surface-400">Total Shots</p>
+                    <p className="text-xs text-surface-400">{t('analytics.totalShots', 'Total Shots')}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-green-400">
                       ${(analytics?.costs.total_cost_usd || 0).toFixed(2)}
                     </p>
-                    <p className="text-xs text-surface-400">Total Spent</p>
+                    <p className="text-xs text-surface-400">{t('analytics.totalSpent', 'Total Spent')}</p>
                   </div>
                 </div>
               </div>

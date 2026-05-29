@@ -17,8 +17,10 @@
 import { useRouteError, isRouteErrorResponse } from 'react-router-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { Compass, ArrowLeft, Home } from 'lucide-react';
+import { useTranslation } from '../i18n/use-translation';
 
 export function NotFoundPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   // When this element is used as a route's `errorElement`, useRouteError gives
   // us the thrown response (e.g. a 404). When it's the matched element for a
@@ -28,16 +30,18 @@ export function NotFoundPage() {
 
   const statusText = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`
-    : 'Page not found';
+    : t('notFound.statusText', 'Page not found');
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 text-center">
       <Compass className="w-14 h-14 text-brand-400 mb-4" />
-      <h2 className="text-2xl font-bold mb-1">This page took a wrong turn</h2>
+      <h2 className="text-2xl font-bold mb-1">{t('notFound.heading', 'This page took a wrong turn')}</h2>
       <p className="text-surface-400 mb-1">{statusText}</p>
       <p className="text-surface-400 max-w-md mb-6">
-        The page you&apos;re looking for doesn&apos;t exist or may have moved.
-        Check the address, or head back to your projects.
+        {t(
+          'notFound.description',
+          "The page you're looking for doesn't exist or may have moved. Check the address, or head back to your projects.",
+        )}
       </p>
       <div className="flex items-center gap-3">
         <button
@@ -45,14 +49,14 @@ export function NotFoundPage() {
           className="px-4 py-2 bg-surface-800 hover:bg-surface-700 rounded-lg flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          Go Back
+          {t('notFound.goBack', 'Go Back')}
         </button>
         <Link
           to="/"
           className="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-lg flex items-center gap-2"
         >
           <Home className="w-4 h-4" />
-          Back to Projects
+          {t('notFound.backToProjects', 'Back to Projects')}
         </Link>
       </div>
     </div>

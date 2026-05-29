@@ -19,6 +19,7 @@ import {
   Sparkles,
   Keyboard,
 } from 'lucide-react';
+import { useTranslation } from '../i18n/use-translation';
 import { CharacterCard } from '../components/character-card';
 import { LoadingContainer, SkeletonProjectCard } from '../components/skeleton';
 import { cn } from '../lib/utils';
@@ -56,6 +57,7 @@ export function CharacterLabPage() {
   const { getTerm, isSimplifiedMode } = useExperienceStore();
   const isStoryMode = isSimplifiedMode('characters');
   const { toast: addToast } = useToast();
+  const { t } = useTranslation();
 
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -136,16 +138,16 @@ export function CharacterLabPage() {
       const char = characters?.find((c) => c.id === characterId);
       addToast({
         type: 'success',
-        title: 'Character Locked',
-        message: `${char?.name || 'Character'} appearance is now locked for consistency.`,
+        title: t('charLab.characterLocked', 'Character Locked'),
+        message: `${char?.name || t('charLab.character', 'Character')} ${t('charLab.appearanceLockedForConsistency', 'appearance is now locked for consistency.')}`,
       });
-      announce(`${char?.name || 'Character'} locked`);
+      announce(`${char?.name || t('charLab.character', 'Character')} ${t('charLab.locked', 'locked')}`);
     },
     onError: (error) => {
       addToast({
         type: 'error',
-        title: 'Failed to Lock',
-        message: error instanceof Error ? error.message : 'Please try again.',
+        title: t('charLab.failedToLock', 'Failed to Lock'),
+        message: error instanceof Error ? error.message : t('charLab.pleaseTryAgain', 'Please try again.'),
       });
     },
   });
@@ -162,16 +164,16 @@ export function CharacterLabPage() {
       const char = characters?.find((c) => c.id === characterId);
       addToast({
         type: 'info',
-        title: 'Character Unlocked',
-        message: `${char?.name || 'Character'} can now be edited.`,
+        title: t('charLab.characterUnlocked', 'Character Unlocked'),
+        message: `${char?.name || t('charLab.character', 'Character')} ${t('charLab.canNowBeEdited', 'can now be edited.')}`,
       });
-      announce(`${char?.name || 'Character'} unlocked`);
+      announce(`${char?.name || t('charLab.character', 'Character')} ${t('charLab.unlocked', 'unlocked')}`);
     },
     onError: (error) => {
       addToast({
         type: 'error',
-        title: 'Failed to Unlock',
-        message: error instanceof Error ? error.message : 'Please try again.',
+        title: t('charLab.failedToUnlock', 'Failed to Unlock'),
+        message: error instanceof Error ? error.message : t('charLab.pleaseTryAgain', 'Please try again.'),
       });
     },
   });
@@ -188,15 +190,15 @@ export function CharacterLabPage() {
       const char = characters?.find((c) => c.id === characterId);
       addToast({
         type: 'success',
-        title: 'Description Generated',
-        message: `AI description created for ${char?.name || 'character'}.`,
+        title: t('charLab.descriptionGenerated', 'Description Generated'),
+        message: `${t('charLab.aiDescriptionCreatedFor', 'AI description created for')} ${char?.name || t('charLab.characterLower', 'character')}.`,
       });
     },
     onError: (error) => {
       addToast({
         type: 'error',
-        title: 'Generation Failed',
-        message: error instanceof Error ? error.message : 'Please try again.',
+        title: t('charLab.generationFailed', 'Generation Failed'),
+        message: error instanceof Error ? error.message : t('charLab.pleaseTryAgain', 'Please try again.'),
       });
     },
   });
@@ -248,15 +250,15 @@ export function CharacterLabPage() {
       }
       addToast({
         type: 'success',
-        title: 'Voice Suggested',
-        message: `AI matched voice: ${result?.voiceName || 'Best match'}`,
+        title: t('charLab.voiceSuggested', 'Voice Suggested'),
+        message: `${t('charLab.aiMatchedVoice', 'AI matched voice:')} ${result?.voiceName || t('charLab.bestMatch', 'Best match')}`,
       });
     },
     onError: (error) => {
       addToast({
         type: 'error',
-        title: 'Voice Suggestion Failed',
-        message: error instanceof Error ? error.message : 'Please try again.',
+        title: t('charLab.voiceSuggestionFailed', 'Voice Suggestion Failed'),
+        message: error instanceof Error ? error.message : t('charLab.pleaseTryAgain', 'Please try again.'),
       });
     },
   });
@@ -273,15 +275,15 @@ export function CharacterLabPage() {
       const score = _result?.score ?? 0;
       addToast({
         type: score >= 80 ? 'success' : score >= 60 ? 'info' : 'warning',
-        title: 'Consistency Check',
-        message: `${char?.name || 'Character'}: ${score}% match with generated shots.`,
+        title: t('charLab.consistencyCheck', 'Consistency Check'),
+        message: `${char?.name || t('charLab.character', 'Character')}: ${score}% ${t('charLab.matchWithGeneratedShots', 'match with generated shots.')}`,
       });
     },
     onError: (error) => {
       addToast({
         type: 'error',
-        title: 'Consistency Check Failed',
-        message: error instanceof Error ? error.message : 'Please try again.',
+        title: t('charLab.consistencyCheckFailed', 'Consistency Check Failed'),
+        message: error instanceof Error ? error.message : t('charLab.pleaseTryAgain', 'Please try again.'),
       });
     },
   });
@@ -310,8 +312,8 @@ export function CharacterLabPage() {
     async (characterId: string) => {
       try {
         const result = await window.electronAPI.openFile({
-          title: 'Select Reference Image',
-          filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
+          title: t('charLab.selectReferenceImage', 'Select Reference Image'),
+          filters: [{ name: t('charLab.images', 'Images'), extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
           properties: ['openFile'],
         });
 
@@ -328,18 +330,18 @@ export function CharacterLabPage() {
         });
 
         queryClient.invalidateQueries({ queryKey: ['characters', projectId] });
-        addToast({ type: 'success', title: 'Reference image uploaded' });
+        addToast({ type: 'success', title: t('charLab.referenceImageUploaded', 'Reference image uploaded') });
       } catch (error) {
         // No-silent-fallbacks: a dropped image that fails to upload was
         // previously invisible to the user (console-only).
         addToast({
           type: 'error',
-          title: 'Image upload failed',
-          message: error instanceof Error ? error.message : 'Please try again.',
+          title: t('charLab.imageUploadFailed', 'Image upload failed'),
+          message: error instanceof Error ? error.message : t('charLab.pleaseTryAgain', 'Please try again.'),
         });
       }
     },
-    [projectId, queryClient, addToast]
+    [projectId, queryClient, addToast, t]
   );
 
   // Delete reference handler
@@ -355,12 +357,12 @@ export function CharacterLabPage() {
         // No-silent-fallbacks: surface delete failures to the user.
         addToast({
           type: 'error',
-          title: 'Failed to delete reference',
-          message: error instanceof Error ? error.message : 'Please try again.',
+          title: t('charLab.failedToDeleteReference', 'Failed to delete reference'),
+          message: error instanceof Error ? error.message : t('charLab.pleaseTryAgain', 'Please try again.'),
         });
       }
     },
-    [projectId, queryClient, addToast]
+    [projectId, queryClient, addToast, t]
   );
 
   // Filter characters
@@ -415,12 +417,12 @@ export function CharacterLabPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Users className="w-7 h-7 text-brand-400" />
-              Character Lab
+              {t('charLab.characterLab', 'Character Lab')}
             </h1>
             <p className="text-surface-400 mt-1">
               {isStoryMode
-                ? 'Define how your characters look so they stay consistent'
-                : 'Define and lock character appearances for consistent generation'}
+                ? t('charLab.subtitleStory', 'Define how your characters look so they stay consistent')
+                : t('charLab.subtitle', 'Define and lock character appearances for consistent generation')}
             </p>
           </div>
         </div>
@@ -429,7 +431,7 @@ export function CharacterLabPage() {
         <div className="flex items-center gap-4">
           <div className="text-right">
             <div className="text-sm text-surface-400">
-              {isStoryMode ? 'Characters Saved' : 'Characters Locked'}
+              {isStoryMode ? t('charLab.charactersSaved', 'Characters Saved') : t('charLab.charactersLocked', 'Characters Locked')}
             </div>
             <div className="text-2xl font-bold">
               {lockedCharacters}/{totalCharacters}
@@ -438,12 +440,12 @@ export function CharacterLabPage() {
           {allLocked ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-lg">
               <Check className="w-5 h-5" />
-              <span>{isStoryMode ? 'All Saved' : 'All Locked'}</span>
+              <span>{isStoryMode ? t('charLab.allSaved', 'All Saved') : t('charLab.allLocked', 'All Locked')}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg">
               <AlertTriangle className="w-5 h-5" />
-              <span>Incomplete</span>
+              <span>{t('charLab.incomplete', 'Incomplete')}</span>
             </div>
           )}
         </div>
@@ -455,12 +457,12 @@ export function CharacterLabPage() {
           <Lock className="w-5 h-5 text-brand-400 mt-0.5" />
           <div>
             <h3 className="font-medium text-brand-300">
-              {isStoryMode ? 'Why Save Character Looks?' : 'Why Lock Characters?'}
+              {isStoryMode ? t('charLab.whySaveLooks', 'Why Save Character Looks?') : t('charLab.whyLockCharacters', 'Why Lock Characters?')}
             </h3>
             <p className="text-sm text-surface-300 mt-1">
               {isStoryMode
-                ? "Saving a character's look ensures they appear the same in every scene of your movie. Describe how they look, add reference photos if you have them, and save their appearance before creating your scenes."
-                : "Locking a character's appearance ensures they look consistent across all generated scenes. Define their physical features, upload reference images, and lock them before proceeding to scene generation."}
+                ? t('charLab.whySaveBodyStory', "Saving a character's look ensures they appear the same in every scene of your movie. Describe how they look, add reference photos if you have them, and save their appearance before creating your scenes.")
+                : t('charLab.whyLockBody', "Locking a character's appearance ensures they look consistent across all generated scenes. Define their physical features, upload reference images, and lock them before proceeding to scene generation.")}
             </p>
           </div>
         </div>
@@ -473,7 +475,7 @@ export function CharacterLabPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-500" />
           <input
             type="text"
-            placeholder="Search characters..."
+            placeholder={t('charLab.searchPlaceholder', 'Search characters...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 pr-4 py-2 bg-surface-800 border border-surface-700 rounded-lg text-sm focus:outline-none focus:border-brand-500 w-64"
@@ -491,8 +493,10 @@ export function CharacterLabPage() {
                   return getTerm('locked', 'characters');
                 case 'unlocked':
                   return getTerm('unlocked', 'characters');
-                default:
-                  return type.charAt(0).toUpperCase() + type.slice(1);
+                case 'protagonist':
+                  return t('charLab.filterProtagonist', 'Protagonist');
+                case 'all':
+                  return t('charLab.filterAll', 'All');
               }
             };
             return (
@@ -526,7 +530,7 @@ export function CharacterLabPage() {
             className="btn-secondary text-sm"
           >
             <Sparkles className="w-4 h-4 mr-1" />
-            AI Describe All
+            {t('charLab.aiDescribeAll', 'AI Describe All')}
           </button>
         </div>
       </div>
@@ -536,14 +540,14 @@ export function CharacterLabPage() {
         state={loadingState}
         skeleton={<SkeletonProjectCard />}
         skeletonCount={4}
-        loadingMessage="Loading characters..."
+        loadingMessage={t('charLab.loadingCharacters', 'Loading characters...')}
         emptyMessage={
           searchQuery || filter !== 'all'
-            ? 'No characters match your search or filter.'
-            : 'Characters will appear here once a screenplay is parsed.'
+            ? t('charLab.emptyNoMatch', 'No characters match your search or filter.')
+            : t('charLab.emptyNoCharacters', 'Characters will appear here once a screenplay is parsed.')
         }
         emptyIcon={<Users className="w-16 h-16 text-surface-600" />}
-        emptyAction={searchQuery || filter !== 'all' ? 'Clear filters' : undefined}
+        emptyAction={searchQuery || filter !== 'all' ? t('charLab.clearFilters', 'Clear filters') : undefined}
         onEmptyAction={
           searchQuery || filter !== 'all'
             ? () => {
@@ -557,7 +561,7 @@ export function CharacterLabPage() {
           <div
             className="grid grid-cols-1 lg:grid-cols-2 gap-4"
             role="list"
-            aria-label="Characters"
+            aria-label={t('charLab.charactersAriaLabel', 'Characters')}
           >
             {filteredCharacters.map((character) => (
               <div key={character.id} role="listitem">
@@ -603,7 +607,7 @@ export function CharacterLabPage() {
           onClick={() => setShowShortcuts(false)}
           role="dialog"
           aria-modal="true"
-          aria-label="Keyboard shortcuts"
+          aria-label={t('charLab.keyboardShortcuts', 'Keyboard shortcuts')}
         >
           <div
             className="bg-surface-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl"
@@ -611,35 +615,35 @@ export function CharacterLabPage() {
           >
             <div className="flex items-center gap-2 mb-4">
               <Keyboard className="w-5 h-5 text-brand-400" />
-              <h2 className="text-lg font-semibold">Keyboard Shortcuts</h2>
+              <h2 className="text-lg font-semibold">{t('charLab.keyboardShortcutsHeading', 'Keyboard Shortcuts')}</h2>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-surface-400">Focus search</span>
+                <span className="text-surface-400">{t('charLab.shortcutFocusSearch', 'Focus search')}</span>
                 <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">/</kbd>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-surface-400">Show all</span>
+                <span className="text-surface-400">{t('charLab.shortcutShowAll', 'Show all')}</span>
                 <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">1</kbd>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-surface-400">Show locked</span>
+                <span className="text-surface-400">{t('charLab.shortcutShowLocked', 'Show locked')}</span>
                 <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">2</kbd>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-surface-400">Show unlocked</span>
+                <span className="text-surface-400">{t('charLab.shortcutShowUnlocked', 'Show unlocked')}</span>
                 <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">3</kbd>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-surface-400">Show protagonists</span>
+                <span className="text-surface-400">{t('charLab.shortcutShowProtagonists', 'Show protagonists')}</span>
                 <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">4</kbd>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-surface-400">Clear / Close</span>
+                <span className="text-surface-400">{t('charLab.shortcutClearClose', 'Clear / Close')}</span>
                 <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">Esc</kbd>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-surface-400">Show this help</span>
+                <span className="text-surface-400">{t('charLab.shortcutShowHelp', 'Show this help')}</span>
                 <kbd className="px-2 py-1 bg-surface-700 rounded text-surface-200">?</kbd>
               </div>
             </div>
@@ -647,7 +651,7 @@ export function CharacterLabPage() {
               onClick={() => setShowShortcuts(false)}
               className="mt-4 w-full py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm transition-colors"
             >
-              Close
+              {t('charLab.close', 'Close')}
             </button>
           </div>
         </div>
@@ -661,7 +665,7 @@ export function CharacterLabPage() {
             className="btn-primary shadow-lg"
           >
             <Check className="w-4 h-4 mr-2" />
-            Continue to Scene Planning
+            {t('charLab.continueToScenePlanning', 'Continue to Scene Planning')}
           </button>
         </div>
       )}

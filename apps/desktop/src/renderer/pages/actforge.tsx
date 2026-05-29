@@ -17,6 +17,7 @@ import {
   ChevronDown,
   RefreshCw,
 } from 'lucide-react';
+import { useTranslation } from '../i18n/use-translation';
 import { useActForgeStore } from '../stores/actforge-store';
 import { useProjectStore } from '../stores/project-store';
 import { PerformerCard } from '../components/performer-card';
@@ -24,6 +25,7 @@ import { BookingModal } from '../components/booking-modal';
 import type { Performer, BookingMode, PerformerType } from '../api/client';
 
 export function ActForgePage(): JSX.Element {
+  const { t } = useTranslation();
   const {
     performers: rawPerformers,
     featuredPerformers: rawFeatured,
@@ -103,13 +105,15 @@ export function ActForgePage(): JSX.Element {
                 <Users className="w-7 h-7 text-blue-400" />
                 ActForge
               </h1>
-              <p className="text-gray-400 text-sm">Talent Marketplace for ActCore Performers</p>
+              <p className="text-gray-400 text-sm">
+                {t('actforge.subtitle', 'Talent Marketplace for ActCore Performers')}
+              </p>
             </div>
             <button
               onClick={handleRefresh}
               disabled={isLoadingPerformers}
               className="p-2 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
-              aria-label="Refresh"
+              aria-label={t('actforge.refresh', 'Refresh')}
             >
               <RefreshCw
                 className={`w-5 h-5 text-gray-400 ${isLoadingPerformers ? 'animate-spin' : ''}`}
@@ -123,7 +127,7 @@ export function ActForgePage(): JSX.Element {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search performers..."
+                placeholder={t('actforge.searchPlaceholder', 'Search performers...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -139,7 +143,7 @@ export function ActForgePage(): JSX.Element {
               }`}
             >
               <Filter className="w-4 h-4" />
-              Filters
+              {t('actforge.filters', 'Filters')}
               <ChevronDown
                 className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`}
               />
@@ -148,7 +152,7 @@ export function ActForgePage(): JSX.Element {
               onClick={handleSearch}
               className="px-6 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded-lg font-medium transition-colors"
             >
-              Search
+              {t('actforge.search', 'Search')}
             </button>
           </div>
 
@@ -156,19 +160,21 @@ export function ActForgePage(): JSX.Element {
           {showFilters && (
             <div className="mt-4 p-4 bg-gray-800 rounded-lg grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Type</label>
+                <label className="block text-sm text-gray-400 mb-1">{t('actforge.type', 'Type')}</label>
                 <select
                   value={filterType ?? ''}
                   onChange={(e) => setFilterType((e.target.value as PerformerType) || undefined)}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                 >
-                  <option value="">All Types</option>
-                  <option value="HUMAN">Human</option>
-                  <option value="SYNTHETIC">Synthetic</option>
+                  <option value="">{t('actforge.allTypes', 'All Types')}</option>
+                  <option value="HUMAN">{t('actforge.human', 'Human')}</option>
+                  <option value="SYNTHETIC">{t('actforge.synthetic', 'Synthetic')}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Verified</label>
+                <label className="block text-sm text-gray-400 mb-1">
+                  {t('actforge.verified', 'Verified')}
+                </label>
                 <select
                   value={filterVerified === undefined ? '' : filterVerified ? 'true' : 'false'}
                   onChange={(e) =>
@@ -176,22 +182,24 @@ export function ActForgePage(): JSX.Element {
                   }
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                 >
-                  <option value="">All</option>
-                  <option value="true">Verified Only</option>
-                  <option value="false">Unverified Only</option>
+                  <option value="">{t('actforge.all', 'All')}</option>
+                  <option value="true">{t('actforge.verifiedOnly', 'Verified Only')}</option>
+                  <option value="false">{t('actforge.unverifiedOnly', 'Unverified Only')}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Sort By</label>
+                <label className="block text-sm text-gray-400 mb-1">
+                  {t('actforge.sortBy', 'Sort By')}
+                </label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
                 >
-                  <option value="aci_score">ACI Score</option>
-                  <option value="price">Price (Low to High)</option>
-                  <option value="rating">Rating</option>
-                  <option value="bookings">Most Bookings</option>
+                  <option value="aci_score">{t('actforge.aciScore', 'ACI Score')}</option>
+                  <option value="price">{t('actforge.priceLowToHigh', 'Price (Low to High)')}</option>
+                  <option value="rating">{t('actforge.rating', 'Rating')}</option>
+                  <option value="bookings">{t('actforge.mostBookings', 'Most Bookings')}</option>
                 </select>
               </div>
             </div>
@@ -205,7 +213,9 @@ export function ActForgePage(): JSX.Element {
           <section className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <Star className="w-5 h-5 text-yellow-400" />
-              <h2 className="text-lg font-semibold text-white">Featured Performers</h2>
+              <h2 className="text-lg font-semibold text-white">
+                {t('actforge.featuredPerformers', 'Featured Performers')}
+              </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {featuredPerformers.map((performer) => (
@@ -226,10 +236,10 @@ export function ActForgePage(): JSX.Element {
             <div>
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <Zap className="w-5 h-5 text-yellow-400" />
-                Quick Blink Booking
+                {t('actforge.quickBlinkBooking', 'Quick Blink Booking')}
               </h2>
               <p className="text-sm text-gray-400 mt-1">
-                Get a 10-second auto-matched performer instantly
+                {t('actforge.quickBlinkDescription', 'Get a 10-second auto-matched performer instantly')}
               </p>
             </div>
             <button
@@ -237,7 +247,7 @@ export function ActForgePage(): JSX.Element {
               className="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg transition-colors flex items-center gap-2"
             >
               <Zap className="w-5 h-5" />
-              Quick Book
+              {t('actforge.quickBook', 'Quick Book')}
             </button>
           </div>
         </section>
@@ -248,8 +258,10 @@ export function ActForgePage(): JSX.Element {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-blue-400" />
-                All Performers
-                <span className="text-sm text-gray-400 font-normal">({searchTotal ?? 0} total)</span>
+                {t('actforge.allPerformers', 'All Performers')}
+                <span className="text-sm text-gray-400 font-normal">
+                  ({searchTotal ?? 0} {t('actforge.total', 'total')})
+                </span>
               </h2>
             </div>
 
@@ -269,8 +281,12 @@ export function ActForgePage(): JSX.Element {
             ) : performers.length === 0 ? (
               <div className="text-center py-12 bg-gray-900 rounded-xl border border-gray-800">
                 <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                <h3 className="text-lg font-medium text-white mb-1">No performers found</h3>
-                <p className="text-gray-400">Try adjusting your search filters</p>
+                <h3 className="text-lg font-medium text-white mb-1">
+                  {t('actforge.noPerformersFound', 'No performers found')}
+                </h3>
+                <p className="text-gray-400">
+                  {t('actforge.adjustFilters', 'Try adjusting your search filters')}
+                </p>
               </div>
             ) : (
               <>
@@ -292,7 +308,9 @@ export function ActForgePage(): JSX.Element {
                       disabled={isLoadingPerformers}
                       className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     >
-                      {isLoadingPerformers ? 'Loading...' : 'Load More'}
+                      {isLoadingPerformers
+                        ? t('actforge.loading', 'Loading...')
+                        : t('actforge.loadMore', 'Load More')}
                     </button>
                   </div>
                 )}
@@ -305,13 +323,13 @@ export function ActForgePage(): JSX.Element {
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 sticky top-28">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
                 <Trophy className="w-5 h-5 text-yellow-400" />
-                ACI Leaderboard
+                {t('actforge.aciLeaderboard', 'ACI Leaderboard')}
               </h2>
 
               {leaderboard.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <Trophy className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Loading leaderboard...</p>
+                  <p className="text-sm">{t('actforge.loadingLeaderboard', 'Loading leaderboard...')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -356,7 +374,7 @@ export function ActForgePage(): JSX.Element {
                           {entry.stage_name}
                         </div>
                         <div className="text-xs text-gray-400">
-                          {entry.completed_bookings} bookings
+                          {entry.completed_bookings} {t('actforge.bookings', 'bookings')}
                         </div>
                       </div>
 

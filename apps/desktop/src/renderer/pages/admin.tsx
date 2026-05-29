@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { api, type WorkerStatus } from '../api/client';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import { CircuitBreakerPanel } from '../components/circuit-breaker-status';
 import { useSettingsStore } from '../stores/settings-store';
 import { useGenerationStore } from '../stores/generation-store';
@@ -155,11 +156,12 @@ function StorageGauge({
  * Queue worker status panel.
  */
 function WorkerStatusPanel({ status }: { status: WorkerStatus | null }) {
+  const { t } = useTranslation();
   if (!status) {
     return (
       <div className="text-center py-4 text-surface-400">
         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-        Loading worker status...
+        {t('admin.loadingWorkerStatus', 'Loading worker status...')}
       </div>
     );
   }
@@ -173,23 +175,23 @@ function WorkerStatusPanel({ status }: { status: WorkerStatus | null }) {
             status.is_paused ? (
               <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/20 text-yellow-400 text-sm font-medium">
                 <Clock className="w-4 h-4" />
-                Paused
+                {t('admin.paused', 'Paused')}
               </span>
             ) : (
               <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 text-green-400 text-sm font-medium">
                 <Zap className="w-4 h-4" />
-                Running
+                {t('admin.running', 'Running')}
               </span>
             )
           ) : (
             <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 text-red-400 text-sm font-medium">
               <WifiOff className="w-4 h-4" />
-              Stopped
+              {t('admin.stopped', 'Stopped')}
             </span>
           )}
         </div>
         <div className="text-sm text-surface-400">
-          Uptime: {formatDuration(status.uptime_seconds)}
+          {t('admin.uptime', 'Uptime')}: {formatDuration(status.uptime_seconds)}
         </div>
       </div>
 
@@ -197,28 +199,28 @@ function WorkerStatusPanel({ status }: { status: WorkerStatus | null }) {
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-surface-800/50 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold">{status.jobs_processed}</div>
-          <div className="text-xs text-surface-400">Processed</div>
+          <div className="text-xs text-surface-400">{t('admin.processed', 'Processed')}</div>
         </div>
         <div className="bg-green-500/10 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-green-400">{status.jobs_succeeded}</div>
-          <div className="text-xs text-surface-400">Succeeded</div>
+          <div className="text-xs text-surface-400">{t('admin.succeeded', 'Succeeded')}</div>
         </div>
         <div className="bg-red-500/10 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-red-400">{status.jobs_failed}</div>
-          <div className="text-xs text-surface-400">Failed</div>
+          <div className="text-xs text-surface-400">{t('admin.failed', 'Failed')}</div>
         </div>
         <div className="bg-brand-500/10 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-brand-400">
             {(status.success_rate ?? 0).toFixed(1)}%
           </div>
-          <div className="text-xs text-surface-400">Success Rate</div>
+          <div className="text-xs text-surface-400">{t('admin.successRate', 'Success Rate')}</div>
         </div>
       </div>
 
       {/* Current Job */}
       {status.current_job_id && (
         <div className="bg-surface-800/50 rounded-lg p-3">
-          <div className="text-xs text-surface-400 mb-1">Currently Processing</div>
+          <div className="text-xs text-surface-400 mb-1">{t('admin.currentlyProcessing', 'Currently Processing')}</div>
           <div className="font-mono text-sm truncate">{status.current_job_id}</div>
         </div>
       )}
@@ -230,6 +232,7 @@ function WorkerStatusPanel({ status }: { status: WorkerStatus | null }) {
  * Admin/Health Dashboard Page.
  */
 export function AdminPage() {
+  const { t } = useTranslation();
   const { storageStats, fetchStorageStats } = useSettingsStore();
   const { workerStatus, fetchWorkerStatus } = useGenerationStore();
 
@@ -290,10 +293,10 @@ export function AdminPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Server className="w-6 h-6 text-brand-400" />
-              System Health
+              {t('admin.systemHealth', 'System Health')}
             </h1>
             <p className="text-surface-400 mt-1">
-              Monitor system status, providers, and resource usage
+              {t('admin.systemHealthSubtitle', 'Monitor system status, providers, and resource usage')}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -309,7 +312,7 @@ export function AdminPage() {
               className="px-3 py-1.5 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm flex items-center gap-2"
             >
               <RefreshCw className="w-4 h-4" />
-              Refresh All
+              {t('admin.refreshAll', 'Refresh All')}
             </button>
           </div>
         </div>
@@ -317,14 +320,14 @@ export function AdminPage() {
         {/* System Overview */}
         <div className="grid grid-cols-4 gap-4 mb-8">
           <StatusCard
-            title="Backend Status"
+            title={t('admin.backendStatus', 'Backend Status')}
             icon={Server}
             status={versionLoading ? 'loading' : versionInfo ? 'ok' : 'error'}
-            value={versionInfo ? 'Connected' : 'Disconnected'}
-            subtext={versionInfo ? `Python backend v${versionInfo.version}` : undefined}
+            value={versionInfo ? t('admin.connected', 'Connected') : t('admin.disconnected', 'Disconnected')}
+            subtext={versionInfo ? `${t('admin.pythonBackend', 'Python backend')} v${versionInfo.version}` : undefined}
           />
           <StatusCard
-            title="Providers"
+            title={t('admin.providers', 'Providers')}
             icon={Wifi}
             status={
               providersLoading
@@ -337,29 +340,31 @@ export function AdminPage() {
             }
             value={`${availableProviders}/${totalProviders}`}
             subtext={
-              hasProviderIssues ? 'Some providers unavailable' : 'All configured providers healthy'
+              hasProviderIssues
+                ? t('admin.someProvidersUnavailable', 'Some providers unavailable')
+                : t('admin.allProvidersHealthy', 'All configured providers healthy')
             }
           />
           <StatusCard
-            title="Generations (7d)"
+            title={t('admin.generations7d', 'Generations (7d)')}
             icon={Activity}
             status={statsLoading ? 'loading' : 'ok'}
             value={generationStats?.totalGenerations?.toString() || '0'}
             subtext={
               generationStats
-                ? `${(generationStats.successRate ?? 0).toFixed(1)}% success rate`
+                ? `${(generationStats.successRate ?? 0).toFixed(1)}% ${t('admin.successRateLower', 'success rate')}`
                 : undefined
             }
             color="text-brand-400"
           />
           <StatusCard
-            title="Cost (30d)"
+            title={t('admin.cost30d', 'Cost (30d)')}
             icon={TrendingUp}
             status="ok"
             value={`$${costStats?.totalCostUsd?.toFixed(2) || '0.00'}`}
             subtext={
               costStats
-                ? `$${costStats.averageCostPerGeneration?.toFixed(3) || '0'} avg/gen`
+                ? `$${costStats.averageCostPerGeneration?.toFixed(3) || '0'} ${t('admin.avgPerGen', 'avg/gen')}`
                 : undefined
             }
             color="text-green-400"
@@ -371,14 +376,14 @@ export function AdminPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium flex items-center gap-2">
               <HardDrive className="w-5 h-5 text-brand-400" />
-              Storage Usage
+              {t('admin.storageUsage', 'Storage Usage')}
             </h2>
             <button
               onClick={() => fetchStorageStats()}
               className="text-sm text-brand-400 hover:text-brand-300 flex items-center gap-1"
             >
               <RefreshCw className="w-4 h-4" />
-              Refresh
+              {t('admin.refresh', 'Refresh')}
             </button>
           </div>
 
@@ -386,51 +391,51 @@ export function AdminPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StorageGauge
-                  label="Uploads"
+                  label={t('admin.uploads', 'Uploads')}
                   used={storageStats.uploadSizeBytes}
                   total={storageStats.totalSizeBytes}
                   color="bg-blue-400"
                 />
                 <StorageGauge
-                  label="Outputs"
+                  label={t('admin.outputs', 'Outputs')}
                   used={storageStats.outputSizeBytes}
                   total={storageStats.totalSizeBytes}
                   color="bg-green-400"
                 />
                 <StorageGauge
-                  label="Cache"
+                  label={t('admin.cache', 'Cache')}
                   used={storageStats.cacheSizeBytes}
                   total={storageStats.totalSizeBytes}
                   color="bg-yellow-400"
                 />
                 <div className="bg-surface-800/50 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-surface-300">Total Used</span>
+                    <span className="text-sm text-surface-300">{t('admin.totalUsed', 'Total Used')}</span>
                     <span className="text-sm font-medium">
                       {formatBytes(storageStats.totalSizeBytes)}
                     </span>
                   </div>
                   <div className="text-xs text-surface-500">
-                    {storageStats.tempFilesCount} temp files
+                    {storageStats.tempFilesCount} {t('admin.tempFiles', 'temp files')}
                   </div>
                 </div>
               </div>
 
               <div className="text-xs text-surface-500 space-y-1">
                 <div className="flex justify-between">
-                  <span>Data Directory</span>
-                  <span className="font-mono">{storageStats.dataDir || 'Not configured'}</span>
+                  <span>{t('admin.dataDirectory', 'Data Directory')}</span>
+                  <span className="font-mono">{storageStats.dataDir || t('admin.notConfigured', 'Not configured')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Cache Directory</span>
-                  <span className="font-mono">{storageStats.cacheDir || 'Not configured'}</span>
+                  <span>{t('admin.cacheDirectory', 'Cache Directory')}</span>
+                  <span className="font-mono">{storageStats.cacheDir || t('admin.notConfigured', 'Not configured')}</span>
                 </div>
               </div>
             </div>
           ) : (
             <div className="text-center py-8 text-surface-400">
               <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-              Loading storage stats...
+              {t('admin.loadingStorageStats', 'Loading storage stats...')}
             </div>
           )}
         </div>
@@ -439,7 +444,7 @@ export function AdminPage() {
         <div className="card mb-6">
           <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
             <Cpu className="w-5 h-5 text-brand-400" />
-            Queue Worker
+            {t('admin.queueWorker', 'Queue Worker')}
           </h2>
           <WorkerStatusPanel status={workerStatus} />
         </div>
@@ -454,7 +459,7 @@ export function AdminPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium flex items-center gap-2">
               <Database className="w-5 h-5 text-brand-400" />
-              Provider Details
+              {t('admin.providerDetails', 'Provider Details')}
             </h2>
             <button
               onClick={() => refetchProviders()}
@@ -466,14 +471,14 @@ export function AdminPage() {
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              Refresh
+              {t('admin.refresh', 'Refresh')}
             </button>
           </div>
 
           {providersLoading ? (
             <div className="text-center py-8 text-surface-400">
               <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-              Loading providers...
+              {t('admin.loadingProviders', 'Loading providers...')}
             </div>
           ) : providersHealth && providersHealth.length > 0 ? (
             <div className="space-y-3">
@@ -505,19 +510,19 @@ export function AdminPage() {
                         <span className="font-medium">{provider.name}</span>
                         {provider.configured && (
                           <span className="text-xs px-1.5 py-0.5 bg-surface-700 rounded">
-                            Configured
+                            {t('admin.configured', 'Configured')}
                           </span>
                         )}
                       </div>
                       <div className="text-sm text-surface-400 mt-1">
                         {provider.available
-                          ? `${provider.models.length} models available`
-                          : provider.error || 'Not configured'}
+                          ? `${provider.models.length} ${t('admin.modelsAvailable', 'models available')}`
+                          : provider.error || t('admin.notConfigured', 'Not configured')}
                       </div>
                     </div>
                     {provider.available && provider.default_model && (
                       <div className="text-right">
-                        <div className="text-xs text-surface-400">Default Model</div>
+                        <div className="text-xs text-surface-400">{t('admin.defaultModel', 'Default Model')}</div>
                         <div className="text-sm font-medium">{provider.default_model}</div>
                       </div>
                     )}
@@ -526,7 +531,7 @@ export function AdminPage() {
                   {/* Model List (collapsed) */}
                   {provider.available && provider.models.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-surface-700">
-                      <div className="text-xs text-surface-400 mb-2">Available Models</div>
+                      <div className="text-xs text-surface-400 mb-2">{t('admin.availableModels', 'Available Models')}</div>
                       <div className="flex flex-wrap gap-2">
                         {provider.models.map((model) => (
                           <span
@@ -545,7 +550,7 @@ export function AdminPage() {
             </div>
           ) : (
             <div className="text-center py-8 text-surface-400">
-              No providers configured. Add API keys in Settings.
+              {t('admin.noProvidersConfigured', 'No providers configured. Add API keys in Settings.')}
             </div>
           )}
         </div>

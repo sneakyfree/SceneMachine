@@ -12,6 +12,8 @@
  * "i18n migration"). Adding a locale = adding one catalog object below.
  */
 
+import { genEn, genEs } from './catalog.generated';
+
 export type Locale = 'en' | 'es';
 
 export const LOCALES: { code: Locale; label: string; flag: string }[] = [
@@ -24,7 +26,9 @@ export const DEFAULT_LOCALE: Locale = 'en';
 type Catalog = Record<string, string>;
 
 // English — the source of truth. Every key MUST exist here (fallback target).
+// Hand-authored nav/common keys first, then the generated page-body catalog.
 const en: Catalog = {
+  ...genEn,
   // Global navigation (rendered on every page)
   'nav.projects': 'Projects',
   'nav.analytics': 'Analytics',
@@ -45,8 +49,9 @@ const en: Catalog = {
   'common.language': 'Language',
 };
 
-// Spanish — demonstrates a second locale end-to-end.
+// Spanish — full locale: nav/common (hand-authored) + generated page-body keys.
 const es: Catalog = {
+  ...genEs,
   'nav.projects': 'Proyectos',
   'nav.analytics': 'Analíticas',
   'nav.explainability': 'Explicabilidad',

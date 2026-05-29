@@ -70,3 +70,52 @@ test('i18n locale switch re-renders nav in Spanish', async ({ page }) => {
   await page.waitForTimeout(800);
   await expect(nav.getByText('Proyectos', { exact: true })).toBeVisible();
 });
+
+// Page BODY content (not just nav chrome) must render Spanish on each route.
+// Each entry asserts a Spanish string that lives in the page body, proving the
+// content migration — switching to ES localizes content, not just navigation.
+const BODY_ROUTES: { name: string; path: string; es: string }[] = [
+  { name: 'home', path: '/', es: 'Crea y gestiona' }, // home subtitle prefix
+  { name: 'analytics', path: '/#/analytics', es: 'Analíticas' },
+  { name: 'archive', path: '/#/archive', es: 'Archivo' },
+  { name: 'help', path: '/#/help', es: 'Ayuda' },
+  { name: 'settings', path: '/#/settings', es: 'Configuración' },
+  { name: 'admin', path: '/#/admin', es: 'Estado del Sistema' },
+];
+
+for (const r of BODY_ROUTES) {
+  test(`i18n body content is Spanish — ${r.name}`, async ({ page }) => {
+    // Pre-seed locale=es so the very first render is Spanish.
+    await installMock(page);
+    await page.addInitScript(() => {
+      try {
+        const raw = localStorage.getItem('scenemachine-experience-store');
+        const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 };
+        parsed.state = { ...(parsed.state || {}), locale: 'es' };
+        localStorage.setItem('scenemachine-experience-store', JSON.stringify(parsed));
+      } catch {
+        /* sandboxed */
+      }
+    });
+
+    const errs: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error') errs.push(m.text());
+    });
+    page.on('pageerror', (e) => errs.push(`PAGEERROR: ${e.message}`));
+
+    await page.goto(r.path, { waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: path.join(SHOT_DIR, `body_${r.name}_es.png`), fullPage: true });
+
+    // The page body (excluding the nav sidebar) must contain the Spanish string.
+    await expect(page.locator('#main-content').getByText(r.es, { exact: false }).first()).toBeVisible();
+
+    const crashes = errs.filter(
+      (e) =>
+        !/^(PAGEERROR: )?Warning:/.test(e) &&
+        /Cannot read propert|is not a function|is not iterable|undefined is not|PAGEERROR|Unexpected Application Error/i.test(e),
+    );
+    expect(crashes, `crashes on ${r.name}: ${crashes.join('; ')}`).toHaveLength(0);
+  });
+}
