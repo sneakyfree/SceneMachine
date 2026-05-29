@@ -10,6 +10,7 @@ we cover the state-machine + percentage + empty-collection paths.
 
 import uuid
 
+from scenemachine.models.character import Character, CharacterLockState
 from scenemachine.models.project import Project, ProjectState
 from scenemachine.models.scene import Scene, SceneState, SceneType, TimeOfDay
 from scenemachine.models.shot import CameraMovement, Shot, ShotState, ShotType
@@ -218,3 +219,53 @@ def test_shot_get_full_prompt_combines_fields():
 
 def test_shot_repr():
     assert "Shot" in repr(_shot(state=ShotState.PLANNED))
+
+
+# ==========================================================================
+# Character model logic
+# ==========================================================================
+
+def _char_model(**kw):
+    c = Character(project_id=uuid.uuid4(), name="Bob", screenplay_name="BOB")
+    for k, v in kw.items():
+        setattr(c, k, v)
+    return c
+
+
+def test_character_is_locked():
+    assert _char_model(lock_state=CharacterLockState.LOCKED).is_locked is True
+    assert _char_model(lock_state=CharacterLockState.DRAFT).is_locked is False
+
+
+def test_character_display_name():
+    assert _char_model(name="Bob", screenplay_name="BOB").display_name == "Bob"
+    assert _char_model(name="SAME", screenplay_name="SAME").display_name == "SAME"
+
+
+def test_character_age_display_variants():
+    assert _char_model(age_range_min=30, age_range_max=30).age_display == "30"
+    assert _char_model(age_range_min=30, age_range_max=40).age_display == "30-40"
+    assert _char_model(age_range_min=30, age_range_max=None).age_display == "30+"
+    assert _char_model(age_range_min=None, age_range_max=18).age_display == "Under 18"
+    assert _char_model(age_range_min=None, age_range_max=None).age_display is None
+
+
+def test_character_importance_score_caps():
+    # protagonist (50) + scene cap (30) + dialogue cap (20) = 100
+    c = _char_model(is_protagonist=True, scene_count=100, dialogue_count=100)
+    assert c.importance_score == 100.0
+    # non-protagonist, modest presence
+    c2 = _char_model(is_protagonist=False, scene_count=3, dialogue_count=4)
+    assert c2.importance_score == 3 * 2 + 4 * 0.5
+
+
+def test_character_lock_progress_percentage():
+    assert _char_model(lock_state=CharacterLockState.UNDEFINED).lock_progress_percentage == 0
+    assert _char_model(lock_state=CharacterLockState.LOCKED).lock_progress_percentage == 100
+    assert _char_model(lock_state=CharacterLockState.REVIEW).lock_progress_percentage == 80
+
+
+def test_character_can_transition_to():
+    c = _char_model(lock_state=CharacterLockState.UNDEFINED)
+    assert c.can_transition_to(CharacterLockState.DRAFT) is True
+    assert c.can_transition_to(CharacterLockState.LOCKED) is False
