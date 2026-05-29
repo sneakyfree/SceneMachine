@@ -284,3 +284,21 @@ the `NaN:NaN` displays on `/export` and `/admin` flagged 2026-05-24 are gone.
   **Remaining (P3, minor)**: shared components outside `pages/` (modals, cards,
   toasts in `components/`) and a few intentionally-skipped interpolated/technical
   strings still render English; the same `t()` pattern applies when needed.
+
+- **P3 — shared components: first 7 migrated** (PARTIAL, 2026-05-29) — the
+  highest-visibility shared components now localize via `t()`:
+  `command-palette` (41 keys), `steven-assistant` (43), `share-dialog` (35),
+  `queue-manager` (34), `comments-panel` (24), `offline-banner` (24),
+  `shot-card` (20) — **221 keys** added (catalog now **1108 total**). Verified:
+  command-palette renders fully Spanish (placeholder "Buscar comandos…",
+  "NAVEGACIÓN", "Ir a Proyectos", footer "para navegar/seleccionar") by
+  screenshot + a new `qa_i18n_tour` assertion; tsc zero net errors; full QA
+  suite 52 green. **Still English** (the long tail, ~50 components): text-overlay,
+  timeline-transitions, watermark-picker, progress-dashboard, movie-plan-viewer,
+  screenplay-upload, onboarding, color-grading, circuit-breaker-status,
+  template-selector, story-mode-wizard, voice-selector, shot-preview,
+  production-dashboard, physical-description-form, blockers-panel, music-library,
+  feedback-widget, character-card, error-boundary, dialogue-panel,
+  batch-operations, shortcuts-overlay, cache-status, budget-settings,
+  sound-effects, cost-estimate, audio-waveform, video-player, etc. Same
+  mechanical `t()` + namespaced-catalog pattern; migrate in batches as above.

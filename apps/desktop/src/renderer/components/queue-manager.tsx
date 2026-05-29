@@ -25,6 +25,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../i18n/use-translation';
 import { useWebSocketEvent, EventType } from '../lib/websocket';
 import { useGenerationStore } from '../stores/generation-store';
 import { useExperienceStore } from '../stores/experience-store';
@@ -73,6 +74,7 @@ interface QueueManagerProps {
 // Status badge component
 function StatusBadge({ status }: { status: string }) {
   const { getTerm } = useExperienceStore();
+  const { t } = useTranslation();
 
   const config: Record<string, { color: string; icon: typeof Clock }> = {
     pending: { color: 'bg-yellow-500/20 text-yellow-400', icon: Clock },
@@ -94,7 +96,7 @@ function StatusBadge({ status }: { status: string }) {
     <span
       className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs', conf.color)}
       role="status"
-      aria-label={`Status: ${label}`}
+      aria-label={`${t('queueMgr.statusLabel', 'Status')}: ${label}`}
     >
       <Icon className={cn('w-3 h-3', isAnimated && 'animate-spin')} aria-hidden="true" />
       {label}
@@ -145,13 +147,14 @@ const QueueJobRow = memo(function QueueJobRow({
 }) {
   const [showActions, setShowActions] = useState(false);
   const { getMode } = useExperienceStore();
+  const { t } = useTranslation();
   const mode = getMode('generation');
 
   const isPending = job.status === 'pending';
   const isRunning = ['preparing', 'running', 'post_processing'].includes(job.status);
   const isFailed = ['failed', 'timeout'].includes(job.status);
 
-  const shotLabel = `Shot ${job.shotNumber || job.shotId.slice(0, 8)}`;
+  const shotLabel = `${t('queueMgr.shot', 'Shot')} ${job.shotNumber || job.shotId.slice(0, 8)}`;
 
   // Get position string for pending jobs
   const positionString = isPending ? formatQueuePosition(position, mode) : null;
@@ -166,7 +169,7 @@ const QueueJobRow = memo(function QueueJobRow({
         onClick && 'cursor-pointer'
       )}
       onClick={onClick}
-      aria-label={`${shotLabel}, Status: ${job.status}${job.progressPercent ? `, Progress: ${Math.round(job.progressPercent)}%` : ''}`}
+      aria-label={`${shotLabel}, ${t('queueMgr.statusLabel', 'Status')}: ${job.status}${job.progressPercent ? `, ${t('queueMgr.progressLabel', 'Progress')}: ${Math.round(job.progressPercent)}%` : ''}`}
       role={onClick ? 'button' : 'article'}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
@@ -214,7 +217,7 @@ const QueueJobRow = memo(function QueueJobRow({
           <div
             className="flex items-center gap-1"
             role="group"
-            aria-label="Queue priority controls"
+            aria-label={t('queueMgr.priorityControls', 'Queue priority controls')}
           >
             <button
               onClick={(e) => {
@@ -223,8 +226,8 @@ const QueueJobRow = memo(function QueueJobRow({
               }}
               disabled={isProcessing}
               className="icon-btn p-2 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
-              title="Move to top"
-              aria-label="Move job to top of queue"
+              title={t('queueMgr.moveToTop', 'Move to top')}
+              aria-label={t('queueMgr.moveToTopAria', 'Move job to top of queue')}
             >
               <ChevronsUp className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -235,8 +238,8 @@ const QueueJobRow = memo(function QueueJobRow({
               }}
               disabled={isProcessing}
               className="icon-btn p-2 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
-              title="Move up"
-              aria-label="Move job up in queue"
+              title={t('queueMgr.moveUp', 'Move up')}
+              aria-label={t('queueMgr.moveUpAria', 'Move job up in queue')}
             >
               <ChevronUp className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -247,8 +250,8 @@ const QueueJobRow = memo(function QueueJobRow({
               }}
               disabled={isProcessing}
               className="icon-btn p-2 hover:bg-surface-700 rounded text-surface-400 hover:text-surface-200 disabled:opacity-50"
-              title="Move down"
-              aria-label="Move job down in queue"
+              title={t('queueMgr.moveDown', 'Move down')}
+              aria-label={t('queueMgr.moveDownAria', 'Move job down in queue')}
             >
               <ChevronDown className="w-4 h-4" />
             </button>
@@ -263,7 +266,7 @@ const QueueJobRow = memo(function QueueJobRow({
               setShowActions(!showActions);
             }}
             className="icon-btn p-2 hover:bg-surface-700 rounded"
-            aria-label="More actions"
+            aria-label={t('queueMgr.moreActions', 'More actions')}
           >
             <MoreVertical className="w-4 h-4 text-surface-400" />
           </button>
@@ -283,7 +286,7 @@ const QueueJobRow = memo(function QueueJobRow({
                   className="w-full px-3 py-1.5 text-left text-sm hover:bg-surface-700 flex items-center gap-2 text-red-400"
                 >
                   <XCircle className="w-4 h-4" />
-                  Cancel
+                  {t('queueMgr.cancel', 'Cancel')}
                 </button>
               )}
               {isFailed && (
@@ -296,7 +299,7 @@ const QueueJobRow = memo(function QueueJobRow({
                   className="w-full px-3 py-1.5 text-left text-sm hover:bg-surface-700 flex items-center gap-2"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Retry
+                  {t('queueMgr.retry', 'Retry')}
                 </button>
               )}
               {isRunning && (
@@ -309,7 +312,7 @@ const QueueJobRow = memo(function QueueJobRow({
                   className="w-full px-3 py-1.5 text-left text-sm hover:bg-surface-700 flex items-center gap-2 text-red-400"
                 >
                   <Pause className="w-4 h-4" />
-                  Cancel
+                  {t('queueMgr.cancel', 'Cancel')}
                 </button>
               )}
             </div>
@@ -323,6 +326,7 @@ const QueueJobRow = memo(function QueueJobRow({
 // Stats summary with time estimates
 function QueueStatsSummary({ stats }: { stats: QueueStats }) {
   const { getMode } = useExperienceStore();
+  const { t } = useTranslation();
   const settings = useSettingsStore((s) => s.settings);
   const mode = getMode('generation');
 
@@ -338,23 +342,23 @@ function QueueStatsSummary({ stats }: { stats: QueueStats }) {
       <div className="flex items-center gap-4 text-sm">
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-yellow-400" />
-          <span className="text-surface-400">Pending:</span>
+          <span className="text-surface-400">{t('queueMgr.pending', 'Pending')}:</span>
           <span className="font-medium">{stats.pending}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-brand-400 animate-pulse" />
-          <span className="text-surface-400">Running:</span>
+          <span className="text-surface-400">{t('queueMgr.running', 'Running')}:</span>
           <span className="font-medium">{stats.running}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-green-400" />
-          <span className="text-surface-400">Completed:</span>
+          <span className="text-surface-400">{t('queueMgr.completed', 'Completed')}:</span>
           <span className="font-medium">{stats.completed}</span>
         </div>
         {stats.failed > 0 && (
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-red-400" />
-            <span className="text-surface-400">Failed:</span>
+            <span className="text-surface-400">{t('queueMgr.failed', 'Failed')}:</span>
             <span className="font-medium text-red-400">{stats.failed}</span>
           </div>
         )}
@@ -374,11 +378,13 @@ function QueueStatsSummary({ stats }: { stats: QueueStats }) {
 
 // Worker status badge
 function WorkerStatusBadge({ isPaused, isLoading }: { isPaused: boolean; isLoading?: boolean }) {
+  const { t } = useTranslation();
+
   if (isLoading) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-surface-700 text-surface-400">
         <Loader2 className="w-3 h-3 animate-spin" />
-        Loading...
+        {t('queueMgr.loading', 'Loading...')}
       </span>
     );
   }
@@ -390,17 +396,21 @@ function WorkerStatusBadge({ isPaused, isLoading }: { isPaused: boolean; isLoadi
         isPaused ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'
       )}
       role="status"
-      aria-label={isPaused ? 'Queue worker is paused' : 'Queue worker is running'}
+      aria-label={
+        isPaused
+          ? t('queueMgr.workerPausedAria', 'Queue worker is paused')
+          : t('queueMgr.workerRunningAria', 'Queue worker is running')
+      }
     >
       {isPaused ? (
         <>
           <Pause className="w-3 h-3" />
-          Paused
+          {t('queueMgr.paused', 'Paused')}
         </>
       ) : (
         <>
           <Zap className="w-3 h-3" />
-          Running
+          {t('queueMgr.running', 'Running')}
         </>
       )}
     </span>
@@ -408,6 +418,7 @@ function WorkerStatusBadge({ isPaused, isLoading }: { isPaused: boolean; isLoadi
 }
 
 export function QueueManager({ projectId, compact = false, onJobClick }: QueueManagerProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isTogglingWorker, setIsTogglingWorker] = useState(false);
@@ -574,7 +585,7 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-medium flex items-center gap-2">
               <Clock className="w-5 h-5 text-brand-400" />
-              Generation Queue
+              {t('queueMgr.heading', 'Generation Queue')}
             </h2>
             <WorkerStatusBadge
               isPaused={workerStatus?.is_paused ?? false}
@@ -600,9 +611,15 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
                 : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
             )}
             title={
-              workerStatus?.is_paused ? 'Resume processing new jobs' : 'Pause processing new jobs'
+              workerStatus?.is_paused
+                ? t('queueMgr.resumeTitle', 'Resume processing new jobs')
+                : t('queueMgr.pauseTitle', 'Pause processing new jobs')
             }
-            aria-label={workerStatus?.is_paused ? 'Resume queue worker' : 'Pause queue worker'}
+            aria-label={
+              workerStatus?.is_paused
+                ? t('queueMgr.resumeAria', 'Resume queue worker')
+                : t('queueMgr.pauseAria', 'Pause queue worker')
+            }
           >
             {isTogglingWorker ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -611,14 +628,14 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
             ) : (
               <Pause className="w-4 h-4" />
             )}
-            {workerStatus?.is_paused ? 'Resume' : 'Pause'}
+            {workerStatus?.is_paused ? t('queueMgr.resume', 'Resume') : t('queueMgr.pause', 'Pause')}
           </button>
 
           <button
             onClick={() => refetch()}
             disabled={isLoading}
             className="p-2 hover:bg-surface-700 rounded-lg text-surface-400 hover:text-surface-200"
-            title="Refresh"
+            title={t('queueMgr.refresh', 'Refresh')}
           >
             <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
           </button>
@@ -630,7 +647,7 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
               className="px-3 py-1.5 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm flex items-center gap-1.5"
             >
               <RotateCcw className="w-4 h-4" />
-              Retry Failed ({stats.failed})
+              {t('queueMgr.retryFailed', 'Retry Failed')} ({stats.failed})
             </button>
           )}
 
@@ -641,7 +658,7 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
               className="px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-sm flex items-center gap-1.5"
             >
               <Trash2 className="w-4 h-4" />
-              Cancel All
+              {t('queueMgr.cancelAll', 'Cancel All')}
             </button>
           )}
         </div>
@@ -649,7 +666,7 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
 
       {/* Queue list */}
       {isLoading ? (
-        <div className="space-y-2" aria-label="Loading queue">
+        <div className="space-y-2" aria-label={t('queueMgr.loadingQueue', 'Loading queue')}>
           {Array.from({ length: 3 }, (_, i) => (
             <div
               key={i}
@@ -693,8 +710,10 @@ export function QueueManager({ projectId, compact = false, onJobClick }: QueueMa
       ) : (
         <div className="text-center py-12 text-surface-400">
           <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p>Queue is empty</p>
-          <p className="text-sm mt-1">Start generating shots to see them here</p>
+          <p>{t('queueMgr.empty', 'Queue is empty')}</p>
+          <p className="text-sm mt-1">
+            {t('queueMgr.emptyHint', 'Start generating shots to see them here')}
+          </p>
         </div>
       )}
     </div>

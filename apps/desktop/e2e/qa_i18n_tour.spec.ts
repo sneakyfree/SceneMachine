@@ -119,3 +119,32 @@ for (const r of BODY_ROUTES) {
     expect(crashes, `crashes on ${r.name}: ${crashes.join('; ')}`).toHaveLength(0);
   });
 }
+
+// Shared components (not just pages) must localize too. The command palette is
+// reachable from the sidebar footer "Buscar" button on every route — opening it
+// under locale=es must show Spanish chrome (placeholder + footer hints).
+test('i18n shared component (command palette) renders Spanish', async ({ page }) => {
+  await installMock(page);
+  await page.addInitScript(() => {
+    try {
+      const raw = localStorage.getItem('scenemachine-experience-store');
+      const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 };
+      parsed.state = { ...(parsed.state || {}), locale: 'es' };
+      localStorage.setItem('scenemachine-experience-store', JSON.stringify(parsed));
+    } catch {
+      /* sandboxed */
+    }
+  });
+
+  await page.goto('/', { waitUntil: 'networkidle', timeout: 15000 });
+  await page.waitForTimeout(700);
+
+  // Open the command palette via the keyboard shortcut.
+  await page.keyboard.press('Control+k');
+  await page.waitForTimeout(400);
+
+  // Spanish placeholder + footer hint prove the component (not just nav) is localized.
+  await expect(page.getByPlaceholder('Buscar comandos...')).toBeVisible();
+  await expect(page.getByText('para navegar', { exact: false }).first()).toBeVisible();
+  await page.screenshot({ path: path.join(SHOT_DIR, 'command_palette_es.png') });
+});
