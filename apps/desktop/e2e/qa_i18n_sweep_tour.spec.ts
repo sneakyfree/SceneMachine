@@ -11,18 +11,21 @@ import { test, expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const SHOT_DIR = '/tmp/sm_qa/i18n_sweep';
+// Locale under test — defaults to Spanish, overridable (e.g. SWEEP_LOCALE=de)
+// so the layout sweep can validate the longest-string language (German).
+const SWEEP_LOCALE = process.env.SWEEP_LOCALE || 'es';
+const SHOT_DIR = `/tmp/sm_qa/i18n_sweep_${SWEEP_LOCALE}`;
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 
 const FIXTURE = '00000000-0000-0000-0000-000000000001';
 
 async function installEsRichMock(page: Page): Promise<void> {
-  await page.addInitScript(() => {
+  await page.addInitScript((loc: string) => {
     try {
       localStorage.setItem('scenemachine-onboarding-completed', 'true');
       const raw = localStorage.getItem('scenemachine-experience-store');
       const parsed = raw ? JSON.parse(raw) : { state: {}, version: 0 };
-      parsed.state = { ...(parsed.state || {}), locale: 'es' };
+      parsed.state = { ...(parsed.state || {}), locale: loc };
       localStorage.setItem('scenemachine-experience-store', JSON.stringify(parsed));
     } catch {
       /* sandboxed */
@@ -82,7 +85,7 @@ async function installEsRichMock(page: Page): Promise<void> {
       showItemInFolder: async () => {},
       platform: 'qa-mock',
     };
-  });
+  }, SWEEP_LOCALE);
 }
 
 const ROUTES: { name: string; path: string }[] = [

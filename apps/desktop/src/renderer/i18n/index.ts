@@ -12,13 +12,15 @@
  * "i18n migration"). Adding a locale = adding one catalog object below.
  */
 
-import { genEn, genEs } from './catalog.generated';
+import { genEn, genEs, genFr, genDe } from './catalog.generated';
 
-export type Locale = 'en' | 'es';
+export type Locale = 'en' | 'es' | 'fr' | 'de';
 
 export const LOCALES: { code: Locale; label: string; flag: string }[] = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
 ];
 
 export const DEFAULT_LOCALE: Locale = 'en';
@@ -70,7 +72,49 @@ const es: Catalog = {
   'common.language': 'Idioma',
 };
 
-const catalogs: Record<Locale, Catalog> = { en, es };
+// French — full locale: nav/common (hand-authored) + generated page-body keys.
+const fr: Catalog = {
+  ...genFr,
+  'nav.projects': 'Projets',
+  'nav.analytics': 'Analytique',
+  'nav.explainability': 'Explicabilité',
+  'nav.archive': 'Archives',
+  'nav.settings': 'Paramètres',
+  'nav.systemHealth': 'État du système',
+  'nav.help': 'Aide',
+  'nav.search': 'Rechercher',
+  'nav.shortcuts': 'Raccourcis',
+  'common.save': 'Enregistrer',
+  'common.cancel': 'Annuler',
+  'common.export': 'Exporter',
+  'common.delete': 'Supprimer',
+  'common.newProject': 'Nouveau projet',
+  'common.refresh': 'Actualiser',
+  'common.language': 'Langue',
+};
+
+// German — full locale: nav/common (hand-authored) + generated page-body keys.
+const de: Catalog = {
+  ...genDe,
+  'nav.projects': 'Projekte',
+  'nav.analytics': 'Analytik',
+  'nav.explainability': 'Erklärbarkeit',
+  'nav.archive': 'Archiv',
+  'nav.settings': 'Einstellungen',
+  'nav.systemHealth': 'Systemstatus',
+  'nav.help': 'Hilfe',
+  'nav.search': 'Suchen',
+  'nav.shortcuts': 'Tastenkürzel',
+  'common.save': 'Speichern',
+  'common.cancel': 'Abbrechen',
+  'common.export': 'Exportieren',
+  'common.delete': 'Löschen',
+  'common.newProject': 'Neues Projekt',
+  'common.refresh': 'Aktualisieren',
+  'common.language': 'Sprache',
+};
+
+const catalogs: Record<Locale, Catalog> = { en, es, fr, de };
 
 /** Resolve a translation key for a locale, falling back to English then the key. */
 export function translate(locale: Locale, key: string, fallback?: string): string {

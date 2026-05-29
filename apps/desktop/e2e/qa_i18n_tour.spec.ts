@@ -148,3 +148,35 @@ test('i18n shared component (command palette) renders Spanish', async ({ page })
   await expect(page.getByText('para navegar', { exact: false }).first()).toBeVisible();
   await page.screenshot({ path: path.join(SHOT_DIR, 'command_palette_es.png') });
 });
+
+// French + German locales: switching must re-render the nav in that language
+// and persist. Asserts hand-authored nav strings unique to each locale.
+const EXTRA_LOCALES: { code: string; nav: string[]; gone: string }[] = [
+  { code: 'FR', nav: ['Projets', 'Paramètres', 'Aide'], gone: 'Projects' },
+  { code: 'DE', nav: ['Projekte', 'Einstellungen', 'Hilfe'], gone: 'Projects' },
+];
+
+for (const loc of EXTRA_LOCALES) {
+  test(`i18n locale switch re-renders nav in ${loc.code}`, async ({ page }) => {
+    await installMock(page);
+    await page.goto('/', { waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForTimeout(700);
+
+    const nav = page.getByRole('navigation', { name: 'Main navigation' });
+    await expect(nav.getByText('Projects', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: loc.code, exact: true }).click();
+    await page.waitForTimeout(400);
+
+    for (const label of loc.nav) {
+      await expect(nav.getByText(label, { exact: true })).toBeVisible();
+    }
+    await expect(nav.getByText(loc.gone, { exact: true })).toHaveCount(0);
+    await page.screenshot({ path: path.join(SHOT_DIR, `nav_${loc.code.toLowerCase()}.png`) });
+
+    // Persist across reload.
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(700);
+    await expect(nav.getByText(loc.nav[0], { exact: true })).toBeVisible();
+  });
+}
