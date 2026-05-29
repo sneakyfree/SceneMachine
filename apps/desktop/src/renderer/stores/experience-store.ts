@@ -10,6 +10,8 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
+import { type Locale, DEFAULT_LOCALE } from '../i18n';
+
 // Experience mode levels
 export type ExperienceMode = 'story' | 'creator' | 'pro';
 
@@ -531,6 +533,9 @@ interface ExperienceStoreState {
   // Remember preference globally
   rememberGlobal: boolean;
 
+  // Active UI locale (international launch)
+  locale: Locale;
+
   // Steven Assistant state
   stevenEnabled: boolean;
   stevenMinimized: boolean;
@@ -546,6 +551,9 @@ interface ExperienceStoreState {
   setFeatureMode: (feature: FeatureArea, mode: ExperienceMode | null) => void;
   getEffectiveMode: (feature?: FeatureArea) => ExperienceMode;
   resetFeatureOverrides: () => void;
+
+  // Locale action
+  setLocale: (locale: Locale) => void;
 
   // Steven actions
   setStevenEnabled: (enabled: boolean) => void;
@@ -571,6 +579,7 @@ export const useExperienceStore = create<ExperienceStoreState>()(
         globalMode: 'creator',
         featureOverrides: {},
         rememberGlobal: true,
+        locale: DEFAULT_LOCALE,
         stevenEnabled: true,
         // Start minimized as a floating bubble so the assistant never covers
         // page content (inputs, form controls, docs) on first load. Users open
@@ -623,6 +632,11 @@ export const useExperienceStore = create<ExperienceStoreState>()(
         setStevenMinimized: (minimized) =>
           set((state) => {
             state.stevenMinimized = minimized;
+          }),
+
+        setLocale: (locale) =>
+          set((state) => {
+            state.locale = locale;
           }),
 
         sendStevenMessage: (message, type = 'info') =>
@@ -686,6 +700,7 @@ export const useExperienceStore = create<ExperienceStoreState>()(
           globalMode: state.globalMode,
           featureOverrides: state.featureOverrides,
           rememberGlobal: state.rememberGlobal,
+          locale: state.locale,
           stevenEnabled: state.stevenEnabled,
           stevenMinimized: state.stevenMinimized,
         }),
