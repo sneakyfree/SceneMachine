@@ -209,7 +209,10 @@ export const ShotPreview = memo(function ShotPreview({
               shot.state === 'planned' && 'bg-surface-700 text-surface-500'
             )}
           >
-            {shot.state.charAt(0).toUpperCase() + shot.state.slice(1)}
+            {t(
+              `shotPreview.state.${shot.state}`,
+              shot.state.charAt(0).toUpperCase() + shot.state.slice(1)
+            )}
           </div>
         </div>
 
