@@ -128,10 +128,45 @@ _Started 2026-05-21 21:30 PDT by Dr. D Opus 4.7. Living document. Stage 1 stress
 
 ## Stage 1 IPC fuzz + DB migration + audio/lipsync findings (2026-05-23)
 
-### IPC authorization gaps (P0 — security)
-- `ipc/handlers.py:232-254` `handle_delete_project` | P0 | deletes any project by id with **NO ownership check** — any renderer can delete another user's project. Fix: `if project.owner_id != current_user_id: raise PermissionError`.
-- `ipc/handlers.py:456-474` `handle_delete_screenplay` | P0 | same authz gap.
-- `ipc/handlers.py:1213-1240` `handle_delete_shot` | P0 | same authz gap.
+### IPC authorization gaps (P0 — security) — RECLASSIFIED 2026-05-28 (evidence-based)
+- `ipc/handlers.py:232-254` `handle_delete_project` | ~~P0~~ → **P3 (not exploitable as written) + new architecture item** | deletes any project by id with no ownership check.
+- `ipc/handlers.py:456-474` `handle_delete_screenplay` | same.
+- `ipc/handlers.py:1213-1240` `handle_delete_shot` | same.
+
+**Investigation (2026-05-28, Opus 4.8 visual-QA loop) — why the P0 framing was wrong:**
+The original "any renderer/user can delete another's project" framing assumed a working
+multi-tenant auth + ownership model. Verified against current code, none of that exists:
+1. **`owner_id` is never assigned.** The only non-test references to `owner_id` in the whole
+   `packages/core` tree are the column declaration + relationship in `models/project.py:70,136-141`.
+   No create-path sets it; every project has `owner_id = NULL`. There is no ownership data to bypass.
+2. **API auth is a stub.** `api/routes/auth.py` uses an in-memory `_users` dict, plaintext
+   passwords, integer-string user ids (`"1"`, `"2"`…) that can never equal a UUID `owner_id`,
+   and `HTTPBearer(auto_error=False)` so `get_current_user` returns `None` when no token is sent.
+3. **No enforcement.** No global auth middleware; `api/routes/projects.py` `delete_project`
+   (and screenplay/scenes) take only `db: Depends(get_db)` — no `current_user` dependency.
+4. **IPC is single-tenant by design.** The Electron renderer and the Python backend share one
+   trust boundary (the user's own machine); there is no "other user" to defend against on the
+   desktop path. The multi-tenant attack surface is the FastAPI layer — which has no real auth.
+
+**Conclusion:** these 3 are NOT a present P0 (nothing to exploit — no ownership, no auth).
+A backward-compatible ownership check added today would be **dead code** (owner_id always NULL,
+current_user always None on the desktop path) — security theater, which violates the
+no-silent-fallbacks principle (false confidence is a silent failure). So no such no-op is shipped.
+
+The genuine gap is a **net-new architecture feature: build real multi-tenant auth + ownership**
+(DB-backed users, hashed passwords, UUID user ids, owner_id assigned at project creation,
+enforced `get_current_user`, ownership checks on all mutating endpoints). **This is a HARD
+BLOCKER requiring Grant's decision** (STRESS_TEST_PLAN §7): enforcing auth globally would break
+the desktop app's deliberately-tokenless API usage, so the desktop-vs-web auth boundary is an
+architectural fork only Grant can call. Tracked as **ARCH-1** below; removed from the P0 count.
+
+### ARCH-1 (Grant-gated) — multi-tenant auth + ownership is unbuilt
+Net-new architecture feature, not a bug-fix. Required for the API/web deployment to be
+multi-tenant-safe; the desktop (IPC) deployment is single-trust-boundary and does not need it.
+Scope: DB-backed users + hashed passwords, UUID user ids, `owner_id` set at project creation,
+an enforced `get_current_user`, ownership checks on all mutating endpoints, and a decision on
+the desktop-vs-web auth boundary (global enforcement breaks the desktop app's tokenless API
+usage). **Blocked on Grant's architectural direction.** Subsumes the reclassified "IPC authz ×3".
 
 ### ~~Missing migration for lipsync_jobs~~ (P0) — **CLOSED**
 - `packages/core/scenemachine/models/lipsync_job.py` model exists but **no alembic migration creates the table** (001-006 don't include it). Fresh DB → "relation lipsync_jobs does not exist". Fix: write migration 007.
