@@ -245,3 +245,29 @@ the `NaN:NaN` displays on `/export` and `/admin` flagged 2026-05-24 are gone.
 - The tour's old `/#/projects` and `/#/dna-strand` "errors" were **tour-spec typos**
   (no such routes), not platform bugs — corrected to `/#/dna-strand-demo` + a
   deliberate 404 probe.
+
+---
+
+## i18n / internationalization (international-launch readiness)
+
+- **P1 — no i18n at all** (NEW, 2026-05-29) — the UI was 100% hardcoded English
+  with no locale infrastructure, blocking the "ready for international launch"
+  bar. **Foundation closed**: dependency-free typed string catalog at
+  `src/renderer/i18n/index.ts` (English source-of-truth + Spanish, `translate()`
+  with locale→en→key fallback), `useTranslation()` hook, persisted `locale` /
+  `setLocale` in the experience store (zustand `persist`), and a sidebar language
+  selector (🇬🇧 EN / 🇪🇸 ES). The **global navigation + common actions are fully
+  translated** as the proven end-to-end pattern. Regression-guarded by
+  `e2e/qa_i18n_tour.spec.ts`, which switches to ES and asserts the nav re-renders
+  in Spanish (Proyectos/Configuración/Ayuda), the English strings disappear, and
+  the locale persists across reload.
+
+- **P2 — page-body strings not yet migrated** (REMAINING) — only the global nav +
+  common keys are in the catalog so far. Page-body copy (project list empty-state
+  "No projects yet", page headings/descriptions, modal/form labels, toast
+  messages) is still hardcoded English and renders English even when the locale is
+  ES. **Migration path**: replace each hardcoded string with `t('<page>.<key>')`,
+  add the key to both `en` and `es` catalogs in `i18n/index.ts`; adding a locale =
+  adding one catalog object. This is mechanical, incremental, and non-blocking for
+  the foundation — but the platform is **not fully localized** until it is done.
+  No silent overclaim: switching to ES today localizes the chrome, not the content.

@@ -29,6 +29,8 @@ import { SkipLink } from '../components/skip-link';
 import { Breadcrumbs } from '../components/breadcrumbs';
 import { StevenAssistant } from '../components/steven-assistant';
 import { useExperienceStore } from '../stores/experience-store';
+import { useTranslation } from '../i18n/use-translation';
+import { LOCALES } from '../i18n';
 
 // Keyboard shortcuts modal
 function ShortcutsModal({ onClose }: { onClose: () => void }) {
@@ -84,6 +86,7 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
 export function MainLayout() {
   const location = useLocation();
   const { currentProject, sidebarCollapsed, toggleSidebar } = useProjectStore();
+  const { t, locale, setLocale } = useTranslation();
   const [showShortcuts, setShowShortcuts] = useState(false);
   const commandPalette = useCommandPalette();
   const { stevenEnabled } = useExperienceStore();
@@ -115,7 +118,7 @@ export function MainLayout() {
             className={cn('sidebar-item', location.pathname === '/' && 'sidebar-item-active')}
           >
             <FolderOpen className="w-5 h-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Projects</span>}
+            {!sidebarCollapsed && <span>{t('nav.projects')}</span>}
           </Link>
 
           {currentProject && (
@@ -139,7 +142,7 @@ export function MainLayout() {
             )}
           >
             <BarChart3 className="w-5 h-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Analytics</span>}
+            {!sidebarCollapsed && <span>{t('nav.analytics')}</span>}
           </Link>
 
           <Link
@@ -150,7 +153,7 @@ export function MainLayout() {
             )}
           >
             <Eye className="w-5 h-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Explainability</span>}
+            {!sidebarCollapsed && <span>{t('nav.explainability')}</span>}
           </Link>
 
           <Link
@@ -161,7 +164,7 @@ export function MainLayout() {
             )}
           >
             <Archive className="w-5 h-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Archive</span>}
+            {!sidebarCollapsed && <span>{t('nav.archive')}</span>}
           </Link>
 
           <Link
@@ -172,7 +175,7 @@ export function MainLayout() {
             )}
           >
             <Settings className="w-5 h-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Settings</span>}
+            {!sidebarCollapsed && <span>{t('nav.settings')}</span>}
           </Link>
 
           <Link
@@ -180,7 +183,7 @@ export function MainLayout() {
             className={cn('sidebar-item', location.pathname === '/admin' && 'sidebar-item-active')}
           >
             <Server className="w-5 h-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>System Health</span>}
+            {!sidebarCollapsed && <span>{t('nav.systemHealth')}</span>}
           </Link>
 
           <Link
@@ -188,7 +191,7 @@ export function MainLayout() {
             className={cn('sidebar-item', location.pathname === '/help' && 'sidebar-item-active')}
           >
             <HelpCircle className="w-5 h-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Help</span>}
+            {!sidebarCollapsed && <span>{t('nav.help')}</span>}
           </Link>
         </nav>
 
@@ -206,7 +209,7 @@ export function MainLayout() {
             <Search className="w-5 h-5 flex-shrink-0" />
             {!sidebarCollapsed && (
               <div className="flex items-center justify-between flex-1">
-                <span className="text-sm">Search</span>
+                <span className="text-sm">{t('nav.search')}</span>
                 <kbd className="px-1.5 py-0.5 bg-surface-800 rounded text-xs font-mono">
                   {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}K
                 </kbd>
@@ -224,8 +227,31 @@ export function MainLayout() {
             title="Keyboard Shortcuts"
           >
             <Keyboard className="w-5 h-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span className="text-sm">Shortcuts</span>}
+            {!sidebarCollapsed && <span className="text-sm">{t('nav.shortcuts')}</span>}
           </button>
+
+          {/* Language selector (international launch) */}
+          {!sidebarCollapsed && (
+            <div className="px-4 py-3 flex items-center gap-2" aria-label={t('common.language')}>
+              {LOCALES.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => setLocale(l.code)}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+                    locale === l.code
+                      ? 'bg-brand-500/20 text-brand-300'
+                      : 'text-surface-400 hover:bg-surface-800'
+                  )}
+                  title={l.label}
+                  aria-pressed={locale === l.code}
+                >
+                  <span aria-hidden>{l.flag}</span>
+                  <span>{l.code.toUpperCase()}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Collapse toggle */}
           <button
