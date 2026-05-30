@@ -114,7 +114,7 @@ class Application {
     // Load the app
     if (process.env.NODE_ENV === 'development') {
       // Development: load from Vite dev server
-      await this.mainWindow.loadURL('http://localhost:5173');
+      await this.mainWindow.loadURL('http://localhost:51913');
       this.mainWindow.webContents.openDevTools();
     } else {
       // Production: load from built files

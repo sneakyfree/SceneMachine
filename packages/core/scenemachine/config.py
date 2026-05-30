@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str = "change-me-in-production-use-strong-random-key"
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:51913"]
 
     # JWT Authentication
     jwt_secret_key: str = "jwt-secret-change-me-in-production"

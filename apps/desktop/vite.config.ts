@@ -100,7 +100,11 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    // SceneMachine's dedicated dev port. Private/ephemeral range (49152-65535)
+    // so it never collides with the 3000/5173/8080 defaults other projects on a
+    // shared box use. Mnemonic 5-19-13 = S(19)M(13), SceneMachine. strictPort so
+    // it fails loudly instead of silently drifting onto a neighbour's server.
+    port: 51913,
     strictPort: true,
   },
 });

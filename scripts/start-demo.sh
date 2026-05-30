@@ -18,9 +18,9 @@ if lsof -i :8000 > /dev/null 2>&1; then
 fi
 
 # Check if frontend is already running
-if lsof -i :5173 > /dev/null 2>&1; then
-    echo "⚠️  Port 5173 already in use. Killing existing process..."
-    pkill -f "vite.*5173" || true
+if lsof -i :51913 > /dev/null 2>&1; then
+    echo "⚠️  Port 51913 already in use. Killing existing process..."
+    pkill -f "vite.*51913" || true
     sleep 2
 fi
 
@@ -62,14 +62,14 @@ fi
 
 # Start frontend server
 echo ""
-echo "[4/4] Starting frontend on :5173..."
+echo "[4/4] Starting frontend on :51913..."
 cd "$ROOT_DIR/apps/desktop"
 npm run dev > /tmp/scenemachine-frontend.log 2>&1 &
 FRONTEND_PID=$!
 sleep 5
 
 # Verify frontend is running
-if lsof -i :5173 > /dev/null 2>&1; then
+if lsof -i :51913 > /dev/null 2>&1; then
     echo "      ✅ Frontend running (PID: $FRONTEND_PID)"
 else
     echo "      ❌ Frontend failed to start. Check /tmp/scenemachine-frontend.log"
@@ -80,7 +80,7 @@ echo ""
 echo "============================"
 echo "🚀 SceneMachine is ready!"
 echo ""
-echo "   Frontend: http://localhost:5173"
+echo "   Frontend: http://localhost:51913"
 echo "   API:      http://localhost:8000"
 echo "   API Docs: http://localhost:8000/docs"
 echo ""

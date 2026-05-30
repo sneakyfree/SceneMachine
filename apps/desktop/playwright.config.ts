@@ -15,7 +15,7 @@ export default defineConfig({
     ['list'],
   ],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:51913',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -30,7 +30,7 @@ export default defineConfig({
   // Run local dev server before tests
   webServer: {
     command: 'npm run dev:renderer',
-    url: 'http://localhost:5173',
+    url: 'http://localhost:51913',
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

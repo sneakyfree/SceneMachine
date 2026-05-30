@@ -182,7 +182,7 @@ volumes:
 | Variable | Type | Default | Sensitive | Description |
 |----------|------|---------|-----------|-------------|
 | `SECRET_KEY` | str | `change-me...` | **YES** | Encryption key for API keys |
-| `CORS_ORIGINS` | list | `["http://localhost:3000", "http://localhost:5173"]` | No | Allowed CORS origins |
+| `CORS_ORIGINS` | list | `["http://localhost:3000", "http://localhost:51913"]` | No | Allowed CORS origins |
 
 **SECRET_KEY Requirements:**
 - **MUST** be changed in production
@@ -360,7 +360,7 @@ MODEL_CACHE_DIR=./data/models
 
 # Security (CHANGE IN PRODUCTION!)
 SECRET_KEY=dev-only-change-me-in-production-use-strong-key
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+CORS_ORIGINS=http://localhost:3000,http://localhost:51913
 
 # AI Providers (add your keys)
 DEFAULT_LLM_PROVIDER=anthropic
@@ -595,8 +595,8 @@ def ensure_directory_exists(cls, v: Path) -> Path:
 
 ```python
 # Both formats work:
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
-CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
+CORS_ORIGINS=http://localhost:3000,http://localhost:51913
+CORS_ORIGINS=["http://localhost:3000", "http://localhost:51913"]
 ```
 
 ---
